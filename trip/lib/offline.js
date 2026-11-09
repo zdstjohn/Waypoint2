@@ -165,7 +165,7 @@
     if (P && W.plan) P = W.plan();
     if (O.copyState === "making" || !P || !P.stops.length) return Promise.resolve();
     O.copyState = "making"; O.copyErr = ""; W.changed();
-    var seed = { at: Date.now(), S: null, C: null, photos: W.photosSnapshot ? W.photosSnapshot() : null, blobs: {}, maps: {} };
+    var seed = { at: Date.now(), S: null, C: null, photos: W.photosSnapshot ? W.photosSnapshot() : null, blobs: {} };
     return Promise.all([text("index.html"), text("app.min.css"), text("app.js")]).then(function (r) {
       var html = r[0], css = r[1], js = r[2];
       /* fonts become data URIs inside the stylesheet */
@@ -175,11 +175,6 @@
         /* the photos the trip shows */
         var list = photoUrls(P);
         return Promise.all(list.map(function (u) { return dataUri(u).then(function (d) { seed.blobs[u] = d; }, function () {}); }));
-      }).then(function () {
-        /* sketch maps for the trip's cities (the detailed packs need a worker, which a file can't start) */
-        var slugs = [];
-        (P.stops || []).forEach(function (s) { var hb = W.homebase(s.country, s.name), c = W.stopAt ? W.stopAt(s) : null, lat = hb && hb.lat != null ? hb.lat : c && c.lat, lng = hb && hb.lng != null ? hb.lng : c && c.lng; var sl = W.sketchFor && lat != null ? W.sketchFor(s.country, s.name, lat, lng) : null; if (sl && slugs.indexOf(sl) < 0) slugs.push(sl); });
-        return Promise.all(slugs.map(function (sl) { return fetch("maps/" + sl + ".json").then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { if (j) seed.maps[sl] = j; }, function () {}); })).then(function () { return W.sketchIndex ? W.sketchIndex() : null; }).then(function (idx) { if (idx) seed.mapIndex = idx; });
       }).then(function () {
         seed.S = JSON.parse(JSON.stringify(W.S)); seed.C = JSON.parse(JSON.stringify(W.C));
         /* (replacement text goes in as a function: code and JSON are full of "$" sequences String.replace would expand) */

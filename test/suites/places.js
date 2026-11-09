@@ -49,14 +49,16 @@ exports.run = async t => {
     return W.pinGroups(pts, proj).map(x => x.items.map(p => p.num).join('·'));
   });
   t.eq(g, ['1·2·4', '3'], 'stops on the same spot share one marker that shows every number');
-  /* on a phone the map's list says which stops have no checked spot, instead of leaving them silently off the map */
-  const lg = await pg.evaluate(async () => {
+  /* Explore's route lists every stop; one with no pin says so and links to Google Maps by name, and the whole-day
+     Google Maps link carries every stop, pinned or by name */
+  const rt = await pg.evaluate(async () => {
     W.S.tview = 'map'; W.render(); await new Promise(r => setTimeout(r, 300));
-    const lis = [...document.querySelectorAll('#viewTrip .legend li')], d = W.P.days[W.S.day - 1];
-    const stops = (d.slots || []).filter(x => x.item).map(x => x.item);
-    return { n: lis.length, nomap: lis.filter(l => l.classList.contains('nomap')).length, noLL: stops.filter(it => it.lat == null).length, said: lis.filter(l => /not on the map/.test(l.textContent)).length };
+    const d = W.P.days[W.S.day - 1], stops = (d.slots || []).filter(x => x.item).map(x => x.item);
+    const rows = [...document.querySelectorAll('#viewTrip .rc-stop')], gm = (document.querySelector('#viewTrip .rc-gm') || {}).href || '';
+    const wp = decodeURIComponent((gm.match(/waypoints=([^&]*)/) || [])[1] || '').split('|').filter(Boolean);
+    return { n: rows.length, stops: stops.length, noLL: stops.filter(it => it.lat == null).length, byName: rows.filter(r => /find on Google Maps/.test(r.textContent)).length, wp: wp.length };
   });
-  t.ok(lg.n > 0 && lg.nomap === lg.noLL && lg.said === lg.noLL, `the map's list marks the stops it cannot place (${lg.nomap} of ${lg.n})`);
+  t.ok(rt.n === rt.stops && rt.byName === rt.noLL && rt.wp === Math.min(9, rt.stops), `the route lists every stop (${rt.n}), finds the unpinned ones by name (${rt.byName}), and the Google Maps link carries all of them (${rt.wp})`);
   await pg.evaluate(() => { W.S.tview = 'days'; W.render(); });
   /* A record that lost a wrong pin (it carries "was"): a stop whose saved list still holds that wrong pin has no own pin
      to go back to, so it is asked for once and lands where the answer says, never back on the wrong spot. */

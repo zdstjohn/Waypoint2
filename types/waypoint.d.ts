@@ -79,6 +79,11 @@ interface Validators { stats: { dropped: number; cleared: number; farPins: numbe
 
 /** the shared object every file adds to */
 interface Waypoint {
+  placeSearch: (q: string, country: string, city: string) => void;
+  searchBlock: (day: Day, P: Plan) => string;
+  searchClick: (d: DOMStringMap, day: Day, P: Plan) => boolean;
+  searchState: () => { q: string; n: number; busy: boolean };
+  dayRouteUrl: (day: Day, stops: { n: string; lat: number | null; lng: number | null }[], home: { label?: string; n?: string; lat: number | null; lng: number | null }) => string;
   loadPins: (country: string, city: string, names: string[]) => void;
   $: (id: string) => HTMLElement | null;
   C: Cache;
@@ -105,7 +110,6 @@ interface Waypoint {
   altUrls: any;
   anniversary: any;
   applyPlaces: (country: string, city: string, pool: Pool | null) => Pool | null;
-  areaKey: any;
   autoFound: any;
   autoLine: any;
   autoTick: any;
@@ -132,8 +136,6 @@ interface Waypoint {
   cheer: (title: string, text?: string, opts?: { big?: boolean; go?: View }) => void;
   cityBusy: any;
   cityKey: (country: string, city: string) => string;
-  cityMap: any;
-  cityMapState: any;
   classify: (it: Spot | Food, food: boolean) => Classification;
   clock: any;
   closeStop: any;
@@ -152,7 +154,6 @@ interface Waypoint {
   dayTimes: (day: Day, P: Plan) => DayTimes | null;
   dayTripMax: any;
   daysUntil: any;
-  drawMap: any;
   durText: (raw: unknown) => string;
   elderNames: () => string[];
   esc: (s: unknown) => string;
@@ -238,7 +239,6 @@ interface Waypoint {
   liveClick: any;
   liveFares: any;
   liveStays: any;
-  loadArea: any;
   loadBookLinks: any;
   loadBreakfast: any;
   loadCity: any;
@@ -349,9 +349,6 @@ interface Waypoint {
   shortNote: any;
   shutBy: any;
   sitesRow: any;
-  sketchFor: any;
-  sketchIndex: any;
-  sketchReady: any;
   sky: any;
   slotOptions: any;
   slug: (s: string) => string;

@@ -3,7 +3,7 @@
   "use strict";
   var W = window.W, $ = W.$, esc = W.esc, S = W.S;
   function hashView() { return location.hash === "#plan" ? "setup" : location.hash === "#bookings" || location.hash === "#prepare" ? "book" : location.hash === "#recap" ? "recap" : location.hash === "#today" ? "go" : location.hash === "#explore" ? "explore" : location.hash === "#settings" ? "settings" : location.hash === "#kids" ? "kids" : "trip"; }
-  /** @type {View} */ var view = hashView(); var explorerState = "none"; var firstRender = true;
+  /** @type {View} */ var view = hashView(); var firstRender = true;
   var VIEWS = { setup: 0, trip: 1, explore: 1, book: 2, go: 3, recap: 4, kids: 4, settings: 5 }, HASH = { go: "#today", setup: "#plan", trip: "#trip", explore: "#explore", book: "#prepare", recap: "#recap", kids: "#kids", settings: "#settings" }, prevView = "trip";
   W.view = function () { return view; };
   var ICON_CLOCK = '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.6V8l2.3 1.5"/></svg>';
@@ -73,13 +73,13 @@
      one does. (The storybook, the whole trip a page a day, opens from the trip menu and from All days.) */
   var VSW_IC = {
     days: '<path d="M6.5 5h10M6.5 10h10M6.5 15h10"/><circle cx="3.3" cy="5" r=".9" fill="currentColor" stroke="none"/><circle cx="3.3" cy="10" r=".9" fill="currentColor" stroke="none"/><circle cx="3.3" cy="15" r=".9" fill="currentColor" stroke="none"/>',
-    map: '<path d="M2.5 5.5l5-2 5 2 5-2v11l-5 2-5-2-5 2z"/><path d="M7.5 3.5v11M12.5 5.5v11"/>',
+    map: '<circle cx="10" cy="10" r="7.5"/><path d="M12.8 7.2l-1.6 4-4 1.6 1.6-4z"/>',
     all: '<rect x="2.5" y="3" width="15" height="14" rx="2"/><path d="M2.5 7.5h15M7.5 7.5V17M12.5 7.5V17"/>',
     story: '<path d="M10 5.5C8.2 4.2 5.7 3.8 3 4.2v11.3c2.7-.4 5.2 0 7 1.3 1.8-1.3 4.3-1.7 7-1.3V4.2c-2.7-.4-5.2 0-7 1.3zM10 5.5v11.3"/>'
   };
   W.viewSwitch = function () {
     var cur = S.glanceOpen ? "all" : S.tview === "map" ? "map" : "days";
-    return '<div class="vsw" role="radiogroup" aria-label="How to see the trip">' + [["days", "Day"], ["map", "Map"], ["all", "All days"]].map(function (v) {
+    return '<div class="vsw" role="radiogroup" aria-label="How to see the trip">' + [["days", "Day"], ["map", "Explore"], ["all", "All days"]].map(function (v) {
       return '<button type="button" role="radio" aria-checked="' + (cur === v[0]) + '" data-vsw="' + v[0] + '"><svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + VSW_IC[v[0]] + "</svg><span>" + v[1] + "</span></button>";
     }).join("") + "</div>";
   };
@@ -162,7 +162,7 @@
     if (hasBeach) c.push(["beach", "Calm beaches"]);
     var any = c.some(function (x) { return F[x[0]]; });
     return '<div class="ex-f" role="group" aria-label="Filter ideas">' + c.map(function (x) { return '<button type="button" class="chip" data-exf="' + x[0] + '" aria-pressed="' + !!F[x[0]] + '">' + esc(x[1]) + "</button>"; }).join("") +
-      '<button type="button" class="chip" data-exsort="1" aria-pressed="' + (S.exSort === "near") + '">Nearest first</button></div>' +
+      "</div>" +
       (any ? '<p class="small muted ex-n">' + n + " of " + total + (n ? "" : " · nothing matches all of those") + "</p>" : "");
   }
   /* the day picker: each city's name once, with its day numbers under it */
@@ -224,183 +224,48 @@
   }
   function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return ""; } }
   function regOf(h) { var p = h.split("."), r = p.slice(-2).join("."); return /^(co|com|org|gov|ac|net)\.[a-z]{2}$/.test(r) && p.length > 2 ? p.slice(-3).join(".") : r; }
-  function f1(n) { return (Math.round(n * 10) / 10).toFixed(1); }
-  function short(s, n) { s = String(s); return s.length > n ? s.slice(0, n - 1) + "…" : s; }
 
-  /* ---------- spatial explorer ---------- */
-  /* ---------- area sketch beneath the pins ---------- */
-  var SIDE = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0], NE: [0.71, -0.71], NW: [-0.71, -0.71], SE: [0.71, 0.71], SW: [-0.71, 0.71] };
-  function inPoly(pt, poly) {
-    var inside = false;
-    for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-      var a = poly[i], b = poly[j];
-      if ((a.y > pt.y) !== (b.y > pt.y) && pt.x < (b.x - a.x) * (pt.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+  /* ---------- Explore: today's route ---------- */
+  /** today's stops as a route from where you stay and back: the way between each (walk, transit, drive) with its
+      directions, the whole day in Google Maps, and the real street map on top where the city has one */
+  function routeCard(day, P, T, home, pts, gm, mapBox, zoomBtns) {
+    if (!pts.length) return '<aside class="explorer rcard sk"><div class="explorer-h"><h3>Today\'s route</h3></div><p class="small muted rc-empty">Nothing planned yet today. Add a place with the search, or from the ideas below.</p></aside>';
+    var prev = home, rows = "", city = day.city;
+    function legRow(a, b, last) {
+      var lg = W.leg(a, b);
+      var to = b.lat != null ? b : { n: b.n + ", " + city, lat: null, lng: null };
+      var dir = link(W.gmapsDir(a.lat != null ? a : { label: (a.label || a.n) + ", " + city, lat: null }, to, lg ? lg.mode : "walking"), "Directions");
+      return '<li class="rc-leg' + (last ? " last" : "") + '">' + (lg ? (LEG_IC[lg.mode] || LEG_IC.transit) + "<span>" + esc(W.fmtMin(lg.min) + " " + lg.label) + "</span>" : "<span>Find it on the map</span>") + dir + "</li>";
     }
-    return inside;
+    pts.forEach(function (p) {
+      rows += legRow(prev, p, false);
+      var R = T && T.rows[p.slot], when = [R && R.start != null && !R.skip ? W.clock(R.start) : "", (R && R.label) || W.SLOT_NAME[p.slot]].filter(Boolean).join(" · ");
+      rows += '<li class="rc-stop"><span class="num' + (p.food ? " f" : "") + '">' + p.num + '</span><span class="rc-b"><b>' + esc(p.n) + '</b><span class="small muted">' + esc(when) +
+        (p.lat == null ? " · " + link(W.gmapsPlace(p.n, city), "find on Google Maps") : "") + "</span></span></li>";
+      if (p.lat != null) prev = p;
+    });
+    if (prev !== home) rows += legRow(prev, home, true);
+    return '<aside class="explorer rcard sk"><div class="explorer-h"><h3>Today\'s route</h3>' + zoomBtns + "</div>" + mapBox +
+      '<ol class="rc-list"><li class="rc-home"><span class="rc-hi" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M2.5 7.5 8 3l5.5 4.5V13h-3.5V9.5h-4V13H2.5z" fill="currentColor"/></svg></span><span class="rc-b"><b>' + esc(home.label) + '</b><span class="small muted">where you\'re staying</span></span></li>' + rows + "</ol>" +
+      (gm ? '<a class="btn rc-gm" href="' + esc(gm) + '" target="_blank" rel="noopener">Open the whole day in Google Maps ↗</a>' : "") +
+      (mapBox ? '<p class="map-note">© OpenMapTiles © OpenStreetMap contributors</p>' : "") + "</aside>";
   }
-  function polyPath(ps) { return "M" + ps.map(function (q) { return q.x.toFixed(1) + " " + q.y.toFixed(1); }).join(" L") + "Z"; }
-  function underlay(area, toScreen, landPts) {
-    var out = "";
-    (area.water || []).forEach(function (w) {
-      var ps = w.pts.map(function (p) { return toScreen({ lat: p[0], lng: p[1] }); });
-      if (ps.length < 2) return;
-      if (w.kind === "river" || w.kind === "canal") {
-        out += '<polyline points="' + ps.map(function (q) { return q.x.toFixed(1) + "," + q.y.toFixed(1); }).join(" ") + '" fill="none" stroke="var(--water)" stroke-width="' + (w.kind === "canal" ? 4 : 7) + '" stroke-linecap="round" stroke-linejoin="round" filter="url(#rough)"/>';
-        return;
-      }
-      var closed = w.side === "IN" || Math.hypot(ps[0].x - ps[ps.length - 1].x, ps[0].y - ps[ps.length - 1].y) < 6;
-      var shape = null;
-      if (closed) shape = ps;
-      else {
-        var v = SIDE[w.side]; if (!v) return;
-        var a0 = ps[0], a1 = ps[1], z0 = ps[ps.length - 1], z1 = ps[ps.length - 2];
-        function ext(p, q) { var dx = p.x - q.x, dy = p.y - q.y, d = Math.hypot(dx, dy) || 1; return { x: p.x + dx / d * 2000, y: p.y + dy / d * 2000 }; }
-        var e0 = ext(a0, a1), e1 = ext(z0, z1);
-        function build(sgn) { return [e0].concat(ps, [e1, { x: e1.x + v[0] * sgn * 4000, y: e1.y + v[1] * sgn * 4000 }, { x: e0.x + v[0] * sgn * 4000, y: e0.y + v[1] * sgn * 4000 }]); }
-        /* sanity check: your lodging and today's stops should be on land; if the water would cover them, flip it or draw just the shore */
-        function wet(poly) { return landPts.filter(function (q) { return inPoly(q, poly); }).length; }
-        var A = build(1), B = build(-1), wa = wet(A), wb = wet(B);
-        shape = wa <= landPts.length / 3 ? A : wb <= landPts.length / 3 ? B : null;
-        if (!shape) { out += '<polyline points="' + ps.map(function (q) { return q.x.toFixed(1) + "," + q.y.toFixed(1); }).join(" ") + '" fill="none" stroke="var(--water)" stroke-width="4" filter="url(#rough)"/>'; return; }
-      }
-      if (closed && landPts.length && inPoly(landPts[0], shape)) { out += '<path d="' + polyPath(shape) + '" fill="none" stroke="var(--water)" stroke-width="3" filter="url(#rough)"/>'; return; }
-      out += '<path d="' + polyPath(shape) + '" fill="var(--water)" stroke="var(--water-edge)" stroke-width="2" filter="url(#rough)"/>';
+  /** the parts of today with nothing planned, each with the three best fits (open then, close to the stop before) */
+  function freeTime(day, P, T) {
+    if (W.readOnly) return "";
+    var order = T && T.order ? T.order : ["breakfast", "am", "lunch", "pm", "dinner", "eve"];
+    var free = order.map(function (sl) { return (day.slots || []).filter(function (y) { return y.slot === sl; })[0]; }).filter(function (x) {
+      var R = x && T && T.rows[x.slot];
+      return x && !x.item && !x.rest && !x.loading && !(R && R.skip);
     });
-    return out;
-  }
-
-  /** the explorer view; explorerState says what it drew (read by the map note) */
-  function explorer(day, home, pts, pool) {
-    /* phones get a narrower canvas so labels stay readable once it scales down */
-    var narrow = window.innerWidth < 560, Wd = narrow ? 340 : 500, Hd = narrow ? 330 : 440, pad = 34;
-    var origin = home.lat != null ? home : pts.filter(function (p) { return p.lat != null; })[0];
-    if (!origin) return '<div class="empty" style="margin:14px;border-style:solid">The map appears once this city\'s places load.</div>';
-    var c = Math.cos(origin.lat * Math.PI / 180);
-    function xy(p) { return { x: (p.lng - origin.lng) * c * 111.32, y: -(p.lat - origin.lat) * 110.57 }; }
-    var stops = pts.filter(function (p) { return p.lat != null; }).map(function (p) { var q = xy(p); q.p = p; return q; });
-    /* a real street map for this city, when one has been built into the app */
-    var M = W.cityMap(day.country, day.city, origin.lat, origin.lng), mapSt = W.cityMapState(day.country, day.city, origin.lat, origin.lng);
-    /* fit the view to your lodging and every stop; every pin is drawn exactly where the place is */
-    var minX = 0, maxX = 0, minY = 0, maxY = 0;
-    stops.forEach(function (q) { minX = Math.min(minX, q.x); maxX = Math.max(maxX, q.x); minY = Math.min(minY, q.y); maxY = Math.max(maxY, q.y); });
-    var midX = (minX + maxX) / 2, midY = (minY + maxY) / 2;
-    var halfX = Math.max(0.35, (maxX - minX) / 2), halfY = Math.max(0.35, (maxY - minY) / 2);
-    var sc = Math.min((Wd / 2 - pad) / halfX, (Hd / 2 - pad) / halfY);
-    if (M) sc /= 1.1;                     /* a little surrounding street context */
-    sc *= (S.mapZoom || 1);
-    var cx = Wd / 2 - midX * sc, cy = Hd / 2 - midY * sc;   /* where your lodging falls on screen */
-    function P(q) { return { x: cx + q.x * sc, y: cy + q.y * sc }; }
-    function inView(a, m) { m = m || 0; return a.x >= m && a.x <= Wd - m && a.y >= m && a.y <= Hd - m; }
-    var ringsAll = [0.25, 0.5, 1, 2, 3, 5, 10, 20], rings = M ? [] : ringsAll.filter(function (r) { return r * sc < Wd / 2 - 8 && r * sc > 18; }).slice(-3);
-    var svg = '<svg class="map" viewBox="0 0 ' + Wd + " " + Hd + '" role="img" aria-label="Map of today\'s stops around where you\'re staying">';
-    /* the area sketch (only where no street map exists): shorelines, rivers, parks and named places */
-    var half = Math.max(Wd, Hd) / 2 / sc, buckets = [1, 2, 4, 8, 15, 30, 60], radius = 60;
-    for (var bi = 0; bi < buckets.length; bi++) if (buckets[bi] >= half * 1.15) { radius = buckets[bi]; break; }
-    var area = !M && mapSt === "none" ? W.loadArea(day.country, day.city, { lat: origin.lat, lng: origin.lng, label: home.label }, radius) : null;
-    explorerState = M ? "map" : mapSt === "loading" ? "maploading" : area ? "ready" : W.status["area|" + W.areaKey(day.country, day.city, origin, radius)] === "loading" ? "loading" : "none";
-    var toScreen = function (p) { return P(xy(p)); };
-    var homeAt = { x: cx, y: cy };
-    var landPts = [homeAt].concat(stops.map(function (q) { return P(q); }));
-    var places = (area ? area.places : []).slice();
-    if (M) {
-      /* real streets, water, parks and neighborhood names, in the same projection as the pins */
-      var mres = W.drawMap(M, { lat0: origin.lat, lng0: origin.lng, c: c, sc: sc, cx: cx, cy: cy, Wd: Wd, Hd: Hd });
-      svg += mres.svg;
-      places = mres.labels.map(function (l) { return { n: l.n, type: l.t === "city" || l.t === "town" ? "town" : l.t === "village" || l.t === "hamlet" ? "village" : "district", lat: l.lat, lng: l.lng }; });
-    } else {
-      (pool && pool.stay || []).forEach(function (n) { if (n.lat != null && !places.some(function (p) { return W.norm(p.n) === W.norm(n.n); })) places.push({ n: n.n, type: "district", lat: n.lat, lng: n.lng }); });
-    }
-    if (area) svg += underlay(area, toScreen, landPts);
-    places.forEach(function (pl) {
-      if (pl.type !== "park" && pl.type !== "beach") return;
-      var q = toScreen(pl), r = Math.max(10, Math.min(40, 0.35 * sc));
-      svg += '<ellipse cx="' + q.x.toFixed(1) + '" cy="' + q.y.toFixed(1) + '" rx="' + f1(r * 1.3) + '" ry="' + f1(r) + '" fill="var(--' + (pl.type === "park" ? "park" : "sandsoft") + ')" filter="url(#rough)"/>';
-    });
-    var ringBoxes = [];
-    rings.forEach(function (r) {
-      var lx = cx + r * sc * 0.707 + 3, ly = cy - r * sc * 0.707 - 3;
-      if (lx + 44 < Wd && ly > 14 && lx > 0 && !(lx + 44 > Wd - 36 && ly < 48)) ringBoxes.push({ x1: lx, y1: ly - 13, x2: lx + 42, y2: ly + 3, x: lx, y: ly, t: r < 1 ? r * 1000 + " m" : r + " km" });
-      svg += '<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="' + (r * sc).toFixed(1) + '" fill="none" stroke="var(--ring)" stroke-width="1.5" stroke-dasharray="4 5" filter="url(#rough)"/>';
-    });
-    svg += '<g font-family="var(--f-label)" font-size="15" fill="var(--fg)" paint-order="stroke" stroke="var(--map)" stroke-width="3"><text x="' + (Wd - 22) + '" y="22" text-anchor="middle">N</text><path d="M' + (Wd - 22) + ' 27 l-4 9 h8 z" fill="var(--fg)"/></g>';
-    if (M) {
-      /* scale bar instead of rings on a real map */
-      var nice = [0.05, 0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10, 20, 50], bar = nice.filter(function (k) { return k * sc <= Wd * 0.28; }).pop() || 0.05, bw = bar * sc;
-      svg += '<g transform="translate(12 ' + (Hd - 14) + ')" font-family="var(--f-body)" font-size="11" font-weight="800" fill="var(--fg)"><rect x="-4" y="-16" width="' + f1(bw + 8 + 42) + '" height="22" rx="6" fill="var(--map)" opacity=".85"/><path d="M0 0 H' + f1(bw) + ' M0 -4 V0 M' + f1(bw) + ' -4 V0" stroke="var(--fg)" stroke-width="2"/><text x="' + f1(bw + 6) + '" y="0">' + (bar < 1 ? bar * 1000 + " m" : bar + " km") + "</text></g>";
-    }
-    /* route: lodging, each stop in order, back to the lodging (through the true positions) */
-    var ordered = stops.slice().sort(function (a, b) { return a.p.i - b.p.i; });
-    var seq = [homeAt].concat(ordered.map(function (q) { return P(q); })).concat([homeAt]);
-    svg += '<polyline points="' + seq.map(function (s) { return s.x.toFixed(1) + "," + s.y.toFixed(1); }).join(" ") + '" fill="none" stroke="var(--fg)" stroke-width="2.2" stroke-dasharray="7 6" stroke-linejoin="round" stroke-linecap="round" opacity=".7"/>';
-    /* lodging marker, exactly at the lodging */
-    if (inView(homeAt, -12)) svg += '<g transform="translate(' + cx.toFixed(1) + "," + cy.toFixed(1) + ')"><rect x="-11" y="-11" width="22" height="22" rx="6" fill="var(--fg)"/><path d="M-6 1 L0 -5 L6 1 V6 H-6 Z" fill="var(--bg)"/></g>';
-    /* pins: places closer together than a pin's width share one marker at their common spot; nothing is moved */
-    var groups = [], off = [];
-    ordered.forEach(function (q) {
-      var a = P(q);
-      if (!inView(a, 4)) { off.push({ q: q, at: a }); return; }
-      var g = groups.filter(function (g) { return Math.hypot(g.at.x - a.x, g.at.y - a.y) < 18; })[0];
-      if (g) { g.items.push(q); g.at = { x: (g.at.x * (g.items.length - 1) + a.x) / g.items.length, y: (g.at.y * (g.items.length - 1) + a.y) / g.items.length }; }
-      else groups.push({ at: a, items: [q] });
-    });
-    var boxes = [{ x1: cx - 12, y1: cy - 12, x2: cx + 12, y2: cy + 12 }, { x1: Wd - 34, y1: 6, x2: Wd - 10, y2: 40 }], marks = "", labels = "";
-    groups.forEach(function (g) {
-      var txt = g.items.map(function (q) { return q.p.num; }).join("·"), w = Math.max(24, 10 + txt.length * 8);
-      g.w = w; boxes.push({ x1: g.at.x - w / 2, y1: g.at.y - 12, x2: g.at.x + w / 2, y2: g.at.y + 12 });
-    });
-    ringBoxes.forEach(function (rb) {
-      if (boxes.some(function (o) { return rb.x1 < o.x2 && rb.x2 > o.x1 && rb.y1 < o.y2 && rb.y2 > o.y1; })) return;
-      boxes.push(rb); svg += '<text x="' + rb.x.toFixed(1) + '" y="' + rb.y.toFixed(1) + '" font-size="15" font-family="var(--f-note)" fill="var(--muted)" paint-order="stroke" stroke="var(--map)" stroke-width="3" stroke-linejoin="round">' + rb.t + "</text>";
-    });
-    function hit(b) { return b.x1 < 4 || b.x2 > Wd - 4 || b.y1 < 4 || b.y2 > Hd - 4 || boxes.some(function (o) { return b.x1 < o.x2 && b.x2 > o.x1 && b.y1 < o.y2 && b.y2 > o.y1; }); }
-    groups.forEach(function (g) {
-      var first = g.items[0].p, col = g.items.length > 1 ? "var(--fg)" : first.food ? "var(--food)" : "var(--accent)", ink = g.items.length > 1 ? "var(--bg)" : "var(--accent-ink)";
-      var txt = g.items.map(function (q) { return q.p.num; }).join("·"), at = g.at, w = g.w;
-      marks += w > 24
-        ? '<rect x="' + (at.x - w / 2).toFixed(1) + '" y="' + (at.y - 12).toFixed(1) + '" width="' + w + '" height="24" rx="12" fill="' + col + '" stroke="var(--map)" stroke-width="2"/>'
-        : '<circle cx="' + at.x.toFixed(1) + '" cy="' + at.y.toFixed(1) + '" r="12" fill="' + col + '" stroke="var(--fg)" stroke-width="2"/>';
-      marks += '<text x="' + at.x.toFixed(1) + '" y="' + (at.y + 4).toFixed(1) + '" text-anchor="middle" font-size="12" font-family="var(--f-display)" fill="' + ink + '">' + txt + "</text>";
-      var label = g.items.length > 1 ? short(first.n, 16) + " +" + (g.items.length - 1) : short(first.n, 22), lw = label.length * 7.4 + 8;
-      var tries = [[w / 2 + 4, 4, "start"], [-w / 2 - 4, 4, "end"], [0, -17, "middle"], [0, 27, "middle"]];
-      for (var t = 0; t < tries.length; t++) {
-        var tx = at.x + tries[t][0], ty = at.y + tries[t][1], an = tries[t][2];
-        var x1 = an === "start" ? tx : an === "end" ? tx - lw : tx - lw / 2, b = { x1: x1, y1: ty - 12, x2: x1 + lw, y2: ty + 4 };
-        if (!hit(b)) { boxes.push(b); labels += '<text x="' + tx.toFixed(1) + '" y="' + ty.toFixed(1) + '" text-anchor="' + an + '" font-size="12.5" font-family="var(--f-body)" font-weight="800" fill="var(--fg)" paint-order="stroke" stroke="var(--map)" stroke-width="3.5">' + esc(label) + "</text>"; break; }
-      }
-    });
-    /* stops outside the frame: an arrow at the edge pointing toward them (they aren't drawn as if they were there) */
-    var vc = { x: Wd / 2, y: Hd / 2 };
-    var edges = [];
-    off.concat(inView(homeAt, -12) ? [] : [{ home: true, at: homeAt }]).forEach(function (o) {
-      var dx = o.at.x - vc.x, dy = o.at.y - vc.y, m = 16;
-      var t = Math.min(dx > 0 ? (Wd - m - vc.x) / dx : dx < 0 ? (m - vc.x) / dx : 1e9, dy > 0 ? (Hd - m - vc.y) / dy : dy < 0 ? (m - vc.y) / dy : 1e9);
-      var e = { x: vc.x + dx * t, y: vc.y + dy * t, ang: Math.atan2(dy, dx) * 180 / Math.PI, km: Math.hypot(dx, dy) / sc * (1 - t), o: o };
-      /* arrows that would sit on top of each other share one */
-      var same = edges.filter(function (g) { return Math.hypot(g.x - e.x, g.y - e.y) < 20; })[0];
-      if (same) { same.items.push(e); same.km = Math.min(same.km, e.km); } else { e.items = [e]; edges.push(e); }
-    });
-    edges.forEach(function (g) {
-      var nums = g.items.map(function (e) { return e.o.home ? "⌂" : e.o.q.p.num; }).join("·"), w = Math.max(20, 8 + nums.length * 7);
-      marks += '<g opacity=".92"><g transform="translate(' + g.x.toFixed(1) + "," + g.y.toFixed(1) + ") rotate(" + g.ang.toFixed(0) + ')"><path d="M' + (w / 2 + 4) + ' 0 L' + (w / 2 - 5) + ' -6 L' + (w / 2 - 5) + ' 6 Z" fill="var(--fg)"/></g>' +
-        '<rect x="' + (g.x - w / 2).toFixed(1) + '" y="' + (g.y - 10).toFixed(1) + '" width="' + w + '" height="20" rx="10" fill="var(--surface)" stroke="var(--fg)" stroke-width="1.6" stroke-dasharray="3 2"/>' +
-        '<text x="' + g.x.toFixed(1) + '" y="' + (g.y + 4).toFixed(1) + '" text-anchor="middle" font-size="11" font-family="var(--f-display)" fill="var(--fg)">' + nums + "</text></g>";
-      var first = g.items[0].o, lab = (first.home ? "Lodging" : short(first.q.p.n, 16)) + (g.items.length > 1 ? " +" + (g.items.length - 1) : "") + " · " + W.fmtKm(g.km) + " away", lw = lab.length * 6.6 + 8;
-      var ly = g.y + (g.y > Hd / 2 ? -16 : 24), lx = Math.max(6, Math.min(Wd - lw - 6, g.x - lw / 2)), b = { x1: lx, y1: ly - 11, x2: lx + lw, y2: ly + 3 };
-      if (!hit(b)) { boxes.push(b); labels += '<text x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '" font-size="11.5" font-family="var(--f-body)" font-weight="700" fill="var(--muted)" paint-order="stroke" stroke="var(--map)" stroke-width="3">' + esc(lab) + "</text>"; }
-    });
-    /* named places, only where they don't collide with pins or their labels */
-    var placeLbl = "";
-    places.forEach(function (pl) {
-      var q = toScreen(pl); if (q.x < 6 || q.x > Wd - 6 || q.y < 10 || q.y > Hd - 6) return;
-      var town = pl.type === "town" || pl.type === "village" || pl.type === "district";
-      var txt = short(pl.n, 20), w = txt.length * (town ? 7.6 : 6.6) + 6, bx = { x1: q.x - w / 2, y1: q.y - 13, x2: q.x + w / 2, y2: q.y + 5 };
-      if (hit(bx)) return;
-      boxes.push(bx);
-      placeLbl += (pl.type === "landmark" ? '<circle cx="' + q.x.toFixed(1) + '" cy="' + (q.y + 6).toFixed(1) + '" r="2" fill="var(--muted)"/>' : "") +
-        '<text x="' + q.x.toFixed(1) + '" y="' + q.y.toFixed(1) + '" text-anchor="middle" font-size="' + (town ? 14 : 15) + '" font-family="var(' + (town ? "--f-label" : "--f-note") + ')" letter-spacing="' + (town ? ".06em" : "0") + '" fill="var(--place)" paint-order="stroke" stroke="var(--map)" stroke-width="3.5" stroke-linejoin="round">' + esc(town ? txt.toUpperCase() : txt) + "</text>";
-    });
-    svg += placeLbl + marks + labels;
-    return svg + "</svg>";
+    if (!free.length) return "";
+    return '<section class="freetime sk"><h3>Free time today</h3>' + free.map(function (x) {
+      var food = W.isFood(x.slot), R = T && T.rows[x.slot], nm = ((R && R.label) || W.SLOT_NAME[x.slot]).toLowerCase();
+      var when = R && R.start != null ? W.clock(R.start) + (R.end != null ? "–" + W.clock(R.end) : "") : "";
+      var opts = W.slotOptions(day, x.slot, P).slice(0, 3);
+      return '<div class="ft"><div class="ft-h"><b>' + esc((R && R.label) || W.SLOT_NAME[x.slot]) + "</b>" + (when ? '<span class="small muted">' + when + "</span>" : "") + (x.free ? '<span class="small muted">left free</span>' : "") + "</div>" +
+        (opts.length ? swapCards(opts, x, food, day, nm) : '<p class="small muted">No ideas that fit yet.</p>') + "</div>";
+    }).join("") + "</section>";
   }
 
   /* ---------- trip view ---------- */
@@ -536,7 +401,7 @@
           if (!food) notes = beachNote(it, P) + notes;
           var rev = it.love || it.gripe ? '<div class="rev">' + (it.love ? '<span><b>Loved for</b> ' + esc(it.love) + "</span>" : "") + (it.gripe ? '<span><b>Watch for</b> ' + esc(it.gripe) + "</span>" : "") + "</div>" : "";
           var more = open ? '<div class="slot-more">' + (metaHtml ? '<div class="meta">' + metaHtml + "</div>" : "") + (food ? "" : beachCheck(it)) + rev + (it.st === "unsure" ? '<p class="small muted">Couldn\'t confirm it\'s still open. Worth a quick check.</p>' : "") + (W.altLinksFor ? W.altLinksFor("activity", { it: it, food: food, day: day }) : "") + '<div class="links">' +
-            link(W.reviewsUrl(it.n, day.city), "Reviews") + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it.n, day.city), "Map") + (lg ? link(W.gmapsDir(from, it, lg.mode), "Directions") : "") + "</div>" + (W.familyActs ? W.familyActs(it, day, x) : "") + "</div>" : "";
+            link(W.reviewsUrl(it.n, day.city), "Reviews") + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it.n, day.city), "Google Maps") + (lg ? link(W.gmapsDir(from, it, lg.mode), "Directions") : "") + "</div>" + (W.familyActs ? W.familyActs(it, day, x) : "") + "</div>" : "";
           var ph = W.picture(it, food, day.country, day.city);   /* restaurants show only their own photo (never a nearby one) */
           /* at a glance: what it costs, whether it's booked or due, whether it's indoors */
           var cls = W.classify(it, food), bkG = !food && W.bookEntryFor ? W.bookEntryFor(P, day, it) : null, bkd = W.bookingFor ? W.bookingFor(it, day) : null;
@@ -580,40 +445,37 @@
       if (back && prevPt !== home) list += '<div class="travel-note">Back to ' + esc(home.label) + " · " + W.fmtMin(back.min) + " " + back.label + (T && T.back ? ", about " + W.clock(T.back) : "") + " " + link(W.gmapsDir(prevPt, home, back.mode), "Directions") + "</div>";
       if (day.tripLast && day.n > 1) list += flightCard(P, day);
 
-      /* today's map, with zoom controls that never move. On a phone the day list hides it (Explore has its own), so it
-         isn't built at all there: no sketch, no map index, no map pack lookup */
-      var ex = "", stopsLL = pts.filter(function (p) { return p.lat != null; });
-      /* a stop with no pin at all: ask where it is (once), so every stop can be on the map */
+      var stopsLL = pts.filter(function (p) { return p.lat != null; });
+      /* a stop with no pin at all: ask where it is (once), so every stop can be found */
       if (stopsLL.length < pts.length && W.loadPins && !W.readOnly) W.loadPins(day.country, day.city, pts.filter(function (p) { return p.lat == null; }).map(function (p) { return p.n; }));
-      if (xp || window.innerWidth > 920) {
-      var gm = home.lat != null && stopsLL.length ? "https://www.google.com/maps/dir/?api=1&origin=" + home.lat + "," + home.lng + "&destination=" + home.lat + "," + home.lng +
-        "&waypoints=" + encodeURIComponent(stopsLL.map(function (p) { return p.lat + "," + p.lng; }).join("|")) + "&travelmode=walking" : "";
-      var zoomed = (S.mapZoom || 1) !== 1;
-      /* the detailed map (street names, buildings, landmarks) for cities that have a map pack */
-      var vtSlug = W.vtFor ? W.vtFor(day.country, day.city, home.lat, home.lng) : null;
-      /* while the detailed map is (or may be) on its way, keep the simple map out of sight so the two never swap back and forth;
-         the simple map shows only where there is no detailed map, or this device can't draw one */
-      var vtOn = !!(vtSlug && W.vtActive()), vtWait = !vtOn && (vtSlug ? W.vtState() !== "off" : !!(W.vtPending && W.vtPending()));
-      ex = '<aside class="explorer sk"><div class="explorer-h"><h3>Today\'s map</h3>' +
-        '<div class="zoom" role="group" aria-label="Map zoom"><button type="button" class="icon-btn" data-zoom="out" aria-label="Zoom out">−</button>' +
-        '<button type="button" class="icon-btn" data-zoom="in" aria-label="Zoom in">+</button>' +
-        '<button type="button" class="icon-btn fit" data-zoom="fit" aria-label="Fit today\'s stops"' + (zoomed || (vtSlug && W.vtActive()) ? "" : ' aria-disabled="true"') + '><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg></button></div></div>' +
-        '<div class="map-wrap' + (vtOn ? " vt-on" : vtWait ? " vt-want" : "") + '">' + (vtSlug ? '<div class="vt-slot"></div>' : "") + explorer(day, home, pts, pool) + "</div>" +
-        '<ol class="legend">' + pts.map(function (p) {
-          /* a stop with no checked spot is listed, and says so, rather than drawn somewhere it may not be */
-          return '<li' + (p.lat == null ? ' class="nomap"' : "") + '><span class="num' + (p.food ? " f" : "") + '">' + p.num + "</span><span>" + esc(p.n) + ' <i>' + ((T && T.rows[p.slot] && T.rows[p.slot].label) || W.SLOT_NAME[p.slot]) + (p.lat == null ? " · not on the map" : "") + "</i></span></li>";
-        }).join("") + "</ol>" +
-        '<p class="map-note">' + (vtOn ? "© OpenMapTiles © OpenStreetMap contributors" : vtWait ? '<span class="loading">Loading the map…</span>' : explorerState === "map" ? "Map data © OpenStreetMap contributors" : explorerState === "maploading" ? "Loading the street map…" : explorerState === "loading" ? "Sketching the area…" : "No street map for this area yet, so this is a sketch. Ask Claude in chat to build the map for " + esc(day.city) + ".") +
-        (gm ? " · " + link(gm, "Open in Google Maps") : "") + "</p></aside>";
-      if (vtSlug) vtWant = { slug: vtSlug, key: day.n + "|" + day.city, pts: pts, home: home, animate: true };
+      /* the whole day in Google Maps: every stop in order, by its pin or else by its name */
+      var gm = pts.length ? W.dayRouteUrl(day, pts, home) : "";
+      /* a real street map (street names, buildings, landmarks) only for cities that have a map pack; never a sketch */
+      var vtSlug = W.vtFor ? W.vtFor(day.country, day.city, home.lat, home.lng) : null, mapBox = "";
+      if (vtSlug && W.vtState() !== "off" && (xp || window.innerWidth > 920)) {
+        var vtOn = !!W.vtActive();
+        mapBox = '<div class="map-wrap' + (vtOn ? " vt-on" : " vt-want") + '"><div class="vt-slot"></div>' + (vtOn ? "" : '<p class="loading map-wait">Loading the street map…</p>') + "</div>";
+        vtWant = { slug: vtSlug, key: day.n + "|" + day.city, pts: pts, home: home, animate: true, city: day.city };
       }
+      var zoomBtns = mapBox ? '<div class="zoom" role="group" aria-label="Map zoom"><button type="button" class="icon-btn" data-zoom="out" aria-label="Zoom out">−</button>' +
+        '<button type="button" class="icon-btn" data-zoom="in" aria-label="Zoom in">+</button>' +
+        '<button type="button" class="icon-btn fit" data-zoom="fit" aria-label="Fit today\'s stops"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg></button></div>' : "";
       if (!xp) {
         list += dayEnd(day, P, home, geoBusy);
-        h += '<div class="dayview mode-list"><div class="slots">' + list + "</div>" + ex + "</div>";
+        if (!W.readOnly) list += '<button type="button" class="add-place" data-addplace="1"><span aria-hidden="true">+</span> Add a place of your own</button>';
+        /* on a big screen, beside the day: the street map where the city has one, otherwise today's route with the
+           whole day in Google Maps (never a sketch) */
+        var side = mapBox ? '<aside class="explorer sk"><div class="explorer-h"><h3>Today\'s map</h3>' + zoomBtns + "</div>" + mapBox +
+          '<p class="map-note">© OpenMapTiles © OpenStreetMap contributors' + (gm ? " · " + link(gm, "Open the day in Google Maps") : "") + "</p></aside>"
+          : window.innerWidth > 920 ? routeCard(day, P, T, home, pts, gm, "", "") : "";
+        h += '<div class="dayview mode-list' + (side ? "" : " solo") + '"><div class="slots">' + list + "</div>" + side + "</div>";
         h += W.dayNav ? W.dayNav(day, P) : "";
         h += W.journalCard(day);
       } else {
-        h += ex.replace('<h3>Today\'s map</h3>', "<h3>Day " + day.n + " on the map</h3>");
+        /* Explore: find any place, today's route, the free time, then every idea by what it's near */
+        h += W.searchBlock(day, P);
+        h += routeCard(day, P, T, home, pts, gm, mapBox, zoomBtns);
+        h += freeTime(day, P, T);
       }
 
       /* every idea for this city, folded away until you want it: what's on the trip first (in order), then the rest */
@@ -630,13 +492,38 @@
           return (!F.near || (r.km != null && r.km <= 1.5)) && (eat || !F.free || !W.isPaid(it)) && (eat || !F.indoor || isIndoor(it)) &&
             (!F.kids || !P.p.kid || it.k > 0) && (eat || !F.beach || !hasBeach || W.beachFit(it) === "safe");
         });
-        if (S.exSort === "near") all.sort(function (a, b) { return (a.km == null ? 99 : a.km) - (b.km == null ? 99 : b.km); });
       }
       /* places the check could not find, and duplicates, stay out of the list altogether */
       all = all.filter(function (x) { return x.on || !W.gone(x.it); });
       var planned = all.filter(function (x) { return x.on; }).sort(function (a, b) { return a.on.ord - b.on.ord; }), rest = all.filter(function (x) { return !x.on; });
-      var free = day.slots.filter(function (x) { return W.isFood(x.slot) === eat; }), folded = !!S.tripFolded;
-      var restShown = showAll ? rest : rest.slice(0, Math.max(6, 9 - (folded ? 0 : planned.length)));
+      var free = day.slots.filter(function (x) { return W.isFood(x.slot) === eat; }), folded = S.tripFolded !== false;   /* the route card already shows today: what's on the trip starts folded */
+      /* the rest, by what they're near: each idea under the stop of today it is closest to (or where you stay), with
+         the time to get there; then what is further out, then what has no pin */
+      var groups = [], restShown = [];
+      if (xp) {
+        var A = /** @type {{ a: any, label: string, sub: string, home?: boolean }[]} */ (pts.filter(function (p) { return p.lat != null; }).map(function (p) {
+          var R = T && T.rows[p.slot]; return { a: p, label: p.n, sub: (R && R.label) || W.SLOT_NAME[p.slot] };
+        })).concat(home.lat != null ? [{ a: home, label: "where you're staying", sub: "", home: true }] : []);
+        var byA = A.map(function () { return /** @type {any[]} */ ([]); }), far = [], nopin = [];
+        rest.forEach(function (r) {
+          if (r.it.lat == null || !A.length) { nopin.push(r); return; }
+          var best = -1, bd = 1e9;
+          A.forEach(function (x, i) { var d = W.km(x.a, r.it); if (d != null && d < bd) { bd = d; best = i; } });
+          var lg = W.leg(A[best].a, r.it); r.km = bd;
+          r.near = lg ? W.fmtMin(lg.min) + " " + lg.label + " from " + (A[best].home ? "where you're staying" : A[best].label) : "";
+          (bd <= 3 ? byA[best] : far).push(r);
+        });
+        var cap = showAll ? 999 : 3;
+        A.forEach(function (x, i) {
+          if (!byA[i].length) return;
+          byA[i].sort(function (a, b) { return a.km - b.km; });
+          groups.push({ h: x.home ? "Near where you're staying" : "Near " + x.label, sub: x.sub, rows: byA[i].slice(0, cap) });
+        });
+        far.sort(function (a, b) { return a.km - b.km; });
+        if (far.length) groups.push({ h: "Further out", sub: "", rows: far.slice(0, cap) });
+        if (nopin.length) groups.push({ h: "Elsewhere in " + day.city, sub: "", rows: nopin.slice(0, cap) });
+        groups.forEach(function (g) { restShown = restShown.concat(g.rows); });
+      }
       var moreBusy = W.cityBusy(ck);
       function ideaCard(row) {
         var it = row.it, on = row.on, info = [W.stayText(it, eat, it.meal === "breakfast" ? "breakfast" : it.meal === "dinner" ? "dinner" : ""), eat ? it.cuisine : it.ticket, eat ? it.price : ""].filter(Boolean).join(" · ");
@@ -644,8 +531,9 @@
         var warn = P.p.kid && it.k === -1 ? '<span class="warn">' + (P.p.toddler ? "Not ideal for toddlers" : "Not ideal for kids") + "</span>" : "";
         var bTag = !eat && P.p.kid && W.beachFit && W.beachFit(it) === "safe" ? '<span class="bc good">Calm and shallow</span>' : "";
         return '<div class="idea' + (ph ? " has-photo" : "") + '">' + (ph ? '<div class="pic-wrap">' + ph + onTag + "</div>" : onTag) + "<h4>" + esc(it.n) + "</h4>" + bTag + '<p class="desc">' + esc(it.d) + "</p>" +
+          (row.near ? '<p class="near">' + esc(row.near) + "</p>" : "") +
           (info ? '<p class="small muted">' + esc(info) + "</p>" : "") +
-          '<p class="small idea-meta">' + warn + (eat ? menuLink(it, day.city) : "") + bookLink(it, day.city, eat, day.country) + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it.n, day.city), "Map") + "</p>" +
+          '<p class="small idea-meta">' + warn + (eat ? menuLink(it, day.city) : "") + bookLink(it, day.city, eat, day.country) + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it.n, day.city), "Google Maps") + "</p>" +
           (on && on.n === day.n || !free.length ? "" : '<div class="use">' + free.map(function (x) { return '<button type="button" data-use="' + x.slot + '" data-name="' + esc(it.n) + '" aria-label="Put ' + esc(it.n) + " in " + W.SLOT_NAME[x.slot].toLowerCase() + '">' + W.SLOT_NAME[x.slot] + "</button>"; }).join("") + "</div>") + "</div>";
       }
       if (xp) h += '<section class="ideas sk"><div class="ideas-t"><h2>Ideas in ' + esc(day.city) + '</h2><span class="small muted">' + (pool.spots || []).length + " things to do · " + (pool.food || []).length + " places to eat</span></div>" +
@@ -657,7 +545,7 @@
         (planned.length ? '<h3 class="idea-group"><button type="button" class="fold" data-foldtrip="1" aria-expanded="' + !folded + '">' +
           '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="' + (folded ? "M6 3l5 5-5 5" : "M3 6l5 5 5-5") + '"/></svg>' +
           "On your trip <span>(" + planned.length + ")</span><em>" + (folded ? "show" : "hide") + "</em></button></h3>" + (folded ? "" : planned.map(ideaCard).join("")) : "") +
-        (restShown.length ? (planned.length ? '<h3 class="idea-group">More ideas</h3>' : "") + restShown.map(ideaCard).join("") : "") + "</div>" +
+        groups.map(function (g) { return '<h3 class="idea-group near-g">' + esc(g.h) + (g.sub ? " <span>(" + esc(g.sub.toLowerCase()) + ")</span>" : "") + "</h3>" + g.rows.map(ideaCard).join(""); }).join("") + "</div>" +
         (rest.length > restShown.length || showAll && rest.length > 6 ? '<div><button type="button" class="btn quiet" data-showall="1">' + (showAll ? "Show fewer" : "Show all " + rest.length) + "</button></div>" : "") + "</section>";
 
       if (xp && pool.transit) {
@@ -716,7 +604,7 @@
     var b = e.target.closest("button"); if (!b || b.closest("#tripbar")) return;
     var d = b.dataset, P = W.P;
     /* a shared trip: look around, change nothing */
-    if (W.readOnly && !(d.day || d.step || d.tab || d.showall || d.foldtrip || d.open || d.zoom || d.ro || d.late || d.heart || d.comment || d.exf || d.exsort)) return;
+    if (W.readOnly && !(d.day || d.step || d.tab || d.showall || d.foldtrip || d.open || d.zoom || d.ro || d.late || d.heart || d.comment || d.exf || d.psearch)) return;
     if (!W.readOnly) W.isExample = false;
     /* family: hearts and comments (a comment opens claude.ai's composer on this card, so nothing redraws) */
     if (d.comment) { W.familyClick(b, d); return; }
@@ -745,8 +633,7 @@
     else if (d.tab) { if (tab === d.tab) return; tab = d.tab; showAll = false; W.fxAfter(function () { W.fxStagger(".idea-list > *", { y: 8, step: 25 }); }); }
     else if (d.showall) showAll = !showAll;
     else if (d.exf) { var ef = S.exF || (S.exF = {}); ef[d.exf] = !ef[d.exf]; showAll = false; }
-    else if (d.exsort) { S.exSort = S.exSort === "near" ? "" : "near"; }
-    else if (d.foldtrip) { S.tripFolded = !S.tripFolded; if (!S.tripFolded) W.fxAfter(function () { var g = document.querySelector("[data-foldtrip]"), n = g && g.closest(".idea-group"), out = []; while (n && (n = n.nextElementSibling) && !n.classList.contains("idea-group")) out.push(n); W.fxStagger(out, { step: 30 }); }); }
+    else if (d.foldtrip) { S.tripFolded = S.tripFolded === false; if (S.tripFolded === false) W.fxAfter(function () { var g = document.querySelector("[data-foldtrip]"), n = g && g.closest(".idea-group"), out = []; while (n && (n = n.nextElementSibling) && !n.classList.contains("idea-group")) out.push(n); W.fxStagger(out, { step: 30 }); }); }
     else if (d.open) { if (W.openStop) W.openStop(d.open); return; }
     else if (d.reroll || d.swapclose) {
       var sw = document.querySelector(".swap");
@@ -771,8 +658,10 @@
       });
       return;
     }
-    else if (d.zoom && W.vtActive && W.vtActive()) { W.vtZoom(d.zoom); return; }
-    else if (d.zoom) { var z = S.mapZoom || 1; S.mapZoom = d.zoom === "fit" ? 1 : Math.max(0.25, Math.min(6, d.zoom === "in" ? z * 1.6 : z / 1.6)); if (Math.abs(S.mapZoom - 1) < 0.05) S.mapZoom = 1; }
+    else if (d.zoom) { if (W.vtActive && W.vtActive()) W.vtZoom(d.zoom); return; }
+    /* "Add a place of your own" on the day: Explore, with the search ready */
+    else if (d.addplace) { S.tview = "map"; W.render(); var q0 = document.getElementById("placeQ"); if (q0) { q0.scrollIntoView({ block: "center" }); q0.focus(); } return; }
+    else if (W.searchClick && W.searchClick(d, day, P)) { if (d.psearch || d.padd) W.fxAfter(function () { var r = document.querySelector(".psearch"); if (r && r.getBoundingClientRect().top < 0) r.scrollIntoView({ block: "start" }); }); }
     else if (d.legpick != null && d.legkey) { var lp = S.legPick || (S.legPick = {}), lgo = (W.C.legs[d.legkey] || {}).opts || [], pk = lgo[+d.legpick]; if (!pk) return; lp[d.legkey] = W.legSig(pk); W.fxAfter(function () { var e = document.querySelector(".lo.sel .lo-d"); if (e) W.fxExpand(e, { reveal: false }); }); }
     else if (d.late != null) W.lateClick(d);
     else if ((d.offsave || d.offcopy) && W.offline) W.offline.click(d, P);
@@ -829,7 +718,7 @@
       (it.st === "unsure" ? '<p class="small muted">Couldn\'t confirm it\'s still open. Worth a quick check.</p>' : "") +
       (W.altLinksFor ? W.altLinksFor("activity", { it: it, food: food, day: day }) : "") +
       '<div class="links">' + (bkE ? '<button type="button" class="linkish" data-gobook="' + esc(bkE.key) + '">' + (bkE.done ? "Booked · see Prepare" : "On your To book list") + "</button>" : "") +
-      link(W.reviewsUrl(it.n, day.city), "Reviews") + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it.n, day.city), "Map") + "</div>" +
+      link(W.reviewsUrl(it.n, day.city), "Reviews") + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it.n, day.city), "Google Maps") + "</div>" +
       (W.familyActs ? W.familyActs(it, day, x) : "") + "</div>";
   };
   W.prevView = function () { return prevView === "settings" ? "trip" : prevView; };

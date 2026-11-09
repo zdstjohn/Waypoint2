@@ -20,6 +20,7 @@
    types     TypeScript checks the plain JavaScript against types/waypoint.d.ts (base for all, strictNullChecks for the listed files)
    a11y      axe-core over every screen, light and dark: no WCAG A/AA violations
    fuzz      hundreds of random trips (seeded) checked against the planner's promises; FUZZ=2000 for more, FUZZ_SEED=n replays one
+   explore   search any place (list, Mapbox, Claude) and add it; today's route and Google Maps; free time; ideas by nearness
    desktop   a mouse, from a 600 px side panel to a 1920 px monitor: every screen clean, every stay, tab and arrow reachable
    vitals    a mid-range phone (4x slower CPU, slow 4G): first paint, largest paint, layout shift, and every common tap under 200 ms
    warm      names used everywhere, the banner's greeting and sky, postcards, milestones, the kids' view, readiness,
@@ -28,7 +29,7 @@
 const { spawn, spawnSync } = require('child_process'); const fs = require('fs'); const path = require('path');
 const ROOT = path.resolve(__dirname, '..'); const OUT = path.join(__dirname, 'out'); fs.mkdirSync(OUT, { recursive: true });
 const args = process.argv.slice(2); const flags = new Set(args.filter(a => a.startsWith('--'))); const pick = args.filter(a => !a.startsWith('--'));
-const ALL = ['smoke', 'layout', 'planner', 'shape', 'flow', 'bookings', 'travel', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'fuzz', 'vitals', 'desktop'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
+const ALL = ['smoke', 'layout', 'planner', 'shape', 'flow', 'bookings', 'travel', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'fuzz', 'vitals', 'desktop', 'explore'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
 const suites = pick.length ? pick : ALL;
 
 async function serverUp() {

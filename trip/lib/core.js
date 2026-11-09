@@ -85,6 +85,16 @@
     var d = b.lat != null ? b.lat + "," + b.lng : b.n;
     return "https://www.google.com/maps/dir/?api=1&origin=" + encodeURIComponent(o) + "&destination=" + encodeURIComponent(d) + "&travelmode=" + (mode || "transit");
   };
+  /** the whole day in Google Maps: from where you stay, every stop in order (its pin, or else its name and town), and
+      back. Driving when any stop is more than a walk away (Google Maps takes no stops on a transit route). */
+  W.dayRouteUrl = function (day, stops, home) {
+    function at(p) { return p.lat != null ? p.lat + "," + p.lng : (p.n || p.label) + ", " + day.city; }
+    var o = home && home.lat != null ? home.lat + "," + home.lng : (home && home.label ? home.label : day.city) + ", " + day.city;
+    var prev = home, far = false;
+    stops.forEach(function (p) { var d = prev && W.km(prev, p); if (d != null && d > 1.3) far = true; if (p.lat != null) prev = p; });
+    return "https://www.google.com/maps/dir/?api=1&origin=" + encodeURIComponent(o) + "&destination=" + encodeURIComponent(o) +
+      (stops.length ? "&waypoints=" + encodeURIComponent(stops.slice(0, 9).map(at).join("|")) : "") + "&travelmode=" + (far ? "driving" : "walking");
+  };
   W.gmapsPlace = function (name, city) { return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(name + ", " + city); };
 
   W.airport = function () {
@@ -687,26 +697,6 @@
           .forEach(function (x) { if (!have[W.norm(x.n)]) { have[W.norm(x.n)] = 1; c0.food.push(x); } });
         W.C.city[ck] = c0;
       });
-  };
-
-  /* a sketch of the area around where you're staying: shorelines, rivers and named places to get your bearings */
-  W.areaKey = function (country, city, center, radius) { return W.cityKey(country, city) + "|" + center.lat.toFixed(2) + "," + center.lng.toFixed(2) + "|" + radius; };
-  W.loadArea = function (country, city, center, radius) {
-    var key = W.areaKey(country, city, center, radius);
-    if (W.C.area[key]) return W.C.area[key];
-    run("area|" + key, "I am drawing a simple sketch map. The area is the square reaching about " + radius + " km in every direction from latitude " + center.lat.toFixed(4) + ", longitude " + center.lng.toFixed(4) +
-      " (near " + (center.label || city) + " in " + city + ", " + country + ").\nReply with JSON only: {\"places\":[{\"n\":\"name\",\"type\":\"district\",\"lat\":0,\"lng\":0}],\"water\":[{\"kind\":\"sea\",\"n\":\"name\",\"side\":\"S\",\"pts\":[[0,0],[0,0]]}]}\n" +
-      "places: 10 to 16 real places inside the area that help a visitor get their bearings, spread across it. type is one of district, town, village, landmark, park, beach. " +
-      "water: for a sea, bay, lagoon or big lake whose shore crosses the area, give the shoreline as 12 to 30 [lat,lng] points in order from one edge of the area to the other, and side = the compass direction (N, S, E, W, NE, NW, SE, SW) the water lies from that shore. " +
-      "For a lake that sits fully inside the area, give its outline as a closed ring with side \"in\". For rivers and canals give the course as 6 to 20 points with kind river or canal. If there is no water in the area, give an empty list. Only include what is really there. Use coordinates with 4 decimals.",
-      "default", function (r) {
-        var places = V.list(r && r.places, function (p) { var n = p && V.name(p.n), q = n && V.pinNear(p.lat, p.lng, center, radius * 3 + 5); return q ? { n: n, type: V.str(p.type, 20) || "district", lat: q.lat, lng: q.lng } : null; });
-        var water = (r && r.water || []).filter(function (w) { return w && Array.isArray(w.pts) && w.pts.length > 1; }).map(function (w) {
-          return { kind: String(w.kind || "sea"), n: String(w.n || ""), side: String(w.side || "in").toUpperCase(), pts: w.pts.map(function (p) { return Array.isArray(p) ? [num(p[0]), num(p[1])] : [num(p.lat), num(p.lng)]; }).filter(function (p) { return p[0] != null && p[1] != null; }) };
-        });
-        W.C.area[key] = { places: places, water: water };
-      });
-    return null;
   };
 
   /* find coordinates for a hotel or address */

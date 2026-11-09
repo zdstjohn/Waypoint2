@@ -13,9 +13,12 @@
     var have = {}; (pool.spots || []).concat(pool.food || []).forEach(function (x) { have[W.norm(x.n)] = 1; });
     list.forEach(function (x) {
       if (have[W.norm(x.n)]) return;
-      var it = { n: x.n, d: x.d || "From your plan", lat: x.lat, lng: x.lng, t: [], k: 0, imp: true };
-      if (x.food) { it.meal = "all"; (pool.food || (pool.food = [])).push(it); }
-      else { it.s = x.slot === "pm" || x.slot === "eve" ? x.slot : "am"; (pool.spots || (pool.spots = [])).push(it); }
+      /* from an imported plan, or a place you found with the search (src: "map" or "claude"), with what is known of it */
+      var it = { n: x.n, d: x.d || (x.src ? "Added by you" : "From your plan"), lat: x.lat, lng: x.lng, t: Array.isArray(x.t) ? x.t : [], k: x.k === 1 || x.k === -1 ? x.k : 0, imp: true };
+      if (x.src) it.src = x.src;
+      if (x.dur) it.dur = x.dur;
+      if (x.food) { it.meal = x.meal || "all"; if (x.cuisine) it.cuisine = x.cuisine; if (x.price) it.price = x.price; (pool.food || (pool.food = [])).push(it); }
+      else { it.s = x.s && x.s !== "any" ? x.s : x.slot === "pm" || x.slot === "eve" ? x.slot : x.s || "am"; if (x.ticket) it.ticket = x.ticket; (pool.spots || (pool.spots = [])).push(it); }
     });
     pool._imp = sig;
   };

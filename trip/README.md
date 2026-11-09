@@ -45,10 +45,15 @@ lib/              the shared library
                   the rest of a day that has gone wrong (rain, tired, behind, closed). The plan is kept until the trip,
                   the cached data or the day changes, so most taps re-render without re-planning
   route.js        trip shape check (and its one-tap fixes)   import.js  paste an itinerary   prices.js  live prices and booking sites
-  watch.js        price watches   sync.js  saved and shared trips   fx.js  motion   map.js / vtmap.js  the maps
+  watch.js        price watches   sync.js  saved and shared trips   fx.js  motion   vtmap.js  the street map (cities with a map pack)
+  search.js       find any place and put it on the day: the city's own ideas, Mapbox (real places with exact pins,
+                  through the viewer's Mapbox connection) and Claude (marked "Suggested by Claude" until the nightly
+                  check confirms it), merged into one list; a Google Maps search for the same words is one link away.
+                  An added place joins the city's list as your own (S.imported, with the trip) and goes in the part of
+                  the day you pick. The page can't reach the internet itself: the map comes through the connection.
   offline.js      the trip without a signal: the photo index and photos kept on the phone (IndexedDB), map packs
                   warmed into the worker's cache, the offline note in Travel mode, and the "offline copy" (one HTML
-                  file with the app, the trip, its photos and sketch maps inside, opened from the phone's files)
+                  file with the app, the trip and its photos inside, opened from the phone's files)
   packing.js      the packing list and the before-you-go list, read off the plan (who is going, how you travel, what
                   the days hold, the season, the plugs); ticks, removals and your own items stay with the trip
   warm.js         the warm touches: the family by name (typed in Plan; "Great for Mila & Leo", "Easy for Joe", a kid's
@@ -60,14 +65,19 @@ lib/              the shared library
   The header is one banner: the wordmark, and the trip (its name opens your trips; under it a countdown that
   becomes "Day 4 of 20" on the trip), drawn by sync.js (W.countdown); on wide screens the tabs sit in it too.
 screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.js, also the app controller: a labelled
-                  switch for Day · Map · All days. All days groups the days by place under a stay bar that sticks to
+                  switch for Day · Explore · All days. Explore: search any place, today's route (each stop with the
+                  walk, transit or drive between them and its directions, and one button that opens the whole day in
+                  Google Maps, unpinned stops by name), a real street map on top only where the city has a map pack
+                  (never a sketch; tapping a pin opens it in Google Maps), the free parts of the day with three picks
+                  each, and every idea under the stop of today it is nearest to. On a big screen the Day view shows the
+                  street map beside the day where there is one and otherwise uses the full width. All days groups the days by place under a stay bar that sticks to
                   the top and lights the place you've scrolled to; the storybook opens from the trip menu and All days), Prepare (book.js: To book · Booked · Budget ·
                   Pack · Take along) and Today (travel.js: Travel mode, also the storybook). flow.js has the next-step
                   bar, undo, the stop sheet and the quick start (shown on the very first open); journal, family;
                   settings.js is now only "Import a plan" (sharing lives in the trip menu); kids.js is "For the kids"
                   (from the trip menu and Today): today's outings in big photo cards with a heart per kid, a passport
                   that stamps each place, and a treasure hunt per town
-maps/ vt/         street-map data: sketch maps as JSON; the detailed packs live in the asset store (maps/<city> in the
+vt/              street-map data: the detailed packs live in the asset store (maps/<city> in the
                   database lists them), built nightly by tools/build.py and pack2json.py. vt/ keeps the engine, the
                   pack worker (packworker.js: downloads and decodes packs off the main thread, caches them in IndexedDB)
                   and the glyphs (glyphs.wasm: everyday letters; glyphs-ext.wasm: extended Latin, Greek, Cyrillic, on

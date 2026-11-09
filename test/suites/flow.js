@@ -62,10 +62,10 @@ exports.run = async t => {
   });
   t.eq([cdn.months, cdn.weeks, cdn.days, cdn.tomorrow, cdn.day3, cdn.after], ['5 months to go', '4 weeks to go', '9 days to go', '1 day to go', 'Day 3 of ' + (await pg.evaluate(() => W.P.N)), 'Back home'], 'the header counts down to the trip and follows it: ' + JSON.stringify(cdn));
   t.ok(/^Your trips: .+\. /.test(cdn.label || ''), 'the trip button says the trip and the countdown to a screen reader');
-  /* the view switch: labelled; All days, then pick a day; Map. The storybook opens from All days and the trip menu */
+  /* the view switch: labelled; All days, then pick a day; Explore. The storybook opens from All days and the trip menu */
   await pg.evaluate(() => scrollTo(0, 0));
   const vs = await pg.evaluate(() => [...document.querySelectorAll('#viewTrip .vsw [data-vsw]')].map(b => b.textContent.trim() + (b.getAttribute('aria-checked') === 'true' ? '*' : '')));
-  t.eq(vs, ['Day*', 'Map', 'All days'], 'the trip has a labelled view switch, on Day');
+  t.eq(vs, ['Day*', 'Explore', 'All days'], 'the trip has a labelled view switch, on Day');
   await pg.click('#viewTrip [data-vsw="all"]'); await pg.waitForTimeout(500);
   const g = await pg.evaluate(() => ({ rows: document.querySelectorAll('.g-day').length, N: W.P.N, slots: document.querySelectorAll('#viewTrip .slot').length, secs: document.querySelectorAll('.g-sec').length, stops: W.P.stops.length, pills: document.querySelectorAll('#viewTrip .dpill').length }));
   t.ok(g.rows === g.N && g.slots === 0 && g.secs === g.stops, 'All days lists every day, grouped by place, in place of the day: ' + JSON.stringify(g));
@@ -93,7 +93,7 @@ exports.run = async t => {
   await pg.click('.g-day[data-day="3"]'); await pg.waitForTimeout(900);
   t.eq(await pg.evaluate(() => [W.S.day, document.querySelector('#viewTrip [data-vsw][aria-checked="true"]').dataset.vsw]), [3, 'days'], 'picking a day there opens it');
   await pg.click('#viewTrip [data-vsw="map"]'); await pg.waitForTimeout(700);
-  t.ok(await pg.evaluate(() => W.S.tview === 'map' && !!document.querySelector('#viewTrip .explorer')), 'Map shows the day on the map');
+  t.ok(await pg.evaluate(() => W.S.tview === 'map' && !!document.querySelector('#viewTrip .rcard') && !!document.querySelector('#placeQ') && !document.querySelector('#viewTrip svg.map')), 'Explore shows the search and today\'s route, and no sketch map');
   await pg.click('#viewTrip [data-vsw="all"]'); await pg.waitForTimeout(500);
   await pg.click('#viewTrip .story-link'); await pg.waitForTimeout(1200);
   t.ok(await pg.evaluate(() => W.S.tview === 'story' && !W.S.glanceOpen && document.querySelectorAll('#viewTrip .sp').length === W.P.N), 'All days opens the storybook');

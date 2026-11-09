@@ -310,7 +310,7 @@
   /* ---------- pins ---------- */
   /** one marker: the lodging, or one or more stops that sit on the same spot at this zoom ("1·2·4") @param {any} g */
   function pinEl(g) {
-    var el = document.createElement("div");
+    /** @type {HTMLElement} */ var el = document.createElement("div");
     if (g.home) {
       el.className = "vt-pin home";
       el.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 7.5 8 3l5.5 4.5V13h-3.5V9.5h-4V13H2.5z" fill="currentColor"/></svg>';
@@ -318,6 +318,8 @@
       return el;
     }
     var ps = g.items, many = ps.length > 1, nums = ps.map(function (p) { return p.num; }).join("·");
+    /* one stop: the pin opens it in Google Maps (reviews, photos, hours, directions) */
+    if (!many && S.city) { var a = document.createElement("a"); a.href = W.gmapsPlace(ps[0].n, S.city); a.target = "_blank"; a.rel = "noopener"; el = a; }
     el.className = "vt-pin" + (many ? " many" : ps[0].food ? " food" : "");
     el.innerHTML = "<b>" + nums + "</b><span>" + W.esc(ps[0].n) + (many ? " +" + (ps.length - 1) : "") + "</span>";
     el.setAttribute("aria-label", ps.map(function (p) { return p.num + ". " + p.n; }).join(", "));
@@ -405,7 +407,7 @@
         } catch (e) { S.engine = "off"; S.why = String(e && e.message || e); W.changed(); }
       }, function () { S.creating = false; S.engine = "off"; W.changed(); });
     }
-    S.pend = { slot: slot, o: o };
+    S.pend = { slot: slot, o: o }; S.city = o.city || "";
     if (!S.map || !S.ready) return false;
     var size = S.el.clientWidth + "x" + S.el.clientHeight, resized = size !== S.size; S.size = size;
     if (resized) S.map.resize();
