@@ -902,8 +902,8 @@ html.vt-page::view-transition-old(root),html.vt-page::view-transition-new(root),
 .ideas-t h2{font:400 22px/1.2 var(--f-display)}
 .ex-h .sub{margin-top:4px}
 .dayflip > .day-h{margin-bottom:14px}
-/* Explore on a big screen: the search and the storyboard across the top, then the route (and street map) on the right
-   beside the free time and the ideas */
+/* Explore on a big screen: the search across the top, then the route (and street map) on the right beside the free
+   time and the ideas */
 @media (min-width:921px){.explore-v .xp-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,480px);column-gap:20px;align-items:start}}
 @media (min-width:921px){.explore-v .xp-cols > .explorer{grid-column:2;grid-row:1 / span 6;position:sticky;top:14px}}
 @media (min-width:921px){.explore-v .xp-cols > :not(.explorer){grid-column:1}}
@@ -1544,34 +1544,6 @@ html.offline .brand::after{content:"Offline";position:absolute;right:-6px;top:-8
 .rc-gm{display:flex;justify-content:center;margin:10px 16px 14px;text-decoration:none;white-space:normal;text-align:center;text-wrap:balance;min-width:0}
 .rc-empty{padding:4px 16px 16px;margin:0}
 .rcard .map-wrap{margin:4px 10px 6px}
-/* the day storyboard (Explore): the stops as photo cards in order, the way between them as small links */
-.dsb{margin-bottom:16px;padding:12px 0}
-.dsb-h{margin:0;padding:0 16px 8px}
-.dsb-row{list-style:none;margin:0;padding:2px 16px 6px;display:flex;align-items:stretch;gap:0;overflow-x:auto;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
-.dsb-stop{flex:0 0 clamp(148px,44vw,210px)}
-.dsb-stop > a{display:flex;flex-direction:column;height:100%;color:inherit;text-decoration:none;border:2px solid var(--ink);border-radius:13px 10px 14px 11px;overflow:hidden;background:var(--surface)}
-.dsb-pic{position:relative;display:block;aspect-ratio:4/3;background:var(--sunk);overflow:hidden}
-.dsb-pic .pic{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-.dsb-pic .num{position:absolute;left:8px;top:8px;box-shadow:0 0 0 2px var(--surface)}
-/* no photo yet: a quiet tile with the part of the day, so the row keeps its rhythm */
-.dsb-stop.nopic .dsb-pic{display:grid;place-items:center;background:var(--sunk)}
-.dsb-stop.nopic .dsb-pic .slotw{font:400 15px/1 var(--f-label);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-.dsb-t{display:grid;gap:2px;padding:8px 10px 10px;line-height:1.25}
-.dsb-t b{font-size:14.5px;overflow-wrap:anywhere}
-.dsb-t span{font-size:12.5px;color:var(--muted)}
-.dsb-leg{flex:0 0 auto;display:flex;align-items:center;min-width:70px;max-width:104px}
-.dsb-leg > a{display:grid;justify-items:center;gap:1px;padding:6px 6px;margin-top:-18px;font-size:11.5px;line-height:1.2;text-align:center;color:var(--muted);text-decoration:none;width:100%}
-.dsb-leg > a b{font-size:12.5px;color:var(--fg)}
-.dsb-leg svg{width:16px;height:16px;color:var(--fg)}
-.dsb-leg .dsb-leave{color:var(--accent-text,var(--accent));font-weight:800}
-.dsb-leg .dsb-leave > span{display:block;white-space:nowrap}
-.dsb-leg:first-child{min-width:58px}
-.dsb-leg.last{flex-direction:column;justify-content:center;max-width:120px}
-.dsb-leg.last .dsb-home{font-size:11.5px;color:var(--muted);text-align:center;padding:0 4px;order:2}
-.dsb-leg.last > a{margin-top:0}
-@media (hover:hover){.dsb-stop > a:hover{box-shadow:0 3px 0 var(--ink)}.dsb-leg > a:hover b{text-decoration:underline}}
-@media (min-width:921px){.dsb-stop{flex:1 0 150px;max-width:240px}.dsb-leg{min-width:64px}}
-.dsb-from{display:block;font-size:11px;color:var(--muted);max-width:96px;overflow-wrap:anywhere}
 .freetime{padding:14px 16px;margin-bottom:16px;display:grid;gap:12px}
 .freetime h3{font-family:var(--f-display);font-weight:400;font-size:19px}
 .ft{display:grid;gap:8px}

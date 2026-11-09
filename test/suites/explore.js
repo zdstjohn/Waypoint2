@@ -13,23 +13,6 @@ exports.run = async t => {
   t.ok(/^https:\/\/www\.google\.com\/maps\/dir\/\?api=1&origin=/.test(first.gm) && /waypoints=/.test(first.gm), 'one button opens the whole day in Google Maps');
   t.ok(first.groups.length >= 2 && first.groups.some(g => /^Near /.test(g)) && first.near > 0, 'ideas are grouped by the stop they are near, with the time to get there: ' + first.groups.slice(0, 4).join(' / '));
 
-  /* the day as a storyboard: every stop in order, numbered like the route, a photo where there is one, the way between
-     stops with when to leave, where the day starts; a stop opens its Google listing, a leg its directions. No map
-     pictures are asked for (the street map is the map) */
-  const sb = await pg.evaluate(() => {
-    const d = W.P.days[W.S.day - 1], items = d.slots.filter(x => x.item).length;
-    const box = document.querySelector('.dsb'); if (!box) return null;
-    const stops = [...box.querySelectorAll('.dsb-stop')], legs = [...box.querySelectorAll('.dsb-leg')];
-    const route = [...document.querySelectorAll('.rcard .rc-stop b')].map(b => b.textContent);
-    return { items, n: stops.length, names: stops.map(s => s.querySelector('.dsb-t b').textContent), route, nums: stops.map(s => s.querySelector('.num').textContent),
-      legs: legs.length, leave: box.querySelectorAll('.dsb-leave').length, from: (box.querySelector('.dsb-from') || {}).textContent || '',
-      place: stops.every(s => /google\.com\/maps\/search\//.test(s.querySelector('a').href)), dir: legs.every(l => /google\.com\/maps\/dir\//.test(l.querySelector('a').href)),
-      static: (window.__mcp || []).filter(c => c[1] === 'static_map_image_tool').length };
-  });
-  t.ok(sb && sb.n === sb.items && JSON.stringify(sb.names) === JSON.stringify(sb.route) && sb.nums.join() === sb.names.map((_, i) => i + 1).join(), `the storyboard shows every stop in the route's order (${sb && sb.n}): ${sb && sb.names.join(' → ')}`);
-  t.ok(sb && sb.legs >= sb.n && sb.leave >= 1 && /^from /.test(sb.from), `between the stops: the way there and when to leave (${sb && sb.leave} leave times), starting ${sb && sb.from}`);
-  t.ok(sb && sb.place && sb.dir, 'a stop opens its Google Maps listing and a leg its directions');
-  t.eq(sb && sb.static, 0, 'no map pictures are asked for');
 
   /* search: three sources, one list; the same place from the map and Claude shows once, marked as on the map */
   await pg.fill('#placeQ', 'gelato'); await pg.click('[data-psearch="1"]'); await pg.waitForTimeout(400); await settle(pg, 4000);

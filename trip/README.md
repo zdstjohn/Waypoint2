@@ -79,13 +79,11 @@ lib/              the shared library
 screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.js, also the app controller: a labelled
                   switch for Day · Explore · All days. Explore: search any place, today's route (each stop with the
                   walk, transit or drive between them and its directions, and one button that opens the whole day in
-                  Google Maps, unpinned stops by name), the day's storyboard (each stop's photo in order with the walk,
-                  ride or drive between and when to leave; a stop opens its Google listing, a leg its directions), the
-                  street map from the city's map pack (every city in a trip has one; the nightly helper builds packs for
+                  Google Maps, unpinned stops by name), the street map from the city's map pack (every city in a trip has one; the nightly helper builds packs for
                   new ones, a few a night; tapping a pin opens it in Google Maps; never a sketch or a map picture), the free parts of the day with three picks
                   each, and every idea under the stop of today it is nearest to. On a big screen the Day view shows the
                   street map beside the day where there is one, otherwise today's route. Explore on a big screen puts
-                  the search and the storyboard across the top, the route and map on the right below. The
+                  the search across the top, the route and map on the right below. The
                   Day · Explore · All days switch runs the full width in three equal parts. A Google map can't be shown
                   in the page (it may only load from its own server, and Google's terms don't allow keeping its map
                   pictures), so Google Maps is always one tap away instead. All days groups the days by place under a stay bar that sticks to

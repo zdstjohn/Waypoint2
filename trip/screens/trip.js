@@ -228,39 +228,6 @@
   /* ---------- Explore: today's route ---------- */
   /** today's stops as a route from where you stay and back: the way between each (walk, transit, drive) with its
       directions, the whole day in Google Maps, and the real street map on top where the city has one */
-  /* the day as a storyboard: each stop's photo in order, with the walk, ride or drive between them and when to leave.
-     A stop opens its Google Maps listing; a leg opens the directions for it. Scrolls sideways on a phone. */
-  function storyStrip(day, P, T, home, pts) {
-    if (!pts.length) return "";
-    var city = day.city, prev = home, rows = "", walk = 0, ride = 0;
-    function legLi(a, b, at, last) {
-      var lg = a && a.lat != null && b.lat != null ? W.leg(a, b) : null;
-      if (lg) { if (lg.mode === "walking") walk += lg.min; else ride += lg.min; }
-      var leave = lg && at != null ? Math.floor((at - lg.min) / 5) * 5 : null;
-      var to = b.lat != null ? b : { n: (b.n || b.label) + ", " + city, lat: null, lng: null };
-      var dir = W.gmapsDir(a && a.lat != null ? a : { label: ((a && (a.label || a.n)) || city) + ", " + city, lat: null }, to, lg ? lg.mode : "walking");
-      return '<li class="dsb-leg' + (last ? " last" : "") + '"><a href="' + esc(dir) + '" target="_blank" rel="noopener" aria-label="' + esc((lg ? W.fmtMin(lg.min) + " " + lg.label : "Directions") + " to " + (b.n || b.label)) + '">' +
-        (lg ? (LEG_IC[lg.mode] || LEG_IC.transit) + "<b>" + esc(W.fmtMin(lg.min)) + "</b><span>" + esc(lg.label) + "</span>" : "<b>Directions</b>") +
-        (leave != null && leave > 0 ? '<span class="dsb-leave">leave <span>' + esc(W.clock(leave)) + "</span></span>" : "") + "</a></li>";
-    }
-    pts.forEach(function (p, i) {
-      var x = (day.slots || []).filter(function (y) { return y.slot === p.slot; })[0], it = x && x.item || p, R = T && T.rows[p.slot];
-      var at = R && R.start != null && !R.skip ? R.start : null;
-      var lgHtml = legLi(prev, p, at, false);
-      /* the first leg says where the day starts */
-      if (i === 0 && home && home.label) lgHtml = lgHtml.replace('<li class="dsb-leg">', '<li class="dsb-leg first">').replace("</a></li>", '<span class="dsb-from">from ' + esc(home.label) + "</span></a></li>");
-      rows += lgHtml;
-      var pic = W.picture(it, p.food, day.country, city);
-      rows += '<li class="dsb-stop' + (p.food ? " food" : "") + (pic ? "" : " nopic") + '"><a href="' + esc(W.gmapsPlace(p, city)) + '" target="_blank" rel="noopener">' +
-        '<span class="dsb-pic">' + (pic || '<span class="slotw" aria-hidden="true">' + esc(W.SLOT_NAME[p.slot]) + "</span>") + '<span class="num' + (p.food ? " f" : "") + '">' + p.num + "</span></span>" +
-        '<span class="dsb-t"><b>' + esc(p.n) + "</b><span>" + esc([at != null ? W.clock(at) : "", (R && R.label) || W.SLOT_NAME[p.slot]].filter(Boolean).join(" · ")) + "</span></span></a></li>";
-      if (p.lat != null) prev = p;
-    });
-    if (prev !== home && home) rows += legLi(prev, home, null, true).replace('<li class="dsb-leg last">', '<li class="dsb-leg last"><span class="dsb-home">Back to ' + esc(home.label) + (T && T.back ? ", about " + esc(W.clock(T.back)) : "") + "</span>");
-    var sum = [walk ? W.fmtMin(walk) + " walking" : "", ride ? W.fmtMin(ride) + " riding" : ""].filter(Boolean).join(" · ");
-    return '<section class="dsb sk" aria-label="The day, stop by stop">' + (sum ? '<p class="dsb-h small muted">' + esc(sum) + "</p>" : "") +
-      '<ol class="dsb-row scroll-x">' + rows + "</ol></section>";
-  }
   function routeCard(day, P, T, home, pts, gm, mapBox, zoomBtns) {
     if (!pts.length) return '<aside class="explorer rcard sk"><div class="explorer-h"><h3>Today\'s route</h3></div><p class="small muted rc-empty">Nothing planned yet today. Add a place with the search, or from the ideas below.</p></aside>';
     var prev = home, rows = "", city = day.city;
@@ -505,11 +472,10 @@
         h += W.dayNav ? W.dayNav(day, P) : "";
         h += W.journalCard(day);
       } else {
-        /* Explore: find any place, the day as a storyboard, today's route (on the street map where the city has
-           one), the free time, then every idea by what it's near */
+        /* Explore: find any place, today's route (on the street map where the city has one), the free time, then
+           every idea by what it's near */
         h += W.searchBlock(day, P);
-        h += storyStrip(day, P, T, home, pts);
-        /* below them, on a big screen: the route (and street map) on the right, the rest on the left */
+        /* below the search, on a big screen: the route (and street map) on the right, the rest on the left */
         h += '<div class="xp-cols">'; xpCols = true;
         h += routeCard(day, P, T, home, pts, gm, mapBox, zoomBtns);
         h += freeTime(day, P, T);
