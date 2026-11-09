@@ -23,7 +23,8 @@ exports.run = async t => {
   await pg.waitForFunction(() => !!document.querySelector('#set-storage [data-store="find"]'), null, { timeout: 15000 }).catch(() => {});
   t.ok(await pg.evaluate(() => /Settings/.test(document.querySelector('.set-h h2').textContent) && !!document.querySelector('#set-storage')), 'Settings has a Storage card for someone who can edit the app');
   await pg.click('#set-storage [data-store="find"]');
-  await pg.waitForFunction(() => /nothing uses|Nothing to clear|can't|couldn't/i.test(document.querySelector('#set-storage').textContent), null, { timeout: 15000 }).catch(() => {});
+  const settled = () => pg.waitForFunction(() => { const c = document.querySelector('#set-storage'); return c && !/Checking every list|Deleting/.test(c.textContent); }, null, { timeout: 30000 }).catch(() => {});
+  await settled();
   const r1 = await pg.evaluate(() => ({ txt: document.querySelector('#set-storage').textContent.replace(/\s+/g, ' '), imgs: [...document.querySelectorAll('#set-storage .st-grid img')].map(i => i.getAttribute('src').split('/').pop()) }));
   t.ok(/3 files nothing uses/.test(r1.txt), 'three old files nothing points at are found: ' + r1.txt.slice(0, 160));
   t.eq(r1.imgs.sort(), [IDS.unused1, IDS.lateUse].sort(), 'the photos among them are shown before anything is deleted');
@@ -34,14 +35,14 @@ exports.run = async t => {
   /* a file comes into use between the look and the delete: it stays */
   await pg.evaluate(I => { W.S.journal['Italy|Rome|2'] = { photos: [{ id: I.lateUse }] }; W.save(); }, IDS);
   await pg.click('#set-storage [data-store="delete"]');
-  await pg.waitForFunction(() => /Deleted \d+ files/.test(document.querySelector('#set-storage').textContent), null, { timeout: 15000 }).catch(() => {});
+  await settled();
   const r2 = await pg.evaluate(() => ({ del: (window.__deleted || []).slice().sort(), left: window.__assetList.map(a => a.id), txt: document.querySelector('#set-storage').textContent.replace(/\s+/g, ' ') }));
   t.eq(r2.del, [IDS.unused1, IDS.unused2].sort(), 'only the unused files go; one that came into use since stays: ' + r2.txt.slice(0, 80));
   t.ok([IDS.photo, IDS.map, IDS.journal, IDS.freshNew, IDS.lateUse].every(i => r2.left.includes(i)), 'everything in use is still there');
   /* when most files would go, something wasn't read: nothing is deleted */
   await pg.evaluate(() => { window.__assetList.push(...Array.from({ length: 20 }, (_, i) => ({ id: (i + 100).toString(16).padStart(32, 'e'), url: '/_blob/x', contentType: 'image/jpeg', sizeBytes: 1, createdAt: '2026-01-01T00:00:00Z' }))); });
   await pg.click('#set-storage [data-store="find"]');
-  await pg.waitForFunction(() => /can't be right/.test(document.querySelector('#set-storage').textContent), null, { timeout: 15000 }).catch(() => {});
+  await settled();
   t.ok(await pg.evaluate(() => /can't be right/.test(document.querySelector('#set-storage').textContent) && !document.querySelector('#set-storage [data-store="ask"]')), 'when more than half the files look unused it refuses, with no delete button');
   /* someone who can't edit the app sees no Storage card */
   t.ok(await pg.evaluate(() => { W.readOnly = { code: 'x', name: 'x' }; const html = W.storageCard(() => 'card'); W.readOnly = null; return html === ''; }), 'a shared, view-only trip has no Storage card');
