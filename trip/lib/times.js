@@ -256,8 +256,10 @@
       var meal = x.slot === "am" ? minStart("lunch") : x.slot === "pm" ? minStart("dinner") : null, slack = day.jet && x.slot === "pm" ? 0 : 30;
       if (meal && !dayOut) {
         /* the way to the meal itself: the next slot's place when it is known, else a quarter hour */
-        var nx = order.filter(function (y) { return y.slot === (x.slot === "am" ? "lunch" : "dinner"); })[0], nl = nx && nx.item ? W.leg(it, nx.item) : null, way = nl ? Math.max(5, nl.min) : 15;
-        if (start + dur > meal - way + slack && meal - way - start >= (day.jet ? 30 : 45)) {
+        /* (measured from where you'll set off for it: this place, or the last one with a pin if this one has none) */
+        var nx = order.filter(function (y) { return y.slot === (x.slot === "am" ? "lunch" : "dinner"); })[0], nl = nx && nx.item ? W.leg(it.lat != null ? it : prev, nx.item) : null, way = nl ? Math.max(5, nl.min) : 15;
+        /* (with children an afternoon can be as short as half an hour: a late arrival's quick look beats a late dinner) */
+        if (start + dur > meal - way + slack && meal - way - start >= (day.jet || (p.kid && x.slot === "pm") ? 30 : 45)) {
           dur = meal - way - start; row.info.push("Leave by " + W.clock(start + dur) + " for " + (x.slot === "am" ? "lunch" : "dinner"));
         }
       }

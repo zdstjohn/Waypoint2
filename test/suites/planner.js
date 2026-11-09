@@ -64,7 +64,7 @@ exports.run = async t => {
   /* the same place twice in a trip: two stays a few miles apart (or coming back to a city) share no planner picks */
   const twice = await pg.evaluate(async () => {
     const ps = W.S.countries[0]; ps.mode = 'manual'; ps.picked = ['Corfu', 'Santorini', 'Fira'];
-    W.S.cityDays = { 'Greece|Corfu': 4, 'Greece|Santorini': 5, 'Greece|Fira': 5 }; W.S.days = 14; W.S.picks = {}; W.S.mine = {}; W.changed();
+    W.S.cityDays = { 'Greece|Corfu': 4, 'Greece|Santorini': 3, 'Greece|Fira': 3 }; W.S.days = 10; W.S.picks = {}; W.S.mine = {}; W.changed();
     for (let i = 0; i < 60 && W.plan().days.some(d => d.loading); i++) await new Promise(r => setTimeout(r, 250));
     /* Fira is on Santorini: give it the same list, as the real ones overlap */
     const sp = W.pool('Greece', 'Santorini'); if (sp) { if (sp.lat == null) { sp.lat = 36.42; sp.lng = 25.43; } W.C.city['Greece|Fira'] = Object.assign(JSON.parse(JSON.stringify(sp)), { lat: sp.lat + 0.01 }); W.S.picks = {}; W.replan(); }

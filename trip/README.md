@@ -140,7 +140,9 @@ Checks (node test/run.js, from the folder above trip/)
                 days, closures, strenuous outings with grandparents, far pins. A failure prints the seed; FUZZ_SEED=<n>
                 replays that one trip, FUZZ=2000 runs more. The first 300 found five planner bugs (travel-day meals,
                 free time that did not stretch, lunch starting too early, short cuts on jet-lag days, seniors sent on
-                strenuous outings); 2000 now pass.
+                strenuous outings); 2000 now pass. Later runs found two more: an afternoon after a late arrival
+                that pushed the children's dinner past 7 (it now shrinks to as little as half an hour), and the way to
+                dinner measured from a stop with no pin while the clock measured it from the last one with a pin.
   vitals        speed as a mid-range Android feels it: a 390px screen, CPU slowed 4x, slow 4G. Cold start must paint
                 within 1.8 s (FCP) and its largest element within 2.5 s (LCP) with no layout shift (CLS < 0.1); then the
                 taps a traveler makes most (next day, a day pill, open and close a stop, All days, Prepare, Pack, a tick,
