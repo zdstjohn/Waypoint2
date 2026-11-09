@@ -32,7 +32,10 @@ exports.run = async t => {
       pc: !!pc, postcardFn: typeof W.postcard };
   });
   t.ok(/^Good (morning|afternoon|evening), Zach/.test(trip.line) && /in Chania/.test(trip.line), `the banner greets you and says the time there (${trip.line})`);
-  t.ok(['dawn', 'day', 'dusk', 'night'].includes(trip.sky), `the banner's sky follows the clock where you're going (${trip.sky})`);
+  t.ok(['dawn', 'day', 'dusk', 'night'].includes(trip.sky), `the banner knows the hour where you're going (${trip.sky}), for the sun or moon by the time`);
+  const bg = await pg.evaluate(() => { const top = document.querySelector('.top'), was = top.getAttribute('data-sky'), out = {};
+    ['dawn', 'day', 'dusk', 'night'].forEach(k => { top.setAttribute('data-sky', k); out[k] = getComputedStyle(top).backgroundImage; }); top.setAttribute('data-sky', was); return out; });
+  t.ok(new Set(Object.values(bg)).size === 1 && /linear-gradient/.test(bg.day), 'the banner keeps its one gradient at every hour');
   t.ok(trip.great > 0 && trip.easy > 0, `stop cards name who they suit (${trip.great} for the kids, ${trip.easy} for Joe)`);
   t.ok(!trip.pc && trip.postcardFn === 'undefined', 'no postcard above the day before the trip (removed)');
 

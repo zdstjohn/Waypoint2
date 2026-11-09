@@ -69,7 +69,7 @@ lib/              the shared library
   packing.js      the packing list and the before-you-go list, read off the plan (who is going, how you travel, what
                   the days hold, the season, the plugs); ticks, removals and your own items stay with the trip
   warm.js         the warm touches: the family by name (typed in Plan; "Great for Mila & Leo", "Easy for Joe", a kid's
-                  pick), the banner's greeting and the sky where you're going,
+                  pick), the banner's greeting and the time where you're going (one gradient at every hour),
                   milestones that cheer once (with confetti, never under reduced motion), friendlier ticks, how ready
                   you are on Prepare, a day's mood in the journal, the recap's highlight reel and "one year ago today"
   autopilot.js    the book-by list kept for the morning helper (reads your inbox, writes calendar reminders, never books),

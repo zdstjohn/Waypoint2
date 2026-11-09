@@ -258,7 +258,7 @@
     });
     if (prev !== home && home) rows += legLi(prev, home, null, true).replace('<li class="dsb-leg last">', '<li class="dsb-leg last"><span class="dsb-home">Back to ' + esc(home.label) + (T && T.back ? ", about " + esc(W.clock(T.back)) : "") + "</span>");
     var sum = [walk ? W.fmtMin(walk) + " walking" : "", ride ? W.fmtMin(ride) + " riding" : ""].filter(Boolean).join(" · ");
-    return '<section class="dsb sk" aria-label="Today, stop by stop"><div class="dsb-h"><h3>Today in ' + esc(city) + "</h3>" + (sum ? '<span class="small muted">' + esc(sum) + "</span>" : "") + "</div>" +
+    return '<section class="dsb sk" aria-label="The day, stop by stop">' + (sum ? '<p class="dsb-h small muted">' + esc(sum) + "</p>" : "") +
       '<ol class="dsb-row scroll-x">' + rows + "</ol></section>";
   }
   function routeCard(day, P, T, home, pts, gm, mapBox, zoomBtns) {
