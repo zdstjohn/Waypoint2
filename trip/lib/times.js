@@ -154,7 +154,20 @@
     if (i < 0) i = W.pickLeg ? W.pickLeg(opts, P.p || W.party()) : 0;   /* no choice made: the best way for this group */
     var o = opts[i], km = W.km(at(a), at(b));
     var mins = o && W.parseDur(o.dur);
-    return { a: a, b: b, key: key, opts: lg ? lg.opts : null, best: o || null, pick: i, min: mins || guessLeg(km), km: km, guessed: !mins };
+    /* Rome2Rio's measured journey for the same way of going beats the estimate */
+    var rr = o && lg && lg.r2r ? W.r2rFor(lg.r2r.routes, o.mode) : null;
+    if (rr) mins = rr.min;
+    return { a: a, b: b, key: key, opts: lg ? lg.opts : null, best: o || null, pick: i, min: mins || guessLeg(km), km: km, guessed: !mins, r2r: rr || null };
+  };
+  /* which Rome2Rio route is this way of going ("Fly to Seville Airport" is a flight; "Train, ferry" is mainly a train) */
+  function r2rMode(name) {
+    var n = String(name || "").toLowerCase().split(",")[0];
+    return /\bfly\b|flight|plane|airport/.test(n) ? "flight" : /ferry|boat|hydrofoil|catamaran/.test(n) ? "ferry" : /train|rail|metro|tram/.test(n) ? "train" : /bus|coach|shuttle/.test(n) ? "bus" : /drive|car|taxi/.test(n) ? "car" : "";
+  }
+  W.r2rMode = r2rMode;
+  W.r2rFor = function (routes, mode) {
+    var m = String(mode || "").toLowerCase(), want = /flight|plane|fly/.test(m) ? "flight" : /ferry|boat/.test(m) ? "ferry" : /train|rail/.test(m) ? "train" : /bus|coach/.test(m) ? "bus" : /car|drive/.test(m) ? "car" : "";
+    return want ? (routes || []).filter(function (r) { return r2rMode(r.name) === want; })[0] || null : null;
   };
 
   function up15(m) { return Math.ceil(m / 15) * 15; }
@@ -164,12 +177,20 @@
   W.dayTimes = function (day, P) {
     if (!day || !day.slots || !day.slots.length) return null;
     var p = P.p, home = W.homebase(day.country, day.city), M = meals(day.country), wd = W.weekday(day.n);
-    var kd = W.kidDinner(), out = { rows: {}, wd: wd, notes: [] };
+    var kd = W.kidDinner(), out = { rows: {}, wd: wd, notes: [] }, hol = W.dayHolidays ? W.dayHolidays(day) : [];
+    out.hol = hol;
     var t = p.kid ? hm(8) : hm(8, 30), prev = home;
     /* travel days: the journey comes first; you drop your bags at the new place and set off from there */
+    /* (with a booked ticket that has a time: you leave in time for it, a flight's check-in included, and the day picks up
+       from its arrival; a late departure leaves the morning free in the town you're leaving) */
     if (day.moveFrom && day.stop > 0) {
-      var L = W.legFor(P, day.stop), s0 = hm(9, 30);
-      out.travel = { start: s0, end: up15(s0 + L.min + 40), leg: L };
+      var L = W.legFor(P, day.stop), s0 = hm(9, 30), tk = W.legTicket ? W.legTicket(P, day.stop) : null;
+      if (tk) {
+        var lead = { flight: 150, ferry: 75, train: 45, bus: 40 }[tk.kind] || 45, after = { flight: 60, ferry: 40, train: 30, bus: 30 }[tk.kind] || 40;
+        var arr = tk.arr != null ? tk.arr : tk.dep + L.min;
+        out.travel = { start: Math.max(hm(5), tk.dep - lead), end: up15(arr + after), leg: L, ticket: tk, dep: tk.dep, arr: arr };
+        if (out.travel.start - hm(9) >= 90) out.before = { start: hm(9), end: out.travel.start - 15, city: day.moveFrom };
+      } else out.travel = { start: s0, end: up15(s0 + L.min + 40), leg: L };
       t = out.travel.end + 20;
     }
     function minStart(slot) {
@@ -205,12 +226,17 @@
       out.rows[x.slot] = row;
       if (out.travel && x.slot === "am") row.label = "After you arrive";
       if (x.slot === "breakfast" && out.travel && out.travel.end > hm(10, 30)) {
-        row.skip = true; row.start = out.travel.start - 50; row.end = out.travel.start - 15;
+        row.skip = true; row.start = out.before ? (p.kid ? hm(8) : hm(8, 30)) : out.travel.start - 50; row.end = out.before ? row.start + 40 : out.travel.start - 15;
         row.info.push("Travel morning: have breakfast before you set off");
         return;
       }
       /* the latest a slot can still start; a long journey that lands after it leaves that meal or outing out */
       var capF = { am: hm(16), lunch: hm(15), pm: hm(17, 30), dinner: p.kid ? hm(20, 30) : hm(21, 45), eve: EVE_CAP }[x.slot];
+      /* a ticket that leaves after lunchtime: lunch is in the town you're leaving, before you set off */
+      if (x.slot === "lunch" && out.travel && out.travel.dep != null && out.travel.start >= hm(12, 45)) {
+        row.skip = true; row.start = Math.max(hm(12), out.travel.start - 75); row.end = out.travel.start - 15; row.info.push("Lunch in " + day.moveFrom + " before you set off");
+        return;
+      }
       /* arriving after about two: lunch is on the way (a sit-down lunch at three is not lunch) */
       if (x.slot === "lunch" && out.travel && out.travel.end >= hm(14)) {
         row.skip = true; row.start = out.travel.start + 180; row.info.push("Travel day: lunch on the way");
@@ -242,6 +268,7 @@
       }
       if (h) {
         if (wd != null && h.closed.indexOf(wd) > -1) row.warn.push("Closed on " + WEEKDAYS[wd] + "s");
+        else if (hol.length && W.holidayShut && W.holidayShut(it, day, hol)) row.warn.push("Closed for " + hol[0].n);
         if (h.o > start && h.o < 1440) {
           if (h.o - start <= 120) { start = up15(h.o); row.info.push("Opens " + W.clock(h.o)); }
           else row.warn.push("Not open until " + W.clock(h.o));

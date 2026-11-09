@@ -45,10 +45,11 @@
   W.isExample = !s;
   if (!W.S.cityDays) W.S.cityDays = {};   /* days you set for each place */
   var c = load("waypoint-cache-v2") || {};
-  W.C = /** @type {Cache} */ ({ country: c.country || {}, city: c.city || {}, geo: c.geo || {}, area: c.area || {}, range: c.range || {}, legs: c.legs || {}, cost: c.cost || {}, tz: c.tz || {} });
+  W.C = /** @type {Cache} */ ({ country: c.country || {}, city: c.city || {}, geo: c.geo || {}, area: c.area || {}, range: c.range || {}, legs: c.legs || {}, cost: c.cost || {}, tz: c.tz || {}, events: c.events || {} });
   var lastS = null, lastV = -1;
   W.save = function () {
-    if (W.readOnly) return;   /* someone else's shared trip: look, don't keep */
+    /* someone else's shared trip: look, don't keep (planning together sends your changes to its owner instead) */
+    if (W.readOnly) { if (W.readOnly.edit && W.coPush) W.coPush(); return; }
     try { var js = JSON.stringify(W.S); if (js !== lastS) { localStorage.setItem("waypoint-v2", js); lastS = js; } } catch (e) {}
     /* the cache is big (city lists for every place); it is written only when data has arrived since the last save */
     try { if (W.dataV !== lastV) { localStorage.setItem("waypoint-cache-v2", JSON.stringify(W.C)); lastV = W.dataV; } } catch (e) {}
@@ -666,6 +667,50 @@
           return { mode: String(o.mode).toLowerCase(), from: String(o.from || ""), to: String(o.to || ""), dur: String(o.dur || ""), price: String(o.price || ""), freq: String(o.freq || ""),
             op: String(o.op || ""), url: legUrl(o.url), book: o.book === true, note: String(o.note || "") };
         }) };
+      });
+  };
+
+  /* real journey times from Rome2Rio (your connector), asked for on a tap: up to six ways to go, with how long each takes
+     door to door and who runs it. It never books anything; the app keeps the times next to Claude's options. */
+  W.checkRoutes = function (a, b) {
+    var k = W.legKey(a, b), lg = W.C.legs && W.C.legs[k], sk = "r2r|" + k;
+    if (!lg || W.status[sk] === "loading" || !W.callTool) return;
+    W.status[sk] = "loading"; W.r2rMsg = ""; changed();
+    W.callTool("Rome2Rio", "get-routes", { origin: a.name + ", " + a.country, destination: b.name + ", " + b.country }).then(function (res) {
+      var p = res && (res.payload || res.structuredContent) || res || {};
+      if (typeof p === "string") { try { p = JSON.parse(p); } catch (e) { p = {}; } }
+      var list = (Array.isArray(p.available_routes) ? p.available_routes : []).map(function (r) {
+        return { name: String(r && r.name || "").slice(0, 60), min: Math.round(+(r && r.duration)) || 0, carriers: (Array.isArray(r && r.carriers) ? r.carriers : []).slice(0, 3).map(function (c) { return String(c).slice(0, 40); }) };
+      }).filter(function (r) { return r.name && r.min > 0 && r.min < 72 * 60; }).slice(0, 6);
+      lg.r2r = { at: Date.now(), routes: list };
+      delete W.status[sk]; arrived();
+    }, function (e) { W.status[sk] = "error"; W.r2rMsg = W.mcpMsg ? W.mcpMsg(e, "Rome2Rio") : "Rome2Rio didn't answer. Try again in a minute."; changed(); });
+  };
+
+  /* regional holidays and festivals in a city for the days you're there (lib/holidays.js lays them on the days). The
+     national holidays are worked out in the app and named in the question, so Claude adds only what they miss; for a
+     country the app doesn't know, its national ones too. Asked once per city and dates; anything uncertain is left out. */
+  var EVV = 1;
+  W.loadEvents = function (country, city, from, to) {
+    if (!from || !to || W.readOnly) return;
+    var ck = W.cityKey(country, city), have = W.C.events[ck];
+    if (have && have.v === EVV && have.from <= from && have.to >= to) return;
+    var nat = W.holidaysBetween ? W.holidaysBetween(country, from, to) : [], known = W.holidaysKnown && W.holidaysKnown(country), yr = from.slice(0, 4);
+    run("events|" + ck + "|" + from + "|" + to, "Public holidays, festivals and big events in or near " + city + ", " + country + " between " + from + " and " + to + " (" + yr + "), for a family visiting then. " + who() +
+      (known ? " The national public holidays are already known" + (nat.length ? " (" + nat.map(function (h) { return h.iso + " " + h.n; }).join("; ") + ")" : " (none fall in these dates)") + ": do not repeat them. Include regional, island or city public holidays (a patron saint's day, a region's day) that fall in these dates."
+        : " Include the national public holidays that fall in these dates, and any regional or city ones.") +
+      " Also festivals, fairs, processions, parades, big sporting or music events a visiting family would notice (crowds, closed streets, higher prices) or might enjoy, with their real dates in " + yr + "." +
+      " Only what you are confident happens on these dates in " + yr + "; leave out anything uncertain. Up to 10." +
+      " For each: n = the name in English (the local name in brackets when it helps), from and to = YYYY-MM-DD (the same for one day), kind = holiday (a public holiday: shops and offices close), festival or event," +
+      " closes = true when most shops and many sights close that day, crowds = true when streets or sights get very busy, note = one short practical line for a family (what to expect, what's worth seeing, what to book)." +
+      "\nReply with JSON only: {\"events\":[{\"n\":\"\",\"from\":\"\",\"to\":\"\",\"kind\":\"festival\",\"closes\":false,\"crowds\":false,\"note\":\"\"}]}",
+      "quick", function (r) {
+        var lo = W.isoDay(new Date(new Date(from + "T12:00").getTime() - 30 * 864e5)), hi = W.isoDay(new Date(new Date(to + "T12:00").getTime() + 30 * 864e5)), D = /^\d{4}-\d{2}-\d{2}$/;
+        var items = (r && Array.isArray(r.events) ? r.events : []).filter(function (e) { return e && typeof e.n === "string" && e.n.trim() && D.test(e.from) && D.test(e.to || e.from); }).map(function (e) {
+          var f = e.from, t = e.to || e.from; if (t < f) { var x = f; f = t; t = x; }
+          return { n: e.n.trim().slice(0, 90), from: f, to: t, kind: /^(holiday|festival|event)$/.test(e.kind) ? e.kind : "event", closes: e.closes === true, crowds: e.crowds === true, note: String(e.note || "").trim().slice(0, 160) };
+        }).filter(function (e) { return e.to >= from && e.from <= to && e.from >= lo && e.to <= hi; }).slice(0, 10);
+        W.C.events[ck] = { v: EVV, from: from, to: to, items: items };
       });
   };
 

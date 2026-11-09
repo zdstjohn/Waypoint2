@@ -6,7 +6,9 @@
   /* how you're looking at a trip on this device; never synced */
   var VIEW_KEYS = ["day", "transitOpen", "stepClosed", "tripFolded", "mapZoom", "jetOpen", "late", "glanceOpen", "nextHide", "appMode", "appModeAt", "tview", "exF", "exSort", "prepTab"];
   /* yours only: never in a shared copy */
-  var PRIVATE = ["bookings", "booked", "exported", "mailSeen", "mine", "seen", "lodgeSeen", "share", "tripId"];
+  var PRIVATE = ["bookings", "booked", "exported", "mailSeen", "mine", "seen", "lodgeSeen", "share", "tripId", "shareEdit", "coSeen", "coLog", "coMine"];
+  /* can this view change the plan? your own trip, or a shared one whose owner lets you plan together (lib/together.js) */
+  W.canEdit = function () { return !W.readOnly || !!W.readOnly.edit; };
   function lget(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
   function lset(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -76,6 +78,8 @@
      and sending those would overwrite what you just changed somewhere else */
   var touched = 0;
   ["click", "change", "input"].forEach(function (ev) { document.addEventListener(ev, function (e) { if (e.isTrusted !== false) touched = Date.now(); }, true); });
+  /* a change someone planning with you made counts as one you made (you let them): it is saved and shared back */
+  W.markTouched = function () { touched = Date.now(); };
   /* a new device waits a moment for your saved ideas before asking Claude for new ones */
   function release() { W.releaseLoads(); }
   var appliedAt = 0;   /* when another device's version last replaced this one */
@@ -212,7 +216,7 @@
   /* every save: note real changes, then write them a moment later (one write per pause) */
   var tickT = null;
   W.afterSave = function () {
-    if (W.readOnly) return;
+    if (W.readOnly) { if (W.readOnly.edit && W.coPush) W.coPush(); return; }
     clearTimeout(tickT); tickT = setTimeout(tick, 1500);
   };
   function tick() {
@@ -290,7 +294,9 @@
   }
   function pushShare() {
     var code = S.share; if (!code || !db || !canWrite) return;
-    var body = { name: W.tripName(), owner: uid, legs: tripLegs(), state: sharedState(), cities: (W.P && W.P.stops || []).map(function (s) { return slugOf(W.cityKey(s.country, s.name)); }) };
+    var body = { name: W.tripName(), owner: uid, legs: tripLegs(), state: sharedState(), cities: (W.P && W.P.stops || []).map(function (s) { return slugOf(W.cityKey(s.country, s.name)); }),
+      /* planning together: whether they may change the plan, the last change taken from each of them, and who changed what */
+      edit: !!S.shareEdit, coSeen: S.coSeen || {}, log: (S.coLog || []).slice(-20) };
     var sg = hash(JSON.stringify(body)); if (shareSig[code] === sg) return;
     body.updated = Date.now();
     enqueue("share/" + code, function () { return db.doc("shared/" + code).set(clone(body)).then(function () { shareSig[code] = sg; lset("waypoint-sharesync-v1", shareSig); }); });
@@ -343,9 +349,10 @@
       if (!snap.exists) { shareMsg = "No shared trip with that code. It may have been stopped."; bar(); return; }
       var b = snap.data() || {};
       if (!W.readOnly) ro = { S: clone(S), city: W.C.city, example: W.isExample };
-      W.readOnly = { code: code, name: b.name || "Shared trip" };
+      W.readOnly = { code: code, name: b.name || "Shared trip", edit: !!b.edit && canWrite && !!uid, log: b.log || [] };
       W.C.city = Object.assign({}, ro.city);
       replaceState(b.state || {}); S.day = 1; W.isExample = false; menuOpen = false; takeLegs(b.legs);
+      if (W.coReapply) W.coReapply(b);
       rememberShare(code, b.name);
       loadSharedPools(code, b.cities);
       var lastUp = b.updated || 0;
@@ -354,7 +361,10 @@
         if (!W.readOnly || W.readOnly.code !== code) return;
         if (!s2.exists) { W.readOnly.gone = true; bar(); return; }
         var b2 = s2.data() || {};
-        if ((b2.updated || 0) > lastUp) { lastUp = b2.updated; W.readOnly.name = b2.name || W.readOnly.name; var day = S.day; replaceState(b2.state || {}); S.day = day; takeLegs(b2.legs); loadSharedPools(code, b2.cities); W.changed(); }
+        if ((b2.updated || 0) > lastUp) {
+          lastUp = b2.updated; W.readOnly.name = b2.name || W.readOnly.name; W.readOnly.edit = !!b2.edit && canWrite && !!uid; W.readOnly.log = b2.log || [];
+          var day = S.day; replaceState(b2.state || {}); S.day = day; takeLegs(b2.legs); if (W.coReapply) W.coReapply(b2); loadSharedPools(code, b2.cities); W.changed();
+        }
       }, function () {});
       W.setView("trip"); W.changed();
     }, function () { opening = false; shareMsg = "Couldn't open that trip just now. Try again."; bar(); });
@@ -398,8 +408,8 @@
     if (tl) tl.innerHTML = W.topLine ? W.topLine(W.P) : "";
     if (W.readOnly) {
       el.innerHTML = '<div class="tripbar ro-bar"><div class="trip-sw ro-sw"><span class="ts-n"><b>' + esc(W.readOnly.name) + "</b></span>" + countHtml(cd) + "</div>" +
-        '<span class="ro-note">' + (W.readOnly.gone ? "No longer shared · the last version" : "Shared trip · view only") + "</span>" +
-        '<button type="button" class="ro-back" data-sync="close">Back to my trips</button></div>';
+        '<span class="ro-note">' + (W.readOnly.gone ? "No longer shared · the last version" : W.readOnly.edit ? "Planning together · your changes go to the trip" : "Shared trip · view only") + "</span>" +
+        '<button type="button" class="ro-back" data-sync="close">Back to my trips</button></div>' + (W.readOnly.edit && !W.readOnly.gone ? coBar() : "");
       return;
     }
     var ids = Object.keys(idx).sort(function (a, b) { return (idx[b].updated || 0) - (idx[a].updated || 0); });
@@ -438,15 +448,32 @@
       else { m.style.right = "auto"; m.style.left = Math.max(8, Math.round(sr.left - tr.left)) + "px"; }
     }
   }
+  /* planning together, the other side: who you are (so the owner sees who changed what), what changed lately */
+  function coBar() {
+    var ro = /** @type {ReadOnly} */ (W.readOnly), who = W.coWho ? W.coWho() : "", names = (S.names || []).filter(Boolean), log = ro.log || [];
+    var h = '<div class="co-bar">';
+    if (!who) h += '<div class="co-who"><span class="small">Who\'s planning?</span>' + names.slice(0, 6).map(function (n) { return '<button type="button" class="chip-a" data-sync="cowho" data-name="' + esc(n) + '">' + esc(n) + "</button>"; }).join("") +
+      '<input class="field sm" id="coWhoIn" placeholder="Your name" maxlength="30" aria-label="Your name"><button type="button" class="btn quiet sm" data-sync="cowho">OK</button></div>';
+    else h += '<span class="small muted">Changing the plan as <b>' + esc(who) + '</b> · <button type="button" class="linkish small" data-sync="cowhoclear">not you?</button></span>';
+    if (ro.coErr) h += '<p class="warn small">' + esc(ro.coErr) + "</p>";
+    if (log.length && W.coLogHtml) h += W.coLogHtml(log, 3);
+    return h + "</div>";
+  }
   /* Trip settings: sharing this trip, view-only, with family */
   W.shareBlock = function () {
     if (W.readOnly) return "";
     if (!db || !uid) return '<p class="small muted">Sharing works when this page is open in the Claude app.</p>';
     if (!canWrite) return '<p class="small muted">You can view shared trips here, but your access to this page doesn\'t allow sharing.</p>';
-    if (S.share) return '<p class="small">They can view this trip (not change it) with the code</p><div class="row"><input class="field code" id="shareCode" readonly value="' + esc(S.share) + '" aria-label="Share code"><button type="button" class="btn quiet" data-sync="copy">Copy</button><button type="button" class="linkish" data-sync="unshare">Stop sharing</button></div>' +
-      '<p class="small muted">Send them this page from the Share menu at the top. They tap the trip name ▸ Open a shared trip and enter the code. Your bookings and checklist stay private.</p>';
+    if (S.share) return '<p class="small">' + (S.shareEdit ? "They can open this trip and change the plan with the code" : "They can view this trip (not change it) with the code") + "</p>" + '<div class="row"><input class="field code" id="shareCode" readonly value="' + esc(S.share) + '" aria-label="Share code"><button type="button" class="btn quiet" data-sync="copy">Copy</button><button type="button" class="linkish" data-sync="unshare">Stop sharing</button></div>' +
+      '<p class="small muted">Send them this page from the Share menu at the top. They tap the trip name ▸ Open a shared trip and enter the code. Your bookings and checklist stay private.</p>' + coShare();
     return '<p class="small muted">Family see your plan, live, and can\'t change it. Bookings stay private.</p><button type="button" class="btn quiet" data-sync="share">Share view-only</button>';
   };
+  /* planning together, your side: let them change the plan, and what they changed */
+  function coShare() {
+    return '<label class="co-tog"><input type="checkbox" data-sync="shareedit"' + (S.shareEdit ? " checked" : "") + '> <span><b>They can change the plan too</b><span class="small muted">' +
+      " Swap stops, rest days, free time and how you travel between places. Their changes show up here with their name; places to stay, dates and bookings stay yours. They need edit access to this page (Share menu) to send changes.</span></span></label>" +
+      (S.shareEdit && S.coLog && S.coLog.length && W.coLogHtml ? '<p class="small"><b>Recent changes</b></p>' + W.coLogHtml(S.coLog, 6) : "");
+  }
   /* redraw a part of the page without losing what's typed in its boxes */
   W.keepInputs = function (el, draw) {
     var vals = {}, act = document.activeElement, aid = act && el.contains(act) && act.id, sel = null;
@@ -474,6 +501,9 @@
     if (a === "delno") { delAsk = null; W.render(); return; }
     if (a === "delyes") { delAsk = null; deleteTrip(id); W.render(); return; }
     if (a === "share") { startShare(); W.render(); return; }
+    if (a === "shareedit") { S.shareEdit = !S.shareEdit; touched = Date.now(); W.changed(); pushShare(); if (W.coTick) W.coTick(); W.render(); return; }
+    if (a === "cowho") { var nm = b.dataset.name || ($("coWhoIn") || {}).value || ""; if (nm.trim() && W.coSetWho) { W.coSetWho(nm); bar(); } return; }
+    if (a === "cowhoclear") { if (W.coSetWho) W.coSetWho(""); bar(); return; }
     if (a === "unshare") { stopShare(); W.render(); return; }
     if (a === "copy") {
       var ci = $("shareCode"); if (!ci) return;

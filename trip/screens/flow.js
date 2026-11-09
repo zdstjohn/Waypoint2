@@ -232,11 +232,11 @@
       /* everything about the stop, then what you can do with it */
       h += (W.stopDetails ? W.stopDetails(P, day, x) : "") + '<div class="sh-acts">' +
         '<a class="sh-act" href="' + esc(dir) + '" target="_blank" rel="noopener"><span class="ic">' + IC.dir + "</span>Directions</a>" +
-        (W.readOnly ? "" : '<button type="button" class="sh-act" data-sheetact="swap"><span class="ic">' + IC.swap + "</span>Swap</button>" +
+        (!W.canEdit() ? "" : '<button type="button" class="sh-act" data-sheetact="swap"><span class="ic">' + IC.swap + "</span>Swap</button>" +
         '<button type="button" class="sh-act" data-sheetact="move"><span class="ic">' + IC.move + "</span>Move to another day</button>" +
         '<button type="button" class="sh-act" data-sheetact="reorder"><span class="ic">' + IC.order + "</span>Reorder today</button>" +
         '<button type="button" class="sh-act danger" data-sheetact="remove"><span class="ic">' + IC.free + "</span>Leave free</button>") +
-        "</div>" + (W.readOnly ? "" : '<p class="small muted sh-tip">Tip: press and hold a photo to swap two stops.</p>');
+        "</div>" + (!W.canEdit() ? "" : '<p class="small muted sh-tip">Tip: press and hold a photo to swap two stops.</p>');
     }
     host.innerHTML = h + "</div>";
     document.documentElement.classList.add("modal-open");
@@ -320,7 +320,7 @@
   /** @type {{ x: number; y: number; key: string; id: number; t?: ReturnType<typeof setTimeout> } | null} */ var hold = null;
   document.addEventListener("pointerdown", function (e) {
     var h = e.target.closest && e.target.closest(".slots .slot .thumb, .slots .slot > .num");
-    if (!h || W.readOnly || W.view() !== "trip" || e.button > 0) return;
+    if (!h || !W.canEdit() || W.view() !== "trip" || e.button > 0) return;
     var card = h.closest(".slot"); if (!card || !card.dataset.slotkey) return;
     if (e.pointerType !== "mouse") {
       /* press and hold: lift it, then tap where it goes */
@@ -500,7 +500,7 @@
     if (d.day && W.S.glanceOpen && b.closest(".glance")) { W.S.glanceOpen = false; }
     if ((d.step || d.day) && W.view() === "trip") toDayTop();
     /* everything else: remember the state, so a change can be undone */
-    if (b.tagName === "BUTTON" && !W.readOnly) {
+    if (b.tagName === "BUTTON" && W.canEdit()) {
       var lab = labelFor(b); if (!lab) return;
       var before = snap(), seq = ++clickSeq, done = false;
       [0, 520].forEach(function (t) { setTimeout(function () { if (!done && seq === clickSeq && snap() !== before) { done = true; W.undoPoint(before, lab); } }, t); });

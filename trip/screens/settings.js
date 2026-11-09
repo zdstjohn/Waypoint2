@@ -24,7 +24,7 @@
     if (d.sync) return;   /* sharing buttons are handled by sync.js */
     if (W.importClick && W.importClick(d)) return;
     if (W.takeItClick && W.takeItClick(d, P)) return;
-    if (W.liveClick(d, P)) { W.render(); return; }
+    if (W.liveClick && W.liveClick(d, P)) { W.render(); return; }
     if (W.watchClick && W.watchClick(d, P)) { W.render(); return; }
   };
 })();

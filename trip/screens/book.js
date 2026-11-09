@@ -370,6 +370,8 @@
       '<select class="field" id="bkKind" aria-label="Kind">' + Object.keys(KIND).map(function (k) { return '<option value="' + k + '">' + KIND[k] + "</option>"; }).join("") + "</select>" +
       '<input class="field" id="bkTitle" placeholder="What (hotel, train, tickets…)" aria-label="What">' +
       '<input class="field" id="bkDate" type="date" aria-label="Date" value="' + esc(S.start || "") + '">' +
+      '<input class="field" id="bkTime" type="time" aria-label="Time (leaves at)" title="Time (a train, ferry or flight: when it leaves)">' +
+      '<input class="field" id="bkArr" type="time" aria-label="Arrives at (for a journey)" title="Arrives at (for a journey)">' +
       '<input class="field" id="bkPrice" inputmode="decimal" placeholder="Price" aria-label="Price">' +
       '<input class="field" id="bkCur" placeholder="EUR" maxlength="3" aria-label="Currency" value="' + esc((W.C.cost[W.cityKey(P.stops[0].country, P.stops[0].name)] || {}).cur || "EUR") + '">' +
       '<input class="field" id="bkRef" placeholder="Confirmation code" aria-label="Confirmation code">' +
@@ -428,7 +430,7 @@
   };
 
   W.bookClick = function (b, d, P) {
-    if (W.liveClick(d, P)) { W.render(); return; }
+    if (W.liveClick && W.liveClick(d, P)) { W.render(); return; }
     if (W.watchClick && W.watchClick(d, P)) { W.render(); return; }
     if (W.packClick && W.packClick(d)) { W.render(); return; }
     if ((d.offcopy || d.offsave) && W.offline) { W.offline.click(d, P); W.render(); return; }
@@ -445,13 +447,16 @@
     else if (d.rmbk && !W.readOnly) { S.bookings = bookings().filter(function (x) { return x.id !== d.rmbk; }); }
     else if (d.addbk && !W.readOnly) {
       var t = $("bkTitle").value.trim(); if (!t) { $("bkTitle").focus(); return; }
-      var kind = $("bkKind").value, date = $("bkDate").value, b2 = { kind: kind, title: t.slice(0, 90), place: "", to: "", start: date, end: "", price: amount($("bkPrice").value) || 0,
+      /* a time makes a journey's ticket plan the travel day (leave in time for it, start the day from its arrival) */
+      var kind = $("bkKind").value, date = $("bkDate").value, tm = /^\d{2}:\d{2}$/.test($("bkTime").value) ? $("bkTime").value : "", ta = /^\d{2}:\d{2}$/.test($("bkArr").value) ? $("bkArr").value : "";
+      var endDay = date && ta && tm && ta < tm ? W.isoDay(new Date(new Date(date + "T12:00").getTime() + 864e5)) : date;
+      var b2 = { kind: kind, title: t.slice(0, 90), place: "", to: "", start: date && tm ? date + "T" + tm : date, end: date && ta ? endDay + "T" + ta : "", price: amount($("bkPrice").value) || 0,
         cur: ($("bkCur").value || "EUR").toUpperCase().slice(0, 3), ref: $("bkRef").value.trim().slice(0, 40), provider: "", what: "", url: "", src: "hand" };
       b2.id = "h-" + Date.now().toString(36);
       var dn = W.dayOfDate(date), dd = dn && P.days[dn - 1];
       if (dd && kind === "lodging") b2.place = dd.city;
       bookings().push(b2); addOpen = true;
-      ["bkTitle", "bkPrice", "bkRef"].forEach(function (id) { $(id).value = ""; });
+      ["bkTitle", "bkPrice", "bkRef", "bkTime", "bkArr"].forEach(function (id) { $(id).value = ""; });
     }
     else if (d.cal) { calConfirm = true; cal = { state: "idle" }; }
     else if (d.calno) calConfirm = false;

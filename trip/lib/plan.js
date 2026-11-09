@@ -215,6 +215,7 @@
     }
     /* shut that day of the week */
     if (item.hours && ctx.wd != null && item.hours.closed.indexOf(ctx.wd) > -1) return null;
+    if (ctx.hol && ctx.hol.length && ctx.sun && item.hours && item.hours.closed.indexOf(0) > -1) return null;   /* a public holiday keeps Sunday hours */
     if (W.shutBy(item.hours, slot)) return null;   /* already shut by then (a museum for the evening) */
     /* with children where locals dine late: dinner places that open early win */
     var early = 0, h = item.hours;
@@ -307,7 +308,7 @@
     try { T = W.dayTimes(day, CUR || { p: p, stops: [], days: [] }); } catch (e) { T = null; }
     if (T) { var before = null; (T.order || []).some(function (sl) { if (sl === x.slot) return true; var R = T.rows[sl]; if (R && R.end && !R.skip) before = R.end; return false; }); at = before; if (x.slot === "pm" && T.nap) at = Math.max(at || 0, T.nap.end); }
     var M = W.mealsFor ? W.mealsFor(day.country) : null;
-    return { home: home, prev: prev, pts: pts, geo: geo, allowFull: allowFull, light: !!(day.tripFirst || day.moveFrom || day.tripLast || day.jet), wd: W.weekday(day.n), kd: W.kidDinner(), jet: !!day.jet, rest: !!day.rest,
+    return { home: home, prev: prev, pts: pts, geo: geo, allowFull: allowFull, light: !!(day.tripFirst || day.moveFrom || day.tripLast || day.jet), wd: W.weekday(day.n), hol: W.dayHolidays ? W.dayHolidays(day) : [], sun: W.holidaySunday ? W.holidaySunday(day.country) : true, kd: W.kidDinner(), jet: !!day.jet, rest: !!day.rest,
       big: big, at: at, lunchAt: M ? (p.kid ? Math.max(12 * 60, M[0] - 60) : M[0]) : 12 * 60 + 30, dinnerAt: W.kidDinner() || (M ? M[1] : 19 * 60), eveCap: p.toddler ? 20 * 60 : p.kid ? 20 * 60 + 45 : 22 * 60 + 30,
       hot: mo >= 5 && mo <= 8 && /Greece|Italy|Spain|Portugal|Turkey|Croatia|Afghanistan|Egypt|Morocco/.test(day.country) };
   }
@@ -396,7 +397,7 @@
           var pl = dayPool(d, x, s), nm = S.picks[x.key], list = W.isFood(x.slot) ? pl.pool.food || [] : pl.pool.spots || [];
           var it = nm && byName(list, nm);
           /* a pick the planner made (not you) that turns out to be shut that day, or a dinner that opens too late for the kids, is replanned */
-          if (it && !mine()[x.key] && W.badForDay(it, W.weekday(d.n), x.slot, W.kidDinner())) it = null;
+          if (it && !mine()[x.key] && (W.badForDay(it, W.weekday(d.n), x.slot, W.kidDinner()) || (W.holidayShut && W.holidayShut(it, d)))) it = null;
           /* a place you chose yourself stays even if an earlier stop had it; one the planner chose doesn't */
           if (it && (mine()[x.key] ? !usedHere(used, it) : !isUsed(used, it))) { x.item = it; mark(used, it, x.key); }
         });
@@ -577,7 +578,7 @@
       it = choose(pool, slot, u, W.S.seen[k], ctx, W.party(), true);
       if (!it) {
         /* nothing else nearby yet: allow a little farther, but never across the region */
-        var wide = { home: ctx.home, prev: ctx.prev, pts: ctx.pts, geo: { med: ctx.geo.med, R: ctx.geo.R * 2 }, allowFull: ctx.allowFull, light: ctx.light, wd: ctx.wd, kd: ctx.kd, jet: ctx.jet, rest: ctx.rest };
+        var wide = { home: ctx.home, prev: ctx.prev, pts: ctx.pts, geo: { med: ctx.geo.med, R: ctx.geo.R * 2 }, allowFull: ctx.allowFull, light: ctx.light, wd: ctx.wd, hol: ctx.hol, sun: ctx.sun, kd: ctx.kd, jet: ctx.jet, rest: ctx.rest };
         it = choose(pool, slot, u, W.S.seen[k], wide, W.party(), true);
       }
     }
@@ -616,7 +617,7 @@
       var list = W.isFood(x.slot) ? pl.pool.food || [] : pl.pool.spots || []; /** @type {Spot | Food | null} */ var best = null; var bs = -1e9;
       for (var i = 0; i < list.length; i++) {
         var it = list[i], k = W.norm(it.n); if (avoid[k] || !filter(it)) continue;
-        if (W.badForDay(it, W.weekday(day.n), x.slot, W.kidDinner())) continue;
+        if (W.badForDay(it, W.weekday(day.n), x.slot, W.kidDinner()) || (W.holidayShut && W.holidayShut(it, day))) continue;
         var sc = score(it, i, list.length, x.slot, cx, p, false); if (sc == null) sc = score(it, i, list.length, x.slot, cx, p, true);
         if (sc != null && sc > bs) { bs = sc; best = it; }
       }

@@ -87,14 +87,19 @@
     var L = W.legFor(P, day.stop); if (!L) return "";
     W.loadLeg(L.a, L.b);
     var tr = T && T.travel, busy = W.legBusy(L.a, L.b);
+    var tk = tr && tr.ticket;
     var h = '<section class="legcard sk"><div class="legcard-h"><h3>Getting here from ' + esc(L.a.name) + "</h3>" +
-      (tr ? '<span class="small muted">' + W.clock(tr.start) + "–" + W.clock(tr.end) + (L.guessed ? " (rough)" : "") + "</span>" : "") + "</div>";
+      (tr ? '<span class="small muted">' + W.clock(tr.start) + "–" + W.clock(tr.end) + (L.guessed && !tk ? " (rough)" : "") + "</span>" : "") + "</div>";
+    /* your ticket, when one is booked with a time: the day is planned around it */
+    if (tk) h += '<p class="leg-tk"><b>Your ' + esc((W.modeName(tk.kind) || "ticket").toLowerCase()) + "</b> " + esc(W.clock(tk.dep) + (tr.arr != null ? "–" + W.clock(tr.arr % 1440) + (tr.arr >= 1440 ? " next day" : "") : "")) +
+      (tk.title ? " · " + esc(tk.title) : "") + (tk.ref ? ' <span class="muted">· ' + esc(tk.ref) + "</span>" : "") +
+      '<span class="small muted"> Leave by ' + W.clock(tr.start) + (tk.kind === "flight" ? " for check-in" : "") + (T.before ? "; the morning is yours in " + esc(L.a.name) + " (check out first)" : "") + ".</span></p>";
     if (L.opts && L.opts.length) {
       /* one row per way to go; the one you're taking opens up with where to book it */
       h += '<div class="legopts" role="radiogroup" aria-label="How you\'ll get here">' + L.opts.map(function (o, i) {
         var sel = i === L.pick, fy = W.isFerry(o.mode), fl = /flight|plane/.test(o.mode), host = o.url && hostOf(o.url);
-        var head = '<button type="button" class="lo-h" role="radio" aria-checked="' + sel + '"' + (sel || W.readOnly ? ' tabindex="' + (sel ? 0 : -1) + '"' : "") +
-          (W.readOnly ? " disabled" : ' data-legpick="' + i + '" data-legkey="' + esc(L.key) + '"') + ">" +
+        var ro = !W.canEdit(), head = '<button type="button" class="lo-h" role="radio" aria-checked="' + sel + '"' + (sel || ro ? ' tabindex="' + (sel ? 0 : -1) + '"' : "") +
+          (ro ? " disabled" : ' data-legpick="' + i + '" data-legkey="' + esc(L.key) + '"') + ">" +
           '<span class="lo-dot" aria-hidden="true"></span>' + modeIcon(o.mode) +
           '<span class="lo-n"><b>' + esc(W.modeName(o.mode)) + "</b>" + (o.op ? '<span> ' + esc(o.op) + "</span>" : "") + "</span>" +
           '<span class="lo-m">' + esc([o.dur, o.price].filter(Boolean).join(" · ")) + "</span></button>";
@@ -109,7 +114,17 @@
           (book || extra ? '<div class="lo-act">' + book + extra + "</div>" : "") +
           (o.note ? '<p class="small muted">' + esc(o.note) + "</p>" : "") + "</div></div>";
       }).join("") + "</div>";
-    } else if (busy) h += '<div class="loading">Finding trains, ferries and flights…</div>';
+    }
+    /* Rome2Rio's real journey times, on a tap (it asks your permission the first time) */
+    if (L.opts && L.opts.length && !W.readOnly && !tk) {
+      var lgc = W.C.legs[L.key] || {}, rs = W.status["r2r|" + L.key];
+      if (lgc.r2r && lgc.r2r.routes.length) h += '<p class="small muted lo-r2r">Rome2Rio: ' + lgc.r2r.routes.slice(0, 4).map(function (r) { return esc(r.name + " " + W.fmtMin(r.min) + (r.carriers.length ? " (" + r.carriers.slice(0, 2).join(", ") + ")" : "")); }).join(" · ") + (L.r2r ? " · the plan uses " + esc(W.fmtMin(L.r2r.min)) : "") + "</p>";
+      else if (lgc.r2r) h += '<p class="small muted lo-r2r">Rome2Rio has no routes for this journey.</p>';
+      else if (rs === "loading") h += '<p class="loading small lo-r2r">Asking Rome2Rio…</p>';
+      else h += '<p class="lo-r2r">' + (rs === "error" && W.r2rMsg ? '<span class="warn small">' + esc(W.r2rMsg) + "</span> " : "") + '<button type="button" class="linkish small" data-r2r="' + esc(L.key) + '">Check real journey times (Rome2Rio)</button></p>';
+    }
+    if (L.opts && L.opts.length) { /* (the options are above) */ }
+    else if (busy) h += '<div class="loading">Finding trains, ferries and flights…</div>';
     else if (W.sampleState !== "on") h += '<p class="small muted">' + esc(W.betweenCities(L.km)) + ". " + link(W.gmapsDir(W.stopAt(L.a), { n: L.b.name + ", " + L.b.country, lat: null }, "transit"), "Directions") + "</p>";
     return h + "</section>";
   }
@@ -184,7 +199,7 @@
   }
   /* the end of the day: where you sleep, and making it a rest day */
   function dayEnd(day, P, home, geoBusy) {
-    var rk = W.restKey(day), canRest = !(W.readOnly || day.tripFirst || day.moveFrom || day.tripLast);
+    var rk = W.restKey(day), canRest = !(!W.canEdit() || day.tripFirst || day.moveFrom || day.tripLast);
     return '<div class="day-end sk"><span class="de-i" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 15.5v-9M2.5 12.5h15v3M17.5 12.5v-2a2.5 2.5 0 0 0-2.5-2.5H9v4.5"/><circle cx="5.8" cy="9.8" r="1.6"/></svg></span>' +
       '<div><span class="small muted">Staying at</span><b>' + esc(home.label) + "</b>" + (geoBusy ? '<span class="small muted">locating…</span>' : "") + "</div>" +
       '<div class="de-a">' + (W.readOnly ? "" : '<button type="button" class="chip-a' + (home.set ? "" : " pri") + '" data-gostay="' + day.stop + '">' + (home.set ? "Change" : "Pick a place") + "</button>") +
@@ -343,6 +358,8 @@
     if (xp) h += '<div class="day-h ex-h"><div class="grow"><h2>' + (target === "explore" ? "Explore " : "") + esc(day.city) + '</h2><div class="sub">' + sub.join(" · ") + "</div></div></div>";
     else h += '<div class="day-h"><div class="grow"><h2>' + esc(day.city) + '</h2><div class="sub">' + sub.join(" · ") + dayLevel(day, P) + "</div>" +
       (W.isExample ? '<div class="small muted">Example trip · change anything under <a href="#plan" data-view="setup">Plan</a></div>' : "") + "</div></div>";
+    /* a public holiday or a festival on this day */
+    if (!xp && W.holidayLine) h += W.holidayLine(day);
     if (day.farthest > 40 && !day.loading && !day.trip) {
       var mins = Math.round(day.farthest / 60 * 60 + 10);
       h += '<p class="scribble">' + (day.fullDay ? "day trip: about " : "far from your lodging today: about ") + esc(W.fmtMin(mins)) + " each way by car. Staying closer to this area would cut the drive.</p>";
@@ -422,12 +439,12 @@
               '<span class="sl-l">' + tm + '<b class="nm">' + esc(it.n) + "</b></span>" +
               '<span class="when">' + label + (legTag ? " · " + legTag : "") + "</span></button>" +
               (notes ? '<div class="slot-notes">' + notes + "</div>" : "") + "</div>" +
-              '<div class="slim-a">' + booked + menuLink(it, day.city) + (W.readOnly ? "" : rr) + "</div></article>";
+              '<div class="slim-a">' + booked + menuLink(it, day.city) + (W.canEdit() ? rr : "") + "</div></article>";
           } else {
             list += '<article class="slot sk' + (R && R.skip ? " skipped" : "") + '" data-slotkey="' + esc(x.key) + '">' + (ph ? '<div class="thumb">' + ph + '<span class="num">' + num + "</span></div>" : '<span class="num">' + num + "</span>") +
               '<div class="slot-body"><button type="button" class="slot-toggle" data-open="' + esc(x.key) + '" aria-haspopup="dialog">' +
               '<span class="when">' + tm + label + stayChip(it, food, x.slot) + '</span><span class="nm">' + esc(it.n) + '</span><span class="desc">' + esc(it.d) + "</span>" + glance + "</button>" +
-              (main || booked ? '<div class="slot-act">' + booked + main + "</div>" : "") + (notes || legTag ? '<div class="slot-notes">' + legTag + notes + "</div>" : "") + "</div>" + (W.readOnly ? "" : '<div class="slot-btns">' + rr + "</div>") + "</article>";
+              (main || booked ? '<div class="slot-act">' + booked + main + "</div>" : "") + (notes || legTag ? '<div class="slot-notes">' + legTag + notes + "</div>" : "") + "</div>" + (!W.canEdit() ? "" : '<div class="slot-btns">' + rr + "</div>") + "</article>";
           }
         } else if (R && R.skip && !swap) {
           /* no time for anything here today (a long journey): nothing to show, except a note like "breakfast before you set off" */
@@ -436,7 +453,7 @@
           list += '<div class="slot sk skel' + (food ? " food" : "") + '" aria-hidden="true"><span class="thumb"></span><span class="sl-b"><i></i><i></i><i></i></span></div>';
         } else {
           list += '<article class="slot sk free slim' + (food ? " food" : "") + '" data-slotkey="' + esc(x.key) + '"><span class="num" style="background:var(--soft)"></span><div class="slot-body"><span class="sl-l">' + tm + '<span class="nm muted">' + (x.rest ? "Rest, pool or playground" : x.free ? "Left free" : "Free time") + '</span></span><span class="when">' + esc(label) + (x.free && !W.readOnly ? " · swap to add something" : "") + "</span>" +
-            "</div>" + (W.readOnly || x.rest ? "" : '<div class="slim-a">' + rr + "</div>") + "</article>";
+            "</div>" + (!W.canEdit() || x.rest ? "" : '<div class="slim-a">' + rr + "</div>") + "</article>";
         }
         if (swap) list += swapPanel(day, x, P);
         if (x.slot === "lunch" && P.p.toddler && T && T.nap) list += '<div class="travel-note nap">' + (T && T.nap ? '<b class="tm">' + W.clock(T.nap.start) + "–" + W.clock(T.nap.end) + "</b> " : "") + (T.nap.away ? "Nap in the stroller or the car: you're out in " + esc(day.trip ? day.trip.name : day.city) + " for the day" : "Nap or rest break back at " + esc(home.label)) + "</div>";
@@ -576,7 +593,9 @@
   /* ---------- controller ---------- */
   W.render = function () {
     if (W.readOnly && (view === "setup" || view === "settings")) view = "trip";   /* a shared trip is view only */
-    document.documentElement.classList.toggle("ro", !!W.readOnly);
+    /* a shared trip: view only ("ro"), or planning together ("co": the plan's controls, not the trip's setup) */
+    document.documentElement.classList.toggle("ro", !!W.readOnly && !W.readOnly.edit);
+    document.documentElement.classList.toggle("co", !!(W.readOnly && W.readOnly.edit));
     var P = W.P = W.plan();
     /* travel mode: while the trip is on (or when you pick it), Today replaces Plan */
     var travel = W.travelOn ? W.travelOn(P) : false;
@@ -591,6 +610,7 @@
     if (W.renderBar) W.renderBar(P);
     if (W.renderNext) W.renderNext(P);
     if (W.autoTick) W.autoTick(P);
+    if (W.eventsTick) W.eventsTick(P);
     if (W.offline) W.offline.tick(P);
     if (W.warmTick) W.warmTick(P);
     /* Prepare, the kids' corner, the recap and settings live in the second script: until it has come, a moment's "Loading…" */
@@ -615,7 +635,9 @@
     var b = e.target.closest("button"); if (!b || b.closest("#tripbar")) return;
     var d = b.dataset, P = W.P;
     /* a shared trip: look around, change nothing */
-    if (W.readOnly && !(d.day || d.step || d.tab || d.showall || d.foldtrip || d.open || d.zoom || d.ro || d.late || d.heart || d.comment || d.exf || d.psearch)) return;
+    /* a shared trip: looking around only; planning together adds swapping stops, rest days, free time and the way you travel */
+    var coOk = W.readOnly && W.readOnly.edit && (d.reroll || d.next || d.use || d.swapall || d.rest || d.free || d.legpick || d.sheetact || d.r2r || d.undo);
+    if (W.readOnly && !coOk && !(d.day || d.step || d.tab || d.showall || d.foldtrip || d.open || d.zoom || d.ro || d.late || d.heart || d.comment || d.exf || d.psearch)) return;
     if (!W.readOnly) W.isExample = false;
     /* family: hearts and comments (a comment opens claude.ai's composer on this card, so nothing redraws) */
     if (d.comment) { if (W.familyClick) W.familyClick(b, d); return; }
@@ -673,13 +695,14 @@
     /* "Add a place of your own" on the day: Explore, with the search ready */
     else if (d.addplace) { S.tview = "map"; W.render(); var q0 = document.getElementById("placeQ"); if (q0) { q0.scrollIntoView({ block: "center" }); q0.focus(); } return; }
     else if (W.searchClick && W.searchClick(d, day, P)) { if (d.psearch || d.padd) W.fxAfter(function () { var r = document.querySelector(".psearch"); if (r && r.getBoundingClientRect().top < 0) r.scrollIntoView({ block: "start" }); }); }
+    else if (d.r2r) { var ls = W.legFor(P, day.stop); if (ls && ls.key === d.r2r) W.checkRoutes(ls.a, ls.b); else { var lp2 = P.stops.findIndex(function (s, i) { return i && W.legKey(P.stops[i - 1], s) === d.r2r; }); if (lp2 > 0) W.checkRoutes(P.stops[lp2 - 1], P.stops[lp2]); } }
     else if (d.legpick != null && d.legkey) { var lp = S.legPick || (S.legPick = {}), lgo = (W.C.legs[d.legkey] || {}).opts || [], pk = lgo[+d.legpick]; if (!pk) return; lp[d.legkey] = W.legSig(pk); W.fxAfter(function () { var e = document.querySelector(".lo.sel .lo-d"); if (e) W.fxExpand(e, { reveal: false }); }); }
     else if (d.late != null) W.lateClick(d);
     else if ((d.offsave || d.offcopy) && W.offline) W.offline.click(d, P);
     else if (d.rescue) { var rd = P.days[(S.day || 1) - 1]; if (rd && W.rescue) { W.rescue(rd, P, d.rescue); W.fxAfter(function () { W.fxStagger(".go-tl li", { step: 30 }); }); } }
     else if (d.unrescue) { var ud = P.days[(S.day || 1) - 1]; if (ud && W.unrescue) W.unrescue(ud); }
     else if (d.jdel != null && W.journalClick) W.journalClick(d);
-    else if (d.live || d.livepick != null || d.site) W.liveClick(d, P);
+    else if ((d.live || d.livepick != null || d.site) && W.liveClick) W.liveClick(d, P);
     else if (d.rest) { var rs = S.rest || (S.rest = {}); if (rs[d.rest]) delete rs[d.rest]; else rs[d.rest] = 1; W.fxAfter(function () { W.fxStagger(".slots > .slot", { step: 30 }); }); }
     else if (d.more) { var mk = W.cityKey(day.country, day.city); ["spots|", "food|"].forEach(function (p) { if (W.status[p + mk] !== "loading") delete W.status[p + mk]; }); W.loadCity(day.country, day.city, true); }
     else if (d.retry) { var rk = W.cityKey(day.country, day.city); ["spots|", "food|"].forEach(function (p) { delete W.status[p + rk]; delete W.status[p + rk + "|b"]; }); W.loadCity(day.country, day.city); }

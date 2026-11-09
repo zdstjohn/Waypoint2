@@ -41,7 +41,11 @@ interface TripState { v: 2; algo?: number; tripId?: string; tripName?: string; s
 interface Booking { key?: string; kind: string; title?: string; day?: number; [k: string]: any }
 interface Costs { ages: string; cur?: string; breakfast?: number | null; lunch?: number | null; dinner?: number | null; transit?: number | null; lodge?: number | null; tickets: Record<string, number | null> }
 interface Cache { country: Record<string, { blurb: string; cities: BuiltCity[] }>; city: Record<string, Pool>; geo: Record<string, LatLng & { area?: string }>;
-  range: Record<string, { s?: number; r?: number; sig: string }>; legs?: Record<string, any>; cost: Record<string, Costs>; tz: Record<string, string>; live?: any; area: Record<string, any> }
+  range: Record<string, { s?: number; r?: number; sig: string }>; legs?: Record<string, any>; cost: Record<string, Costs>; tz: Record<string, string>; live?: any; area: Record<string, any>;
+  /** holidays and festivals from Claude per city, for the dates asked about (lib/holidays.js) */
+  events: Record<string, { v: number; from: string; to: string; items: CityEvent[] }> }
+interface CityEvent { n: string; from: string; to: string; kind: string; closes: boolean; crowds: boolean; note: string }
+interface Holiday { n: string; big: number; src: string; note?: string; custom?: boolean }
 interface Party { toddler: boolean; kid: boolean; senior: boolean; adults: number; kids: number[] }
 interface Traveler { name: string; age: number | null; i: number }
 /** a base of the trip */
@@ -55,7 +59,14 @@ interface Homebase extends LatLng { label: string; set: boolean; pending?: boole
 interface Profile { act?: string; min: number; intensity: number; indoor?: boolean; weather?: boolean; adults?: boolean; slots: string[] }
 interface Classification { kind: string; act: string | null; min: number; intensity: number; indoor: boolean; weather: boolean; adults: boolean; slots: string[]; stroller?: boolean }
 interface TimeRow { start?: number; end?: number; skip?: boolean; late?: boolean; free?: boolean; label?: string; warn: string[]; info: string[] }
-interface DayTimes { rows: Partial<Record<Slot, TimeRow>>; nap?: { start: number; end: number; away?: boolean } | null; travel?: { start: number; end: number; leg?: Leg | null } | null; [k: string]: any }
+/** a booked journey with a time (lib/bookcore.js W.legTicket): minutes from midnight; an arrival the next day is past 1440 */
+interface Ticket { kind: string; title: string; provider: string; ref: string; dep: number; arr: number | null }
+/** one way of going, as Rome2Rio measured it (minutes door to door) */
+interface R2RRoute { name: string; min: number; carriers: string[] }
+interface DayTimes { rows: Partial<Record<Slot, TimeRow>>; nap?: { start: number; end: number; away?: boolean } | null;
+  travel?: { start: number; end: number; leg?: Leg | null; ticket?: Ticket; dep?: number; arr?: number } | null;
+  /** a free morning in the town you're leaving before a booked late departure */
+  before?: { start: number; end: number; city: string } | null; [k: string]: any }
 interface Leg { min: number; mode: string; km?: number; [k: string]: any }
 interface Energy { level: number; label: string; walk: number; act: number; travel: number; score: number; big: number }
 interface Countdown { big: string; small: string; line: string }
@@ -236,6 +247,36 @@ interface Waypoint {
   leg: (a: LatLng | null | undefined, b: LatLng | null | undefined) => Leg | null;
   legBusy: any;
   legFor: any;
+  legTicket: (P: Plan, si: number) => Ticket | null;
+  loadEvents: (country: string, city: string, from: string, to: string) => void;
+  easter: (y: number) => string;
+  orthodoxEaster: (y: number) => string;
+  holidayCountries: string[];
+  holidaysKnown: (country: string) => boolean;
+  holidaySunday: (country: string) => boolean;
+  holidaysOn: (country: string, iso: string) => Holiday[];
+  holidaysBetween: (country: string, from: string, to: string) => { iso: string; n: string; big: number }[];
+  dayHolidays: (day: Day) => Holiday[];
+  dayEvents: (day: Day) => CityEvent[];
+  holidayShut: (it: any, day: Day, hol?: Holiday[]) => boolean;
+  holidayLine: (day: Day) => string;
+  eventsTick: (P: Plan) => void;
+  /** your own trip, or a shared one whose owner lets you plan together */
+  canEdit: () => boolean;
+  markTouched: () => void;
+  /* planning together (lib/together.js) */
+  coPush: () => void;
+  coReapply: (body: any) => void;
+  coWho: (code?: string) => string;
+  coSetWho: (name: string) => void;
+  coDescribe: (f: string, key: string, v: any) => string;
+  coLogHtml: (list: { who: string; at: number; t: string }[], n?: number) => string;
+  coTick: () => void;
+  /** asks Rome2Rio (your connector) for real journey times between two stops, on a tap */
+  checkRoutes: (a: any, b: any) => void;
+  r2rMsg: string;
+  r2rMode: (name: string) => string;
+  r2rFor: (routes: R2RRoute[] | undefined, mode: string) => R2RRoute | null;
   legKey: any;
   legMinutes: any;
   legSig: any;

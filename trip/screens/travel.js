@@ -47,9 +47,9 @@
   }
   /* ======================= the day, in order ======================= */
   function entries(day, T) {
-    /** @type {{ k: string; start: number; end: number; x?: SlotEntry; R?: TimeRow; leg?: Leg | null; away?: boolean; food?: boolean; i?: number }[]} */
+    /** @type {{ k: string; start: number; end: number; x?: SlotEntry; R?: TimeRow; leg?: Leg | null; away?: boolean; food?: boolean; i?: number; tk?: Ticket | null; dep?: number; arr?: number }[]} */
     var out = []; if (!T) return out;
-    if (T.travel) out.push({ k: "travel", start: T.travel.start, end: T.travel.end, leg: T.travel.leg });
+    if (T.travel) out.push({ k: "travel", start: T.travel.start, end: T.travel.end, leg: T.travel.leg, tk: T.travel.ticket || null, dep: T.travel.dep, arr: T.travel.arr });
     (T.order || []).forEach(function (sl) {
       var x = day.slots.filter(function (y) { return y.slot === sl; })[0], R = T.rows[sl];
       if (!x || !R || R.skip || R.start == null) return;
@@ -86,6 +86,7 @@
       '<span class="muted">' + esc([fmt(W.dateOf(n), { weekday: "long", month: "short", day: "numeric" }), live ? W.clock(nm) : ""].filter(Boolean).join(" · ")) + "</span></div>" +
       '<button type="button" class="icon-btn" data-goprev="' + (b ? b.n : "") + '"' + (b ? "" : " disabled") + ' aria-label="Next day">' + IC.chevR + "</button></div>";
     if (tn && !live) h += '<button type="button" class="linkish go-back" data-gotoday="1">← Back to today</button>';
+    if (W.holidayLine) h += W.holidayLine(day);
     if (!tn && !goN) h += '<p class="small muted go-pre">' + (W.S.start ? "Your trip hasn't started yet. This is how each day will look while you're there." : "Add your travel dates and this screen follows the clock while you travel.") + "</p>";
 
     if (!T) {
@@ -135,7 +136,7 @@
       }
       if (e.k === "nap") return '<li class="tl-nap' + st + '"><span class="t">' + W.clock(e.start) + '</span><span class="dot" aria-hidden="true"></span><div class="tl-b"><b>' + (e.away ? "Nap in the stroller or the car" : "Nap or rest") + '</b><span class="muted">' + (e.away ? "out for the day" : "at " + esc(home.label)) + " · until " + W.clock(e.end) + "</span></div></li>";
       if (e.k === "rest") return '<li class="tl-nap' + st + '"><span class="t">' + W.clock(e.start) + '</span><span class="dot" aria-hidden="true"></span><div class="tl-b"><b>Rest time</b><span class="muted">pool or playground near ' + esc(home.label) + "</span></div></li>";
-      if (e.k === "travel") return '<li class="tl-trav' + st + '"><span class="t">' + W.clock(e.start) + '</span><span class="dot" aria-hidden="true"></span><div class="tl-b"><b>' + esc(day.moveFrom + " → " + day.city) + '</b><span class="muted">' + esc(travelLine(e.leg)) + "</span></div></li>";
+      if (e.k === "travel") return '<li class="tl-trav' + st + '"><span class="t">' + W.clock(e.start) + '</span><span class="dot" aria-hidden="true"></span><div class="tl-b"><b>' + esc(day.moveFrom + " → " + day.city) + '</b><span class="muted">' + esc(travelLine(e.leg, e)) + "</span></div></li>";
       return '<li class="tl-back' + st + '"><span class="t">' + W.clock(e.start) + '</span><span class="dot" aria-hidden="true"></span><div class="tl-b"><b>Back at ' + esc(home.label) + "</b></div></li>";
     }).join("") + "</ol></section>";
 
@@ -156,7 +157,7 @@
       var tT = tom.slots && tom.slots.length ? W.dayTimes(tom, P) : null, tl = entries(tom, tT), first = tl.filter(function (e) { return e.k === "stop" && !e.food; })[0];
       h += '<div class="ge-row"><span class="gt-i">' + (tom.moveFrom ? IC.train : IC.moon) + '</span><div><span class="small muted">Tomorrow · Day ' + tom.n + "</span><b>" +
         esc(tom.moveFrom ? tom.moveFrom + " → " + tom.city : tom.city) + '</b><span class="small muted">' +
-        esc(tom.moveFrom ? travelLine(tT && tT.travel ? tT.travel.leg : null) + (tT && tT.travel ? " · leave about " + W.clock(tT.travel.start) : "") : first ? W.clock(first.start) + " " + first.x.item.n : "") + "</span></div>" +
+        esc(tom.moveFrom ? travelLine(tT && tT.travel ? tT.travel.leg : null, tT && tT.travel ? { tk: tT.travel.ticket, arr: tT.travel.arr } : null) + (tT && tT.travel ? (tT.travel.ticket ? " · leave by " : " · leave about ") + W.clock(tT.travel.start) : "") : first ? W.clock(first.start) + " " + first.x.item.n : "") + "</span></div>" +
         '<button type="button" class="chip-a" data-goprev="' + tom.n + '">See it</button></div>';
     }
     h += "</section>";
@@ -167,9 +168,12 @@
     h += '<p class="small muted go-foot">' + (tn ? 'While the trip is on, the app opens here. <button type="button" class="linkish" data-appmode="plan">Open on Trip instead</button>' : "") + "</p>";
     el.innerHTML = '<div class="go">' + h + "</div>";
   };
-  function travelLine(L) {
+  /* the journey in a line: your ticket when one is booked with a time, else the way you chose */
+  function travelLine(L, e) {
+    var tk = e && e.tk;
+    if (tk) return [W.modeName(tk.kind), W.clock(tk.dep) + (e.arr != null ? "–" + W.clock(e.arr % 1440) : ""), tk.title].filter(Boolean).join(" · ");
     var o = L && L.best;
-    return o ? [W.modeName(o.mode), o.dur, o.op].filter(Boolean).join(" · ") : "Travel to the next stop";
+    return o ? [W.modeName(o.mode), L.r2r ? W.fmtMin(L.r2r.min) : o.dur, o.op].filter(Boolean).join(" · ") : "Travel to the next stop";
   }
   function heroCard(e, isNow, day, P, from, live, nm, home) {
     if (e.k === "nap" && e.away) {
@@ -186,7 +190,8 @@
     }
     if (e.k === "travel") {
       return '<section class="go-hero sk"><div class="gh-b"><span class="gh-k now">' + (isNow ? "On the way" : "Travel day") + "</span><h2>" + esc(day.moveFrom + " → " + day.city) + "</h2>" +
-        '<p class="muted">' + esc(travelLine(e.leg)) + "</p>" +
+        '<p class="muted">' + esc(travelLine(e.leg, e)) + "</p>" +
+        (!isNow && live && e.tk ? '<p class="leave' + (e.start - nm <= 10 ? " soon" : "") + '">' + (e.start - nm <= 0 ? "Time to go" : e.start - nm <= 90 ? "Leave in " + W.fmtMin(Math.max(5, Math.round((e.start - nm) / 5) * 5)) : "Leave by " + W.clock(e.start)) + ' <span class="muted">· ' + esc(W.modeName(e.tk.kind).toLowerCase() + " at " + W.clock(e.tk.dep)) + "</span></p>" : "") +
         '<div class="gh-act"><button type="button" class="btn quiet" data-gobook="' + esc("leg|" + W.legKey(e.leg.a, e.leg.b)) + '">Tickets and times</button></div></div></section>';
     }
     var it = e.x.item, food = e.food, ph = W.picture(it, food, day.country, day.city, { credit: true });

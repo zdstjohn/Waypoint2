@@ -47,7 +47,7 @@
       "<span>" + (geoBusy ? "Locating…" : hb.set ? "<b>" + esc(hb.label) + "</b>" : "Where to stay") + "</span>" + CHEV + "</button>" +
       (j > 0 ? '<button type="button" class="icon-btn" data-up="' + j + '" data-ci="' + ci + '" aria-label="Visit ' + esc(s.name) + ' earlier">' + UP_ICON + "</button>" : "") +
       '<button type="button" class="icon-btn" data-rmstop="' + i + '" aria-label="Remove ' + esc(s.name) + '">' + X_ICON + "</button></div>" +
-      (open ? '<div class="stay-panel"><div class="row"><input class="field" id="stayIn' + i + '" placeholder="Already booked? Hotel name or address" value="' + esc((S.stays[ck] || {}).label || "") + '"><button type="button" class="btn quiet" data-setstay="' + i + '">Set</button></div>' + W.liveStays(s, W.P) + lodgeCards(s, i) + (W.altLinksFor ? W.altLinksFor("stay", { s: s, dates: stayDatesFor(s) }) : "") + "</div>" : "") +
+      (open ? '<div class="stay-panel"><div class="row"><input class="field" id="stayIn' + i + '" placeholder="Already booked? Hotel name or address" value="' + esc((S.stays[ck] || {}).label || "") + '"><button type="button" class="btn quiet" data-setstay="' + i + '">Set</button></div>' + (W.liveStays ? W.liveStays(s, W.P) : "") + lodgeCards(s, i) + (W.altLinksFor ? W.altLinksFor("stay", { s: s, dates: stayDatesFor(s) }) : "") + "</div>" : "") +
       "</div>";
   }
 
@@ -275,7 +275,7 @@
 
   W.setupClick = function (b, d, P) {
     if (W.importClick(d)) return;
-    if (W.liveClick(d, P)) { W.render(); return; }
+    if (W.liveClick && W.liveClick(d, P)) { W.render(); return; }
     if (W.watchClick && W.watchClick(d, P)) { W.render(); return; }
     if (d.routeorder != null || d.fold || d.unfold || d.nights || (d.legpick != null && d.legkey)) { W.routeClick(d, P); W.render(); return; }
     if (d.rest) { var rs = S.rest || (S.rest = {}); if (rs[d.rest]) delete rs[d.rest]; else rs[d.rest] = 1; W.render(); return; }

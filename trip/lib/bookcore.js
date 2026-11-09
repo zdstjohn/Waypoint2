@@ -68,6 +68,17 @@
       return day && bkDay(x) === day.n && x.kind !== "car";
     })[0] || null;
   }
+  /* the ticket for the journey into a stop, when its booking has a time: when it leaves and when it arrives (minutes from
+     midnight; an arrival the next day counts on past 24:00). Without a time there is no ticket to plan around. */
+  function hhmm(iso) { var m = /T(\d{2}):(\d{2})/.exec(iso || ""); return m ? +m[1] * 60 + +m[2] : null; }
+  W.legTicket = function (P, si) {
+    if (!P || !si || !P.stops || !P.stops[si] || !P.stops[si - 1]) return null;
+    var b = legBooking(P, si); if (!b) return null;
+    var dep = hhmm(b.start); if (dep == null) return null;
+    var arr = hhmm(b.end), d0 = String(b.start).slice(0, 10), d1 = String(b.end || "").slice(0, 10);
+    if (arr != null && d1 && d1 > d0) arr += 1440;
+    return { kind: b.kind, title: b.title || "", provider: b.provider || "", ref: b.ref || "", dep: dep, arr: arr != null && arr > dep ? arr : null };
+  };
   function flightBooking(P, home) {
     return bookings().filter(function (x) {
       if (x.kind !== "flight") return false;

@@ -31,6 +31,13 @@
             { n: 2, city: 'Lisbon', items: [{ name: 'Belém Tower', food: false, slot: 'pm', d: 'Riverside fort', lat: 38.6916, lng: -9.216 }] },
             { n: 4, city: 'Porto', items: [{ name: 'Livraria Lello', food: false, slot: 'am', d: 'Famous bookshop', lat: 41.1469, lng: -8.6148 }] }] }; }
       if (/IANA time zone/.test(prompt)) return { tz: 'Europe/Rome' };
+      if (/^Public holidays, festivals and big events in or near (.+?), (.+?) between (\d{4}-\d{2}-\d{2}) and (\d{4}-\d{2}-\d{2})/.test(prompt)) {
+        window.__eventsPrompts = (window.__eventsPrompts || []).concat([prompt]);
+        const m = /^Public holidays, festivals and big events in or near (.+?), (.+?) between (\d{4}-\d{2}-\d{2}) and (\d{4}-\d{2}-\d{2})/.exec(prompt), from = m[3];
+        if (m[1] === 'Rome') return { events: [{ n: 'Feast of Saints Peter and Paul (Rome)', from: '2027-06-29', to: '2027-06-29', kind: 'holiday', closes: false, crowds: true, note: "Rome's patron saints: some shops close; fireworks at Castel Sant'Angelo." },
+          { n: 'Infiorata', from: from, to: from, kind: 'festival', closes: false, crowds: true, note: 'Flower carpets in the streets near the Vatican.' }, { n: 'Made-up date', from: '2031-01-01', to: '2031-01-02', kind: 'festival', note: 'out of range' }] };
+        return { events: [] };
+      }
       if (/^Find places that match "(.+?)" in or near (.+?), (.+?), for this family trip/.test(prompt)) {
         /* Claude's search: one place the map also knows (same name), one only Claude knows */
         const m = prompt.match(/^Find places that match "(.+?)" in or near (.+?), (.+?), for/), c = window.W.findCity(m[3], m[2]) || { lat: 41.9, lng: 12.49 };
@@ -135,6 +142,7 @@
         properties: { mapbox_id: 'mb-' + name, feature_type: 'poi', name, full_address: 'Via Roma, Town', place_formatted: 'Town, Italy', address: 'Via Roma 1', poi_category: cats, maki } });
       return { payload: { type: 'FeatureCollection', features: [f(q.replace(/^\w/, x => x.toUpperCase()) + ' Point', ['beach', 'outdoors'], 0.004, 0.002, 'beach'), f('Caffè ' + q, ['cafe', 'food and drink'], -0.002, 0.001, 'cafe'), f('Far Away Place', ['museum'], 3, 3, 'museum')] } };
     }
+    if (tool === 'get-routes') { await new Promise(r => setTimeout(r, 60)); return { payload: { plain_text: 'Rome2rio searched for routes.', available_routes: [{ name: 'Train', duration: 95, carriers: ['Trenitalia Frecciarossa'] }, { name: 'Bus', duration: 210, carriers: ['FlixBus'] }, { name: 'Fly to Florence Airport', duration: 180, carriers: ['ITA Airways'] }, { name: 'Drive', duration: 170, carriers: [] }] } }; }
     if (tool === 'accommodations_search') return { payload: { accommodations: [
       { id: 1, name: 'Casa Familia ' + input.destination.split(',')[0], url: 'https://www.booking.com/hotel/it/casa-familia.html?checkin=' + input.checkin_date, price: { book: Math.round(912.4 * (window.__pf || 1) * 100) / 100, currency: 'EUR' }, rating: { number_of_reviews: 1843, review_score: 9.1, stars: 3 }, accommodationType: 'Apartment', location: { district_name: 'Monti', city_name: 'Rome', coordinates: { latitude: 41.895, longitude: 12.494 } } },
       { id: 2, name: 'Hotel Bambini', url: 'https://www.booking.com/hotel/it/bambini.html', price: { book: 1240, currency: 'EUR' }, rating: { number_of_reviews: 640, review_score: 8.6, stars: 4 }, accommodationType: 'Hotel', location: { district_name: 'Prati', coordinates: { latitude: 41.907, longitude: 12.46 } } },

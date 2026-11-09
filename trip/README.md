@@ -3,11 +3,16 @@
 One page. `index.html` is the markup; the code is plain files under data/, lib/ and screens/, joined and minified into
 `app.js` (and app.css into `app.min.css`) by `build/bundle.js`. All code shares one namespace, `window.W`; the order in
 `build/bundle.js` is the dependency order. `node test/run.js` builds first. The screens a first open never needs (the
-Prepare screen, the booking autopilot, place search in Explore, the journal, family, settings, the kids' corner, the
-recap, the packing list: LATER in build/bundle.js) go into a second script, `app2.js`, which lib/later.js loads once the first screen has painted (on idle time, or at once when you open one
+Prepare screen, live prices and price watch, the booking autopilot, planning together, place search in Explore, the
+journal, family, settings, the kids' corner, the recap, the packing list: LATER in build/bundle.js) go into a second script, `app2.js`, which lib/later.js loads once the first screen has painted (on idle time, or at once when you open one
 of them, with "Loading…" for the moment it takes); W.needLater() says whether it has arrived. The offline copy carries both.
 Travel mode stays in the first script on purpose: on the trip it is the first screen, often on a weak signal. What the
 first screen reads from Prepare (the book-by checklist, the budget, which booking belongs to a stop) is lib/bookcore.js.
+The first render happens while app.js is still running (the end of screens/trip.js), so lib/later.js comes right after
+the error log: any screen may ask for the second script on that very first draw (v108 fixed Explore and Prepare, which
+broke on first open when it came last). Each module starts inside its own try (build/bundle.js): one that throws while
+starting is logged ([boot] in the console, the phone's error log) and the rest of the app still starts.
+test/suites/firstview.js opens the app on every screen.
 
 ```
 index.html        markup (header, tabs, one <main> per view); loads app.js and app.min.css (built)
@@ -26,7 +31,7 @@ lib/              the shared library
                   own private corner of the database, data/users/<you>/errlog/d/<YYYY-MM-DD> ({items: [{msg, at, stack,
                   view, tv, build, ua, w, on, n}], updated}). Nothing personal: the message, where in the code, which
                   screen, the build, the browser and the screen width. Read it with ArtifactData get on that path.
-  later.js        loads app2.js (above); loaded last
+  later.js        loads app2.js (above); loaded right after errlog.js
   classify.js     what a place is (kind, how long, how tiring, indoors, which parts of the day) — read by the planner,
                   the clock and the pictures
   validate.js     the one door for everything Claude sends back (W.V): names, pins near the city they were asked for
@@ -63,7 +68,21 @@ lib/              the shared library
                   day-trip match (over 15 km) must be the very same name, and nothing past 120 km or away from a town
                   the item names. Ratings and reviews are not kept. A city's ideas list the checked places first (open,
                   then not yet checked, then unsure) and a checked one says so ("✓ Checked").
-  times.js        the clock for each day: starts, ends, the nap, travel days; how tiring a day is
+  times.js        the clock for each day: starts, ends, the nap, travel days; how tiring a day is. A travel day with a
+                  booked ticket that has a time (from Gmail, or added by hand under Prepare > Booked with its times)
+                  follows it: you leave in time for it (a flight's check-in, a ferry's boarding), lunch is in the town
+                  you leave when it goes after lunchtime, the morning is free there before a late departure, and the
+                  day picks up from the arrival. Without a ticket, the journey's length is Rome2Rio's real time for the
+                  way you go once you've tapped "Check real journey times" on the journey card (W.checkRoutes, your
+                  Rome2Rio connector, get-routes), else Claude's estimate, else a guess from the distance ("rough")
+  holidays.js     public holidays and festivals on the trip's days. National holidays are worked out in the app for
+                  Spain, Italy, Greece, France, Portugal, the UK, Ireland, Germany, Austria, the Netherlands, Croatia,
+                  Iceland, Mexico, Costa Rica, Japan, Thailand and the US (Easter and Orthodox Easter, "the last Monday
+                  of May", Japan's equinoxes and substitute days); regional ones, national ones elsewhere and festivals
+                  come from Claude per city for the dates of the stay (W.loadEvents, cached in W.C.events, answers
+                  outside the stay dropped) and say so. On a public holiday a place that closes on Sundays is planned
+                  as closed (where that holds: not in Japan, Thailand or the US); the day's heading says what the
+                  holiday or festival is
   shape.js        the trip as a whole: nights per base, day trips instead of hotel moves, the way between bases,
                   what the group (toddlers, grandparents) can take
   plan.js         which cities, how many days each, what to do each day (the chooser and its shape rules). Above the
@@ -77,6 +96,14 @@ lib/              the shared library
                   skeleton for longer words) catches "Liston" and "Liston Promenade", and two stays close together (two
                   bases on one island, or a city you come back to) share it, though a place you chose yourself always
                   stays. A gelateria, crêperie or juice bar is never lunch or dinner; a bakery is never dinner.
+  together.js     planning together: when you share a trip and tick "They can change the plan too", the person you
+                  shared with can swap stops, set rest days, leave time free and change how you travel between places.
+                  Each of them writes their own list of changes (shared/<code>/edits/<their id>), one entry per thing
+                  changed with its time; your app takes every change newer than the last it took from them (unless you
+                  changed the same thing after them), logs who changed what (the share box, their bar), saves it and
+                  shares it back (shared/<code> carries what was taken, coSeen, and the log). Only what a person does
+                  counts (not the planner filling a day on its own), and everything read from their list is checked
+                  first. Places to stay, dates, bookings and the route stay yours. They need edit access to the page.
   route.js        trip shape check (and its one-tap fixes)   import.js  paste an itinerary   prices.js  live prices and booking sites
   watch.js        price watches   sync.js  saved and shared trips   fx.js  motion   vtmap.js  the street map (cities with a map pack)
   search.js       find any place and put it on the day: the city's own ideas, Mapbox (real places with exact pins,

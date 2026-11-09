@@ -64,8 +64,12 @@ exports.run = async t => {
   const more = await pg.evaluate(async () => {
     /* an automatic top-up still on its way would make the button wait for it instead of asking: let it land first */
     for (let i = 0; i < 100 && Object.keys(W.status).some(k => /Rome/.test(k) && W.status[k] === 'loading'); i++) await new Promise(r => setTimeout(r, 100));
+    /* (automatic top-ups can already have brought the city near its cap: start this check below it) */
+    const p0 = W.pool('Italy', 'Rome'), orig = { s: p0.spots.slice(), f: p0.food.slice() };
+    if (p0.spots.length > 40) p0.spots.length = 40; if (p0.food.length > 24) p0.food.length = 24;
     W.S.tview = 'map'; W.S.day = 2; W.render(); const n0 = (window.__full || []).length;
     document.querySelector('[data-more="1"]').click(); await new Promise(r => setTimeout(r, 900));
+    orig.s.forEach(x => { if (!p0.spots.some(y => y.n === x.n)) p0.spots.push(x); }); orig.f.forEach(x => { if (!p0.food.some(y => y.n === x.n)) p0.food.push(x); });
     const asks = (window.__full || []).slice(n0).map(p => (p.match(/List (\d+) MORE (things to do|places to eat)/) || []).slice(1, 3).join(' ')).filter(Boolean);
     const pool = W.pool('Italy', 'Rome'), keep = { s: pool.spots.slice(), f: pool.food.slice() };
     while (pool.spots.length < W.IDEA_CAP.spots) pool.spots.push(Object.assign({}, pool.spots[0], { n: 'Filler sight ' + pool.spots.length }));
