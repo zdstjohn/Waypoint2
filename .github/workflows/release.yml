@@ -1,17 +1,36 @@
-# A tag v* (one per published version of the app) becomes a GitHub release carrying the built bundle, so any version
-# can be rolled back to by republishing its app.js and app.min.css.
+# Every published version of the app becomes a GitHub release carrying the built bundle, so any version can be rolled
+# back to by republishing its app.js and app.min.css. A release is cut from a tag v<N>, or from a branch release/v<N>
+# (the session that publishes the app may push branches but not tags; the workflow then creates the tag itself).
 name: release
 on:
-  push: { tags: ['v*'] }
+  push:
+    tags: ['v*']
+    branches: ['release/v*']
 jobs:
   release:
     runs-on: ubuntu-latest
     permissions: { contents: write }
     steps:
       - uses: actions/checkout@v4
+      - id: v
+        run: |
+          ref="${GITHUB_REF_NAME#release/}"; echo "tag=$ref" >> "$GITHUB_OUTPUT"
+      - name: tag from the release branch
+        if: startsWith(github.ref, 'refs/heads/release/')
+        run: |
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f -a "${{ steps.v.outputs.tag }}" -m "Waypoint ${{ steps.v.outputs.tag }}"; git push -f origin "refs/tags/${{ steps.v.outputs.tag }}"
+          git push origin --delete "${GITHUB_REF_NAME}" || true
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm run build
       - uses: softprops/action-gh-release@v2
-        with: { files: 'trip/app.js\ntrip/app.min.css\ntrip/index.html\ntrip/README.md', generate_release_notes: true }
+        with:
+          tag_name: ${{ steps.v.outputs.tag }}
+          files: |
+            trip/app.js
+            trip/app.min.css
+            trip/index.html
+            trip/README.md
+          generate_release_notes: true
