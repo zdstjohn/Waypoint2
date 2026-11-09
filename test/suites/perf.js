@@ -21,7 +21,7 @@ exports.run = async t => {
   t.ok(app2 && firstPaint != null && app2.start >= firstPaint - 1 && await pg.evaluate(() => W.laterReady && !!W.packBlock && !!W.renderKids), `the second script loads after the first paint (${app2 && Math.round(app2.start)} ms vs ${firstPaint && Math.round(firstPaint)} ms) and brings its screens`);
   t.ok(st.fonts >= 3 && st.fonts <= 6, `the fonts it needs load from the app itself (${st.fonts})`);
   const kb = Math.round((fs.statSync(path.join(t.root, 'trip', 'app.js')).size + fs.statSync(path.join(t.root, 'trip', 'app.min.css')).size) / 1024);
-  t.ok(kb < 560, `first script + stylesheet under 560 KB before compression (${kb} KB)`);
+  t.ok(kb < 520, `first script + stylesheet under 520 KB before compression (${kb} KB)`);
   const css = fs.readFileSync(path.join(t.root, 'trip', 'app.min.css')); const wide = css.filter(c => c > 127).length;
   t.eq(wide, 0, 'the stylesheet is plain ASCII, so "·" and "→" in it never show up garbled');
   t.note(`startup: ${st.n} requests, first script+css ${kb} KB, then app2.js ${Math.round(fs.statSync(path.join(t.root, 'trip', 'app2.js')).size / 1024)} KB`);

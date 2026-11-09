@@ -7,6 +7,8 @@ async function launch() { return chromium.launch({ args: ['--use-angle=swiftshad
 async function open(browser, { width = 360, height = 800, dark = false, scale = 1, uid = 'u-test', hash = '#trip', mocks = ['test/mocks/mockdur.js', 'test/mocks/mock2.js'], seeded = true, db = null, tz = null, firstRun = false, touch = true } = {}) {
   const ctx = await browser.newContext(Object.assign({ viewport: { width, height }, deviceScaleFactor: 2, colorScheme: dark ? 'dark' : 'light', hasTouch: touch, reducedMotion: 'reduce' }, tz ? { timezoneId: tz } : {}));
   const pg = await ctx.newPage(); const errors = []; pg.on('pageerror', e => errors.push(e.message));
+  /* a database path the real store would refuse counts as a page error even when the app catches it */
+  pg.on('console', m => { if (m.type() === 'error' && /^\[db path\]/.test(m.text())) errors.push(m.text()); });
   await pg.exposeFunction('__dbOp', db || (() => null));
   if (seeded) await pg.addInitScript(SEED);
   for (const m of mocks) await pg.addInitScript(fs.readFileSync(path.join(ROOT, m), 'utf8'));

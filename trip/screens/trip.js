@@ -474,7 +474,8 @@
       } else {
         /* Explore: find any place, today's route (on the street map where the city has one), the free time, then
            every idea by what it's near */
-        h += W.searchBlock(day, P);
+        /* (the search comes with the second script: until then, the box it will be) */
+        h += W.searchBlock ? W.searchBlock(day, P) : (W.needLater(), '<section class="psearch sk" aria-label="Search for a place"><div class="ps-row"><input class="field" type="search" disabled placeholder="Search any place in ' + esc(day.city) + '…" aria-label="Search for a place"><button type="button" class="btn" disabled>Search</button></div></section>');
         /* below the search, on a big screen: the route (and street map) on the right, the rest on the left */
         h += '<div class="xp-cols">'; xpCols = true;
         h += routeCard(day, P, T, home, pts, gm, mapBox, zoomBtns);
@@ -592,9 +593,9 @@
     if (W.autoTick) W.autoTick(P);
     if (W.offline) W.offline.tick(P);
     if (W.warmTick) W.warmTick(P);
-    /* the kids' corner, the recap and settings live in the second script: until it has come, a moment's "Loading…" */
-    var later = view === "kids" || view === "recap" || view === "settings";
-    if (later && !W.needLater()) { var lv = $(view === "kids" ? "viewKids" : view === "recap" ? "viewRecap" : "viewSettings"); if (lv && !lv.firstChild) lv.innerHTML = '<p class="loading later-wait">Loading…</p>'; }
+    /* Prepare, the kids' corner, the recap and settings live in the second script: until it has come, a moment's "Loading…" */
+    var later = view === "kids" || view === "recap" || view === "settings" || view === "book";
+    if (later && !W.needLater()) { var lv = $(view === "kids" ? "viewKids" : view === "recap" ? "viewRecap" : view === "book" ? "viewBook" : "viewSettings"); if (lv && !lv.firstChild) lv.innerHTML = '<p class="loading later-wait">Loading…</p>'; }
     else if (view === "kids") W.renderKids(P); else if (view === "setup") W.renderSetup(P); else if (view === "book") W.renderBook(P); else if (view === "recap") W.renderRecap(P); else if (view === "go") W.renderGo(P); else if (view === "explore") W.renderTrip(P, "explore"); else if (view === "settings") W.renderSettings(P); else W.renderTrip(P);
     W.save();
     if (W.fxRunAfter) W.fxRunAfter();
@@ -620,7 +621,7 @@
     if (d.comment) { if (W.familyClick) W.familyClick(b, d); return; }
     if (d.heart) { if (W.familyClick) W.familyClick(b, d); W.render(); return; }
     if (view === "setup") { W.setupClick(b, d, P); return; }
-    if (view === "book") { W.bookClick(b, d, P); return; }
+    if (view === "book") { if (W.bookClick) W.bookClick(b, d, P); return; }
     if (view === "settings") { if (W.settingsClick) W.settingsClick(b, d, P); return; }
     var day = P.days[S.day - 1];
     if (d.day || d.step) {

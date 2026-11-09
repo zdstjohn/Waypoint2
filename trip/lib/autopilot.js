@@ -1,7 +1,8 @@
-/* Waypoint booking autopilot. The book-by list is kept in the app's database (data/users/<you>/bookby/<trip>, private
+/* Waypoint booking autopilot. The book-by list is kept in the app's database (data/users/<you>/bookby/t/<trip>, private
    to you) so a nightly helper can read your own inbox for confirmations and put the deadlines on your Google Calendar.
    The helper never books or buys anything: it only reads mail and writes reminders. What it finds comes back here
-   (data/users/<you>/autopilot/<trip>) and ticks the list, with the confirmation it found. */
+   (data/users/<you>/autopilot/t/<trip>) and ticks the list, with the confirmation it found. (A document's path has an
+   even number of parts, so each list is one document in a "t" collection under a per-person document.) */
 (function () {
   "use strict";
   var W = window.W, S = W.S;
@@ -35,7 +36,8 @@
     clearTimeout(timer);
     timer = setTimeout(function () {
       body.updated = Date.now();
-      try { db.doc("data/users/" + uid + "/bookby/" + S.tripId).set(body).then(null, function () { lastSig = null; }); } catch (e) { lastSig = null; }
+      try { db.doc("data/users/" + uid + "/bookby").collection("t").doc(S.tripId).set(body).then(null, function () { lastSig = null; }); }
+      catch (e) { lastSig = null; if (W.logError) W.logError(String(e && e.message || e), "autopilot.js:bookby", e && e.stack); }
     }, 2500);
   };
 
@@ -46,12 +48,12 @@
     if (unsub) { unsub(); unsub = null; }
     autoTrip = S.tripId; auto = { found: {}, cal: {}, checked: "" };
     try {
-      unsub = db.doc("data/users/" + uid + "/autopilot/" + S.tripId).onSnapshot(function (snap) {
+      unsub = db.doc("data/users/" + uid + "/autopilot").collection("t").doc(S.tripId).onSnapshot(function (snap) {
         var x = snap && snap.exists ? snap.data() || {} : {};
         auto = { found: x.found && typeof x.found === "object" ? x.found : {}, cal: x.cal && typeof x.cal === "object" ? x.cal : {}, checked: String(x.checked || ""), note: String(x.note || "") };
         W.changed();
       }, function () {});
-    } catch (e) {}
+    } catch (e) { if (W.logError) W.logError(String(e && e.message || e), "autopilot.js:watch", e && e.stack); }
   }
   W.autoTick = function (P) { watch(); W.pushBookBy(P); };
 

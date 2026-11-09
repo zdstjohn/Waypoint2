@@ -26,7 +26,7 @@ exports.run = async t => {
     window.dispatchEvent(Object.assign(new Event('unhandledrejection'), { reason: { code: 'not_granted' } }));
     W.flushErrors(); await new Promise(r => setTimeout(r, 600));
     const d = new Date(), day = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
-    const doc = JSON.parse(await window.__dbOp('get', 'data/users/u-test/errlog/' + day, null) || 'null');
+    const doc = JSON.parse(await window.__dbOp('get', 'data/users/u-test/errlog/d/' + day, null) || 'null');
     return doc && doc.items;
   });
   const it0 = el && el.find(x => x.msg === 'Test boom');

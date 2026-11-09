@@ -79,7 +79,17 @@
   // ---- db backed by the runner (so two "devices" share one store) ----
   const op = (o, path, body) => window.__dbOp(o, path, body === undefined ? null : JSON.stringify(body)).then(r => r == null ? null : JSON.parse(r));
   const snapDoc = (id, body) => ({ id, exists: body != null, data: () => body == null ? undefined : body, metadata: { fromCache: false, hasPendingWrites: false } });
-  const docRef = (path) => ({
+  /* the real database's path grammar: a document has an even number of segments, a collection an odd number, and a
+     path that breaks it throws a TypeError at once (an app that swallows that error loses the write silently) */
+  const SEG = /^[A-Za-z0-9_\-.~:@+]{1,200}$/;
+  const grammar = (path, doc) => {
+    const segs = String(path).split('/');
+    if (segs.length > 16 || String(path).length > 1000 || segs.some(s => !SEG.test(s) || s === '.' || s === '..')) throw new TypeError('invalid path: ' + path);
+    if ((segs.length % 2 === 0) !== doc) throw new TypeError((doc ? 'a document path needs an even number of segments' : 'a collection path needs an odd number of segments') + ': ' + path + ' has ' + segs.length);
+  };
+  window.__badPaths = window.__badPaths || [];
+  const checked = (path, doc) => { try { grammar(path, doc); } catch (e) { window.__badPaths.push(e.message); console.error('[db path] ' + e.message); throw e; } };
+  const docRef = (path) => (checked(path, true), {
     id: path.split('/').pop(), path,
     get: () => op('get', path).then(b => snapDoc(path.split('/').pop(), b)),
     set: (b) => { window.__writes.push(path); return op('set', path, b).then(() => {}); },
@@ -88,7 +98,7 @@
     collection: (sub) => colRef(path + '/' + sub),
     onSnapshot: (next) => { let last = '\u0000'; let on = true; const poll = () => { if (!on) return; op('get', path).then(b => { const s = JSON.stringify(b); if (s !== last) { last = s; next(snapDoc(path.split('/').pop(), b)); } }).finally(() => setTimeout(poll, 400)); }; poll(); return () => { on = false; }; }
   });
-  const colRef = (path) => ({
+  const colRef = (path) => (checked(path, false), {
     path, doc: (id) => docRef(path + '/' + (id || Math.random().toString(36).slice(2))),
     get: () => op('list', path).then(list0 => { const list = Array.isArray(list0) ? list0 : []; return ({ docs: list.map(x => snapDoc(x.id, x.body)), size: list.length, empty: !list.length, metadata: { fromCache: false } }); }),
     onSnapshot: (next) => {

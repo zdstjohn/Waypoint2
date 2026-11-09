@@ -190,6 +190,8 @@ interface Waypoint {
   fxStagger: any;
   geocode: any;
   getMcp: any;
+  /** helpers lib/bookcore.js shares with screens/book.js */
+  _bk: any;
   glance: any;
   gmapsDir: any;
   gmapsPlace: (place: string | { n?: string; label?: string; gid?: string }, city: string, gid?: string) => string;

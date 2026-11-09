@@ -24,6 +24,18 @@ exports.run = async t => {
   t.eq(added.hand, [['Hotel Test Roma', 'Rome', 420, 'EUR']], 'a hotel added by hand lands on its day\'s city with its price');
   t.ok(/420/.test(added.booked), 'and shows under Booked in the budget');
   t.ok(added.listed, 'and is listed under Booked');
+  /* the booking autopilot: the book-by list reaches the database where the morning helper reads it, and what the helper
+     writes back reaches the page (both are documents under your own private corner, at paths the real store accepts) */
+  await pg.evaluate(() => { W.isExample = false; W.S.tripId = 'tauto1'; W.S.start = '2027-06-07'; W.S.prepTab = 'tobook'; W.changed(); W.render(); if (W.autoTick) W.autoTick(W.P); });
+  await pg.waitForTimeout(3500);
+  const bb = await pg.evaluate(async () => { const r = JSON.parse(await window.__dbOp('get', 'data/users/u-test/bookby/t/tauto1', null) || 'null'); return r && { n: (r.items || []).length, start: r.start, key: r.items && r.items[0] && r.items[0].key }; });
+  t.ok(bb && bb.n >= 5 && bb.start === '2027-06-07', 'the book-by list is saved for the morning helper: ' + JSON.stringify(bb));
+  if (bb && bb.key) {
+    await pg.evaluate(async k => { await window.__dbOp('set', 'data/users/u-test/autopilot/t/tauto1', JSON.stringify({ found: { [k]: { title: 'Casa Test', provider: 'Booking.com', ref: 'HTL-889', when: '2027-06-07' } }, cal: { [k]: { id: 'ev1', by: '2027-01-10' } }, checked: '2027-01-05T15:00:00Z', note: '' })); }, bb.key);
+    await pg.waitForTimeout(1500);
+    const back = await pg.evaluate(k => { W.render(); const line = document.querySelector('.auto-line'); return { found: !!(W.autoFound && W.autoFound(k)), line: line ? line.innerText : '' }; }, bb.key);
+    t.ok(back.found && /checked your inbox/.test(back.line) && /1 reminder/.test(back.line), 'and what the helper found comes back to the list: ' + JSON.stringify(back));
+  }
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

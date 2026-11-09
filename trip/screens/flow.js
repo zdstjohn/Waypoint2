@@ -71,6 +71,8 @@
     W.setView("setup"); W.render();
   }
   function goBook(key) {
+    /* Prepare comes with the second script: show it loading, and finish the jump once it has come */
+    if (!W.needLater()) { var n = 0; W.setView("book"); W.render(); (function wait() { if (W.laterReady) goBook(key); else if (n++ < 60) setTimeout(wait, 100); })(); return; }
     if (W.bookReveal) W.bookReveal(key);
     W.setView("book"); W.render(); window.scrollTo(0, 0);
     setTimeout(function () {

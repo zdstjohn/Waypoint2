@@ -1,5 +1,5 @@
 /* Waypoint error log: what goes wrong on a real phone, kept privately in the viewer's own corner of the app's
-   database (data/users/<you>/errlog/<day>), so it can be read back and fixed. One document a day, at most 40 distinct
+   database (data/users/<you>/errlog/d/<day>), so it can be read back and fixed. One document a day, at most 40 distinct
    errors in it (a repeat only counts up), written at most every 15 seconds. Nothing personal goes in: the message,
    where in the app it happened, which screen, the app's build, the browser and the screen width. Never in the
    offline copy or a shared trip's read-only view. */
@@ -31,7 +31,9 @@
     timer = null;
     if (!db || !uid || busy) { if (buf.length || Object.keys(seen).length) schedule(); return; }
     busy = true;
-    var ref = db.doc("data/users/" + uid + "/errlog/" + day());
+    var ref;
+    try { ref = db.doc("data/users/" + uid + "/errlog").collection("d").doc(day()); }
+    catch (e) { busy = false; return; }   /* never let the log itself become the error */
     ref.get().then(function (snap) {
       var cur = snap && snap.exists ? snap.data() || {} : {}, items = Array.isArray(cur.items) ? cur.items.slice() : [];
       Object.keys(seen).forEach(function (k) {

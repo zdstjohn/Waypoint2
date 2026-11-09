@@ -1,5 +1,6 @@
 /* Waypoint build: the source scripts become two minified files, and app.css becomes app.min.css. app.js holds what the
-   first screen needs; app2.js (LATER: packing, family, journal, kids' corner, settings) is fetched by lib/later.js once
+   first screen needs; app2.js (LATER: packing, the Prepare screen, the booking autopilot, place search, family, journal,
+   kids' corner, settings) is fetched by lib/later.js once
    the first screen is up. Sources stay where they are (lib/, screens/, data/); the order below is the dependency order.
      node build/bundle.js            -> trip/app.js, trip/app.min.css (+ app.js.map, kept local)
      node build/bundle.js --check    -> only report sizes */
@@ -8,11 +9,11 @@ const TRIP = path.resolve(__dirname, '..', 'trip');
 const ORDER = [
   'data/data1.js', 'data/data2.js',
   'lib/validate.js', 'lib/core.js', 'lib/errlog.js', 'lib/classify.js', 'lib/photos.js', 'lib/places.js', 'lib/fx.js', 'lib/vtmap.js', 'lib/offline.js', 'lib/times.js', 'lib/shape.js', 'lib/plan.js', 'lib/packing.js', 'lib/warm.js',
-  'screens/setup.js', 'lib/sync.js', 'screens/book.js', 'lib/autopilot.js', 'lib/route.js', 'lib/import.js', 'lib/prices.js', 'lib/watch.js', 'lib/search.js',
+  'screens/setup.js', 'lib/sync.js', 'lib/bookcore.js', 'screens/book.js', 'lib/autopilot.js', 'lib/route.js', 'lib/import.js', 'lib/prices.js', 'lib/watch.js', 'lib/search.js',
   'screens/today.js', 'screens/family.js', 'screens/journal.js', 'screens/kids.js', 'screens/travel.js', 'screens/flow.js', 'screens/settings.js', 'screens/trip.js',
   'lib/later.js'
 ];
-const LATER = ['lib/packing.js', 'screens/family.js', 'screens/journal.js', 'screens/kids.js', 'screens/settings.js'];
+const LATER = ['lib/packing.js', 'screens/book.js', 'lib/autopilot.js', 'lib/search.js', 'screens/family.js', 'screens/journal.js', 'screens/kids.js', 'screens/settings.js'];
 module.exports.ORDER = ORDER; module.exports.LATER = LATER;
 
 async function build() {

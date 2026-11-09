@@ -1,0 +1,36 @@
+# Every night: 2000 random trips against the planner's promises (the pushes run 300). A rare case the shorter run
+# misses (the children's dinner pushed past seven after a late arrival was one) fails this run, and the run's summary
+# lists each failing seed with the line to replay it: FUZZ_SEED=<n> node test/run.js fuzz
+name: random trips
+on:
+  schedule:
+    - cron: '41 11 * * *'   # 3:41 am in Seattle
+  workflow_dispatch:
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: 2000 random trips
+        run: |
+          set -o pipefail
+          FUZZ=2000 node test/run.js fuzz 2>&1 | tee fuzz.txt
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Random trips"
+            if grep -q "all suites passed" fuzz.txt; then echo "All 2000 random trips kept the planner's promises."
+            else
+              echo "Some trips broke a promise. Replay one with \`FUZZ_SEED=<n> node test/run.js fuzz\`:"
+              echo '```'; grep -E "^\s+(seed [0-9]+|D[0-9]+ |every random trip)" fuzz.txt | head -40; echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

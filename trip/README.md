@@ -3,9 +3,11 @@
 One page. `index.html` is the markup; the code is plain files under data/, lib/ and screens/, joined and minified into
 `app.js` (and app.css into `app.min.css`) by `build/bundle.js`. All code shares one namespace, `window.W`; the order in
 `build/bundle.js` is the dependency order. `node test/run.js` builds first. The screens a first open never needs (the
-journal, family, settings, the kids' corner, the recap, the packing list: LATER in build/bundle.js) go into a second
-script, `app2.js`, which lib/later.js loads once the first screen has painted (on idle time, or at once when you open one
+Prepare screen, the booking autopilot, place search in Explore, the journal, family, settings, the kids' corner, the
+recap, the packing list: LATER in build/bundle.js) go into a second script, `app2.js`, which lib/later.js loads once the first screen has painted (on idle time, or at once when you open one
 of them, with "Loading…" for the moment it takes); W.needLater() says whether it has arrived. The offline copy carries both.
+Travel mode stays in the first script on purpose: on the trip it is the first screen, often on a weak signal. What the
+first screen reads from Prepare (the book-by checklist, the budget, which booking belongs to a stop) is lib/bookcore.js.
 
 ```
 index.html        markup (header, tabs, one <main> per view); loads app.js and app.min.css (built)
@@ -21,7 +23,7 @@ lib/              the shared library
                   and photos keep up
   errlog.js       what goes wrong on a real phone: uncaught errors and unhandled promise failures (not a connection you
                   didn't allow), at most 40 different ones a day, a repeat only counted, written every 15 seconds to your
-                  own private corner of the database, data/users/<you>/errlog/<YYYY-MM-DD> ({items: [{msg, at, stack,
+                  own private corner of the database, data/users/<you>/errlog/d/<YYYY-MM-DD> ({items: [{msg, at, stack,
                   view, tv, build, ua, w, on, n}], updated}). Nothing personal: the message, where in the code, which
                   screen, the build, the browser and the screen width. Read it with ArtifactData get on that path.
   later.js        loads app2.js (above); loaded last
@@ -94,7 +96,9 @@ lib/              the shared library
                   milestones that cheer once (with confetti, never under reduced motion), friendlier ticks, how ready
                   you are on Prepare, a day's mood in the journal, the recap's highlight reel and "one year ago today"
   autopilot.js    the book-by list kept for the morning helper (reads your inbox, writes calendar reminders, never books),
-                  what it found, and the deadline timeline on Bookings
+                  what it found, and the deadline timeline on Bookings. Both live in your private corner of the database:
+                  data/users/<you>/bookby/t/<trip> and data/users/<you>/autopilot/t/<trip> (a document's path has an
+                  even number of parts; the test database refuses any other path, as the real one does)
   The header is one banner: the wordmark, and the trip (its name opens your trips; under it a countdown that
   becomes "Day 4 of 20" on the trip), drawn by sync.js (W.countdown); on wide screens the tabs sit in it too.
 screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.js, also the app controller: a labelled
@@ -165,7 +169,8 @@ Version control
   (.github/workflows/ci.yml) runs the full suite on every push and pull request (about 14 minutes), and a second job,
   "screens", takes every screen (phone, side panel, desktop; light and dark) for this commit and the one before and
   lists what changed in the run's summary, with the pictures attached (it never fails the build: a change can be
-  intended). Every published version of the artifact becomes a release: pushing a branch release/v<N> (or a tag v<N>)
+  intended). Every night .github/workflows/fuzz.yml plans 2000 random trips (pushes run 300) and lists any failing seed
+  in its summary, ready to replay with FUZZ_SEED=<n>. Every published version of the artifact becomes a release: pushing a branch release/v<N> (or a tag v<N>)
   makes release.yml create the tag v<N>, build, and attach app.js, app2.js, app.min.css, index.html and README.md, so
   any version can be restored by republishing those files.
 
