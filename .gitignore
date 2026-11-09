@@ -1,0 +1,13 @@
+node_modules/
+build/node_modules
+trip/app.js.map
+test/out/
+test/base/
+test/diffout/
+trip/maps/*.json
+!trip/maps/index.json
+!trip/maps/italy-rome.json
+!trip/maps/italy-florence.json
+!trip/maps/italy-venice.json
+__pycache__/
+*.pyc

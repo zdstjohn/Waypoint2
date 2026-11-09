@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "allowJs": true, "checkJs": true, "noEmit": true, "target": "es2017", "lib": ["es2020", "dom", "dom.iterable", "webworker.importscripts"],
+    "strict": false, "noImplicitAny": false, "strictNullChecks": false, "noImplicitThis": false, "skipLibCheck": true, "types": [],
+    "noUnusedLocals": false, "noFallthroughCasesInSwitch": true
+  },
+  "include": ["types/waypoint.d.ts", "trip/lib/**/*.js", "trip/screens/**/*.js", "trip/data/**/*.js"],
+  "exclude": ["trip/vt/**"]
+}

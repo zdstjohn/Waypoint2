@@ -1,0 +1,17 @@
+# A tag v* (one per published version of the app) becomes a GitHub release carrying the built bundle, so any version
+# can be rolled back to by republishing its app.js and app.min.css.
+name: release
+on:
+  push: { tags: ['v*'] }
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run build
+      - uses: softprops/action-gh-release@v2
+        with: { files: 'trip/app.js\ntrip/app.min.css\ntrip/index.html\ntrip/README.md', generate_release_notes: true }

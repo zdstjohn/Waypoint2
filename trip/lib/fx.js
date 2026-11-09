@@ -1,0 +1,117 @@
+/* Waypoint motion: sections slide open and closed, pages and days turn like pages, changed picks give a small pulse.
+   Everything is skipped for people who ask their device for reduced motion. */
+(function () {
+  "use strict";
+  var W = window.W;
+  var EASE = "cubic-bezier(.2,.8,.2,1)", EASE_IN = "cubic-bezier(.4,0,.6,1)";
+  var reduce = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
+  function off() { return reduce.matches || !Element.prototype.animate; }
+  W.fxOff = off;
+
+  /* run something right after the next redraw (the redraw replaces the page, so animations start on the new elements) */
+  var after = [];
+  W.fxAfter = function (fn) { after.push(fn); };
+  W.fxRunAfter = function () { var a = after; after = []; a.forEach(function (fn) { try { fn(); } catch (e) {} }); };
+  function q(sel) { return typeof sel === "string" ? document.querySelector(sel) : sel; }
+
+  /* the space a grid or flex column leaves between children, so a growing panel doesn't jump by that gap */
+  function gapAbove(el) {
+    var p = el.parentElement; if (!p || !el.previousElementSibling) return 0;
+    var cs = getComputedStyle(p);
+    if (!/grid|flex/.test(cs.display) || (/flex/.test(cs.display) && !/column/.test(cs.flexDirection))) return 0;
+    return parseFloat(cs.rowGap) || 0;
+  }
+  function frames(el) {
+    var cs = getComputedStyle(el), g = gapAbove(el);
+    return [
+      { height: "0px", paddingTop: "0px", paddingBottom: "0px", marginTop: -g + "px", marginBottom: "0px", opacity: 0, transform: "translateY(-6px)" },
+      { height: el.offsetHeight + "px", paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, marginTop: cs.marginTop, marginBottom: cs.marginBottom, opacity: 1, transform: "none" }
+    ];
+  }
+  /* grow a panel open, pushing what's below down smoothly, and bring it into view if it opened off screen */
+  W.fxExpand = function (sel, opts) {
+    var el = q(sel); opts = opts || {};
+    if (!el || off()) return;
+    var f = frames(el), ov = el.style.overflow; el.style.overflow = "hidden";
+    var a = el.animate(f, { duration: opts.dur || 300, easing: EASE });
+    a.onfinish = a.oncancel = function () {
+      el.style.overflow = ov;
+      if (opts.reveal !== false) {
+        var r = el.getBoundingClientRect();
+        if (r.bottom > window.innerHeight - 8) el.scrollIntoView({ block: r.height > window.innerHeight * 0.8 ? "start" : "nearest", behavior: "smooth" });
+      }
+    };
+  };
+  /* fold a panel shut, then do the change (which redraws without it) */
+  W.fxCollapse = function (sel, done, opts) {
+    var el = q(sel); opts = opts || {};
+    if (!el || off()) { done(); return; }
+    var f = frames(el).reverse(), called = false;
+    el.style.overflow = "hidden";
+    var a = el.animate(f, { duration: opts.dur || 220, easing: EASE_IN, fill: "forwards" });
+    function fin() { if (!called) { called = true; done(); } }
+    a.onfinish = fin; setTimeout(fin, (opts.dur || 220) + 120);   /* never leave the change undone */
+  };
+  /* cards or list items arriving one after another */
+  W.fxStagger = function (els, opts) {
+    if (off()) return; opts = opts || {};
+    Array.prototype.slice.call(typeof els === "string" ? document.querySelectorAll(els) : els || []).slice(0, opts.max || 24).forEach(function (el, i) {
+      el.animate([{ opacity: 0, transform: "translateY(" + (opts.y || 10) + "px)" }, { opacity: 1, transform: "none" }],
+        { duration: opts.dur || 320, delay: Math.min(i * (opts.step || 35), 420), easing: EASE, fill: "backwards" });
+    });
+  };
+
+  /* something just changed (a new pick, a chosen lodging): a quick squash-and-settle */
+  W.fxPulse = function (sel) {
+    var el = q(sel); if (!el || off()) return;
+    el.animate([{ transform: "scale(.97)", opacity: 0.55 }, { transform: "scale(1.012)", opacity: 1, offset: 0.55 }, { transform: "none", opacity: 1 }], { duration: 420, easing: EASE });
+  };
+
+  /* page turns: between Plan and My trip ("page"), and from day to day ("day"). dir 1 = forward, -1 = back */
+  var flipping = false;
+  W.fxFlip = function (kind, dir, update) {
+    if (off() || flipping) { update(); return; }
+    var root = document.documentElement;
+    if (document.startViewTransition) {
+      flipping = true;
+      root.classList.add("vt-" + kind); root.setAttribute("data-flip", dir < 0 ? "back" : "fwd");
+      var t;
+      try { t = document.startViewTransition(function () { update(); }); }
+      catch (e) { flipping = false; root.classList.remove("vt-" + kind); update(); return; }
+      var done = function () { flipping = false; root.classList.remove("vt-" + kind); root.removeAttribute("data-flip"); };
+      t.finished.then(done, done);
+      return;
+    }
+    /* browsers without page transitions: slide the new page in */
+    update();
+    var el = kind === "day" ? document.querySelector(".dayflip") : document.querySelector("main:not([hidden])");
+    if (el) el.animate([{ opacity: 0, transform: "translateX(" + (dir < 0 ? -28 : 28) + "px)" }, { opacity: 1, transform: "none" }], { duration: 340, easing: EASE });
+  };
+
+  /* folding sections (<details>): slide open and closed instead of snapping */
+  document.addEventListener("click", function (e) {
+    var s = e.target.closest && e.target.closest("summary"), d = s && s.parentElement;
+    if (!d || d.tagName !== "DETAILS" || off()) return;
+    e.preventDefault();
+    if (d.getAttribute("data-moving")) return;
+    var start = d.offsetHeight, ov = d.style.overflow;
+    d.setAttribute("data-moving", "1"); d.style.overflow = "hidden";
+    var opening = !d.open, end;
+    if (opening) { d.open = true; end = d.offsetHeight; }
+    else { d.open = false; end = d.offsetHeight; d.open = true; }
+    if (W.saveFold) W.saveFold(d, opening);   /* remember it now, so a redraw mid-animation keeps it the way you chose */
+    var body = Array.prototype.slice.call(d.children, 1);
+    var a = d.animate([{ height: start + "px" }, { height: end + "px" }], { duration: opening ? 340 : 260, easing: opening ? EASE : EASE_IN });
+    body.forEach(function (el, i) {
+      el.animate(opening ? [{ opacity: 0, transform: "translateY(-6px)" }, { opacity: 1, transform: "none" }] : [{ opacity: 1 }, { opacity: 0 }],
+        { duration: opening ? 300 : 180, delay: opening ? Math.min(60 + i * 30, 240) : 0, easing: EASE, fill: "both" });
+    });
+    function fin() {
+      if (!d.getAttribute("data-moving")) return;
+      d.removeAttribute("data-moving"); d.style.overflow = ov;
+      if (!opening) d.open = false;
+      body.forEach(function (el) { el.getAnimations().forEach(function (x) { x.cancel(); }); });
+    }
+    a.onfinish = fin; setTimeout(fin, (opening ? 340 : 260) + 150);
+  }, true);
+})();

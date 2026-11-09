@@ -1,0 +1,96 @@
+/* Waypoint journal: a photo or two and a line for each day, and a recap of the whole trip to share with family. */
+(function () {
+  "use strict";
+  var W = window.W, esc = W.esc, S = W.S;
+  var assets = null, uploading = {}, err = {};
+  try { if (window.claude && window.claude.use) window.claude.use("assets").then(function (a) { assets = a; W.changed(); }, function () {}); } catch (e) {}
+  function J() { return S.journal || (S.journal = {}); }
+  function src(id) { var u = "/_blob/" + encodeURIComponent(id); return W.offline ? W.offline.src(u) : u; }
+  function started(day) { var d = W.dateOf(day.n); return !d || d <= W.now(); }
+  W.journalHas = function () { var j = S.journal || {}; return Object.keys(j).some(function (k) { var e = j[k]; return e && ((e.photos || []).length || (e.note || "").trim()); }); };
+
+  /* a day's journal card (in My trip, under the day's stops) */
+  W.journalCard = function (day) {
+    var k = W.restKey(day), e = J()[k] || {}, photos = e.photos || [], note = e.note || "", has = photos.length || note.trim();
+    if (W.readOnly && !has) return "";
+    if (!has && !started(day) && !W.isToday(day)) return "";
+    var pics = photos.map(function (p, i) {
+      return '<figure class="jp"><img src="' + esc(src(p.id)) + '" alt="Photo from day ' + day.n + '" loading="lazy">' +
+        (W.readOnly ? "" : '<button type="button" class="icon-btn jx" data-jdel="' + esc(k) + '" data-ji="' + i + '" aria-label="Remove this photo">×</button>') + "</figure>";
+    }).join("");
+    var h = '<section class="journal sk"><div class="j-h"><h3>Journal</h3>' + (W.journalHas() ? '<button type="button" class="linkish" data-view="recap">Trip recap</button>' : "") + "</div>";
+    if (W.moodRow) h += W.moodRow(k, e.mood || 0);
+    if (pics) h += '<div class="jgrid">' + pics + "</div>";
+    if (W.readOnly) return h + (note ? '<p class="jnote">' + esc(note) + "</p>" : "") + "</section>";
+    h += '<textarea class="field jn" id="jn-' + esc(k) + '" data-jnote="' + esc(k) + '" rows="2" placeholder="What was the best bit today?">' + esc(note) + "</textarea>";
+    h += '<div class="lo-act">' + (assets ? (uploading[k] ? '<span class="loading">Adding photos…</span>' :
+      '<label class="btn quiet sm jadd">Add photos<input type="file" accept="image/*" multiple data-jfile="' + esc(k) + '" hidden></label>') : '<span class="small muted">Photos can be added by the trip\'s owner in the Claude app.</span>') + "</div>";
+    if (err[k]) h += '<p class="warn">' + esc(err[k]) + "</p>";
+    return h + "</section>";
+  };
+
+  /* phone photos are big: shrink to 1600 px before uploading */
+  function shrink(file) {
+    return new Promise(function (ok, bad) {
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function () {
+        var s = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement("canvas");
+        c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+        var g2 = c.getContext("2d"); if (g2) g2.drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+        c.toBlob(function (b) { b ? ok(b) : bad(new Error("encode")); }, "image/jpeg", 0.82);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); bad(new Error("decode")); };
+      img.src = url;
+    });
+  }
+  function addPhotos(k, files) {
+    if (!assets || !files.length) return;
+    uploading[k] = true; err[k] = ""; W.render();
+    var list = Array.prototype.slice.call(files, 0, 8), i = 0;
+    function next() {
+      if (i >= list.length) { uploading[k] = false; W.save(); W.changed(); return; }
+      var f = list[i++];
+      shrink(f).then(function (b) { return assets.upload(b); }).then(function (r) {
+        var e = J()[k] || (J()[k] = {}); (e.photos || (e.photos = [])).push({ id: r.id, at: Date.now() });
+      }, function (e) {
+        err[k] = e && e.code === "quota_exceeded" ? "This page's photo storage is full." : e && e.code === "too_large" ? "That photo is too big." : "A photo couldn't be added. Try again.";
+      }).then(next);
+    }
+    next();
+  }
+  document.addEventListener("change", function (e) {
+    var t = e.target;
+    if (t && t.dataset && t.dataset.jfile) { addPhotos(t.dataset.jfile, t.files || []); t.value = ""; }
+    else if (t && t.dataset && t.dataset.jnote != null && !W.readOnly) { var en = J()[t.dataset.jnote] || (J()[t.dataset.jnote] = {}); en.note = (t.value || "").slice(0, 2000); W.save(); }
+  });
+  W.journalClick = function (d) {
+    if (d.jdel == null) return false;
+    var e = J()[d.jdel]; if (e && e.photos) e.photos.splice(+d.ji, 1);   /* the file stays in storage; it's simply no longer shown */
+    return true;
+  };
+
+  /* ---------- the recap: the whole trip on one page ---------- */
+  W.renderRecap = function (P) {
+    var el = W.$("viewRecap"); if (!el) return;
+    var d1 = W.dateOf(1), dn = W.dateOf(P.N), fmt = function (d, o) { return d ? d.toLocaleDateString(undefined, o) : ""; };
+    var h = '<div class="recap"><button type="button" class="linkish back" data-view="trip">← Back to the trip</button>' +
+      '<header class="rc-hero sk"><h2>' + esc(W.tripName ? W.tripName() : "Our trip") + "</h2>" +
+      '<p class="muted">' + esc([d1 ? fmt(d1, { month: "long", day: "numeric" }) + " – " + fmt(dn, { month: "long", day: "numeric", year: "numeric" }) : P.N + " days", P.stops.map(function (s) { return s.name; }).join(" → ")].filter(Boolean).join(" · ")) + "</p></header>";
+    if (W.highlights) h += W.highlights(P);
+    var any = false;
+    P.days.forEach(function (day) {
+      var e = J()[W.restKey(day)] || {}, photos = e.photos || [], note = (e.note || "").trim();
+      var seen = (day.slots || []).filter(function (x) { return x.item && !W.isFood(x.slot); }).map(function (x) { return x.item.n; });
+      if (!photos.length && !note && !started(day)) return;
+      any = any || photos.length > 0 || !!note;
+      var mood = e.mood === 3 ? " 😄" : e.mood === 2 ? " 🙂" : e.mood === 1 ? " 😩" : "";
+      h += '<article class="rc-day sk"><div class="rc-h"><b>Day ' + day.n + " · " + esc(day.city) + mood + '</b><span class="muted">' + esc(fmt(W.dateOf(day.n), { weekday: "long", month: "short", day: "numeric" })) + "</span></div>" +
+        (photos.length ? '<div class="jgrid rc">' + photos.map(function (p) { return '<img src="' + esc(src(p.id)) + '" alt="Photo from day ' + day.n + '" loading="lazy">'; }).join("") + "</div>" : "") +
+        (note ? '<p class="jnote">' + esc(note) + "</p>" : "") +
+        (seen.length ? '<p class="small muted">' + esc(seen.join(" · ")) + "</p>" : "") + "</article>";
+    });
+    if (!any) h += '<div class="empty sk">Add photos and a line or two to each day\'s journal on Trip, and they\'ll gather here.</div>';
+    else if (!W.readOnly) h += '<p class="small muted rc-share">' + (W.S.share ? "Family with your share code see this recap too." : "To show family, share the trip view-only from the trip menu (tap the trip name); the recap comes with it.") + "</p>";
+    el.innerHTML = h + "</div>";
+  };
+})();
