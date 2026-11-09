@@ -1273,7 +1273,7 @@ html.offline .brand::after{content:"Offline";position:absolute;right:-6px;top:-8
 
 /* ---------- how to see the trip: Day · Map · All days · Storybook ---------- */
 .vsw{display:flex;gap:3px;background:var(--sunk);border-radius:13px;padding:4px;margin:12px 0 4px}
-.vsw button{flex:1 1 auto;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:38px;border:0;background:transparent;border-radius:10px;padding:6px 8px;font:800 13.5px/1.1 var(--f-body);color:var(--muted);cursor:pointer;white-space:nowrap}
+.vsw button{flex:1 1 0;min-width:0;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:38px;border:0;background:transparent;border-radius:10px;padding:6px 8px;font:800 13.5px/1.1 var(--f-body);color:var(--muted);cursor:pointer;white-space:nowrap}
 .vsw button svg{width:17px;height:17px;flex:none}
 .vsw button[aria-checked="true"]{background:var(--ink);color:var(--bg)}
 @media (hover:hover){.vsw button[aria-checked="false"]:hover{color:var(--fg)}}
@@ -1353,7 +1353,6 @@ html.offline .brand::after{content:"Offline";position:absolute;right:-6px;top:-8
   .top #tripbar{order:3;flex:0 1 auto}
 }
 @media (min-width:561px) and (hover:hover){.top .tabs button:not([aria-current="page"]):hover{color:#fff}}
-@media (min-width:561px){.vsw{max-width:460px}}
 
 /* ==================== warmly: the banner's sky and greeting ==================== */
 .top{flex-wrap:wrap}
@@ -1548,6 +1547,13 @@ html.offline .brand::after{content:"Offline";position:absolute;right:-6px;top:-8
 .rc-gm{display:flex;justify-content:center;margin:10px 16px 14px;text-decoration:none;white-space:normal;text-align:center;text-wrap:balance;min-width:0}
 .rc-empty{padding:4px 16px 16px;margin:0}
 .rcard .map-wrap{margin:4px 10px 6px}
+/* the Mapbox day map (cities without a street-map pack): one picture, 16:10, tapping it opens the day in Google Maps */
+.mbmap{margin:4px 10px 6px}
+.mbmap a,.mbmap > .mb-wait,.mbmap img{display:block;width:100%;aspect-ratio:16/10;border-radius:12px;overflow:hidden;background:var(--map)}
+.mbmap img{height:auto;object-fit:cover}
+.mbmap > .mb-wait{display:grid;place-items:center;font-size:13px;color:var(--muted)}
+.mbmap figcaption{margin:6px 2px 0;line-height:1.35}
+@media (hover:hover){.mbmap a:hover img{filter:brightness(1.03)}}
 .freetime{padding:14px 16px;margin-bottom:16px;display:grid;gap:12px}
 .freetime h3{font-family:var(--f-display);font-weight:400;font-size:19px}
 .ft{display:grid;gap:8px}

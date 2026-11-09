@@ -89,13 +89,21 @@
       back. Driving when any stop is more than a walk away (Google Maps takes no stops on a transit route). */
   W.dayRouteUrl = function (day, stops, home) {
     function at(p) { return p.lat != null ? p.lat + "," + p.lng : (p.n || p.label) + ", " + day.city; }
+    var nine = stops.slice(0, 9), ids = nine.map(function (p) { return p.gid || ""; });
     var o = home && home.lat != null ? home.lat + "," + home.lng : (home && home.label ? home.label : day.city) + ", " + day.city;
     var prev = home, far = false;
     stops.forEach(function (p) { var d = prev && W.km(prev, p); if (d != null && d > 1.3) far = true; if (p.lat != null) prev = p; });
     return "https://www.google.com/maps/dir/?api=1&origin=" + encodeURIComponent(o) + "&destination=" + encodeURIComponent(o) +
-      (stops.length ? "&waypoints=" + encodeURIComponent(stops.slice(0, 9).map(at).join("|")) : "") + "&travelmode=" + (far ? "driving" : "walking");
+      (stops.length ? "&waypoints=" + encodeURIComponent(nine.map(at).join("|")) : "") +
+      /* Google's own IDs for the stops it knows, so each stop opens as the real listing (one per waypoint, blanks for the rest) */
+      (ids.some(Boolean) ? "&waypoint_place_ids=" + encodeURIComponent(ids.join("|")) : "") + "&travelmode=" + (far ? "driving" : "walking");
   };
-  W.gmapsPlace = function (name, city) { return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(name + ", " + city); };
+  /* a place on Google Maps: by its place ID when the nightly check has found it (the exact listing), else by name and town.
+     Takes a place ({n, gid}) or a name. */
+  W.gmapsPlace = function (name, city, gid) {
+    if (name && typeof name === "object") { gid = gid || name.gid; name = name.n || name.label || ""; }
+    return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(name + ", " + city) + (gid ? "&query_place_id=" + encodeURIComponent(gid) : "");
+  };
 
   W.airport = function () {
     var v = (W.S.depart || "").trim().toLowerCase(); if (!v) return null;

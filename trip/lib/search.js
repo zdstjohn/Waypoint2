@@ -34,7 +34,7 @@
       /** @type {any[]} */ (L[0]).forEach(function (it) {
         if (W.gone && W.gone(it)) return;
         var hay = W.norm(it.n + " " + (it.d || "") + " " + (it.cuisine || ""));
-        if (ws.every(function (w) { return hay.indexOf(w) > -1; })) out.push({ id: rid("list", it.n), src: "list", n: it.n, d: it.d || "", lat: it.lat, lng: it.lng, food: L[1], it: it });
+        if (ws.every(function (w) { return hay.indexOf(w) > -1; })) out.push({ id: rid("list", it.n), src: "list", n: it.n, d: it.d || "", lat: it.lat, lng: it.lng, gid: it.gid, food: L[1], it: it });
       });
     });
     return out.slice(0, 6);
@@ -139,7 +139,7 @@
     h += '<ul class="ps-list">' + M.list.map(function (r) {
       var tag = r.src === "list" ? '<span class="ps-src list">On your list' + (dayOf[W.norm(r.n)] ? " · Day " + dayOf[W.norm(r.n)] : "") + "</span>"
         : r.src === "map" || r.onMap ? '<span class="ps-src map">On the map</span>' : '<span class="ps-src ai" title="Suggested by Claude; not checked against the map yet">Suggested by Claude</span>';
-      var near = nearLine(r, day, P), gm = W.gmapsPlace(r.n, day.city);
+      var near = nearLine(r, day, P), gm = W.gmapsPlace(r, day.city);
       var open = st.pick === r.id, slots = r.food ? SLOTS_EAT : SLOTS_DO;
       var picker = !open ? "" : '<div class="ps-slots" role="group" aria-label="Add ' + esc(r.n) + " to Day " + day.n + '">' + slots.map(function (s) {
         var x = (day.slots || []).filter(function (y) { return y.slot === s[0]; })[0], now = x && x.item ? "replaces " + x.item.n : x ? "free" : "";

@@ -1,7 +1,7 @@
 /* Waypoint: the shapes that travel between files. Hand-written; checked against the sources by tsc (checkJs, noEmit) in
    test/suites/types.js. W is one shared object every file adds to; everything typed `any` below has not been described yet. */
 
-type LatLng = { lat: number | null; lng: number | null; g?: [number, number] | null; pinAsked?: 1; [k: string]: any };
+type LatLng = { lat: number | null; lng: number | null; g?: [number, number] | null; pinAsked?: 1; gid?: string; gpin?: 1; [k: string]: any };
 type Slot = "breakfast" | "am" | "lunch" | "pm" | "dinner" | "eve";
 type View = "setup" | "trip" | "book" | "go" | "recap" | "settings" | "kids" | "explore";
 type Focus = "icons" | "both" | "gems";
@@ -64,7 +64,8 @@ interface PackItem { key: string; text: string; who?: string; why?: string; own?
 interface PackLists { pack: PackItem[]; todo: PackItem[]; facts: Record<string, any>; hidden?: number }
 interface Photo { url: string; credit?: string; page?: string; near?: string | boolean }
 /** a checked place record (places/<city> in the database) */
-interface PlaceRecord extends Partial<LatLng> { checked?: string; osm?: string; name?: string; st?: Spot["st"]; site?: string; hours?: Hours; k?: Kid; note?: string; place?: string; replace?: Partial<Food & Spot> & { n: string }; approx?: 1; nopin?: 1; ashore?: 1; stay?: 1; pin_tried?: string; area?: 1; was?: [number, number] }
+/** g: Google's place ID (kept for good); gpin/gat: the pin came from Google on that day (kept 30 days, never on the free map) */
+interface PlaceRecord { lat?: number | null; lng?: number | null; g?: string; gpin?: 1; gat?: string; [k: string]: any; checked?: string; osm?: string; name?: string; st?: Spot["st"]; site?: string; hours?: Hours; k?: Kid; note?: string; place?: string; replace?: Partial<Food & Spot> & { n: string }; approx?: 1; nopin?: 1; ashore?: 1; stay?: 1; pin_tried?: string; area?: 1; was?: [number, number] }
 interface OfflineState { state: string; n: number; total: number; at: number; maps: any[]; err: string; off: boolean; copy: boolean; trip: any; copyState: string; copyErr: string; why: string; save(P: Plan, why?: string): void; tick(P: Plan): void; src(url: string): string; block(P: Plan): string; takeBlock(P: Plan): string; exportCopy(P: Plan): Promise<void>; click(d: DOMStringMap, P: Plan): boolean; [k: string]: any }
 interface ReadOnly { code: string; [k: string]: any }
 interface Milestone { key: string; title: string; text: string; also?: string[]; go?: View }
@@ -83,7 +84,7 @@ interface Waypoint {
   searchBlock: (day: Day, P: Plan) => string;
   searchClick: (d: DOMStringMap, day: Day, P: Plan) => boolean;
   searchState: () => { q: string; n: number; busy: boolean };
-  dayRouteUrl: (day: Day, stops: { n: string; lat: number | null; lng: number | null }[], home: { label?: string; n?: string; lat: number | null; lng: number | null }) => string;
+  dayRouteUrl: (day: Day, stops: { n: string; lat: number | null; lng: number | null; gid?: string }[], home: { label?: string; n?: string; lat: number | null; lng: number | null }) => string;
   loadPins: (country: string, city: string, names: string[]) => void;
   $: (id: string) => HTMLElement | null;
   C: Cache;
@@ -191,7 +192,11 @@ interface Waypoint {
   getMcp: any;
   glance: any;
   gmapsDir: any;
-  gmapsPlace: any;
+  mbMapBox: (day: Day, pts: { n: string; lat: number | null; lng: number | null; num?: number; food?: boolean; gpin?: 1 }[], home: { label?: string; lat: number | null; lng: number | null }, gm?: string) => string;
+  mbInput: (pts: { lat: number | null; lng: number | null; num?: number; food?: boolean; gpin?: 1 }[], home: { lat: number | null; lng: number | null } | null, hi?: boolean) => any;
+  mbFit: (pts: { lat: number; lng: number }[]) => { center: { latitude: number; longitude: number }; zoom: number };
+  mbState: () => { off: boolean; cached: number; busy: number };
+  gmapsPlace: (place: string | { n?: string; label?: string; gid?: string }, city: string, gid?: string) => string;
   goView: (to: View) => void;
   gone: (it: Spot | Food | null | undefined) => boolean;
   greeting: any;

@@ -34,6 +34,18 @@ lib/              the shared library
                   Each place keeps its list's own pin (g) apart from any record's, so a record that is corrected gives
                   it back; a record that took a wrong pin off says which ("was"), and a saved list still holding that
                   pin asks Claude once where the place is (W.loadPins, checked against the city like every answer)
+                  Google Places (New), with the owner's key in the nightly task only (never in the page, files, database
+                  or repo): `place_check.py google` looks up the places whose pins rest on the least evidence first, and a
+                  match leaves its place ID ("g", kept for good: every "Google Maps" link, W.gmapsPlace, and the whole-day
+                  route's waypoint_place_ids then open the exact listing). The pin taken is the free map's own place at
+                  Google's spot when there is one; otherwise Google's pin as "gpin" with its date ("gat"), which Google's
+                  terms allow for 30 days: `place_check.py refresh` renews it after 25, the app ignores one older than 30,
+                  and no map in the app draws one. Google's first answer counts only when it is the right kind of place
+                  and holds the item's own words (in its name or address), or, for an item with no name of its own, when
+                  it is the one such place in town (a park, a museum; never "any gelateria"); never a car park, a street,
+                  a station, a tour desk or a supermarket unless the item says so, nor a hotel for a place to eat; a
+                  day-trip match (over 15 km) must be the very same name, and nothing past 120 km or away from a town
+                  the item names. Ratings and reviews are not kept.
   times.js        the clock for each day: starts, ends, the nap, travel days; how tiring a day is
   shape.js        the trip as a whole: nights per base, day trips instead of hotel moves, the way between bases,
                   what the group (toddlers, grandparents) can take
@@ -51,6 +63,12 @@ lib/              the shared library
                   check confirms it), merged into one list; a Google Maps search for the same words is one link away.
                   An added place joins the city's list as your own (S.imported, with the trip) and goes in the part of
                   the day you pick. The page can't reach the internet itself: the map comes through the connection.
+  mbmap.js        the day map where a city has no map pack: one real street-map picture of the day from Mapbox (through
+                  the viewer's Mapbox connection, like search), every pinned stop numbered, the stay, the day's loop;
+                  asked for once the day's pins settle and only for the day on screen, kept in memory, and tapping it
+                  opens the whole day in Google Maps. Google's own pins ("gpin") are never drawn on it. A Google map
+                  can't be shown in the page: it may only load from its own server, a Google key would have to sit in
+                  the page, and Google's terms don't allow keeping its map pictures.
   offline.js      the trip without a signal: the photo index and photos kept on the phone (IndexedDB), map packs
                   warmed into the worker's cache, the offline note in Travel mode, and the "offline copy" (one HTML
                   file with the app, the trip and its photos inside, opened from the phone's files)
@@ -67,10 +85,11 @@ lib/              the shared library
 screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.js, also the app controller: a labelled
                   switch for Day · Explore · All days. Explore: search any place, today's route (each stop with the
                   walk, transit or drive between them and its directions, and one button that opens the whole day in
-                  Google Maps, unpinned stops by name), a real street map on top only where the city has a map pack
-                  (never a sketch; tapping a pin opens it in Google Maps), the free parts of the day with three picks
+                  Google Maps, unpinned stops by name), a real street map on top (the map pack where the city has one,
+                  tapping a pin opens it in Google Maps; elsewhere the Mapbox day map; never a sketch), the free parts of the day with three picks
                   each, and every idea under the stop of today it is nearest to. On a big screen the Day view shows the
-                  street map beside the day where there is one and otherwise uses the full width. All days groups the days by place under a stay bar that sticks to
+                  street map beside the day where there is one, otherwise today's route with the Mapbox day map. The
+                  Day · Explore · All days switch runs the full width in three equal parts. All days groups the days by place under a stay bar that sticks to
                   the top and lights the place you've scrolled to; the storybook opens from the trip menu and All days), Prepare (book.js: To book · Booked · Budget ·
                   Pack · Take along) and Today (travel.js: Travel mode, also the storybook). flow.js has the next-step
                   bar, undo, the stop sheet and the quick start (shown on the very first open); journal, family;

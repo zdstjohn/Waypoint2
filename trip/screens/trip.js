@@ -241,14 +241,14 @@
       rows += legRow(prev, p, false);
       var R = T && T.rows[p.slot], when = [R && R.start != null && !R.skip ? W.clock(R.start) : "", (R && R.label) || W.SLOT_NAME[p.slot]].filter(Boolean).join(" · ");
       rows += '<li class="rc-stop"><span class="num' + (p.food ? " f" : "") + '">' + p.num + '</span><span class="rc-b"><b>' + esc(p.n) + '</b><span class="small muted">' + esc(when) +
-        (p.lat == null ? " · " + link(W.gmapsPlace(p.n, city), "find on Google Maps") : "") + "</span></span></li>";
+        (p.lat == null ? " · " + link(W.gmapsPlace(p, city), "find on Google Maps") : "") + "</span></span></li>";
       if (p.lat != null) prev = p;
     });
     if (prev !== home) rows += legRow(prev, home, true);
     return '<aside class="explorer rcard sk"><div class="explorer-h"><h3>Today\'s route</h3>' + zoomBtns + "</div>" + mapBox +
       '<ol class="rc-list"><li class="rc-home"><span class="rc-hi" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M2.5 7.5 8 3l5.5 4.5V13h-3.5V9.5h-4V13H2.5z" fill="currentColor"/></svg></span><span class="rc-b"><b>' + esc(home.label) + '</b><span class="small muted">where you\'re staying</span></span></li>' + rows + "</ol>" +
       (gm ? '<a class="btn rc-gm" href="' + esc(gm) + '" target="_blank" rel="noopener">Open the whole day in Google Maps ↗</a>' : "") +
-      (mapBox ? '<p class="map-note">© OpenMapTiles © OpenStreetMap contributors</p>' : "") + "</aside>";
+      (mapBox && mapBox.indexOf("vt-slot") > -1 ? '<p class="map-note">© OpenMapTiles © OpenStreetMap contributors</p>' : "") + "</aside>";
   }
   /** the parts of today with nothing planned, each with the three best fits (open then, close to the stop before) */
   function freeTime(day, P, T) {
@@ -385,7 +385,7 @@
         if (day.trip && !x.trip && wasOut && prevPt !== home) { var rb = W.leg(prevPt, home); if (rb) list += '<div class="travel-note">Back from ' + esc(day.trip.name) + " to " + esc(home.label) + " · " + W.fmtMin(rb.min) + " " + rb.label + " " + link(W.gmapsDir(prevPt, home, rb.mode), "Directions") + "</div>"; prevPt = home; wasOut = false; }
         if (it && x.trip) wasOut = true;
         if (it) {
-          num++; pts.push({ n: it.n, lat: it.lat, lng: it.lng, num: num, i: num, food: food, slot: x.slot });
+          num++; pts.push({ n: it.n, lat: it.lat, lng: it.lng, gid: it.gid, gpin: it.gpin, num: num, i: num, food: food, slot: x.slot });
           var lg = W.leg(prevPt, it), from = prevPt;
           var legTag = lg ? '<span class="leg" title="' + esc(W.fmtMin(lg.min) + " " + lg.label + " · " + W.fmtKm(lg.d) + (from === home ? " from " + home.label : "")) + '"><span class="vh">' + esc(lg.label) + " </span>" + (LEG_IC[lg.mode] || LEG_IC.transit) + esc(W.fmtMin(lg.min)) + "</span>" : "";
           if (it.lat != null) prevPt = it;
@@ -401,7 +401,7 @@
           if (!food) notes = beachNote(it, P) + notes;
           var rev = it.love || it.gripe ? '<div class="rev">' + (it.love ? '<span><b>Loved for</b> ' + esc(it.love) + "</span>" : "") + (it.gripe ? '<span><b>Watch for</b> ' + esc(it.gripe) + "</span>" : "") + "</div>" : "";
           var more = open ? '<div class="slot-more">' + (metaHtml ? '<div class="meta">' + metaHtml + "</div>" : "") + (food ? "" : beachCheck(it)) + rev + (it.st === "unsure" ? '<p class="small muted">Couldn\'t confirm it\'s still open. Worth a quick check.</p>' : "") + (W.altLinksFor ? W.altLinksFor("activity", { it: it, food: food, day: day }) : "") + '<div class="links">' +
-            link(W.reviewsUrl(it.n, day.city), "Reviews") + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it.n, day.city), "Google Maps") + (lg ? link(W.gmapsDir(from, it, lg.mode), "Directions") : "") + "</div>" + (W.familyActs ? W.familyActs(it, day, x) : "") + "</div>" : "";
+            link(W.reviewsUrl(it.n, day.city), "Reviews") + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it, day.city), "Google Maps") + (lg ? link(W.gmapsDir(from, it, lg.mode), "Directions") : "") + "</div>" + (W.familyActs ? W.familyActs(it, day, x) : "") + "</div>" : "";
           var ph = W.picture(it, food, day.country, day.city);   /* restaurants show only their own photo (never a nearby one) */
           /* at a glance: what it costs, whether it's booked or due, whether it's indoors */
           var cls = W.classify(it, food), bkG = !food && W.bookEntryFor ? W.bookEntryFor(P, day, it) : null, bkd = W.bookingFor ? W.bookingFor(it, day) : null;
@@ -457,6 +457,8 @@
         mapBox = '<div class="map-wrap' + (vtOn ? " vt-on" : " vt-want") + '"><div class="vt-slot"></div>' + (vtOn ? "" : '<p class="loading map-wait">Loading the street map…</p>') + "</div>";
         vtWant = { slug: vtSlug, key: day.n + "|" + day.city, pts: pts, home: home, animate: true, city: day.city };
       }
+      /* elsewhere, a real street map of the day from Mapbox (one picture, through the viewer's Mapbox connection) */
+      var mb = !mapBox && W.mbMapBox && (xp || window.innerWidth > 920) ? W.mbMapBox(day, pts, home, gm) : "";
       var zoomBtns = mapBox ? '<div class="zoom" role="group" aria-label="Map zoom"><button type="button" class="icon-btn" data-zoom="out" aria-label="Zoom out">−</button>' +
         '<button type="button" class="icon-btn" data-zoom="in" aria-label="Zoom in">+</button>' +
         '<button type="button" class="icon-btn fit" data-zoom="fit" aria-label="Fit today\'s stops"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg></button></div>' : "";
@@ -467,14 +469,14 @@
            whole day in Google Maps (never a sketch) */
         var side = mapBox ? '<aside class="explorer sk"><div class="explorer-h"><h3>Today\'s map</h3>' + zoomBtns + "</div>" + mapBox +
           '<p class="map-note">© OpenMapTiles © OpenStreetMap contributors' + (gm ? " · " + link(gm, "Open the day in Google Maps") : "") + "</p></aside>"
-          : window.innerWidth > 920 ? routeCard(day, P, T, home, pts, gm, "", "") : "";
+          : window.innerWidth > 920 ? routeCard(day, P, T, home, pts, gm, mb, "") : "";
         h += '<div class="dayview mode-list' + (side ? "" : " solo") + '"><div class="slots">' + list + "</div>" + side + "</div>";
         h += W.dayNav ? W.dayNav(day, P) : "";
         h += W.journalCard(day);
       } else {
         /* Explore: find any place, today's route, the free time, then every idea by what it's near */
         h += W.searchBlock(day, P);
-        h += routeCard(day, P, T, home, pts, gm, mapBox, zoomBtns);
+        h += routeCard(day, P, T, home, pts, gm, mapBox || mb, zoomBtns);
         h += freeTime(day, P, T);
       }
 
@@ -533,7 +535,7 @@
         return '<div class="idea' + (ph ? " has-photo" : "") + '">' + (ph ? '<div class="pic-wrap">' + ph + onTag + "</div>" : onTag) + "<h4>" + esc(it.n) + "</h4>" + bTag + '<p class="desc">' + esc(it.d) + "</p>" +
           (row.near ? '<p class="near">' + esc(row.near) + "</p>" : "") +
           (info ? '<p class="small muted">' + esc(info) + "</p>" : "") +
-          '<p class="small idea-meta">' + warn + (eat ? menuLink(it, day.city) : "") + bookLink(it, day.city, eat, day.country) + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it.n, day.city), "Google Maps") + "</p>" +
+          '<p class="small idea-meta">' + warn + (eat ? menuLink(it, day.city) : "") + bookLink(it, day.city, eat, day.country) + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it, day.city), "Google Maps") + "</p>" +
           (on && on.n === day.n || !free.length ? "" : '<div class="use">' + free.map(function (x) { return '<button type="button" data-use="' + x.slot + '" data-name="' + esc(it.n) + '" aria-label="Put ' + esc(it.n) + " in " + W.SLOT_NAME[x.slot].toLowerCase() + '">' + W.SLOT_NAME[x.slot] + "</button>"; }).join("") + "</div>") + "</div>";
       }
       if (xp) h += '<section class="ideas sk"><div class="ideas-t"><h2>Ideas in ' + esc(day.city) + '</h2><span class="small muted">' + (pool.spots || []).length + " things to do · " + (pool.food || []).length + " places to eat</span></div>" +
@@ -718,7 +720,7 @@
       (it.st === "unsure" ? '<p class="small muted">Couldn\'t confirm it\'s still open. Worth a quick check.</p>' : "") +
       (W.altLinksFor ? W.altLinksFor("activity", { it: it, food: food, day: day }) : "") +
       '<div class="links">' + (bkE ? '<button type="button" class="linkish" data-gobook="' + esc(bkE.key) + '">' + (bkE.done ? "Booked · see Prepare" : "On your To book list") + "</button>" : "") +
-      link(W.reviewsUrl(it.n, day.city), "Reviews") + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it.n, day.city), "Google Maps") + "</div>" +
+      link(W.reviewsUrl(it.n, day.city), "Reviews") + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it, day.city), "Google Maps") + "</div>" +
       (W.familyActs ? W.familyActs(it, day, x) : "") + "</div>";
   };
   W.prevView = function () { return prevView === "settings" ? "trip" : prevView; };

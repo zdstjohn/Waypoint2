@@ -14,6 +14,8 @@ exports.run = async t => {
 
   /* save, once every list has arrived (a save made while lists are still coming would miss the items they bring) */
   await settle(pg, 8000);
+  /* and once the plan shows photos (a slow machine gets the city's lists later); an automatic save already running is let finish */
+  await pg.waitForFunction(() => { const P = W.plan(); return W.offline.state !== 'saving' && P.days.some(d => d.slots.some(x => x.item && W.photoFor(x.item, W.isFood(x.slot), d.country, d.city))); }, null, { timeout: 20000 }).catch(() => {});
   const s = await pg.evaluate(async () => { await W.offline.save(W.P, 'test'); const O = W.offline; return { state: O.state, n: O.n, total: O.total, at: O.at > 0, rec: JSON.parse(localStorage.getItem('waypoint-offline-v1') || 'null') }; });
   t.eq(s.state, 'done', 'saving finishes');
   t.ok(s.n > 0 && s.n === s.total, `every photo the trip shows is saved (${s.n})`);

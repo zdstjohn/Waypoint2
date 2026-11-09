@@ -319,7 +319,7 @@
     }
     var ps = g.items, many = ps.length > 1, nums = ps.map(function (p) { return p.num; }).join("·");
     /* one stop: the pin opens it in Google Maps (reviews, photos, hours, directions) */
-    if (!many && S.city) { var a = document.createElement("a"); a.href = W.gmapsPlace(ps[0].n, S.city); a.target = "_blank"; a.rel = "noopener"; el = a; }
+    if (!many && S.city) { var a = document.createElement("a"); a.href = W.gmapsPlace(ps[0], S.city); a.target = "_blank"; a.rel = "noopener"; el = a; }
     el.className = "vt-pin" + (many ? " many" : ps[0].food ? " food" : "");
     el.innerHTML = "<b>" + nums + "</b><span>" + W.esc(ps[0].n) + (many ? " +" + (ps.length - 1) : "") + "</span>";
     el.setAttribute("aria-label", ps.map(function (p) { return p.num + ". " + p.n; }).join(", "));
@@ -355,7 +355,7 @@
   function setPins(pts, home) {
     S.markers.forEach(function (m) { m.remove(); }); S.markers = [];
     (S.pinMarkers || []).forEach(function (m) { m.remove(); }); S.pinMarkers = []; S.groupSig = "";
-    var all = pts.filter(function (p) { return p.lat != null; });
+    var all = pts.filter(function (p) { return p.lat != null && !p.gpin; });     /* Google's pins stay on Google's maps */
     if (home && home.lat != null) S.markers.push(new ML.Marker({ element: pinEl({ home: 1 }) }).setLngLat([home.lng, home.lat]).addTo(S.map));
     S.pinPts = all; groupPins();
     var line = (home && home.lat != null ? [[home.lng, home.lat]] : []).concat(all.map(function (p) { return [p.lng, p.lat]; }));
@@ -364,7 +364,7 @@
     if (src) src.setData({ type: "FeatureCollection", features: line.length > 1 ? [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: line } }] : [] });
   }
   function fit(pts, home, animate) {
-    var c = pts.filter(function (p) { return p.lat != null; }).map(function (p) { return [p.lng, p.lat]; });
+    var c = pts.filter(function (p) { return p.lat != null && !p.gpin; }).map(function (p) { return [p.lng, p.lat]; });
     if (home && home.lat != null) c.push([home.lng, home.lat]);
     if (!c.length) return;
     var b = new ML.LngLatBounds(c[0], c[0]); c.forEach(function (q) { b.extend(q); });

@@ -5,6 +5,7 @@
      - every stay in the stay bar is fully visible (they shrink, then wrap to a second row, rather than hide past the edge)
      - every Prepare tab is fully visible
      - the previous/next day arrows are there at every width
+     - the Day / Explore / All days switch spans the full width, in three equal parts
      - the trip menu opens under the trip's name (right side of the banner), inside the window
      - the kids' corner stays picture-book sized and centred on a big screen */
 const { launch, open, exampleTrip, settle } = require('../lib/page'); const SCREENS = require('../lib/screens'); const CHECK = require('../lib/check');
@@ -40,6 +41,14 @@ exports.run = async t => {
       return [...document.querySelectorAll('#viewTrip .daybar > [data-step]')].filter(e => e.getBoundingClientRect().width > 0).length;
     });
     t.eq(arrows, 2, `@${width}: the previous/next day arrows are there`);
+    /* the Day / Explore / All days switch runs the full width of the page, in three equal parts */
+    const vsw = await pg.evaluate(() => {
+      const v = [...document.querySelectorAll('#viewTrip .vsw')].find(e => e.getBoundingClientRect().width > 0); if (!v) return null;
+      const p = v.parentElement, cs = getComputedStyle(p), inner = p.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const bw = [...v.querySelectorAll('button')].map(b => Math.round(b.getBoundingClientRect().width));
+      return { w: Math.round(v.getBoundingClientRect().width), inner: Math.round(inner), bw };
+    });
+    t.ok(vsw && vsw.w >= vsw.inner - 2 && Math.max(...vsw.bw) - Math.min(...vsw.bw) <= 2, `@${width}: the Day / Explore / All days switch spans the page (${vsw && vsw.w} of ${vsw && vsw.inner} px; buttons ${vsw && vsw.bw.join('/')})`);
     /* the Prepare tabs */
     const tabs = await pg.evaluate(() => {
       W.setView('book'); W.S.prepTab = 'tobook'; W.render();

@@ -10,6 +10,8 @@ exports.run = async t => {
       'rome cafe 0': { st: 'closed', note: 'Closed in 2025', replace: { n: 'Caffè Verifica', d: 'Family-run café by the piazza', cuisine: 'Cafe', price: '€', meal: 'breakfast', k: 1, lat: 41.9, lng: 12.48, site: 'https://caffeverifica.example' } },
       'rome cafe 1': { lat: 41.95, lng: 12.5, site: 'https://cafe1.example', hours: { o: 420, c: 780, closed: [] } },
       'rome cafe 2': { nopin: 1, checked: '2026-11-08' },
+      'rome cafe 3': { g: 'ChIJtest3', gpin: 1, gat: new Date().toISOString().slice(0, 10), lat: 41.9011, lng: 12.4722 },
+      'rome cafe 4': { g: 'ChIJtest4', gpin: 1, gat: new Date(Date.now() - 40 * 864e5).toISOString().slice(0, 10), lat: 41.7, lng: 12.7 },
       'trastevere side streets': { lat: 41.8894, lng: 12.4698, approx: 1, stay: 1 },
     }, center: [41.8986, 12.4769] },
     'photos/italy-rome': { items: { 'piazza navona': { url: px + '#navona', credit: 'Test', page: 'x' } }, city: 'Rome', country: 'Italy' },
@@ -60,6 +62,18 @@ exports.run = async t => {
   });
   t.ok(rt.n === rt.stops && rt.byName === rt.noLL && rt.wp === Math.min(9, rt.stops), `the route lists every stop (${rt.n}), finds the unpinned ones by name (${rt.byName}), and the Google Maps link carries all of them (${rt.wp})`);
   await pg.evaluate(() => { W.S.tview = 'days'; W.render(); });
+  /* Google: a place the nightly check found there carries its place ID, so every "Google Maps" link (the stop, the whole
+     day) opens the exact listing; a pin taken from Google is used for 30 days only, and never drawn on the free street map */
+  const gg = await pg.evaluate(() => {
+    const p = W.pool('Italy', 'Rome'), c3 = p.food.find(x => x.n === 'Rome cafe 3'), c4 = p.food.find(x => x.n === 'Rome cafe 4');
+    const d = W.P.days.find(x => x.city === 'Rome'), url = c3 && W.dayRouteUrl(d, [{ n: 'Somewhere', lat: 41.9, lng: 12.5 }, c3], { label: 'Hotel', lat: 41.9, lng: 12.48 });
+    return { gid: c3 && c3.gid, link: c3 && W.gmapsPlace(c3, 'Rome'), plain: W.gmapsPlace('Rome cafe 9', 'Rome'), pin: c3 && [c3.lat, c3.lng], gpin: c3 && c3.gpin,
+      stale: c4 && [c4.lat, c4.lng], staleG: c4 && c4.gpin, ids: url && decodeURIComponent((url.match(/waypoint_place_ids=([^&]*)/) || [])[1] || '') };
+  });
+  t.ok(gg.gid === 'ChIJtest3' && /query_place_id=ChIJtest3/.test(gg.link) && !/query_place_id/.test(gg.plain), `a place Google knows links to its exact listing (${gg.link && gg.link.split('?')[1]})`);
+  t.eq(gg.ids, '|ChIJtest3', 'the whole-day Google Maps link names each stop Google knows, in order');
+  t.ok(gg.pin && gg.pin[0] === 41.9011 && gg.gpin === 1, 'a pin from Google is used while it is fresh');
+  t.ok(gg.stale && gg.stale[0] !== 41.7 && !gg.staleG, `a pin from Google older than 30 days is no longer used (${gg.stale})`);
   /* A record that lost a wrong pin (it carries "was"): a stop whose saved list still holds that wrong pin has no own pin
      to go back to, so it is asked for once and lands where the answer says, never back on the wrong spot. */
   const fix = await pg.evaluate(async () => {

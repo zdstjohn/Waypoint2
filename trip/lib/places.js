@@ -24,7 +24,12 @@
       if (it.g === undefined) it.g = it.lat != null && it.lng != null ? [it.lat, it.lng] : null;
       var was = r.was && r.was.length === 2 ? r.was : null, same = function (a, b) { return Math.abs(a - b) < 2e-6; };
       if (was && it.g && same(it.g[0], was[0]) && same(it.g[1], was[1])) it.g = null;
-      if (r.lat != null && r.lng != null) { it.lat = r.lat; it.lng = r.lng; }
+      /* Google's place ID opens the exact listing from every "Google Maps" link. A pin taken from Google ("gpin") may
+         be kept for 30 days only, and is never drawn on the free street map. */
+      it.gid = r.g || undefined;
+      var gOk = !r.gpin || (r.gat && Date.now() - Date.parse(r.gat) < 30 * 864e5);
+      it.gpin = r.gpin && gOk ? 1 : undefined;
+      if (r.lat != null && r.lng != null && gOk) { it.lat = r.lat; it.lng = r.lng; }
       /* a guessed pin that landed far out in the water, with the real place not found yet: no pin beats a wrong one */
       else if (r.nopin) { it.lat = null; it.lng = null; }
       else { it.lat = it.g ? it.g[0] : null; it.lng = it.g ? it.g[1] : null; }

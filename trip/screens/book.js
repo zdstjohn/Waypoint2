@@ -321,7 +321,7 @@
         var food = W.isFood(x.slot), off = W.officialUrl(it, food, d.country, d.city);
         ev.push(Object.assign({ key: "d" + d.n + "|" + x.slot, summary: (food ? W.SLOT_NAME[x.slot] + ": " : "") + it.n, start: R.start, end: R.end, location: it.n + ", " + d.city,
           desc: [it.d, W.stayText(it, food, x.slot) ? "Plan " + W.stayText(it, food, x.slot) : "", food ? it.cuisine : it.ticket].concat(R.warn, R.info).filter(Boolean).join("\n") +
-            (off ? "\n" + (food ? "Reserve: " : "Tickets: ") + off.url : "") + "\nMap: " + W.gmapsPlace(it.n, d.city) + "\n\nPlanned with Waypoint" }, base));
+            (off ? "\n" + (food ? "Reserve: " : "Tickets: ") + off.url : "") + "\nMap: " + W.gmapsPlace(it, d.city) + "\n\nPlanned with Waypoint" }, base));
       });
     });
     ev.forEach(function (e) { e.sig = e.summary + "|" + e.start + "|" + e.end + "|" + e.day + "|" + (S.start || ""); });
@@ -416,7 +416,7 @@
           if (R) R.info.forEach(function (w) { para(w, M + 62, PW - 2 * M - 62, "normal", 9, MUTED, 1); });
           var off = W.officialUrl(it, food, d.country, d.city);
           if (off) linkLine((food ? "Reserve: " : "Tickets: ") + off.host, off.url, M + 62);
-          linkLine("Map", W.gmapsPlace(it.n, d.city), M + 62);
+          linkLine("Map", W.gmapsPlace(it, d.city), M + 62);
           y = Math.max(y, top + 26) + 5;
           if (x.slot === "lunch" && P.p.toddler && T && T.nap) para(W.clock(T.nap.start) + "–" + W.clock(T.nap.end) + "   Nap or rest back at " + home.label, M, PW - 2 * M, "italic", 9.5, MUTED, 5);
         });

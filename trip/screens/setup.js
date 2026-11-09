@@ -117,7 +117,7 @@
         '<div class="lodge-a"><button type="button" class="btn quiet sm" data-lstay="' + t + '" data-si="' + i + '" aria-pressed="' + on + '">' + (on ? "✓ Staying here" : "Stay here") + "</button>" +
         '<a class="price" href="' + esc(W.priceUrl(it, s.name)) + '" target="_blank" rel="noopener">Compare prices</a>' +
         '<a href="' + esc(W.photosUrl(it.n, s.name)) + '" target="_blank" rel="noopener">Photos</a>' +
-        '<a href="' + esc(W.gmapsPlace(it.n, s.name)) + '" target="_blank" rel="noopener">Map</a>' +
+        '<a href="' + esc(W.gmapsPlace(it, s.name)) + '" target="_blank" rel="noopener">Map</a>' +
         (it.site ? '<a href="' + esc(it.site) + '" target="_blank" rel="noopener">Website</a>' : "") + "</div></div>";
     });
     return '<div class="lodges-h">Or pick one of these</div><div class="lodges">' + cards.join("") + "</div>" +
