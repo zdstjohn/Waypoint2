@@ -94,11 +94,12 @@ Checks (node test/run.js, from the folder above trip/)
                 builds only the open segment's markup; norm() and findCity() are memoized.
 
 Version control
-  The code lives in a git repository (the repo/ folder here; a clone is the artifact's src/ folder with .txt stripped):
-  trip/, test/, tools/, types/, build/, the test server, package.json. `npm install` then `npm test` runs everything;
-  `npm run types` only the type check. GitHub Actions (.github/workflows/ci.yml) runs the full suite on every push and
-  pull request; a tag v<N> matching the published artifact version builds and attaches app.js, app.min.css, index.html
-  and README.md as a release (release.yml). Every published version is a tag.
+  The code lives at github.com/zdstjohn/Waypoint2: trip/, test/, tools/, types/, build/, the test server, package.json.
+  `npm install` then `npm test` runs everything; `npm run types` only the type check. GitHub Actions
+  (.github/workflows/ci.yml) runs the full suite on every push and pull request (about 11 minutes). Every published
+  version of the artifact becomes a release: pushing a branch release/v<N> (or a tag v<N>) makes release.yml create
+  the tag v<N>, build, and attach app.js, app.min.css, index.html and README.md, so any version can be restored by
+  republishing its two files.
 
 Source
   src/            the readable sources behind app.js (lib/, screens/ as .js.txt), the type declarations (waypoint.d.ts.txt) and both tsconfig
