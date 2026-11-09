@@ -20,6 +20,13 @@
           { mode: 'bus', from: m[1] + ' bus station', to: m[3], dur: '3h', price: '€10–20', freq: 'hourly', op: 'FlixBus', url: 'https://www.getyourguide.com/x', book: false, note: '' },
           { mode: 'car', from: '', to: '', dur: '3h 10m', price: '', freq: '', op: '', url: '', book: false, note: 'Tolls on the A1.' } ] };
       }
+      /* food needs: how well each place fits (even-numbered eateries are a poor fit, the rest good) */
+      if (/^Places to eat in [\s\S]*how well can it feed this group\?/.test(prompt)) {
+        (window.__eatAsks = window.__eatAsks || []).push(prompt);
+        const names = ((prompt.split('\nPlaces: ')[1] || '').split('\nReply')[0] || '').split('; ').map(x => x.replace(/ \([^)]*\)$/, '').trim()).filter(Boolean);
+        await new Promise(r => setTimeout(r, 80));
+        return { fit: names.map(n => /eatery \d+-\d*[02468]$/.test(n) ? { n, fit: 'poor', fitw: 'Mostly shellfish dishes' } : { n, fit: 'good', fitw: 'Plenty without shellfish' }) };
+      }
       if (/^Typical travel costs in/.test(prompt)) {
         const pl = (prompt.match(/\nPlaces: (.*)\n/) || [])[1];
         return { cur: 'EUR', breakfast: 30, lunch: 70, dinner: 95, transit: 20, lodge: 180, tickets: pl ? pl.split('; ').map((n, i) => ({ n, total: 20 + i })) : [] };

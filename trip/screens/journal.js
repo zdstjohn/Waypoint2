@@ -24,7 +24,7 @@
     if (W.readOnly) return h + (note ? '<p class="jnote">' + esc(note) + "</p>" : "") + "</section>";
     h += '<textarea class="field jn" id="jn-' + esc(k) + '" data-jnote="' + esc(k) + '" rows="2" placeholder="What was the best bit today?">' + esc(note) + "</textarea>";
     h += '<div class="lo-act">' + (assets ? (uploading[k] ? '<span class="loading">Adding photos…</span>' :
-      '<label class="btn quiet sm jadd">Add photos<input type="file" accept="image/*" multiple data-jfile="' + esc(k) + '" hidden></label>') : '<span class="small muted">Photos can be added by the trip\'s owner in the Claude app.</span>') + "</div>";
+      '<button type="button" class="btn quiet sm jadd" data-jadd="' + esc(k) + '">Add photos</button>') : '<span class="small muted">Photos can be added by the trip\'s owner in the Claude app.</span>') + "</div>";
     if (err[k]) h += '<p class="warn">' + esc(err[k]) + "</p>";
     return h + "</section>";
   };
@@ -58,10 +58,27 @@
     }
     next();
   }
+  /* the photo picker lives outside the screen: Today redraws while you're choosing (the clock, new data, coming back to
+     the page), and a picker inside the card would be gone by the time the photos are chosen */
+  /** @type {HTMLInputElement | null} */ var picker = null;
+  function pick(/** @type {string} */ k) {
+    if (!assets) return;
+    if (picker && picker.parentNode) picker.parentNode.removeChild(picker);
+    var p = document.createElement("input"); picker = p;
+    p.type = "file"; p.accept = "image/*"; p.multiple = true; p.setAttribute("aria-hidden", "true"); p.tabIndex = -1;
+    p.setAttribute("style", "position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0");
+    p.addEventListener("change", function () { var f = p.files; if (f && f.length) addPhotos(k, f); if (p.parentNode) p.parentNode.removeChild(p); });
+    document.body.appendChild(p);
+    p.click();
+  }
+  W.journalPick = pick;
+  document.addEventListener("click", function (e) {
+    var b = e.target && e.target.closest && e.target.closest("[data-jadd]");
+    if (b && !W.readOnly) { e.preventDefault(); pick(b.getAttribute("data-jadd") || ""); }
+  });
   document.addEventListener("change", function (e) {
     var t = e.target;
-    if (t && t.dataset && t.dataset.jfile) { addPhotos(t.dataset.jfile, t.files || []); t.value = ""; }
-    else if (t && t.dataset && t.dataset.jnote != null && !W.readOnly) { var en = J()[t.dataset.jnote] || (J()[t.dataset.jnote] = {}); en.note = (t.value || "").slice(0, 2000); W.save(); }
+    if (t && t.dataset && t.dataset.jnote != null && !W.readOnly) { var en = J()[t.dataset.jnote] || (J()[t.dataset.jnote] = {}); en.note = (t.value || "").slice(0, 2000); W.save(); }
   });
   W.journalClick = function (d) {
     if (d.jdel == null) return false;

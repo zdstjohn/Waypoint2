@@ -141,7 +141,7 @@
   /* the PDF's built-in fonts only know Western European letters */
   var LAT = { "\u2013": "-", "\u2014": "-", "\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"', "\u2026": "...", "\u2192": "->", "\u2190": "<-", "\u2713": "", "\u2022": "\u00b7", "\u00a0": " ", "\u202f": " ", "\u20ac": "EUR " };
   function lat1(s) {
-    s = String(s == null ? "" : s).replace(/[\u2013\u2014\u2018\u2019\u201c\u201d\u2026\u2192\u2190\u2713\u2022\u00a0\u202f\u20ac]/g, function (c) { return LAT[c]; });
+    s = String(s == null ? "" : s).replace(/\u2248/g, "~").replace(/[\u2013\u2014\u2018\u2019\u201c\u201d\u2026\u2192\u2190\u2713\u2022\u00a0\u202f\u20ac]/g, function (c) { return LAT[c]; });
     return s.replace(/[^\x00-\xff]/g, function (c) { var n = c.normalize("NFD").replace(/[̀-ͯ]/g, ""); return /^[\x00-\xff]+$/.test(n) ? n : ""; }).replace(/EUR (\d)/g, "EUR $1");
   }
   function makePdf(P) {
@@ -160,6 +160,8 @@
         lines.forEach(function (ln) { room(lh); doc.text(ln, x, y + sz); y += lh; });
         y += gap || 0;
       }
+      /* how tall a piece of text will be, so a stop can be kept together on one page */
+      function tall(txt, w, st, sz) { font(st, sz); return doc.splitTextToSize(lat1(txt || ""), w).length * sz * 1.3; }
       function linkLine(label, url, x) { font("normal", 9.5); color(ACC); room(13); doc.textWithLink(lat1(label), x, y + 9.5, { url: url }); y += 13; }
       var name = W.tripName ? W.tripName() : "My trip";
       para(name, M, PW - 2 * M, "bold", 22, INK, 4);
@@ -167,7 +169,7 @@
       para([first ? fmtDay(first, { month: "long", day: "numeric" }) + " – " + fmtDay(last, { month: "long", day: "numeric", year: "numeric" }) : P.N + " days", P.stops.map(function (s) { return s.name + " (" + s.days + ")"; }).join(" → ")].join(" · "), M, PW - 2 * M, "normal", 11, MUTED, 14);
       P.days.forEach(function (d) {
         var T = W.dayTimes(d, P), date = W.dateOf(d.n);
-        room(60);
+        room(130);   /* a day's heading never sits alone at the foot of a page: room for it and its first stop */
         doc.setDrawColor(52, 48, 45); doc.setLineWidth(1.2); doc.line(M, y + 2, PW - M, y + 2); y += 10;
         para("Day " + d.n + " · " + d.city + (date ? " · " + fmtDay(date, { weekday: "long", month: "short", day: "numeric" }) : ""), M, PW - 2 * M, "bold", 14, INK, 2);
         var home = W.homebase(d.country, d.city);
@@ -179,13 +181,18 @@
           y += 4;
         }
         (T && T.order ? T.order.map(function (sl) { return d.slots.filter(function (y) { return y.slot === sl; })[0]; }) : d.slots || []).forEach(function (x) {
-          var it = x.item, R = T && T.rows[x.slot], food = W.isFood(x.slot);
-          room(40);
-          var top = y;
+          var it = x.item, R = T && T.rows[x.slot], food = W.isFood(x.slot), TW = PW - 2 * M - 62;
+          /* each stop stays together: measure it, and start a new page first when it won't fit. (A stop split across two
+             pages used to leave the rest of the second page blank: its spacing was measured from where it began.) */
+          var est = 31;
+          if (it) est = Math.max(31, tall(it.n, TW, "bold", 10.5) + 1 + (it.d ? tall(it.d, TW, "normal", 9.5) + 1 : 0) + 13 +
+            (R ? R.warn.concat(R.info).reduce(function (a, w) { return a + tall(w, TW, "normal", 9) + 1; }, 0) : 0) + (W.officialUrl(it, food, d.country, d.city) ? 13 : 0) + 13 + 5);
+          room(est);
+          var top = y, pg0 = doc.internal.getNumberOfPages(), same = function () { return doc.internal.getNumberOfPages() === pg0; };
           font("bold", 10.5); color(INK); doc.text(lat1(R && R.start != null && !R.skip ? W.clock(R.start) : ""), M, y + 10.5);
           font("normal", 8.5); color(MUTED); doc.text(lat1(R && R.label || W.SLOT_NAME[x.slot]), M, y + 22);
           y = top;
-          if (!it) { para("Free time", M + 62, PW - 2 * M - 62, "italic", 10.5, MUTED, 8); y = Math.max(y, top + 26); return; }
+          if (!it) { para("Free time", M + 62, PW - 2 * M - 62, "italic", 10.5, MUTED, 8); y = same() ? Math.max(y, top + 26) : y; return; }
           para(it.n, M + 62, PW - 2 * M - 62, "bold", 10.5, INK, 1);
           if (it.d) para(it.d, M + 62, PW - 2 * M - 62, "normal", 9.5, INK, 1);
           var lvl = food && /^[€£$¥]{1,4}$/.test(it.price || "") ? "Price " + new Array(it.price.length + 1).join("$") : food ? it.price : "";
@@ -195,8 +202,8 @@
           if (R) R.info.forEach(function (w) { para(w, M + 62, PW - 2 * M - 62, "normal", 9, MUTED, 1); });
           var off = W.officialUrl(it, food, d.country, d.city);
           if (off) linkLine((food ? "Reserve: " : "Tickets: ") + off.host, off.url, M + 62);
-          linkLine("Map", W.gmapsPlace(it, d.city), M + 62);
-          y = Math.max(y, top + 26) + 5;
+          linkLine("Open in Google Maps", W.gmapsPlace(it, d.city), M + 62);
+          y = (same() ? Math.max(y, top + 26) : y) + 5;
           if (x.slot === "lunch" && P.p.toddler && T && T.nap) para(W.clock(T.nap.start) + "–" + W.clock(T.nap.end) + "   Nap or rest back at " + home.label, M, PW - 2 * M, "italic", 9.5, MUTED, 5);
         });
         y += 6;
@@ -343,6 +350,7 @@
     var nPack = packL ? packL.pack.concat(packL.todo).filter(function (i) { return !(S.pack || {})[i.key]; }).length : 0;
     var SEGS = [["tobook", "To book", nBook], ["booked", "Booked", 0], ["budget", "Budget", 0], ["pack", "Pack", nPack], ["take", "Take along", 0]];
     if (W.readyRing) h += W.readyRing(P);
+    if (W.curPicker && (seg === "tobook" || seg === "booked" || seg === "budget")) h += W.curPicker(P);
     h += '<div class="prep-seg" role="tablist" aria-label="Prepare">' + SEGS.map(function (g) { return '<button type="button" role="tab" aria-selected="' + (seg === g[0]) + '" data-prep="' + g[0] + '">' + g[1] + (g[2] ? '<span class="gn">' + g[2] + "</span>" : "") + "</button>"; }).join("") + "</div>";
     if (seg === "tobook") {
       h += section("To book", top,

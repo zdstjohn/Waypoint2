@@ -12,7 +12,7 @@
   /** @param {unknown} x @param {number} [max] @returns {string} */
   V.str = function (x, max) { var s = x == null ? "" : String(x).trim(); return max ? s.slice(0, max) : s; };
   /** a name: a non-empty string, trimmed, at most 90 characters; null when unusable */
-  V.name = function (x) { var s = V.str(x, 90); return s.length >= 2 && !/^(null|undefined|n\/a|none|unknown)$/i.test(s) ? s : null; };
+  V.name = function (x) { var s = V.str(x, 90); return s.length >= 2 && !/^(null|undefined|n\/a|none|unknown)$/i.test(s) && !/[<>]/.test(s) ? s : null; };   /* no place is named with markup */
   /** @returns {number|null} */
   V.num = function (x) { var n = typeof x === "number" ? x : parseFloat(String(x)); return isFinite(n) ? n : null; };
   /** a whole number within [lo, hi]; the fallback when not a number */
@@ -68,7 +68,8 @@
     var p = V.pinNear(x.lat, x.lng, center); if (!p && (x.lat != null || x.lng != null)) V.stats.cleared++;
     return { n: n, d: V.str(x.d, 240), cuisine: V.str(x.cuisine, 40), price: V.str(x.price, 12), meal: V.oneOf(x.meal, MEALS, dflt.meal || /** @type {Meal} */ ("both")),
       k: /** @type {Kid} */ (V.intOf(x.k, KID, 0)), fame: V.fame(x.fame), rating: V.rating(x.rating), reserve: x.reserve === true, book: V.url(x.book), menu: V.url(x.menu),
-      dur: V.str(x.dur, 24), fav: x.fav === true, pic: V.str(x.pic, 24) || dflt.pic || "", place: V.str(x.place, 90), lat: p ? p.lat : null, lng: p ? p.lng : null };
+      dur: V.str(x.dur, 24), fav: x.fav === true, pic: V.str(x.pic, 24) || dflt.pic || "", place: V.str(x.place, 90), lat: p ? p.lat : null, lng: p ? p.lng : null,
+      fit: V.oneOf(x.fit, ["good", "ok", "poor"], ""), fitw: V.str(x.fitw, 120) };
   };
   /** a destination in a country (the country list) */
   V.city = function (c0) {

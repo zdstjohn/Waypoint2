@@ -1,10 +1,7 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v110
-swap-*          # swap cards line up (an icon where there's no photo) and each has a thumbs-down; "Not for us" on the panel
-menu-*          # the trip menu over the same day, with the swap panel open underneath
-explore-*       # "Not for us" on every idea in Explore
-stop-panel-*    # the stop's menu has "Not for us"
-meal-panel-*    # (the same, on a meal)
-today-*         # Today: the day bag, and the screen kept on
-settings-*      # Settings: its title, and the new Storage card
+# v111
+setup-*         # Plan: the new step 3, "What do you eat?" (allergies, diets, likes), and the steps after it renumbered
+book-*          # Prepare: "Prices in" (the currency costs are shown in)
+settings-*      # Settings: the Prices card
+meal-panel-*    # a meal's panel: its menu (read from the restaurant's own site overnight) and menu photos on Google Maps

@@ -18,7 +18,7 @@ interface Spot extends LatLng { n: string; d: string; t: string[]; k: Kid; fame?
   meal?: Meal; cuisine?: string; price?: string; menu?: string; reserve?: boolean; fav?: boolean }
 /** a place to eat */
 interface Food extends LatLng { n: string; d: string; cuisine: string; price: string; meal: Meal; k: Kid; fame?: Fame; rating?: number; reserve: boolean; book: string; menu: string; dur: string; fav: boolean; pic: string; place?: string;
-  st?: Spot["st"]; hours?: Hours | null; lead?: number; love?: string; gripe?: string; note?: string; durAsked?: 1; s?: TimeOfDay; ticket?: string; t?: string[]; bookV?: number; bch?: BeachFacts; indoor?: boolean; mine?: boolean }
+  st?: Spot["st"]; hours?: Hours | null; lead?: number; love?: string; gripe?: string; note?: string; durAsked?: 1; s?: TimeOfDay; ticket?: string; t?: string[]; bookV?: number; bch?: BeachFacts; indoor?: boolean; mine?: boolean; fit?: string; fitw?: string; eat?: { f: string; w: string; sig: string }; night?: string }
 interface Hours { o: number; c: number; closed: number[] }
 interface BeachFacts { calm?: "calm" | "some waves" | "often rough"; shallow?: boolean; shade?: string; lifeguard?: boolean; sand?: string; walk?: number; facilities?: boolean; note?: string }
 interface StayArea extends LatLng { n: string; d: string }
@@ -33,7 +33,7 @@ interface Country { name: string; mode: "manual" | "suggest"; picked: string[] }
 interface Stay { label: string; lat?: number | null; lng?: number | null; live?: { total: number; cur: string; url: string; at: number; in: string; out: string; src: string } }
 /** the trip, as saved (localStorage "waypoint-v2" and the account) */
 interface TripState { v: 2; algo?: number; tripId?: string; tripName?: string; styles: string[]; focus?: Focus; countries: Country[]; days: number; start: string; depart: string; travelers: (number | "")[]; names?: string[];
-  stays: Record<string, Stay>; picks: Record<string, string>; seen: Record<string, string[]>; mine?: Record<string, 1>; free?: Record<string, 1>; rest?: Record<string, 1>; fold?: Record<string, unknown>; legPick?: Record<string, unknown>; nope?: Record<string, string>; bag?: Record<string, Record<string, 1>>;
+  stays: Record<string, Stay>; picks: Record<string, string>; seen: Record<string, string[]>; mine?: Record<string, 1>; free?: Record<string, 1>; rest?: Record<string, 1>; fold?: Record<string, unknown>; legPick?: Record<string, unknown>; nope?: Record<string, string>; eat?: { al?: string[]; di?: string[]; love?: string; avoid?: string; note?: string }; eatNone?: 1; bag?: Record<string, Record<string, 1>>;
   cityDays: Record<string, number>; day: number; tview?: "days" | "map" | "story"; glanceOpen?: boolean; stepClosed?: Record<string, boolean>; prepTab?: string; transitOpen?: unknown; jetOpen?: unknown; nextHide?: unknown; tripFolded?: any; mapZoom?: number; late?: any;
   appMode?: string; appModeAt?: string; exF?: unknown; exSort?: unknown; pack?: Record<string, unknown>; packHide?: Record<string, 1>; packOwn?: PackItem[]; journal?: Record<string, { mood?: number; note?: string; photos?: { id: string; [k: string]: any }[] }>;
   kidPicks?: Record<string, string[]>; hunt?: Record<string, Record<string, 1>>; stamps?: Record<string, string>; celebrated?: Record<string, string>; warmSeen?: string; lodge?: Record<string, string>; lodgeSeen?: Record<string, string[]>;
@@ -193,7 +193,7 @@ interface Waypoint {
   fxAfter: any;
   fxCollapse: any;
   fxExpand: any;
-  fxFlip: (kind: string, dir: number, update: () => void) => void;
+  fxFlip: (kind: string, dir: number, update: () => void, after?: (() => void) | null) => void;
   fxFlipsOff: () => boolean;
   fxOff: any;
   fxPulse: any;
@@ -206,7 +206,7 @@ interface Waypoint {
   glance: any;
   gmapsDir: any;
   gmapsPlace: (place: string | { n?: string; label?: string; gid?: string }, city: string, gid?: string) => string;
-  goView: (to: View) => void;
+  goView: (to: View, anchor?: string) => void;
   gone: (it: Spot | Food | null | undefined) => boolean;
   greeting: any;
   guessLeg: any;
@@ -286,6 +286,31 @@ interface Waypoint {
   awakeCan: () => boolean;
   awakeRefused: () => boolean;
   awakeTick: (live: boolean) => void;
+  /** the group's food needs (Plan, step 3; lib/core.js) */
+  EAT_AL: string[][];
+  EAT_DI: string[][];
+  eatNeeds: () => { al: string[]; di: string[]; love: string; avoid: string; note: string } | null;
+  eatText: () => string;
+  eatSig: () => string;
+  eatFit: (it: any) => string;
+  eatWhy: (it: any) => string;
+  loadEatFit: (country: string, city: string) => void;
+  /** open the photo picker for a day's journal (screens/journal.js) */
+  journalPick: (k: string) => void;
+  /** Prices in: the currency costs are shown in (lib/bookcore.js) */
+  fxDate: () => string;
+  fxRate: (from: string, to: string) => number | null;
+  curOf: (country: string) => string;
+  CURS: string[];
+  homeCur: () => string;
+  curView: () => string;
+  setCurView: (c: string) => void;
+  curPicker: (P: Plan) => string;
+  priceText: (s: any, local?: string) => string;
+  /** nightly restaurants and menus (lib/nightfood.js) */
+  withNightFood: (country: string, city: string, pool: any) => void;
+  menuFor: (it: any, country: string, city: string) => { src: string; at: string; sections: { h: string; items: { n: string; p: string; d: string }[] }[]; kids: { n: string; p: string }[]; note: string } | null;
+  menuBlock: (it: any, day: Day) => string;
   /** the Settings screen's Storage card and its buttons (lib/storage.js) */
   storageCard: (card: (title: string, sub: string, body: string, id?: string) => string) => string;
   storageClick: (d: DOMStringMap) => boolean;

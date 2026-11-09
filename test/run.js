@@ -26,6 +26,10 @@
    warm      names used everywhere, the banner's greeting and sky, postcards, milestones, the kids' view, readiness,
              moods and the highlight reel, a year later
    nope      "Not for us" and the day bag (with the screen kept on)
+   eat       food needs (Plan, step 3): asked for with every restaurant list, places checked, poor fits never planned
+   money     Prices in: one currency for every cost (converted at the ECB's rates, marked ≈) or each as listed
+   menus     the nightly places to eat join the lists; a meal's panel shows its menu (dishes, prices, kids), sourced and dated
+   pdf       the Take along PDF: each stop kept whole on one page, no half-empty pages, links to Google Maps
    storage   Settings > Storage: unused files found, shown, deleted only on confirmation, never anything in use
    visual    screenshots against test/base (only with --shots; --update-baseline rewrites the baseline). Changes to the
              screens listed in test/screens-expected.txt are expected (--expect, or SCREENS_EXPECT=<file> as GitHub sets
@@ -35,13 +39,13 @@
 const { spawn, spawnSync } = require('child_process'); const fs = require('fs'); const path = require('path');
 const ROOT = path.resolve(__dirname, '..'); const OUT = path.join(__dirname, 'out'); fs.mkdirSync(OUT, { recursive: true });
 const args = process.argv.slice(2); const flags = new Set(args.filter(a => a.startsWith('--'))); const pick = args.filter(a => !a.startsWith('--'));
-const ALL = ['smoke', 'layout', 'planner', 'shape', 'flow', 'bookings', 'travel', 'tickets', 'holidays', 'firstview', 'together', 'nope', 'storage', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'fuzz', 'vitals', 'desktop', 'explore'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
+const ALL = ['smoke', 'layout', 'planner', 'shape', 'flow', 'bookings', 'travel', 'tickets', 'holidays', 'firstview', 'together', 'nope', 'eat', 'money', 'menus', 'storage', 'pdf', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'fuzz', 'vitals', 'desktop', 'explore'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
 let suites = pick.length ? pick : ALL;
 /* --shard=k/n runs one of n groups, balanced by how long each suite takes (seconds, from the online runs; a suite not
    listed counts as 15): GitHub runs the three groups side by side. Every suite lands in exactly one group. */
 const SECS = { smoke: 110, layout: 183, desktop: 166, a11y: 71, flow: 44, together: 37, fuzz: 30, firstview: 23, travel: 22, shape: 21, nope: 20,
   warm: 19, vitals: 19, planner: 17, bookings: 17, packing: 16, storage: 15, offline: 15, explore: 14, perf: 14, sync: 12, places: 11, tickets: 10,
-  focus: 9, holidays: 7, photos: 7, types: 4, validate: 2, judge: 1 };
+  focus: 9, holidays: 7, photos: 7, types: 4, validate: 2, judge: 1, pdf: 10, eat: 20, money: 12, menus: 12 };
 const shard = [...flags].map(f => /^--shard=(\d+)\/(\d+)$/.exec(f)).find(Boolean);
 if (shard) {
   const k = +shard[1], n = +shard[2], bins = Array.from({ length: n }, () => ({ t: 0, s: new Set() }));

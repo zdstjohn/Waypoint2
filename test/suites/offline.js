@@ -68,6 +68,13 @@ exports.run = async t => {
   t.ok(/colosseum/.test(seeded || ''), 'the photo index saved on the phone fills in without the database');
   await pg2.close();
 
+  /* the offline copy carries the photo of every idea in the trip's cities, not only the planned stops (Explore, the
+     swap choices and a stop's panel show them too) */
+  const want = await pg.evaluate(() => {
+    const P = W.plan(), planned = new Set(); P.days.forEach(d => d.slots.forEach(x => { if (x.item) { const ph = W.photoFor(x.item, W.isFood(x.slot), d.country, d.city); if (ph) planned.add(ph.url); } }));
+    return { all: W.offline.photoUrls(P).length, planned: planned.size };
+  });
+  t.ok(want.all > want.planned, `the copy takes every idea's photo in the trip's cities (${want.all}), not only the planned stops' (${want.planned})`);
   /* the offline copy */
   const copy = await pg.evaluate(async () => { await W.offline.exportCopy(W.P); return { state: W.offline.copyState, dl: window.__dl, err: W.offline.copyErr }; });
   t.eq(copy.state, 'done', `the offline copy is made (${copy.err || ''})`);
@@ -83,7 +90,10 @@ exports.run = async t => {
   await fp.goto('file://' + file); await fp.waitForTimeout(2500);
   const fc = await fp.evaluate(() => ({ copy: W.offline.copy, slots: W.P.days.reduce((a, d) => a + (d.slots || []).length, 0), shown: document.querySelectorAll('main:not([hidden]) .slot, main:not([hidden]) .go-tl li').length, photos: [...document.querySelectorAll('img.photo')].map(i => i.getAttribute('src').slice(0, 5)), inFile: Object.keys((window.__WP_OFFLINE || {}).blobs || {}).length, city: W.P.stops[0] && W.P.stops[0].name, block: (W.S.appMode = 'travel', W.S.appModeAt = W.isoDay(W.now()), W.render(), W.offline.block(W.P)), fonts: [...document.fonts].some(f => f.status === 'loaded') }));
   t.ok(fc.copy && fc.slots > 4 && fc.shown > 0 && fc.city === 'Rome', `the copy opens from disk with the trip in it (${fc.slots} slots, ${fc.shown} on screen, ${fc.city})`);
-  t.ok(fc.inFile > 0 && fc.photos.every(s => s === 'data:'), `its photos are inside the file (${fc.inFile} in the file, ${fc.photos.length} on screen, all from the file)`);
+  t.ok(fc.inFile >= want.all && fc.photos.every(s => s === 'data:'), `its photos are inside the file (${fc.inFile} in the file of ${want.all}, ${fc.photos.length} on screen, all from the file)`);
+  await fp.evaluate(() => { W.S.appMode = 'plan'; W.S.tview = 'map'; W.goView('trip'); }); await fp.waitForTimeout(900);
+  const xp = await fp.evaluate(() => [...document.querySelectorAll('main:not([hidden]) .idea img')].map(i => i.getAttribute('src').slice(0, 5)));
+  t.ok(xp.length > 0 && xp.every(s => s === 'data:'), `Explore's ideas in the copy show their photos from the file too (${xp.length})`);
   t.ok(/Offline copy/.test(fc.block), 'and it says it is the offline copy');
   t.eq(ferr.filter(e => !/forEach/.test(e)), [], 'no errors in the copy');
   await c2.close();

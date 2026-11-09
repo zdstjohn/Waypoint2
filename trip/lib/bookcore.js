@@ -25,9 +25,71 @@
     var ns = nums.map(Number).filter(function (n) { return n > 0; }); if (!ns.length) return null;
     return ns.length > 1 ? (ns[0] + ns[1]) / 2 : ns[0];
   }
-  W.money = function (n, cur) {
+  /* ---------- the currency costs are shown in ----------
+     Each phone chooses (Prepare and Settings: "Prices in"): as listed (each price in its own currency), or one currency
+     for everything, converted at the European Central Bank's daily rates (the database's fx/latest, refreshed nightly)
+     and marked "≈". A currency with no rate stays as listed. */
+  var FX = { base: "EUR", rates: null, date: "" };
+  try {
+    if (window.claude && window.claude.use) window.claude.use("db").then(function (db) {
+      if (db) db.doc("fx/latest").onSnapshot(function (s) { var d = s && s.exists && s.data(); if (d && d.rates && typeof d.rates === "object") { FX = { base: String(d.base || "EUR"), rates: d.rates, date: String(d.date || "") }; W.changed(); } }, function () {});
+    }, function () {});
+  } catch (e) {}
+  W.fxDate = function () { return FX.rates ? FX.date : ""; };
+  W.fxRate = function (from, to) {
+    if (!from || !to) return null; if (from === to) return 1;
+    var r = FX.rates; if (!r) return null;
+    var a = from === FX.base ? 1 : +r[from], b = to === FX.base ? 1 : +r[to];
+    return a > 0 && b > 0 ? b / a : null;
+  };
+  var COUNTRY_CUR = { "United States": "USD", "United Kingdom": "GBP", Switzerland: "CHF", Japan: "JPY", Mexico: "MXN", Canada: "CAD", Australia: "AUD", "New Zealand": "NZD", Thailand: "THB", Turkey: "TRY",
+    Iceland: "ISK", Czechia: "CZK", Hungary: "HUF", Poland: "PLN", Denmark: "DKK", Sweden: "SEK", Norway: "NOK", Brazil: "BRL", India: "INR", Singapore: "SGD", "Hong Kong": "HKD", "South Korea": "KRW", China: "CNY",
+    "South Africa": "ZAR", Israel: "ILS", Indonesia: "IDR", Philippines: "PHP", Malaysia: "MYR", Romania: "RON" };
+  var EURO_C = ["Spain", "Portugal", "Italy", "France", "Germany", "Netherlands", "Belgium", "Austria", "Greece", "Ireland", "Finland", "Estonia", "Latvia", "Lithuania", "Slovenia", "Slovakia", "Croatia", "Malta", "Cyprus", "Luxembourg", "Monaco", "Montenegro", "Bulgaria"];
+  W.curOf = function (country) { return COUNTRY_CUR[country] || (EURO_C.indexOf(country) > -1 ? "EUR" : ""); };
+  W.CURS = ["USD", "EUR", "GBP", "CAD", "AUD", "NZD", "CHF", "JPY", "MXN", "SEK", "NOK", "DKK", "INR", "SGD", "HKD", "ZAR", "BRL", "CNY", "KRW", "THB", "TRY", "PLN", "CZK", "HUF", "ILS", "ISK"];
+  /* the currency where you live, from the phone's own region (for the first choice offered) */
+  var REGION_CUR = { US: "USD", GB: "GBP", CA: "CAD", AU: "AUD", NZ: "NZD", CH: "CHF", JP: "JPY", MX: "MXN", SE: "SEK", NO: "NOK", DK: "DKK", IN: "INR", SG: "SGD", HK: "HKD", ZA: "ZAR", BR: "BRL", CN: "CNY", KR: "KRW", TH: "THB", TR: "TRY", PL: "PLN", CZ: "CZK", HU: "HUF", IL: "ILS", IS: "ISK" };
+  W.homeCur = function () {
+    try { var loc = new Intl.NumberFormat().resolvedOptions().locale || navigator.language || "", m = /-([A-Z]{2})\b/.exec(loc); return m && REGION_CUR[m[1]] || (m ? "EUR" : "USD"); } catch (e) { return "USD"; }
+  };
+  W.curView = function () { try { var c = localStorage.getItem("waypoint-cur") || ""; return /^[A-Z]{3}$/.test(c) ? c : ""; } catch (e) { return ""; } };
+  W.setCurView = function (c) { try { if (c) localStorage.setItem("waypoint-cur", c); else localStorage.removeItem("waypoint-cur"); } catch (e) {} W.changed(); };
+  function fmt(n, cur) {
     try { return new Intl.NumberFormat(undefined, { style: "currency", currency: cur || "EUR", maximumFractionDigits: 0 }).format(Math.round(n)); }
     catch (e) { return (cur || "") + " " + Math.round(n); }
+  }
+  /* an amount, in the currency you chose to see (≈ when converted), else as given; raw = always as given */
+  W.money = function (n, cur, raw) {
+    var c = cur || "EUR", v = !raw && W.curView();
+    if (v && v !== c) { var k = W.fxRate(c, v); if (k) return "≈" + fmt(n * k, v); }
+    return fmt(n, c);
+  };
+  /* the "Prices in" choice (Prepare and Settings): as listed, your home currency, the trip's own, then the rest */
+  W.curPicker = function (P) {
+    var v = W.curView(), home = W.homeCur(), local = [];
+    ((P && P.stops) || []).forEach(function (s) { var c = W.curOf(s.country); if (c && local.indexOf(c) < 0) local.push(c); });
+    var order = [home].concat(local, W.CURS).filter(function (c, i, a) { return c && a.indexOf(c) === i && (c === "EUR" || !FX.rates || FX.rates[c]); });
+    var name = function (c) { try { return (new Intl.DisplayNames([navigator.language || "en"], { type: "currency" })).of(c) + " (" + c + ")"; } catch (e) { return c; } };
+    var dt = W.fxDate(), when = dt ? new Date(dt + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
+    return '<div class="cur-pick"><label for="curPick">Prices in</label><select class="field" id="curPick" data-curpick="1">' +
+      '<option value=""' + (v ? "" : " selected") + ">As listed</option>" +
+      order.map(function (c) { return '<option value="' + c + '"' + (v === c ? " selected" : "") + ">" + W.esc(name(c)) + (local.indexOf(c) > -1 ? " · this trip" : c === home ? " · yours" : "") + "</option>"; }).join("") +
+      '</select><span class="small muted">' + (v ? (FX.rates ? "Converted at the European Central Bank's rate" + (when ? " of " + when : "") + ", so about." : "Exchange rates haven't loaded yet: prices show as listed.") : "") + "</span></div>";
+  };
+  document.addEventListener("change", function (e) { var t = e.target; if (t && t.getAttribute && t.getAttribute("data-curpick")) W.setCurView(t.value); });
+  /* prices written in text ("€15, book ahead", "£8–12", "USD 20"), converted the same way */
+  var CUR_SYM = { "€": "EUR", "£": "GBP", "US$": "USD", "A$": "AUD", "C$": "CAD", "NZ$": "NZD", "¥": "JPY", "₹": "INR", "₺": "TRY", "kr": "", "CHF": "CHF" };
+  W.priceText = function (s, local) {
+    var v = W.curView(); s = s == null ? "" : String(s); if (!v || !s) return s;
+    return s.replace(/(US\$|A\$|C\$|NZ\$|€|£|¥|₹|₺|\$|\b(?:EUR|USD|GBP|CHF|JPY|CAD|AUD|MXN|TRY|SEK|NOK|DKK|CZK|HUF|PLN|THB|ISK|INR)\b)\s?(\d+(?:[.,]\d+)*)(?:\s?[–-]\s?(\d+(?:[.,]\d+)*))?/g, function (m, sym, a, b) {
+      var c = CUR_SYM[sym] || (sym === "$" ? (local && /^(USD|MXN|CAD|AUD|NZD|SGD|HKD)$/.test(local) ? local : "USD") : sym);
+      if (!c || c === v) return m;
+      var k = W.fxRate(c, v); if (!k) return m;
+      var num = function (x) { return Number(String(x).replace(/,/g, "")); }, A = num(a), B = b != null ? num(b) : null;
+      if (!(A >= 0)) return m;
+      return B != null ? "≈" + fmt(A * k, v) + "–" + fmt(B * k, v).replace(/^[^\d]*/, "") : "≈" + fmt(A * k, v);
+    });
   };
   function add(bag, cur, n) { if (!(n > 0)) return; cur = cur || "?"; bag[cur] = (bag[cur] || 0) + n; }
   function sumText(bag) { var k = Object.keys(bag); return k.length ? k.map(function (c) { return c === "?" ? Math.round(bag[c]) + "" : W.money(bag[c], c); }).join(" + ") : "—"; }
@@ -164,8 +226,8 @@
         if (!food && !W.isPaid(it) && !need && !lead) return;
         seen[k] = 1;
         var off = W.officialUrl(it, food, d.country, d.city);
-        push({ key: k, kind: food ? "Table" : "Tickets", group: food ? "food" : "activity", title: it.n, item: it, sub: food ? it.cuisine || "" : String(it.ticket || "").replace(/,?\s*book ahead\.?$/i, ""), lead: Math.max(lead, 1), day: d.n, slot: x.slot, city: d.city,
-          url: off ? off.url : "", urlText: off ? off.host : "", why: (food ? it.cuisine : it.ticket) || "", match: W.bookingFor(it, d) });
+        push({ key: k, kind: food ? "Table" : "Tickets", group: food ? "food" : "activity", title: it.n, item: it, sub: food ? it.cuisine || "" : String(W.priceText(it.ticket, W.curOf(d.country)) || "").replace(/,?\s*book ahead\.?$/i, ""), lead: Math.max(lead, 1), day: d.n, slot: x.slot, city: d.city,
+          url: off ? off.url : "", urlText: off ? off.host : "", why: (food ? it.cuisine : W.priceText(it.ticket, W.curOf(d.country))) || "", match: W.bookingFor(it, d) });
       });
     });
     if (ap && P.N > 1 && P.stops.length) push({ key: "flight|home", kind: "Flight", group: "flight", short: P.stops[P.stops.length - 1].name + " → " + (ap.code || ap.name), title: "Flights home from " + P.stops[P.stops.length - 1].name + " to " + (ap.code || ap.name), lead: 75, day: P.N, url: W.flightsUrl(P.stops[P.stops.length - 1].name, ap.code || ap.name, W.dateOf(P.N)), urlText: "Google Flights", why: "", match: flightBooking(P, true) });

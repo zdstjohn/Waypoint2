@@ -171,8 +171,8 @@
     /* going to a city's "where to stay" opens the step it lives in */
     if (W.scrollToStop != null) (S.stepClosed || (S.stepClosed = {})).where = false;
     var RC = P.stops.length ? W.routeBody(P) : null;
-    DONE = { style: S.styles.length > 0, who: (S.travelers || []).length > 0 && !!S.depart, long: !!S.start, where: P.stops.length > 0, check: !!RC && !RC.warn };
-    FIRST = ["style", "who", "long", "where", "check"].filter(function (k) { return !DONE[k] && (k !== "check" || (RC && RC.body)); })[0] || null;
+    DONE = { style: S.styles.length > 0, who: (S.travelers || []).length > 0 && !!S.depart, eat: !!(W.eatNeeds && W.eatNeeds()) || !!S.eatNone, long: !!S.start, where: P.stops.length > 0, check: !!RC && !RC.warn };
+    FIRST = ["style", "who", "eat", "long", "where", "check"].filter(function (k) { return !DONE[k] && (k !== "check" || (RC && RC.body)); })[0] || null;
     if (!S.countries.length && !W.readOnly) h = '<div class="qs-card sk"><div><b>Start with three questions</b><span class="small muted">Where, when and who. You get a full day-by-day plan you can change.</span></div><button type="button" class="btn" data-quick="1">Quick start</button>' +
       '<p class="small muted qs-imp">Planned it in Wanderlog or a doc already? <a href="#settings" data-view="settings">Import it</a></p></div>' + h;
 
@@ -199,9 +199,20 @@
       }).join("") +
       '<button type="button" class="trav add" id="addAdult">+ Adult</button><button type="button" class="trav add" id="addChild">+ Child</button></div></div>');
 
-    /* 3 · how long: the total, or the sum of each place's days once you've set them */
+    /* 3 · what you eat: allergies, diets, likes, before any restaurant is suggested */
+    var eat = S.eat || {}, eatSum = W.eatText ? W.eatText() : "";
+    h += step("eat", "03", "What do you eat?", eatSum ? eatSum.charAt(0).toUpperCase() + eatSum.slice(1) : S.eatNone ? "Nothing special" : "Allergies, diets, favorites",
+      '<p class="fld-l">Allergies (anyone in the group)</p><div class="chips">' + W.EAT_AL.map(function (a) { return '<button type="button" class="chip" data-eatal="' + a[0] + '" aria-pressed="' + ((eat.al || []).indexOf(a[0]) > -1) + '">' + esc(a[1]) + "</button>"; }).join("") + "</div>" +
+      '<p class="fld-l">Diet</p><div class="chips">' + W.EAT_DI.map(function (a) { return '<button type="button" class="chip" data-eatdi="' + a[0] + '" aria-pressed="' + ((eat.di || []).indexOf(a[0]) > -1) + '">' + esc(a[1]) + "</button>"; }).join("") + "</div>" +
+      '<label class="fld" for="eatLove"><span>Food you love</span><input class="field" id="eatLove" data-eat="love" maxlength="120" value="' + esc(eat.love || "") + '" placeholder="Grilled fish, pizza, mezze" autocomplete="off"></label>' +
+      '<label class="fld" for="eatAvoid"><span>Rather avoid</span><input class="field" id="eatAvoid" data-eat="avoid" maxlength="120" value="' + esc(eat.avoid || "") + '" placeholder="Very spicy food, raw fish" autocomplete="off"></label>' +
+      '<label class="fld" for="eatNote"><span>Anything else</span><input class="field" id="eatNote" data-eat="note" maxlength="200" value="' + esc(eat.note || "") + '" placeholder="Our 4-year-old only eats plain pasta" autocomplete="off"></label>' +
+      '<p class="small muted">Restaurant ideas are chosen with these in mind, places that can\'t feed you are never planned, and each meal says what you can have. With allergies, always tell the staff: no app can promise a kitchen is safe.</p>' +
+      (!eatSum && !S.eatNone ? '<div><button type="button" class="btn quiet sm" data-eatnone="1">Nothing special</button></div>' : ""));
+
+    /* 4 · how long: the total, or the sum of each place's days once you've set them */
     var allSet = P.stops.length && P.stops.every(function (s) { return s.set; }), anySet = P.stops.some(function (s) { return s.set; });
-    h += step("long", "03", "How long?", P.N + " days" + (dateOf(1) ? " · from " + dateOf(1) : ""),
+    h += step("long", "04", "How long?", P.N + " days" + (dateOf(1) ? " · from " + dateOf(1) : ""),
       '<div class="row">' +
       (allSet ? '<div class="total-days" aria-live="polite">' + P.N + "</div>"
         : '<div class="stepper"><button type="button" id="daysMinus" aria-label="Fewer days">−</button><input id="days" type="number" min="2" max="60" value="' + S.days + '" aria-label="Number of days"><button type="button" id="daysPlus" aria-label="More days">+</button></div>') +
@@ -211,12 +222,12 @@
 
     /* 4 · where: every stop with its days and lodging, in travel order */
     var starts = [], dn = 1; P.stops.forEach(function (s) { starts.push(dn); dn += s.days; });
-    h += step("where", "04", "Where to?", P.stops.map(function (s) { return s.name; }).join(" → ") || "Add a country",
+    h += step("where", "05", "Where to?", P.stops.map(function (s) { return s.name; }).join(" → ") || "Add a country",
       S.countries.map(function (c, i) { return countryBlock(c, i, P, starts); }).join("") +
       '<div class="row add-country"><input class="field" id="countryIn" list="countryList" placeholder="' + (S.countries.length ? "Add another country" : "Add a country") + '"><button type="button" class="btn' + (S.countries.length ? " quiet" : "") + '" id="addCountry">Add</button></div>');
 
     /* 5 · route check */
-    if (P.stops.length) { if (RC.body) h += step("check", "05", "Trip shape", RC.sum, RC.body).replace('class="step sk"', 'class="step sk rtcheck' + (RC.warn ? " has-warn" : "") + '"'); }
+    if (P.stops.length) { if (RC.body) h += step("check", "06", "Trip shape", RC.sum, RC.body).replace('class="step sk"', 'class="step sk rtcheck' + (RC.warn ? " has-warn" : "") + '"'); }
     h += '<div class="cta"><button type="button" class="btn" data-view="trip">See my trip →</button></div>';
     var el = $("viewSetup"), a = document.activeElement, id = a && a.id, val = a && a.value, sel = a && a.selectionStart;
     el.innerHTML = h;
@@ -279,6 +290,13 @@
     if (W.watchClick && W.watchClick(d, P)) { W.render(); return; }
     if (d.routeorder != null || d.fold || d.unfold || d.nights || (d.legpick != null && d.legkey)) { W.routeClick(d, P); W.render(); return; }
     if (d.rest) { var rs = S.rest || (S.rest = {}); if (rs[d.rest]) delete rs[d.rest]; else rs[d.rest] = 1; W.render(); return; }
+    /* food needs: a chip on or off; "Nothing special" marks the step done */
+    if (d.eatal || d.eatdi) {
+      var ea = S.eat || (S.eat = {}), f = d.eatal ? "al" : "di", v = d.eatal || d.eatdi, arr = ea[f] || (ea[f] = []), at = arr.indexOf(v);
+      if (at > -1) arr.splice(at, 1); else arr.push(v);
+      delete S.eatNone; W.render(); return;
+    }
+    if (d.eatnone) { S.eatNone = 1; (S.stepClosed || (S.stepClosed = {})).eat = true; W.render(); return; }
     var ci = d.ci != null ? +d.ci : null, c = ci != null ? S.countries[ci] : null;
     if (d.style) { var k = S.styles.indexOf(d.style); if (k > -1) S.styles.splice(k, 1); else S.styles.push(d.style); W.resetPicks(); }
     /* the overall feel: re-plan the days around it (any choice, even the default, once tapped) */
@@ -349,6 +367,7 @@
     else if (t.dataset.cdin != null) setCityDays(+t.dataset.cdin, t.value, W.P);
     else if (t.id === "startDate") S.start = t.value;
     else if (t.id === "depart") S.depart = t.value;
+    else if (t.dataset.eat) { var ea2 = S.eat || (S.eat = {}); ea2[t.dataset.eat] = t.value.trim().slice(0, t.dataset.eat === "note" ? 200 : 120); delete S.eatNone; }
     else if (t.dataset.tname != null) { S.names = S.names || []; while (S.names.length < S.travelers.length) S.names.push(""); S.names[+t.dataset.tname] = t.value.trim().slice(0, 20); W.save(); }
     else if (t.dataset.age != null) { S.travelers[+t.dataset.age] = t.value === "" ? "" : Math.max(0, Math.min(110, +t.value)); W.resetPicks(); }
     else if (t.id === "cityIn" + t.id.slice(6) && /^cityIn\d+$/.test(t.id)) {

@@ -91,7 +91,7 @@ exports.run = async t => {
     const firstDay = W.isoDay(W.dateOf(W.P.days.find(d => d.city === 'Rome').n));
     return doc && { when: doc.when, firstDay, used: doc.used.length, onTrip: onTrip.length, headOk: onTrip.every(n => doc.spots.concat(doc.food).includes(n)),
       first: onTrip.filter(n => pool.spots.some(x => x.n === n)).every((n, i, a) => doc.spots.indexOf(n) < a.length), pairs: doc.pts.length === doc.spots.length + doc.food.length,
-      cap: doc.spots.length <= Math.max(W.IDEA_CAP.spots, onTrip.length) && doc.food.length <= Math.max(W.IDEA_CAP.food, onTrip.length) };
+      cap: doc.spots.length <= Math.max(W.IDEA_CAP.spots, onTrip.length) && doc.food.length <= Math.max(W.IDEA_CAP.food + 30, onTrip.length) && (doc.menus || []).length === doc.food.length };   /* (places to eat: the cap plus room for the nightly ones; each with its menu page, in step) */
   });
   t.ok(want && want.when === want.firstDay && want.used === want.onTrip && want.headOk && want.first && want.pairs && want.cap, 'the nightly lists put this trip\'s stops first with their dates (' + JSON.stringify(want) + ')');
   t.eq(errors(), [], 'no page errors');

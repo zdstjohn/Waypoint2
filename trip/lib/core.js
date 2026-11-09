@@ -146,7 +146,7 @@
   /* idea pool for a city: Claude's list, or the built-in fallback when Claude isn't available */
   W.pool = function (country, city) {
     var c = W.C.city[W.cityKey(country, city)];
-    if (c && c.spots && c.spots.length) { if (W.withImported) W.withImported(country, city, c); if (W.applyPlaces) W.applyPlaces(country, city, c); return c; }
+    if (c && c.spots && c.spots.length) { if (W.withImported) W.withImported(country, city, c); if (W.withNightFood) W.withNightFood(country, city, c); if (W.applyPlaces) W.applyPlaces(country, city, c); return c; }
     if (W.sampleState === "off") {
       var b = W.findCity(country, city);
       if (b && b.spots) return { d: b.d, lat: b.lat, lng: b.lng, spots: b.spots, food: [], fallback: true };
@@ -225,6 +225,36 @@
       ". Travelers' ages: " + (W.ages().join(", ") || "adults") + ".";
   }
   W.who = who;
+
+  /* ---------- food needs (Plan, step 3): allergies, diets, what the group loves and avoids ---------- */
+  /* S.eat = {al: [allergies], di: [diets], love, avoid, note}. Restaurant lists are asked for with them, each place
+     comes back with how well it fits ("eat": good / ok / poor and why, tied to these needs by a signature), places
+     already listed are checked once, and a poor fit is never planned. */
+  W.EAT_AL = [["peanuts", "Peanuts"], ["treenuts", "Tree nuts"], ["gluten", "Gluten (coeliac)"], ["dairy", "Dairy"], ["eggs", "Eggs"], ["fish", "Fish"], ["shellfish", "Shellfish"], ["sesame", "Sesame"], ["soy", "Soy"]];
+  W.EAT_DI = [["vegetarian", "Vegetarian"], ["vegan", "Vegan"], ["pescatarian", "Pescatarian"], ["halal", "Halal"], ["kosher", "Kosher"], ["nopork", "No pork"], ["plain", "Plain food for picky kids"]];
+  function eatName(list, k) { var x = list.filter(function (y) { return y[0] === k; })[0]; return x ? x[1].replace(/ \(.*\)$/, "").toLowerCase() : ""; }
+  W.eatNeeds = function () {
+    var e = W.S.eat; if (!e || typeof e !== "object") return null;
+    var al = (e.al || []).filter(function (k) { return eatName(W.EAT_AL, k); }), di = (e.di || []).filter(function (k) { return eatName(W.EAT_DI, k); });
+    var love = String(e.love || "").trim().slice(0, 120), avoid = String(e.avoid || "").trim().slice(0, 120), note = String(e.note || "").trim().slice(0, 200);
+    return al.length || di.length || love || avoid || note ? { al: al, di: di, love: love, avoid: avoid, note: note } : null;
+  };
+  /* the needs in words, for Claude and for the screen */
+  W.eatText = function () {
+    var n = W.eatNeeds(); if (!n) return "";
+    return [n.al.length ? "allergies: " + n.al.map(function (k) { return eatName(W.EAT_AL, k); }).join(", ") : "", n.di.length ? "diet: " + n.di.map(function (k) { return eatName(W.EAT_DI, k); }).join(", ") : "",
+      n.love ? "loves " + n.love : "", n.avoid ? "would rather avoid " + n.avoid : "", n.note ? "note: " + n.note : ""].filter(Boolean).join("; ");
+  };
+  W.eatSig = function () { var t = W.eatText(), h = 5381; for (var i = 0; i < t.length; i++) h = (h * 33 + t.charCodeAt(i)) | 0; return t ? (h >>> 0).toString(36) : ""; };
+  /* how a place fits the group's food needs now: "good", "ok", "poor", or "" (no needs, or not checked yet) */
+  W.eatFit = function (it) { var s = W.eatSig(), e = it && it.eat; return s && e && e.sig === s ? e.f : ""; };
+  W.eatWhy = function (it) { var s = W.eatSig(), e = it && it.eat; return s && e && e.sig === s ? e.w || "" : ""; };
+  function eatAsk() {
+    var t = W.eatText(); if (!t) return "";
+    return " The group's food needs: " + t + ". Suggest places that can feed them well (clear dishes for their diet; kitchens that handle allergies carefully) and never one where that is hard (for example a seafood-only grill for a shellfish allergy)." +
+      " For each place, fit = good (plenty they can eat), ok (some options; tell the staff) or poor, and fitw = one short line on what they can have or what to ask.";
+  }
+  function eatMark(list) { var sig = W.eatSig(); if (!sig) return; (list || []).forEach(function (x) { if (x && x.fit) x.eat = { f: x.fit, w: x.fitw || "", sig: sig }; if (x) { delete x.fit; delete x.fitw; } }); }
   /* what kind of sights the trip is after, over and above its interests: the famous must-sees (the default), hidden gems
      where locals go, or the best of both */
   W.FOCUS = { icons: "Must-sees", both: "Best of both", gems: "Hidden gems" };
@@ -335,8 +365,8 @@
     var CITY = "\"d\":\"what " + city + " is known for, one sentence\",\"lat\":0,\"lng\":0,";
     var TRANSIT = "\"transit\":{\"system\":\"how public transit works and what a ticket costs, one sentence\",\"pass\":\"best pass or card for visitors\",\"airport\":\"how to get from the main airport or station to the center\",\"tip\":\"one practical tip\"},\"stay\":[{\"n\":\"neighborhood\",\"d\":\"why stay here, short\",\"lat\":0,\"lng\":0}],";
     function foodAsk(what, extra) {
-      return what + " " + who() + (exF.length ? " Do not repeat: " + exF.join("; ") + "." : "") +
-        "\nReply with JSON only: {" + (extra || "") + "\"food\":[" + FOOD_EX + "]}\n" + foodRules() + (extra ? " Give 4 stay neighborhoods." : "");
+      return what + " " + who() + eatAsk() + (exF.length ? " Do not repeat: " + exF.join("; ") + "." : "") +
+        "\nReply with JSON only: {" + (extra || "") + "\"food\":[" + foodEx() + "]}\n" + foodRules() + (extra ? " Give 4 stay neighborhoods." : "");
     }
     if (more) {
       /* a few more at a time, up to the city's cap: the last ideas of a long list are the likeliest to be made up, and
@@ -381,9 +411,11 @@
     return "pic = the picture that fits best, one of: " + W.FOOD_PICS.join(", ") + ". " + MENURULE + " reserve = true if booking a table ahead is recommended; then book = its official website or reservation page if you are confident of the address, else an empty string. meal = breakfast, lunch, dinner, both (lunch and dinner) or all (all three). dur = the recommended time to allow for a meal there, e.g. '30m' for a bakery, '1-1.5h' for a sit-down lunch, '2h' for a long dinner. fav = true for places food lovers seek out (a famous classic, a top market, a destination restaurant). Use real places and accurate coordinates." + TAGRULE.split(" Tags")[0] + " k: 1 = very family friendly, 0 = fine, -1 = adults-oriented." + FAMERULE.replace("must-sees most visitors come for (a city's top handful)", "famous institutions visitors seek out").replace("hidden gems and local favorites most visitors miss", "neighborhood places locals love");
   }
   /* add places to eat; front = the best-loved half, which stays at the top of the list whichever half arrives first */
+  function foodEx() { return W.eatSig() ? FOOD_EX.replace(/\}$/, ",\"fit\":\"good\",\"fitw\":\"\"}") : FOOD_EX; }
   function addFood(ck, r, front) {
     var c0 = W.C.city[ck] || newPool(), ctr = centerOf(ck);
     var add = V.list(r && r.food, function (x) { return V.food(x, ctr); });
+    eatMark(add);
     c0.food = merge(c0.food || [], add, front); W.C.city[ck] = c0;
   }
   function merge(list, add, front) {
@@ -686,6 +718,30 @@
       lg.r2r = { at: Date.now(), routes: list };
       delete W.status[sk]; arrived();
     }, function (e) { W.status[sk] = "error"; W.r2rMsg = W.mcpMsg ? W.mcpMsg(e, "Rome2Rio") : "Rome2Rio didn't answer. Try again in a minute."; changed(); });
+  };
+
+  /* food needs: check the places already listed once for these needs, and add a few that fit them well */
+  W.loadEatFit = function (country, city) {
+    var sig = W.eatSig(); if (!sig || W.readOnly) return;
+    var ck = W.cityKey(country, city), cur = W.C.city[ck]; if (!cur || cur.fallback || !(cur.food || []).length || W.cityBusy(ck)) return;
+    var todo = cur.food.filter(function (x) { return !x.eat || x.eat.sig !== sig; }).slice(0, 60);
+    if (todo.length) run("eatfit|" + ck + "|" + sig + "|" + todo.length, "Places to eat in " + city + ", " + country + ". " + who() + " The group's food needs: " + W.eatText() + "." +
+      " For each place, how well can it feed this group? fit = good (plenty they can eat), ok (some options; tell the staff) or poor (hard to eat there: say why); fitw = one short line on what they can have or what to ask." +
+      " Judge from the kind of place and its menu as far as you know it; for allergies, never promise a place is safe." +
+      "\nPlaces: " + todo.map(function (x) { return x.n + (x.cuisine ? " (" + x.cuisine + ")" : ""); }).join("; ") +
+      "\nReply with JSON only: {\"fit\":[{\"n\":\"the name exactly as given\",\"fit\":\"good\",\"fitw\":\"\"}]}",
+      "quick", function (r) {
+        var by = {}; (r && Array.isArray(r.fit) ? r.fit : []).forEach(function (x) { if (x && typeof x.n === "string" && /^(good|ok|poor)$/.test(x.fit)) by[W.norm(x.n)] = { f: x.fit, w: String(x.fitw || "").trim().slice(0, 120), sig: sig }; });
+        var c0 = W.C.city[ck]; (c0 && c0.food || []).forEach(function (x) { var f = by[W.norm(x.n)]; if (f) x.eat = f; });
+        /* a place the answer left out counts as checked (not known either way), so it isn't asked about again */
+        todo.forEach(function (x) { if (!x.eat || x.eat.sig !== sig) x.eat = { f: "", w: "", sig: sig }; });
+      });
+    var asked = cur.eatAsked || {};
+    if (!asked[sig] && !W.cityBusy(ck)) run("eatmore|" + ck + "|" + sig, "List 8 places to eat in " + city + ", " + country + " that suit this group's food needs especially well, spread across the city or region, including at least 2 breakfast cafés or bakeries." + who() + eatAsk() +
+      " Do not repeat any of these: " + cur.food.map(function (x) { return x.n; }).join("; ") + "." +
+      "\nReply with JSON only: {\"food\":[" + foodEx() + "]}\n" + foodRules(), "default", function (r) {
+        addFood(ck, r); var c0 = W.C.city[ck]; if (c0) { c0.eatAsked = c0.eatAsked || {}; c0.eatAsked[sig] = 1; }
+      });
   };
 
   /* regional holidays and festivals in a city for the days you're there (lib/holidays.js lays them on the days). The

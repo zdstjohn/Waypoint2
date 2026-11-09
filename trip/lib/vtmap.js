@@ -335,8 +335,13 @@
     if (S.engine !== "ready") { engine(); return false; }
     if (!S.el) {
       S.el = document.createElement("div"); S.el.className = "vt-map";
+      /* the map's place can change size after it is drawn (fonts, photos, the side panel): fit the map to it */
+      if (window.ResizeObserver) new ResizeObserver(function () { if (S.map && S.ready) { S.map.resize(); S.map.triggerRepaint(); } }).observe(S.el);
     }
-    if (S.el.parentNode !== slot) slot.appendChild(S.el);
+    /* every redraw of the screen moves the one map into the new screen; a WebGL picture that moves is blank (black) until
+       it draws again, and the map only draws when something changes, so ask it to */
+    var movedIn = S.el.parentNode !== slot;
+    if (movedIn) slot.appendChild(S.el);
     var themeKey = palette().dark ? "d" : "l";
     var make = (!S.map && !S.creating) || S.slug !== o.slug || S.theme !== themeKey;
     if (make) {
@@ -348,7 +353,7 @@
         if (S.slug !== o.slug) return;
         try {
           S.map = new ML.Map({ container: S.el, style: style(o.slug, p.hdr), bounds: [[p.hdr.places[0], p.hdr.places[1]], [p.hdr.places[2], p.hdr.places[3]]],
-            attributionControl: false, dragRotate: false, pitchWithRotate: false, touchPitch: false, cooperativeGestures: true,
+            attributionControl: false, dragRotate: false, pitchWithRotate: false, touchPitch: false, cooperativeGestures: touchFirst(),
             maxZoom: 18, minZoom: 8, fadeDuration: 180, localIdeographFontFamily: "sans-serif" });
           S.map.touchZoomRotate.disableRotation();
           /* once you move the map yourself, it stops re-fitting to the day's stops until the day changes */
@@ -367,11 +372,17 @@
     if (!S.map || !S.ready) return false;
     var size = S.el.clientWidth + "x" + S.el.clientHeight, resized = size !== S.size; S.size = size;
     if (resized) S.map.resize();
+    if (resized || movedIn) S.map.triggerRepaint();
     var sig = o.key + "|" + o.pts.map(function (p) { return p.n + p.lat + "," + p.lng; }).join(";") + "|" + (o.home && o.home.lat) + "," + (o.home && o.home.lng);
     if (sig !== S.sig) { var first = !S.sig; S.sig = sig; S.moved = false; setPins(o.pts, o.home); fit(o.pts, o.home, !first && o.animate); }
     else if (resized && !S.moved && S.el.clientHeight) fit(o.pts, o.home, false);   /* the map changed size (list/map switch): frame the stops again */
     return true;
   };
+  /* on a phone the page scrolls past the map with one finger and the map moves with two; with a mouse or trackpad the
+     wheel zooms and dragging moves it (a laptop with a touch screen still counts as a mouse first) */
+  function touchFirst() { try { return !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches); } catch (e) { return false; } }
+  /* coming back to the page (another app, a locked phone) can leave a WebGL picture blank too */
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible" && S.map && S.ready) { S.map.resize(); S.map.triggerRepaint(); } });
   W.vtZoom = function (how) {
     if (!S.map || !S.ready) return false;
     if (how === "in") S.map.zoomIn({ duration: 250 }); else if (how === "out") S.map.zoomOut({ duration: 250 });

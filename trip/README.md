@@ -9,11 +9,17 @@ of them, with "Loading…" for the moment it takes); W.needLater() says whether 
 `app2.css`, which comes with it (a rule moves only when it sits in one of those screens' sections of app.css and none of
 its class names appears in the first script or index.html; build/bundle.js splitCss), and the screens count as ready when
 both have come. The street map is in two: lib/vtindex.js (first script: which cities have a pack, the map's state, so
-the first screen holds the map's place) and lib/vtmap.js (second: packs, the engine, the look, pins). The postcards and
+the first screen holds the map's place) and lib/vtmap.js (second: packs, the engine, the look, pins). The one map moves
+into each redrawn screen, and a WebGL picture that moves is blank (black) until it draws again, so it is asked to redraw
+when moved, resized (a ResizeObserver) or shown again. Touch-first phones use two fingers on the map (the page scrolls
+with one); with a mouse or trackpad the wheel zooms and dragging moves it. The postcards and
 greetings (lib/warm.js) stay in the first script: they are on the first screen, and arriving later would move it.
 The offline copy carries both scripts and both stylesheets.
 Travel mode stays in the first script on purpose: on the trip it is the first screen, often on a weak signal. What the
-first screen reads from Prepare (the book-by checklist, the budget, which booking belongs to a stop) is lib/bookcore.js.
+first screen reads from Prepare (the book-by checklist, the budget, which booking belongs to a stop) is lib/bookcore.js,
+with W.money and "Prices in": each phone shows costs as listed or all in one currency (localStorage "waypoint-cur"),
+converted at the European Central Bank's rates in fx/latest (refreshed nightly) and marked "≈" (W.priceText converts
+prices written in text, like "€15, book ahead"; a currency with no rate stays as listed); Prepare and Settings offer it.
 The first render happens while app.js is still running (the end of screens/trip.js), so lib/later.js comes right after
 the error log: any screen may ask for the second script on that very first draw (v108 fixed Explore and Prepare, which
 broke on first open when it came last). Each module starts inside its own try (build/bundle.js): one that throws while
@@ -88,6 +94,13 @@ lib/              the shared library
                   the screen is kept on (the screen wake lock, asked for again when the page comes back, let go on any
                   other view within 5 s); the switch under the bag is per phone (localStorage "waypoint-awake"), and
                   a browser that refuses says so there
+  nightfood.js    nightly restaurants and menus: a scheduled task (3:37 AM Pacific) finds a few more real places to eat
+                  for the trip cities (web-checked, fitting the trip's food needs, read from the owner's own trips) into
+                  morefood/<city>, which join the city's list (validated, never twice); it reads the planned restaurants'
+                  menus from their own websites into menus/<city> (dishes and prices as written, kids' dishes, a note,
+                  the page and date), shown in a meal's panel ("Menu" on a planned meal opens it there), with a link to
+                  its menu photos on Google Maps (Google's photos can't be stored or shown without its key, which never
+                  goes in the page); it also refreshes the exchange rates (fx/latest, the ECB's)
   holidays.js     public holidays and festivals on the trip's days. National holidays are worked out in the app for
                   Spain, Italy, Greece, France, Portugal, the UK, Ireland, Germany, Austria, the Netherlands, Croatia,
                   Iceland, Mexico, Costa Rica, Japan, Thailand and the US (Easter and Orthodox Easter, "the last Monday
@@ -115,6 +128,12 @@ lib/              the shared library
                   like an earlier stop's place: a place you then put on a day yourself still stays, and W.useIdea
                   takes it off the list), the slot that had it gets a new suggestion, the options and Explore leave it
                   out, and Explore lists them at the end with "Bring back". Undo works as for any change.
+                  Food needs (Plan, step 3 "What do you eat?", before Where to?): S.eat = {al: allergies, di: diets, love,
+                  avoid, note}. Every request for places to eat carries them and asks how each place fits (fit good /
+                  ok / poor and a line on what they can have); places already listed are checked once per set of needs
+                  (W.loadEatFit, tied to them by W.eatSig) and a few that fit are added; a poor fit is never planned
+                  (one you chose stays), a good one is a little ahead; a meal's notes say what you can have and which
+                  allergy to tell the staff about; Explore marks good and poor fits.
   together.js     planning together: when you share a trip and tick "They can change the plan too", the person you
                   shared with can swap stops, set rest days, leave time free, change how you travel between places and
                   say "not for us" to a place.
@@ -139,7 +158,10 @@ lib/              the shared library
                   the day you pick. The page can't reach the internet itself: the map comes through the connection.
   offline.js      the trip without a signal: the photo index and photos kept on the phone (IndexedDB), map packs
                   warmed into the worker's cache, the offline note in Travel mode, and the "offline copy" (one HTML
-                  file with the app, the trip and its photos inside, opened from the phone's files). Prepare > Take
+                  file with the app, the trip and its photos inside, opened from the phone's files). Both keep the photo
+                  of every idea in the trip's cities, not only the planned stops (Explore, the swap choices and a stop's
+                  panel show them): planned stops and the journal first, six at a time, up to 60 MB in the copy. Street
+                  maps need a connection in the copy. Prepare > Take
                   along has "Before you leave": one button that saves the whole trip, with a row per place (street map
                   saved or not, photos for how many of its stops) and the size to expect, so it can be done on Wi-Fi
   packing.js      the packing list and the before-you-go list, read off the plan (who is going, how you travel, what
@@ -198,6 +220,15 @@ Checks (node test/run.js, from the folder above trip/)
                 "Bring back", Undo and choosing it yourself take it off the list. The day bag: a beach, a cathedral, a
                 market and a travel day ask for the right things, each naming its stop; a tick is kept; the screen
                 wake lock is asked for on a live Today and let go when switched off or when you leave Today.
+  pdf           the Take along PDF (jsPDF, from the local copy in the test): each stop measured and kept whole on one page,
+                a day's heading kept with its first stop, every page but the last filled to the bottom (a stop split over
+                a page break used to leave a blank sheet), "Open in Google Maps" under each stop.
+  eat           food needs: asked before Where to?, carried by every restaurant request, places checked, poor fits never
+                planned, the meal's notes, Explore's tags, a new city's lists asked for with them.
+  money         Prices in: as listed by default; dollars converted with "≈"; text prices ("€15, book ahead", "£8–12");
+                no rate stays as listed; the choice on Prepare and Settings, kept on the phone, not in the trip.
+  menus         the nightly places join Rome's list once (no name or markup: dropped); a planned meal's Menu opens its
+                panel at the menu (dishes, prices in the chosen currency, kids', source and date, Google Maps photos).
   storage       Settings > Storage: of ten stored files it finds only the three old ones nothing points at (a place
                 photo, a map part, a journal photo and today's uploads are never listed), deletes nothing by looking,
                 asks once more, keeps one that came into use in between, and refuses when most files would go.

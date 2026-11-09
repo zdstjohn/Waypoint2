@@ -73,16 +73,17 @@
      120 ms to the first frame of a turn changes pages plainly from then on. The decoration gives way to the response. */
   var flipping = false, slowFlips = (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ? 1 : 0;
   W.fxFlipsOff = function () { return slowFlips >= 1; };
-  W.fxFlip = function (kind, dir, update) {
-    if (off() || flipping || slowFlips >= 1) { update(); return; }
+  /* after (optional) runs once the new page is in place and done moving: the place to scroll to a spot on it */
+  W.fxFlip = function (kind, dir, update, after) {
+    if (off() || flipping || slowFlips >= 1) { update(); if (after) after(); return; }
     var root = document.documentElement;
     if (document.startViewTransition) {
       flipping = true;
       root.classList.add("vt-" + kind); root.setAttribute("data-flip", dir < 0 ? "back" : "fwd");
       var t, t0 = performance.now();
       try { t = document.startViewTransition(function () { update(); }); }
-      catch (e) { flipping = false; root.classList.remove("vt-" + kind); update(); return; }
-      var done = function () { flipping = false; root.classList.remove("vt-" + kind); root.removeAttribute("data-flip"); };
+      catch (e) { flipping = false; root.classList.remove("vt-" + kind); update(); if (after) after(); return; }
+      var done = function () { flipping = false; root.classList.remove("vt-" + kind); root.removeAttribute("data-flip"); if (after) after(); };
       t.ready.then(function () { if (performance.now() - t0 > 120) slowFlips++; else slowFlips = Math.max(0, slowFlips - 1); }, function () {});
       t.finished.then(done, done);
       return;
@@ -90,7 +91,8 @@
     /* browsers without page transitions: slide the new page in */
     update();
     var el = kind === "day" ? document.querySelector(".dayflip") : document.querySelector("main:not([hidden])");
-    if (el) el.animate([{ opacity: 0, transform: "translateX(" + (dir < 0 ? -28 : 28) + "px)" }, { opacity: 1, transform: "none" }], { duration: 340, easing: EASE });
+    var an = el ? el.animate([{ opacity: 0, transform: "translateX(" + (dir < 0 ? -28 : 28) + "px)" }, { opacity: 1, transform: "none" }], { duration: 340, easing: EASE }) : null;
+    if (after) { if (an && an.finished) an.finished.then(after, after); else after(); }
   };
 
   /* folding sections (<details>): slide open and closed instead of snapping */

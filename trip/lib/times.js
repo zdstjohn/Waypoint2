@@ -298,6 +298,13 @@
         if (h && h.o > kd + 30) row.warn.push("Kitchen opens " + W.clock(h.o) + ": late for kids");
         else if (W.lateDinner(day.country)) row.info.push("Locals eat around " + W.clock(M[1]) + ". Going at opening means a calmer, kid-friendly table");
       }
+      /* the group's food needs: what this place offers them, and allergies to mention */
+      if (food && W.eatNeeds) {
+        var en = W.eatNeeds(), ef = W.eatFit(it), ew = W.eatWhy(it);
+        if (ef === "poor") row.warn.push("Hard for your food needs" + (ew ? ": " + ew : ""));
+        else if (ew) row.info.push(ew);
+        if (en && en.al.length) row.info.push("Tell the staff: " + en.al.map(function (k) { var a = W.EAT_AL.filter(function (y) { return y[0] === k; })[0]; return a ? a[1].replace(/ \(.*\)$/, "").toLowerCase() : k; }).join(", ") + " allergy");
+      }
       if (!food && W.needsBooking(it)) row.info.push("Timed entry: book the " + W.clock(start) + " slot" + (p.toddler && x.slot === "pm" ? ", after the nap" : ""));
       row.start = start; row.end = start + Math.round(dur);
       t = row.end;

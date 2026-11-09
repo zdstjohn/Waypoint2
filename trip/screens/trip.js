@@ -29,6 +29,8 @@
     return d.toLocaleDateString(undefined, opts || { weekday: "short", month: "short", day: "numeric" });
   }
   /* menu: the restaurant's own menu page when Claude knows it, otherwise a search for that restaurant's menu */
+  /* a planned meal's "Menu": its panel, opened at the menu (read from the restaurant's own site overnight) */
+  function menuBtn(key) { return '<button type="button" class="menu-btn" data-open="' + esc(key) + '" data-menu="1" aria-haspopup="dialog">Menu</button>'; }
   function menuLink(it, city) {
     var url = it.menu || "https://www.google.com/search?q=" + encodeURIComponent(it.n + " " + city + " menu"), host = "";
     if (it.menu) { try { host = new URL(it.menu).hostname.replace(/^www\./, ""); } catch (e) {} }
@@ -316,7 +318,7 @@
       (x.item && W.canEdit() ? '<button type="button" class="linkish sw-no" data-nope="' + x.slot + '" data-name="' + esc(x.item.n) + '" aria-label="Not for us: ' + esc(x.item.n) + '">' + ICON_NO + "Not for us</button>" : "") + "</span>" +
       '<button type="button" class="icon-btn" data-swapclose="1" aria-label="Close"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></div>' +
       (opts.length ? '<b class="swap-l">or pick one for ' + nm + "</b>" + swapCards(opts.slice(0, 3), x, food, day, nm) + (opts.length > 3 ? '<div class="opts">' : "") + opts.slice(3, n).map(function (o) {
-        var it = o.it, info = [W.stayText(it, food, x.slot), o.km != null ? W.fmtKm(o.km) + " away" : "", food ? it.cuisine : it.ticket].filter(Boolean).join(" · ");
+        var it = o.it, info = [W.stayText(it, food, x.slot), o.km != null ? W.fmtKm(o.km) + " away" : "", food ? it.cuisine : W.priceText(it.ticket, W.curOf(day.country))].filter(Boolean).join(" · ");
         return '<div class="opt-w"><button type="button" class="opt" data-use="' + x.slot + '" data-name="' + esc(it.n) + '" aria-label="Use ' + esc(it.n) + " for " + nm + '"><span class="nm">' + esc(it.n) + '</span><span class="desc">' + esc(it.d) + "</span>" + (info ? '<span class="info">' + esc(info) + "</span>" : "") + "</button>" + noBtn(x.slot, it.n, "op-no") + "</div>";
       }).join("") + (opts.length > 3 ? "</div>" : "") : '<p class="small muted">No other ideas nearby yet.</p>') +
       '<div class="swap-f">' + (opts.length > n ? '<button type="button" class="linkish" data-swapall="1">Show all ' + opts.length + "</button>" : swapAll && opts.length > 5 ? '<button type="button" class="linkish" data-swapall="1">Show fewer</button>' : "") +
@@ -431,9 +433,9 @@
           if (it.lat != null) prevPt = it;
           var open = false;
           /* closed: what, when, how long, and the one link you need (tickets or menu). Open: everything else. */
-          var main = food ? menuLink(it, day.city) + bookLink(it, day.city, true, day.country) : bookLink(it, day.city, false, day.country);
+          var main = food ? menuBtn(x.key) + bookLink(it, day.city, true, day.country) : bookLink(it, day.city, false, day.country);
           if (P.p.kid && it.k === -1) notes = '<span class="warn">' + esc(W.notForLine ? W.notForLine(P.p) : P.p.toddler ? "Not for toddlers" : "Not for kids") + "</span>" + notes;
-          var meta = food ? [it.cuisine, it.price] : [it.ticket];
+          var meta = food ? [it.cuisine, it.price] : [W.priceText(it.ticket, W.curOf(day.country))];
           var metaHtml = meta.filter(Boolean).map(function (m) { return "<span>" + esc(m) + "</span>"; }).join("");
           if (it.st === "closed") notes = '<span class="warn">May have closed</span>' + notes;
           if (it.st === "unfound") notes = '<span class="warn">Couldn\'t find this place</span>' + notes;
@@ -446,7 +448,7 @@
           /* at a glance: what it costs, whether it's booked or due, whether it's indoors */
           var cls = W.classify(it, food), bkG = !food && W.bookEntryFor ? W.bookEntryFor(P, day, it) : null, bkd = W.bookingFor ? W.bookingFor(it, day) : null;
           var tags = "";
-          if (!food && it.ticket) tags += '<span class="gt' + (W.isPaid(it) ? "" : " free") + '">' + esc(String(it.ticket).split(/[,;(·]/)[0].trim().slice(0, 18)) + "</span>";
+          if (!food && it.ticket) tags += '<span class="gt' + (W.isPaid(it) ? "" : " free") + '">' + esc(String(W.priceText(it.ticket, W.curOf(day.country))).split(/[,;(·]/)[0].trim().slice(0, 18)) + "</span>";
           if (bkd || (bkG && bkG.done)) tags += '<span class="gt ok">Booked</span>';
           else if (bkG && bkG.by) tags += '<span class="gt due' + (bkG.by < new Date() ? " late" : "") + '">Book by ' + esc(bkG.by.toLocaleDateString(undefined, { month: "short", day: "numeric" })) + "</span>";
           else if (bkG) tags += '<span class="gt due">Book ahead</span>';
@@ -462,7 +464,7 @@
               '<span class="sl-l">' + tm + '<b class="nm">' + esc(it.n) + "</b></span>" +
               '<span class="when">' + label + (legTag ? " · " + legTag : "") + "</span></button>" +
               (notes ? '<div class="slot-notes">' + notes + "</div>" : "") + "</div>" +
-              '<div class="slim-a">' + booked + menuLink(it, day.city) + (W.canEdit() ? rr : "") + "</div></article>";
+              '<div class="slim-a">' + booked + menuBtn(x.key) + (W.canEdit() ? rr : "") + "</div></article>";
           } else {
             list += '<article class="slot sk' + (R && R.skip ? " skipped" : "") + '" data-slotkey="' + esc(x.key) + '">' + (ph ? '<div class="thumb">' + ph + '<span class="num">' + num + "</span></div>" : '<span class="num">' + num + "</span>") +
               '<div class="slot-body"><button type="button" class="slot-toggle" data-open="' + esc(x.key) + '" aria-haspopup="dialog">' +
@@ -575,10 +577,14 @@
       }
       var moreBusy = W.cityBusy(ck);
       function ideaCard(row) {
-        var it = row.it, on = row.on, info = [W.stayText(it, eat, it.meal === "breakfast" ? "breakfast" : it.meal === "dinner" ? "dinner" : ""), eat ? it.cuisine : it.ticket, eat ? it.price : ""].filter(Boolean).join(" · ");
+        var it = row.it, on = row.on, info = [W.stayText(it, eat, it.meal === "breakfast" ? "breakfast" : it.meal === "dinner" ? "dinner" : ""), eat ? it.cuisine : W.priceText(it.ticket, W.curOf(day.country)), eat ? it.price : ""].filter(Boolean).join(" · ");
         var ph = W.picture(it, eat, day.country, day.city, { credit: true }), onTag = on ? '<span class="on">' + (on.n === day.n ? "Today" : "Day " + on.n) + " · " + W.SLOT_NAME[on.slot] + "</span>" : "";
         var warn = P.p.kid && it.k === -1 ? '<span class="warn">' + (P.p.toddler ? "Not ideal for toddlers" : "Not ideal for kids") + "</span>" : "";
         var bTag = !eat && P.p.kid && W.beachFit && W.beachFit(it) === "safe" ? '<span class="bc good">Calm and shallow</span>' : "";
+        /* the group's food needs (Plan, step 3) */
+        var ef = eat && W.eatFit ? W.eatFit(it) : "";
+        if (ef === "good") bTag += '<span class="bc good" title="' + esc(W.eatWhy(it)) + '">Good for your food needs</span>';
+        else if (ef === "poor") bTag += '<span class="warn" title="' + esc(W.eatWhy(it)) + '">Hard for your food needs</span>';
         return '<div class="idea' + (ph ? " has-photo" : "") + '">' + (ph ? '<div class="pic-wrap">' + ph + onTag + "</div>" : onTag) + "<h4>" + esc(it.n) + "</h4>" + bTag + '<p class="desc">' + esc(it.d) + "</p>" +
           (row.near ? '<p class="near">' + esc(row.near) + "</p>" : "") +
           (info ? '<p class="small muted">' + esc(info) + "</p>" : "") +
@@ -694,7 +700,11 @@
     else if (d.showall) showAll = !showAll;
     else if (d.exf) { var ef = S.exF || (S.exF = {}); ef[d.exf] = !ef[d.exf]; showAll = false; }
     else if (d.foldtrip) { S.tripFolded = S.tripFolded === false; if (S.tripFolded === false) W.fxAfter(function () { var g = document.querySelector("[data-foldtrip]"), n = g && g.closest(".idea-group"), out = []; while (n && (n = n.nextElementSibling) && !n.classList.contains("idea-group")) out.push(n); W.fxStagger(out, { step: 30 }); }); }
-    else if (d.open) { if (W.openStop) W.openStop(d.open); return; }
+    else if (d.open) {
+      if (W.openStop) W.openStop(d.open);
+      if (d.menu) setTimeout(function () { var m = document.querySelector("#sheethost .menu-b"), sh = m && m.closest(".sheet"); if (m && sh) sh.scrollTop = m.offsetTop - 12; else if (m) m.scrollIntoView({ block: "start" }); }, 60);
+      return;
+    }
     else if (d.reroll || d.swapclose) {
       var sw = document.querySelector(".swap");
       if (sw && (d.swapclose || swapOpen === d.reroll)) { W.fxCollapse(sw, function () { swapOpen = null; swapAll = false; W.render(); }); return; }
@@ -736,7 +746,7 @@
     else if (d.rescue) { var rd = P.days[(S.day || 1) - 1]; if (rd && W.rescue) { W.rescue(rd, P, d.rescue); W.fxAfter(function () { W.fxStagger(".go-tl li", { step: 30 }); }); } }
     else if (d.unrescue) { var ud = P.days[(S.day || 1) - 1]; if (ud && W.unrescue) W.unrescue(ud); }
     else if (d.jdel != null && W.journalClick) W.journalClick(d);
-    else if (d.journalgo) { if (W.goToDay) W.goToDay(+d.journalgo); W.goView("go"); setTimeout(function () { var j = document.querySelector("#viewGo .journal"); if (j) j.scrollIntoView({ block: "start", behavior: "smooth" }); }, 350); return; }
+    else if (d.journalgo) { if (W.goToDay) W.goToDay(+d.journalgo); W.goView("go", "#viewGo .journal"); return; }
     else if ((d.live || d.livepick != null || d.site) && W.liveClick) W.liveClick(d, P);
     else if (d.rest) { var rs = S.rest || (S.rest = {}); if (rs[d.rest]) delete rs[d.rest]; else rs[d.rest] = 1; W.fxAfter(function () { W.fxStagger(".slots > .slot", { step: 30 }); }); }
     else if (d.more) { var mk = W.cityKey(day.country, day.city); ["spots|", "food|"].forEach(function (p) { if (W.status[p + mk] !== "loading") delete W.status[p + mk]; }); W.loadCity(day.country, day.city, true); }
@@ -773,17 +783,17 @@
     if (it.place && W.norm(it.place) !== W.norm(it.n)) notes += "<span>Listed as " + esc(it.place) + "</span>";
     if (it.note) notes += "<span>" + esc(it.note) + "</span>";
     if (!food) notes = beachNote(it, P) + notes;
-    var meta = (food ? [it.cuisine, it.price] : [it.ticket]).filter(Boolean).map(function (m) { return "<span>" + esc(m) + "</span>"; }).join("");
+    var meta = (food ? [it.cuisine, it.price] : [W.priceText(it.ticket, W.curOf(day.country))]).filter(Boolean).map(function (m) { return "<span>" + esc(m) + "</span>"; }).join("");
     var bk = W.bookingFor ? W.bookingFor(it, day) : null, bkE = W.bookEntryFor ? W.bookEntryFor(P, day, it) : null;
     var booked = bk ? '<span class="booked-tag" title="' + esc(bk.title || "") + '">✓ Booked' + (bk.ref ? " · " + esc(bk.ref) : "") + "</span>" : "";
-    var main = food ? menuLink(it, day.city) + bookLink(it, day.city, true, day.country) : bookLink(it, day.city, false, day.country);
+    var main = food ? bookLink(it, day.city, true, day.country) : bookLink(it, day.city, false, day.country);   /* the menu itself is below */
     var rev = it.love || it.gripe ? '<div class="rev">' + (it.love ? '<span><b>Loved for</b> ' + esc(it.love) + "</span>" : "") + (it.gripe ? '<span><b>Watch for</b> ' + esc(it.gripe) + "</span>" : "") + "</div>" : "";
     var when = [R && R.start != null && !R.skip ? W.clock(R.start) : "", label, W.stayText(it, food, x.slot)].filter(Boolean).join(" · ");
     return '<div class="sd">' + (ph ? '<div class="sd-pic">' + ph + "</div>" : "") +
       '<p class="sd-when">' + esc(when) + "</p>" + (it.d ? '<p class="sd-d">' + esc(it.d) + "</p>" : "") +
       (notes ? '<div class="slot-notes sd-notes">' + notes + "</div>" : "") +
       (main || booked ? '<div class="slot-act">' + booked + main + "</div>" : "") +
-      (meta ? '<div class="meta">' + meta + "</div>" : "") + (food ? "" : beachCheck(it)) + rev +
+      (meta ? '<div class="meta">' + meta + "</div>" : "") + (food ? "" : beachCheck(it)) + rev + (food && W.menuBlock ? W.menuBlock(it, day) : "") +
       (it.st === "unsure" ? '<p class="small muted">Couldn\'t confirm it\'s still open. Worth a quick check.</p>' : "") +
       (W.altLinksFor ? W.altLinksFor("activity", { it: it, food: food, day: day }) : "") +
       '<div class="links">' + (bkE ? '<button type="button" class="linkish" data-gobook="' + esc(bkE.key) + '">' + (bkE.done ? "Booked · see Prepare" : "On your To book list") + "</button>" : "") +
@@ -791,11 +801,27 @@
       (W.familyActs ? W.familyActs(it, day, x) : "") + "</div>";
   };
   W.prevView = function () { return prevView === "settings" ? "trip" : prevView; };
-  W.goView = function (to) {
+  /* go to a screen; anchor (a selector) lands on that part of it instead of the top, once the page has changed */
+  W.goView = function (to, anchor) {
     if (W.closeStop) W.closeStop();   /* a stop's sheet belongs to the screen it was opened on */
-    if (to === view) { W.render(); return; }
+    var land = function () {
+      var a = anchor && document.querySelector(anchor);
+      if (!a) { window.scrollTo(0, 0); return; }
+      window.scrollTo(0, Math.max(0, a.getBoundingClientRect().top + window.pageYOffset - 12));
+      /* what is above it can still grow as it loads (photos, the day bag): for a moment, keep the spot in place, unless
+         you start scrolling yourself */
+      var until = Date.now() + 1800, mine = false, stop = function () { mine = true; };
+      ["wheel", "touchstart", "keydown", "mousedown"].forEach(function (ev) { window.addEventListener(ev, stop, { once: true, passive: true }); });
+      (function hold() {
+        if (mine || Date.now() > until) return;
+        var b = document.querySelector(anchor);
+        if (b) { var top = b.getBoundingClientRect().top; if (Math.abs(top - 12) > 4) window.scrollTo(0, Math.max(0, top + window.pageYOffset - 12)); }
+        requestAnimationFrame(hold);
+      })();
+    };
+    if (to === view) { W.render(); if (anchor) land(); return; }
     if (to === "settings") prevView = view;
-    W.fxFlip("page", VIEWS[to] > VIEWS[view] ? 1 : -1, function () { view = to; try { history.replaceState(null, "", HASH[view]); } catch (x) {} W.render(); window.scrollTo(0, 0); });
+    W.fxFlip("page", VIEWS[to] > VIEWS[view] ? 1 : -1, function () { view = to; try { history.replaceState(null, "", HASH[view]); } catch (x) {} W.render(); land(); }, anchor ? land : null);
   };
   W.setView = function (v) { view = v; try { history.replaceState(null, "", HASH[v]); } catch (x) {} };
   W.currentView = function () { return view; };

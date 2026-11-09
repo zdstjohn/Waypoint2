@@ -206,6 +206,9 @@
     var f = fits(item, slot); if (!f) return null;
     if (item.s === "any" && slot === "am" && !ctx.allowFull) return null;
     if (W.gone(item)) return null;   /* closed for good, or the check found no such place */
+    /* the group's food needs: a place that can't feed them is never planned; one that clearly can is a little ahead */
+    var eatF = W.isFood(slot) && W.eatFit ? W.eatFit(item) : "", eatB = eatF === "good" ? 3 : eatF === "ok" ? 0.5 : 0;
+    if (eatF === "poor") return null;
     /* the first days after a long flight: no timed entries first thing */
     if (ctx.jet && slot === "am" && W.needsBooking(item)) return null;
     /* a rest day's one outing: something easy close to your lodging */
@@ -247,7 +250,7 @@
     var checked = item.st === "open" ? 3 : item.st === "unsure" ? -3 : item.st === "unverified" ? (W.isFood(slot) ? -10 : -4) : 0;
     /* with little kids: calm, shallow beaches first; rough or deep ones only if nothing better is near */
     var bf = p.kid && !W.isFood(slot) && W.beachFit ? W.beachFit(item) : "", beach = bf === "safe" ? 4 : bf === "care" ? (p.toddler ? -9 : -5) : 0;
-    return (W.isFood(slot) ? foodStyle(item) : styleScore(item.t)) + top + focusScore(item, idx, W.isFood(slot)) + kidScore(item.k, p) + (f === 2 ? 4 : 0) + (len - idx) / len * 3 - g + early + heart + beach + shape + checked;
+    return eatB + (W.isFood(slot) ? foodStyle(item) : styleScore(item.t)) + top + focusScore(item, idx, W.isFood(slot)) + kidScore(item.k, p) + (f === 2 ? 4 : 0) + (len - idx) / len * 3 - g + early + heart + beach + shape + checked;
   }
   /* the same place under another name: lists asked for in several goes come back with "Liston Promenade", "Liston
      Promenade Evening Stroll" and "Liston Promenade Evening Stroll and Gelato", or "Rouvas Restaurant" and "Rouvas
@@ -421,6 +424,7 @@
       var cdays = days.filter(function (d) { return d.stop === si; });
       if (!pool) { W.loadCity(s.country, s.name); cdays.forEach(function (d) { d.loading = true; d.slots = []; }); return; }
       if (!pool.fallback) W.loadStyleIdeas(s.country, s.name);   /* more ideas for your trip style, if this city's list is thin on them */
+      if (!pool.fallback && W.loadEatFit) W.loadEatFit(s.country, s.name);   /* the group's food needs: check these places, and add a few that fit */
       if (!pool.fallback && W.loadFame) { W.loadFame(s.country, s.name); W.loadGems(s.country, s.name); }
       var home = W.homebase(s.country, s.name), used = {};
       cdays.forEach(function (d) {
@@ -442,7 +446,7 @@
           var pl = dayPool(d, x, s), nm = S.picks[x.key], list = W.isFood(x.slot) ? pl.pool.food || [] : pl.pool.spots || [];
           var it = nm && byName(list, nm);
           /* a pick the planner made (not you) that turns out to be shut that day, or a dinner that opens too late for the kids, is replanned */
-          if (it && !mine()[x.key] && (W.badForDay(it, W.weekday(d.n), x.slot, W.kidDinner()) || (W.holidayShut && W.holidayShut(it, d)))) it = null;
+          if (it && !mine()[x.key] && (W.badForDay(it, W.weekday(d.n), x.slot, W.kidDinner()) || (W.holidayShut && W.holidayShut(it, d)) || (W.isFood(x.slot) && W.eatFit && W.eatFit(it) === "poor"))) it = null;
           /* a place you chose yourself stays even if an earlier stop had it; one the planner chose doesn't */
           if (it && (mine()[x.key] ? !usedHere(used, it) : !isUsed(used, it))) { x.item = it; mark(used, it, x.key); }
         });

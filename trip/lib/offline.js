@@ -1,7 +1,7 @@
 /* Waypoint offline: the trip keeps working when the signal goes. The plan and the city lists already live on the phone
    (local storage); this keeps the rest there too — the photo index, the photos themselves, the street-map packs — and
    says so in Travel mode. Saving happens by itself as the trip nears and once a day while it's on, or on a tap.
-   An "offline copy" is one file (the app, this trip, its photos and sketch maps inside) that opens with no network at
+   An "offline copy" is one file (the app, this trip, and the photos of every place in its cities) that opens with no network at
    all, for the days the live page can't be reached. */
 (function () {
   "use strict";
@@ -33,15 +33,25 @@
   function has(url) { return tx("blobs", "readonly", function (s) { return s.getKey(url); }).then(function (k) { return !!k; }, function () { return false; }); }
 
   /* ---------- what the trip shows: its photos, its maps ---------- */
+  /* every photo the trip can show, most needed first: the plan's stops and your journal, then every other idea in the
+     trip's cities (Explore, the swap choices, a stop's panel), city by city */
   function photoUrls(P) {
-    var out = {}, seen = {};
-    function add(u) { if (u && !seen[u]) { seen[u] = 1; out[u] = 1; } }
+    var out = [], seen = {}, cities = {};
+    function add(u) { if (u && !seen[u]) { seen[u] = 1; out.push(u); } }
     (P.days || []).forEach(function (d) {
       (d.slots || []).forEach(function (x) { if (x.item) { var ph = W.photoFor(x.item, W.isFood(x.slot), d.country, d.city); if (ph && ph.url) add(ph.url); } });
       var j = (W.S.journal || {})[W.restKey ? W.restKey(d) : d.n]; (j && j.photos || []).forEach(function (p) { if (p && p.id) add("/_blob/" + encodeURIComponent(p.id)); });
+      cities[d.country + "|" + d.city] = [d.country, d.city];
+      if (d.trip) cities[d.trip.country + "|" + d.trip.name] = [d.trip.country, d.trip.name];
     });
-    return Object.keys(out);
+    Object.keys(cities).forEach(function (k) {
+      var c = cities[k], pl = W.pool(c[0], c[1]); if (!pl) return;
+      var one = function (/** @type {any} */ it, /** @type {boolean} */ food) { if (W.gone && W.gone(it)) return; var ph = W.photoFor(it, food, c[0], c[1]); if (ph && ph.url) add(ph.url); };
+      (pl.spots || []).forEach(function (it) { one(it, false); }); (pl.food || []).forEach(function (it) { one(it, true); });
+    });
+    return out;
   }
+  O.photoUrls = photoUrls;
   /* the trip city by city: its stops, the photo each one shows (if any), its street map */
   function cityRows(P) {
     var rows = [], by = {};
@@ -198,7 +208,7 @@
   O.takeBlock = function (P) {
     if (O.copy) return "";
     return '<div class="take-off"><span class="k">Offline copy</span><div class="row"><button type="button" class="btn quiet" data-offcopy="1"' + (O.copyState === "making" ? " disabled" : "") + ">" + (O.copyState === "making" ? "Making the file…" : "Save an offline copy") + "</button>" +
-      '<span class="small muted">' + (O.copyState === "done" ? "Saved. Open it from your phone's files; it works with no connection." : O.copyState === "error" ? W.esc(O.copyErr || "Couldn't make the file.") : "One file with the app, this trip, its photos and sketch maps inside.") + "</span></div></div>";
+      '<span class="small muted">' + (O.copyState === "making" && O.copyOf ? "Adding photos: " + (O.copyN || 0) + " of " + O.copyOf : O.copyState === "done" ? "Saved. Open it from your phone's files; it works with no connection." : O.copyState === "error" ? W.esc(O.copyErr || "Couldn't make the file.") : "One file with the app, this trip and the photos of every place in it (street maps need a connection).") + "</span></div></div>";
   };
   O.click = function (d, P) {
     if (d.offsave) { O.save(P, "tap"); return true; }
@@ -206,7 +216,7 @@
     return false;
   };
 
-  /* ---------- the offline copy: one HTML file with the app, this trip, its photos and sketch maps inside ---------- */
+  /* ---------- the offline copy: one HTML file with the app, this trip and its cities' photos inside ---------- */
   function text(u) { return fetch(u).then(function (r) { if (!r.ok) throw new Error("missing " + u); return r.text(); }); }
   function dataUri(u) {
     return fetch(u).then(function (r) { if (!r.ok) throw new Error("missing " + u); return r.blob(); }).then(function (b) {
@@ -225,8 +235,17 @@
       return Promise.all(fonts.map(dataUri)).then(function (ds) {
         fonts.forEach(function (u, i) { css = css.split("url(" + u + ")").join("url(" + ds[i] + ")"); });
         /* the photos the trip shows */
-        var list = photoUrls(P);
-        return Promise.all(list.map(function (u) { return dataUri(u).then(function (d) { seed.blobs[u] = d; }, function () {}); }));
+        /* a few at a time, in order of need, up to 60 MB of photos (a phone opens a file that size; past it, the rest of
+           the ideas show without a picture, as they would anyway with no signal) */
+        var list = photoUrls(P), i = 0, bytes = 0, MAX = 60e6;
+        O.copyN = 0; O.copyOf = list.length;
+        function worker() {
+          if (i >= list.length || bytes > MAX) return Promise.resolve();
+          var u = list[i++];
+          return dataUri(u).then(function (d) { if (bytes + d.length <= MAX) { seed.blobs[u] = d; bytes += d.length; } }, function () {})
+            .then(function () { O.copyN++; if (O.copyN % 10 === 0) W.changed(); return worker(); });
+        }
+        return Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]);
       }).then(function () {
         seed.S = JSON.parse(JSON.stringify(W.S)); seed.C = JSON.parse(JSON.stringify(W.C));
         /* (replacement text goes in as a function: code and JSON are full of "$" sequences String.replace would expand) */
