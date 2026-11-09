@@ -1,7 +1,4 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v111
-setup-*         # Plan: the new step 3, "What do you eat?" (allergies, diets, likes), and the steps after it renumbered
-book-*          # Prepare: "Prices in" (the currency costs are shown in)
-settings-*      # Settings: the Prices card
-meal-panel-*    # a meal's panel: its menu (read from the restaurant's own site overnight) and menu photos on Google Maps
+# v113
+setup-*         # Plan, step 3 "What do you eat?": the allergy and diet lists fold to one line each, showing what's picked

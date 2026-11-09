@@ -129,7 +129,8 @@ lib/              the shared library
                   takes it off the list), the slot that had it gets a new suggestion, the options and Explore leave it
                   out, and Explore lists them at the end with "Bring back". Undo works as for any change.
                   Food needs (Plan, step 3 "What do you eat?", before Where to?): S.eat = {al: allergies, di: diets, love,
-                  avoid, note}. Every request for places to eat carries them and asks how each place fits (fit good /
+                  avoid, note}. The allergy and diet lists fold to one line each showing what's picked (folded unless
+                  you left one open: S.eatOpen). Every request for places to eat carries them and asks how each place fits (fit good /
                   ok / poor and a line on what they can have); places already listed are checked once per set of needs
                   (W.loadEatFit, tied to them by W.eatSig) and a few that fit are added; a poor fit is never planned
                   (one you chose stays), a good one is a little ahead; a meal's notes say what you can have and which
@@ -224,7 +225,8 @@ Checks (node test/run.js, from the folder above trip/)
                 a day's heading kept with its travel line and whole first stop (never alone at a page's foot), and a page
                 ending early only by what the next page's first block needed (a stop split over a page break used to
                 leave a blank sheet), "Open in Google Maps" under each stop.
-  eat           food needs: asked before Where to?, carried by every restaurant request, places checked, poor fits never
+  eat           food needs: asked before Where to?, the allergy and diet lists folding (and staying open while you
+                tick), carried by every restaurant request, places checked, poor fits never
                 planned, the meal's notes, Explore's tags, a new city's lists asked for with them.
   money         Prices in: as listed by default; dollars converted with "≈"; text prices ("€15, book ahead", "£8–12");
                 no rate stays as listed; the choice on Prepare and Settings, kept on the phone, not in the trip.

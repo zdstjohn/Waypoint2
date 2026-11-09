@@ -766,6 +766,7 @@
     var f = el && el.dataset && el.dataset.fold; if (!f) return;
     if (f === "transit") S.transitOpen = open; else if (f === "jet") S.jetOpen = open;
     else if (f.indexOf("step-") === 0) { S.stepClosed = S.stepClosed || {}; S.stepClosed[f.slice(5)] = !open; }
+    else if (f === "eat-al" || f === "eat-di") { S.eatOpen = S.eatOpen || {}; S.eatOpen[f.slice(4)] = open; }
     W.save();
   };
   document.addEventListener("toggle", function (e) { if (e.target && !e.target.getAttribute("data-moving")) W.saveFold(e.target, e.target.open); }, true);

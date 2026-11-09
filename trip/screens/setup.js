@@ -159,6 +159,13 @@
     return "Expect " + list + ". All well reviewed.";
   }
 
+  /* the allergy and diet lists fold away (folded unless you left one open); folded, each line shows what's picked */
+  function eatFold(k, label, list, picked, hint) {
+    var names = list.filter(function (a) { return picked.indexOf(a[0]) > -1; }).map(function (a) { return a[1]; });
+    return '<details class="eat-f" data-fold="eat-' + k + '"' + ((S.eatOpen || {})[k] ? " open" : "") + '><summary><span class="fld-l">' + label + '</span><span class="eat-s' + (names.length ? " on" : "") + '">' + esc(names.length ? names.join(", ") : "None") + "</span>" + CHEV + "</summary>" +
+      (hint ? '<p class="small muted">' + hint + "</p>" : "") + '<div class="chips">' + list.map(function (a) { return '<button type="button" class="chip" data-eat' + k + '="' + a[0] + '" aria-pressed="' + (picked.indexOf(a[0]) > -1) + '">' + esc(a[1]) + "</button>"; }).join("") + "</div></details>";
+  }
+
   /* a foldable step; while folded, its header sums up what you chose */
   var DONE = {}, FIRST = null;
   function step(id, n, title, sum, body) {
@@ -202,8 +209,7 @@
     /* 3 · what you eat: allergies, diets, likes, before any restaurant is suggested */
     var eat = S.eat || {}, eatSum = W.eatText ? W.eatText() : "";
     h += step("eat", "03", "What do you eat?", eatSum ? eatSum.charAt(0).toUpperCase() + eatSum.slice(1) : S.eatNone ? "Nothing special" : "Allergies, diets, favorites",
-      '<p class="fld-l">Allergies (anyone in the group)</p><div class="chips">' + W.EAT_AL.map(function (a) { return '<button type="button" class="chip" data-eatal="' + a[0] + '" aria-pressed="' + ((eat.al || []).indexOf(a[0]) > -1) + '">' + esc(a[1]) + "</button>"; }).join("") + "</div>" +
-      '<p class="fld-l">Diet</p><div class="chips">' + W.EAT_DI.map(function (a) { return '<button type="button" class="chip" data-eatdi="' + a[0] + '" aria-pressed="' + ((eat.di || []).indexOf(a[0]) > -1) + '">' + esc(a[1]) + "</button>"; }).join("") + "</div>" +
+      eatFold("al", "Allergies", W.EAT_AL, eat.al || [], "Tap any that anyone in the group has.") + eatFold("di", "Diet", W.EAT_DI, eat.di || [], "") +
       '<label class="fld" for="eatLove"><span>Food you love</span><input class="field" id="eatLove" data-eat="love" maxlength="120" value="' + esc(eat.love || "") + '" placeholder="Grilled fish, pizza, mezze" autocomplete="off"></label>' +
       '<label class="fld" for="eatAvoid"><span>Rather avoid</span><input class="field" id="eatAvoid" data-eat="avoid" maxlength="120" value="' + esc(eat.avoid || "") + '" placeholder="Very spicy food, raw fish" autocomplete="off"></label>' +
       '<label class="fld" for="eatNote"><span>Anything else</span><input class="field" id="eatNote" data-eat="note" maxlength="200" value="' + esc(eat.note || "") + '" placeholder="Our 4-year-old only eats plain pasta" autocomplete="off"></label>' +

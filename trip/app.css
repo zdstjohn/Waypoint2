@@ -250,6 +250,17 @@ a{text-decoration:none}
 .focus button[aria-checked="true"]{background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 2px var(--ink) inset}
 @media (hover:hover){.focus button:not([aria-checked="true"]):hover{background:var(--soft)}}
 .fld-l{margin:0 0 8px;font-family:var(--f-label);font-size:15px;letter-spacing:.1em;color:var(--muted)}
+details.eat-f{display:block;border-bottom:var(--hair);padding-bottom:2px}
+details.eat-f > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;min-height:44px}
+details.eat-f > summary::-webkit-details-marker{display:none}
+details.eat-f > summary .fld-l{margin:0;flex:none}
+details.eat-f .eat-s{flex:1;min-width:0;text-align:right;font-size:14px;font-weight:600;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+details.eat-f .eat-s.on{color:var(--fg)}
+details.eat-f .chev{width:18px;height:18px;flex:none;color:var(--muted);transition:transform .15s}
+details.eat-f[open] .chev{transform:rotate(180deg)}
+details.eat-f > p{margin:0 0 8px}
+details.eat-f > .chips{margin:0 0 12px}
+details.eat-f > summary:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:8px}
 .focus-note{margin:12px 0 0;font-size:14px;line-height:1.45;color:var(--muted)}
 .gt.must{color:#7a4a00;background:#fbecc8}
 .gt.gem{color:#1d5a52;background:#d7efe9}

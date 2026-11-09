@@ -10,7 +10,19 @@ exports.run = async t => {
   t.ok(st.steps.indexOf('eat') > -1 && st.steps.indexOf('eat') < st.steps.indexOf('where'), 'Plan asks what you eat before where you go: ' + st.steps.join(' → '));
   t.ok(st.chips >= 12, 'with allergies and diets to tick (' + st.chips + ')');
   await pg.evaluate(() => { document.querySelector('[data-fold="step-eat"]').open = true; });
-  await pg.click('[data-eatal="shellfish"]'); await pg.click('[data-eatdi="vegetarian"]');
+  /* the allergy and diet lists fold: folded at first, each line saying what's picked */
+  const vis = () => pg.evaluate(() => ['al', 'di'].map(k => { const d = document.querySelector('[data-fold="eat-' + k + '"]'), c = d && d.querySelector('.chip'); return { open: !!(d && d.open), shown: !!(c && c.checkVisibility()), sum: d ? d.querySelector('.eat-s').textContent : '' }; }));
+  const f0 = await vis();
+  t.ok(f0.every(f => !f.open && !f.shown && f.sum === 'None'), 'the allergy and diet lists start folded, each saying "None": ' + JSON.stringify(f0));
+  await pg.click('[data-fold="eat-al"] > summary'); await pg.click('[data-eatal="shellfish"]'); await pg.click('[data-eatal="peanuts"]');
+  await pg.click('[data-fold="eat-di"] > summary'); await pg.click('[data-eatdi="vegetarian"]');
+  const f1 = await vis();
+  t.ok(f1.every(f => f.open && f.shown), 'a list you opened stays open while you tick (the screen redraws on each tap)');
+  await pg.click('[data-fold="eat-al"] > summary'); await pg.click('[data-fold="eat-di"] > summary');
+  const f2 = await vis();
+  t.ok(!f2[0].open && !f2[0].shown && /Peanuts/.test(f2[0].sum) && /Shellfish/.test(f2[0].sum) && f2[1].sum === 'Vegetarian', 'folded again, each line shows what\'s picked: ' + f2.map(f => f.sum).join(' / '));
+  t.ok(await pg.evaluate(() => { W.render(); return !document.querySelector('[data-fold="eat-al"]').open && W.S.eatOpen && W.S.eatOpen.al === false; }), 'and stays folded after a redraw');
+  await pg.click('[data-fold="eat-al"] > summary'); await pg.click('[data-eatal="peanuts"]'); await pg.click('[data-fold="eat-al"] > summary');
   await pg.fill('#eatLove', 'Pizza, grilled vegetables'); await pg.dispatchEvent('#eatLove', 'change');
   const txt = await pg.evaluate(() => W.eatText());
   t.ok(/allergies: shellfish/.test(txt) && /diet: vegetarian/.test(txt) && /loves Pizza/.test(txt), 'the needs are kept with the trip: ' + txt);
