@@ -221,8 +221,9 @@ Checks (node test/run.js, from the folder above trip/)
                 market and a travel day ask for the right things, each naming its stop; a tick is kept; the screen
                 wake lock is asked for on a live Today and let go when switched off or when you leave Today.
   pdf           the Take along PDF (jsPDF, from the local copy in the test): each stop measured and kept whole on one page,
-                a day's heading kept with its first stop, every page but the last filled to the bottom (a stop split over
-                a page break used to leave a blank sheet), "Open in Google Maps" under each stop.
+                a day's heading kept with its travel line and whole first stop (never alone at a page's foot), and a page
+                ending early only by what the next page's first block needed (a stop split over a page break used to
+                leave a blank sheet), "Open in Google Maps" under each stop.
   eat           food needs: asked before Where to?, carried by every restaurant request, places checked, poor fits never
                 planned, the meal's notes, Explore's tags, a new city's lists asked for with them.
   money         Prices in: as listed by default; dollars converted with "≈"; text prices ("€15, book ahead", "£8–12");

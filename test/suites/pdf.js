@@ -35,7 +35,7 @@ exports.run = async t => {
   const TOP = 744, FOOT = 48;
   const early = plan.slice(0, -1).map((p, i) => {
     const next = plan[i + 1], end = next.lines.find(l => /^(Open in Google Maps|Free time)$/.test(l.s));
-    const block = end ? TOP - end.y + 8 : TOP - FOOT;
+    const block = end ? Math.max(31, TOP - end.y + 8) : TOP - FOOT;   /* every slot takes at least 31 pt, a free one too */
     return { page: i + 1, left: Math.round(p.low - FOOT - 8), next: Math.round(block) };
   });
   t.eq(early.filter(p => p.left > p.next + 6), [], 'no page ends sooner than it must (no blank sheets): ' + early.map(p => p.left + '<' + p.next).join(' '));
