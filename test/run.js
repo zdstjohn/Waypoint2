@@ -29,7 +29,7 @@
 const { spawn, spawnSync } = require('child_process'); const fs = require('fs'); const path = require('path');
 const ROOT = path.resolve(__dirname, '..'); const OUT = path.join(__dirname, 'out'); fs.mkdirSync(OUT, { recursive: true });
 const args = process.argv.slice(2); const flags = new Set(args.filter(a => a.startsWith('--'))); const pick = args.filter(a => !a.startsWith('--'));
-const ALL = ['smoke', 'layout', 'planner', 'shape', 'flow', 'bookings', 'travel', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'fuzz', 'vitals', 'desktop', 'explore'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
+const ALL = ['smoke', 'layout', 'planner', 'shape', 'flow', 'bookings', 'travel', 'firstview', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'fuzz', 'vitals', 'desktop', 'explore'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
 const suites = pick.length ? pick : ALL;
 
 async function serverUp() {
