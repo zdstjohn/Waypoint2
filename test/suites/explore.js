@@ -13,38 +13,23 @@ exports.run = async t => {
   t.ok(/^https:\/\/www\.google\.com\/maps\/dir\/\?api=1&origin=/.test(first.gm) && /waypoints=/.test(first.gm), 'one button opens the whole day in Google Maps');
   t.ok(first.groups.length >= 2 && first.groups.some(g => /^Near /.test(g)) && first.near > 0, 'ideas are grouped by the stop they are near, with the time to get there: ' + first.groups.slice(0, 4).join(' / '));
 
-  /* the day map (a city with no street-map pack): a real street map from Mapbox, every pinned stop numbered and the
-     stay marked, asked for once (not again on every redraw), and tapping it opens the day in Google Maps */
-  await pg.waitForFunction(() => { const i = document.querySelector('.rcard .mbmap img'); return i && i.complete; }, null, { timeout: 8000 }).catch(() => {});
-  const mb = await pg.evaluate(async () => {
-    const calls = () => (window.__mcp || []).filter(c => c[1] === 'static_map_image_tool');
-    const n0 = calls().length; W.render(); W.render(); await new Promise(r => setTimeout(r, 300));
-    const img = document.querySelector('.rcard .mbmap img'), a = img && img.closest('a'), last = calls()[calls().length - 1];
-    const d = W.P.days[W.S.day - 1], pinned = d.slots.filter(x => x.item && x.item.lat != null && !x.item.gpin).length;
-    const ov = last ? last[2].overlays : [];
-    return { src: img && img.getAttribute('src').slice(0, 5), w: img && Math.round(img.getBoundingClientRect().width), href: a && a.href, gm: (document.querySelector('.rc-gm') || {}).href,
-      asked: n0, again: calls().length - n0, nums: ov.filter(o => o.type === 'marker' && /^\d+$/.test(o.label)).length, pinned, home: ov.filter(o => o.label === 'lodging').length, path: ov.filter(o => o.type === 'path').length };
+  /* the day as a storyboard: every stop in order, numbered like the route, a photo where there is one, the way between
+     stops with when to leave, where the day starts; a stop opens its Google listing, a leg its directions. No map
+     pictures are asked for (the street map is the map) */
+  const sb = await pg.evaluate(() => {
+    const d = W.P.days[W.S.day - 1], items = d.slots.filter(x => x.item).length;
+    const box = document.querySelector('.dsb'); if (!box) return null;
+    const stops = [...box.querySelectorAll('.dsb-stop')], legs = [...box.querySelectorAll('.dsb-leg')];
+    const route = [...document.querySelectorAll('.rcard .rc-stop b')].map(b => b.textContent);
+    return { items, n: stops.length, names: stops.map(s => s.querySelector('.dsb-t b').textContent), route, nums: stops.map(s => s.querySelector('.num').textContent),
+      legs: legs.length, leave: box.querySelectorAll('.dsb-leave').length, from: (box.querySelector('.dsb-from') || {}).textContent || '',
+      place: stops.every(s => /google\.com\/maps\/search\//.test(s.querySelector('a').href)), dir: legs.every(l => /google\.com\/maps\/dir\//.test(l.querySelector('a').href)),
+      static: (window.__mcp || []).filter(c => c[1] === 'static_map_image_tool').length };
   });
-  t.ok(mb.src === 'blob:' && mb.w > 250 && mb.href && mb.href === mb.gm, `the day has a street map from Mapbox (${mb.w} px wide), and tapping it opens the day in Google Maps`);
-  t.ok(mb.asked >= 1 && mb.asked <= 3 && mb.again === 0, `the map is asked for once the day has settled, not on every redraw (${mb.asked} while the trip came in, then ${mb.again} more)`);
-  /* flipping through days asks only for the day you stop on */
-  const flip = await pg.evaluate(async () => {
-    const calls = () => (window.__mcp || []).filter(c => c[1] === 'static_map_image_tool').length, n0 = calls(), d0 = W.S.day;
-    for (const d of [1, 2, 4, 5, 6]) { W.S.day = d; W.render(); await new Promise(r => setTimeout(r, 60)); }
-    await new Promise(r => setTimeout(r, 1300)); W.render(); const n = calls() - n0; W.S.day = d0; W.render(); return n;
-  });
-  t.ok(flip <= 1, `flipping through five days asks for the map of the last one only (${flip})`);
-  t.ok(mb.nums === mb.pinned && mb.home === 1 && mb.path === 1, `every pinned stop is numbered on it (${mb.nums} of ${mb.pinned}), with the stay and the day's loop`);
-  /* every pin fits in the picture with room for the pins' heads; Google's own pins are never drawn on it */
-  const fit = await pg.evaluate(() => {
-    const pts = [{ lat: 36.4184, lng: 25.4313, num: 1 }, { lat: 36.39, lng: 25.47, num: 2, food: true }, { lat: 36.46, lng: 25.375, num: 3 }, { lat: 36.41, lng: 25.44, num: 4, gpin: 1 }];
-    const inp = W.mbInput(pts, { lat: 36.4166, lng: 25.4325 }, false), z = inp.zoom, S = 512 * Math.pow(2, z);
-    const my = lat => { const s = Math.sin(lat * Math.PI / 180); return Math.log((1 + s) / (1 - s)) / 2; };
-    const px = p => ({ x: 320 + (p.longitude - inp.center.longitude) / 360 * S, y: 200 - (my(p.latitude) - my(inp.center.latitude)) / (2 * Math.PI) * S });
-    const ms = inp.overlays.filter(o => o.type === 'marker').map(px);
-    return { inside: ms.every(p => p.x >= 20 && p.x <= 620 && p.y >= 40 && p.y <= 392), n: ms.length, google: inp.overlays.some(o => o.label === '4') };
-  });
-  t.ok(fit.inside && fit.n === 4 && !fit.google, `every pin fits in the picture (${fit.n} markers) and a pin from Google is left off`);
+  t.ok(sb && sb.n === sb.items && JSON.stringify(sb.names) === JSON.stringify(sb.route) && sb.nums.join() === sb.names.map((_, i) => i + 1).join(), `the storyboard shows every stop in the route's order (${sb && sb.n}): ${sb && sb.names.join(' → ')}`);
+  t.ok(sb && sb.legs >= sb.n && sb.leave >= 1 && /^from /.test(sb.from), `between the stops: the way there and when to leave (${sb && sb.leave} leave times), starting ${sb && sb.from}`);
+  t.ok(sb && sb.place && sb.dir, 'a stop opens its Google Maps listing and a leg its directions');
+  t.eq(sb && sb.static, 0, 'no map pictures are asked for');
 
   /* search: three sources, one list; the same place from the map and Claude shows once, marked as on the map */
   await pg.fill('#placeQ', 'gelato'); await pg.click('[data-psearch="1"]'); await pg.waitForTimeout(400); await settle(pg, 4000);
@@ -92,16 +77,6 @@ exports.run = async t => {
     window.__mcpFail = null; return document.querySelector('.psearch').textContent;
   });
   t.ok(/Connect Mapbox/.test(none) && /Search Google Maps/.test(none), 'without the map connection it says how to add it, and Google Maps is still a link away');
-  /* without the Mapbox connection there is no day map at all (and no asking again), and the route is still there */
-  const nomap = await pg.evaluate(async () => {
-    window.__mcpFail = { static_map_image_tool: 'not_granted' };
-    W.S.day = 2; W.S.tview = 'map'; W.render(); await new Promise(r => setTimeout(r, 1300)); W.render();
-    const n = (window.__mcp || []).filter(c => c[1] === 'static_map_image_tool').length;
-    W.S.day = 4; W.render(); await new Promise(r => setTimeout(r, 1300)); W.render();
-    window.__mcpFail = null;
-    return { map: !!document.querySelector('.mbmap'), route: !!document.querySelector('.rcard .rc-list'), off: W.mbState().off, more: (window.__mcp || []).filter(c => c[1] === 'static_map_image_tool').length - n };
-  });
-  t.ok(!nomap.map && nomap.route && nomap.off && nomap.more === 0, 'without the Mapbox connection there is no map and no asking again; the route is still there');
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

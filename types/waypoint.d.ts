@@ -192,10 +192,6 @@ interface Waypoint {
   getMcp: any;
   glance: any;
   gmapsDir: any;
-  mbMapBox: (day: Day, pts: { n: string; lat: number | null; lng: number | null; num?: number; food?: boolean; gpin?: 1 }[], home: { label?: string; lat: number | null; lng: number | null }, gm?: string) => string;
-  mbInput: (pts: { lat: number | null; lng: number | null; num?: number; food?: boolean; gpin?: 1 }[], home: { lat: number | null; lng: number | null } | null, hi?: boolean) => any;
-  mbFit: (pts: { lat: number; lng: number }[]) => { center: { latitude: number; longitude: number }; zoom: number };
-  mbState: () => { off: boolean; cached: number; busy: number };
   gmapsPlace: (place: string | { n?: string; label?: string; gid?: string }, city: string, gid?: string) => string;
   goView: (to: View) => void;
   gone: (it: Spot | Food | null | undefined) => boolean;

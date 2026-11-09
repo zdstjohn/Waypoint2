@@ -228,6 +228,39 @@
   /* ---------- Explore: today's route ---------- */
   /** today's stops as a route from where you stay and back: the way between each (walk, transit, drive) with its
       directions, the whole day in Google Maps, and the real street map on top where the city has one */
+  /* the day as a storyboard: each stop's photo in order, with the walk, ride or drive between them and when to leave.
+     A stop opens its Google Maps listing; a leg opens the directions for it. Scrolls sideways on a phone. */
+  function storyStrip(day, P, T, home, pts) {
+    if (!pts.length) return "";
+    var city = day.city, prev = home, rows = "", walk = 0, ride = 0;
+    function legLi(a, b, at, last) {
+      var lg = a && a.lat != null && b.lat != null ? W.leg(a, b) : null;
+      if (lg) { if (lg.mode === "walking") walk += lg.min; else ride += lg.min; }
+      var leave = lg && at != null ? Math.floor((at - lg.min) / 5) * 5 : null;
+      var to = b.lat != null ? b : { n: (b.n || b.label) + ", " + city, lat: null, lng: null };
+      var dir = W.gmapsDir(a && a.lat != null ? a : { label: ((a && (a.label || a.n)) || city) + ", " + city, lat: null }, to, lg ? lg.mode : "walking");
+      return '<li class="dsb-leg' + (last ? " last" : "") + '"><a href="' + esc(dir) + '" target="_blank" rel="noopener" aria-label="' + esc((lg ? W.fmtMin(lg.min) + " " + lg.label : "Directions") + " to " + (b.n || b.label)) + '">' +
+        (lg ? (LEG_IC[lg.mode] || LEG_IC.transit) + "<b>" + esc(W.fmtMin(lg.min)) + "</b><span>" + esc(lg.label) + "</span>" : "<b>Directions</b>") +
+        (leave != null && leave > 0 ? '<span class="dsb-leave">leave <span>' + esc(W.clock(leave)) + "</span></span>" : "") + "</a></li>";
+    }
+    pts.forEach(function (p, i) {
+      var x = (day.slots || []).filter(function (y) { return y.slot === p.slot; })[0], it = x && x.item || p, R = T && T.rows[p.slot];
+      var at = R && R.start != null && !R.skip ? R.start : null;
+      var lgHtml = legLi(prev, p, at, false);
+      /* the first leg says where the day starts */
+      if (i === 0 && home && home.label) lgHtml = lgHtml.replace('<li class="dsb-leg">', '<li class="dsb-leg first">').replace("</a></li>", '<span class="dsb-from">from ' + esc(home.label) + "</span></a></li>");
+      rows += lgHtml;
+      var pic = W.picture(it, p.food, day.country, city);
+      rows += '<li class="dsb-stop' + (p.food ? " food" : "") + (pic ? "" : " nopic") + '"><a href="' + esc(W.gmapsPlace(p, city)) + '" target="_blank" rel="noopener">' +
+        '<span class="dsb-pic">' + (pic || '<span class="slotw" aria-hidden="true">' + esc(W.SLOT_NAME[p.slot]) + "</span>") + '<span class="num' + (p.food ? " f" : "") + '">' + p.num + "</span></span>" +
+        '<span class="dsb-t"><b>' + esc(p.n) + "</b><span>" + esc([at != null ? W.clock(at) : "", (R && R.label) || W.SLOT_NAME[p.slot]].filter(Boolean).join(" · ")) + "</span></span></a></li>";
+      if (p.lat != null) prev = p;
+    });
+    if (prev !== home && home) rows += legLi(prev, home, null, true).replace('<li class="dsb-leg last">', '<li class="dsb-leg last"><span class="dsb-home">Back to ' + esc(home.label) + (T && T.back ? ", about " + esc(W.clock(T.back)) : "") + "</span>");
+    var sum = [walk ? W.fmtMin(walk) + " walking" : "", ride ? W.fmtMin(ride) + " riding" : ""].filter(Boolean).join(" · ");
+    return '<section class="dsb sk" aria-label="Today, stop by stop"><div class="dsb-h"><h3>Today in ' + esc(city) + "</h3>" + (sum ? '<span class="small muted">' + esc(sum) + "</span>" : "") + "</div>" +
+      '<ol class="dsb-row scroll-x">' + rows + "</ol></section>";
+  }
   function routeCard(day, P, T, home, pts, gm, mapBox, zoomBtns) {
     if (!pts.length) return '<aside class="explorer rcard sk"><div class="explorer-h"><h3>Today\'s route</h3></div><p class="small muted rc-empty">Nothing planned yet today. Add a place with the search, or from the ideas below.</p></aside>';
     var prev = home, rows = "", city = day.city;
@@ -316,7 +349,7 @@
       P.stops.forEach(function (st) { W.wantPhotos(st.country, st.name, W.pool(st.country, st.name)); });
       el.innerHTML = W.tripTop(P) + W.storyHtml(P); W.storyMount(); return;
     }
-    var day = P.days[S.day - 1], ap = P.ap, h = "", stop = P.stops[day.stop], mode = "list", vtWant = null;
+    var day = P.days[S.day - 1], ap = P.ap, h = "", stop = P.stops[day.stop], mode = "list", vtWant = null, xpCols = false;
 
     /* day picker (during the trip, today's pill says so) */
     var tn = W.todayN(P);
@@ -457,8 +490,6 @@
         mapBox = '<div class="map-wrap' + (vtOn ? " vt-on" : " vt-want") + '"><div class="vt-slot"></div>' + (vtOn ? "" : '<p class="loading map-wait">Loading the street map…</p>') + "</div>";
         vtWant = { slug: vtSlug, key: day.n + "|" + day.city, pts: pts, home: home, animate: true, city: day.city };
       }
-      /* elsewhere, a real street map of the day from Mapbox (one picture, through the viewer's Mapbox connection) */
-      var mb = !mapBox && W.mbMapBox && (xp || window.innerWidth > 920) ? W.mbMapBox(day, pts, home, gm) : "";
       var zoomBtns = mapBox ? '<div class="zoom" role="group" aria-label="Map zoom"><button type="button" class="icon-btn" data-zoom="out" aria-label="Zoom out">−</button>' +
         '<button type="button" class="icon-btn" data-zoom="in" aria-label="Zoom in">+</button>' +
         '<button type="button" class="icon-btn fit" data-zoom="fit" aria-label="Fit today\'s stops"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg></button></div>' : "";
@@ -469,14 +500,18 @@
            whole day in Google Maps (never a sketch) */
         var side = mapBox ? '<aside class="explorer sk"><div class="explorer-h"><h3>Today\'s map</h3>' + zoomBtns + "</div>" + mapBox +
           '<p class="map-note">© OpenMapTiles © OpenStreetMap contributors' + (gm ? " · " + link(gm, "Open the day in Google Maps") : "") + "</p></aside>"
-          : window.innerWidth > 920 ? routeCard(day, P, T, home, pts, gm, mb, "") : "";
+          : window.innerWidth > 920 ? routeCard(day, P, T, home, pts, gm, "", "") : "";
         h += '<div class="dayview mode-list' + (side ? "" : " solo") + '"><div class="slots">' + list + "</div>" + side + "</div>";
         h += W.dayNav ? W.dayNav(day, P) : "";
         h += W.journalCard(day);
       } else {
-        /* Explore: find any place, today's route, the free time, then every idea by what it's near */
+        /* Explore: find any place, the day as a storyboard, today's route (on the street map where the city has
+           one), the free time, then every idea by what it's near */
         h += W.searchBlock(day, P);
-        h += routeCard(day, P, T, home, pts, gm, mapBox || mb, zoomBtns);
+        h += storyStrip(day, P, T, home, pts);
+        /* below them, on a big screen: the route (and street map) on the right, the rest on the left */
+        h += '<div class="xp-cols">'; xpCols = true;
+        h += routeCard(day, P, T, home, pts, gm, mapBox, zoomBtns);
         h += freeTime(day, P, T);
       }
 
@@ -555,7 +590,7 @@
         if (rows.length) h += '<details class="transit sk" data-fold="transit"' + (S.transitOpen ? " open" : "") + "><summary>Getting around " + esc(day.city) + "</summary>" + rows.map(function (x) { return '<div><span class="k">' + x[0] + "</span><span>" + esc(x[1]) + "</span></div>"; }).join("") + "</details>";
       }
     }
-    el.innerHTML = h + "</div>";
+    el.innerHTML = h + (xpCols ? "</div>" : "") + "</div>";
     /* on a phone in list view the map is hidden: don't run it in the background */
     if (vtWant && (xp || window.innerWidth > 920)) {
       var slotEl = el.querySelector(".vt-slot");

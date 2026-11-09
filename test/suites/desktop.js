@@ -6,6 +6,7 @@
      - every Prepare tab is fully visible
      - the previous/next day arrows are there at every width
      - the Day / Explore / All days switch spans the full width, in three equal parts
+     - Explore: the search and the day's storyboard across the top, the route on the right below
      - the trip menu opens under the trip's name (right side of the banner), inside the window
      - the kids' corner stays picture-book sized and centred on a big screen */
 const { launch, open, exampleTrip, settle } = require('../lib/page'); const SCREENS = require('../lib/screens'); const CHECK = require('../lib/check');
@@ -49,6 +50,16 @@ exports.run = async t => {
       return { w: Math.round(v.getBoundingClientRect().width), inner: Math.round(inner), bw };
     });
     t.ok(vsw && vsw.w >= vsw.inner - 2 && Math.max(...vsw.bw) - Math.min(...vsw.bw) <= 2, `@${width}: the Day / Explore / All days switch spans the page (${vsw && vsw.w} of ${vsw && vsw.inner} px; buttons ${vsw && vsw.bw.join('/')})`);
+    /* Explore on a big screen: the search and the day's storyboard across the top, the route on the right below */
+    if (width >= 1024) {
+      const xp = await pg.evaluate(async () => {
+        W.S.tview = 'map'; W.render(); await new Promise(r => setTimeout(r, 300));
+        const r = s => { const e = document.querySelector('#viewTrip ' + s); return e && e.getBoundingClientRect(); };
+        const ps = r('.psearch'), sb = r('.dsb'), rc = r('.rcard'); W.S.tview = 'days'; W.render();
+        return ps && sb && rc ? { ps: Math.round(ps.width), sb: Math.round(sb.width), below: rc.top >= sb.bottom - 1, right: rc.left > sb.left + sb.width / 2 } : null;
+      });
+      t.ok(xp && Math.abs(xp.sb - xp.ps) <= 2 && xp.below && xp.right, `@${width}: Explore puts the search and the storyboard across the top (${xp && xp.sb} px) and the route on the right below`);
+    }
     /* the Prepare tabs */
     const tabs = await pg.evaluate(() => {
       W.setView('book'); W.S.prepTab = 'tobook'; W.render();

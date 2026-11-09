@@ -63,12 +63,6 @@ lib/              the shared library
                   check confirms it), merged into one list; a Google Maps search for the same words is one link away.
                   An added place joins the city's list as your own (S.imported, with the trip) and goes in the part of
                   the day you pick. The page can't reach the internet itself: the map comes through the connection.
-  mbmap.js        the day map where a city has no map pack: one real street-map picture of the day from Mapbox (through
-                  the viewer's Mapbox connection, like search), every pinned stop numbered, the stay, the day's loop;
-                  asked for once the day's pins settle and only for the day on screen, kept in memory, and tapping it
-                  opens the whole day in Google Maps. Google's own pins ("gpin") are never drawn on it. A Google map
-                  can't be shown in the page: it may only load from its own server, a Google key would have to sit in
-                  the page, and Google's terms don't allow keeping its map pictures.
   offline.js      the trip without a signal: the photo index and photos kept on the phone (IndexedDB), map packs
                   warmed into the worker's cache, the offline note in Travel mode, and the "offline copy" (one HTML
                   file with the app, the trip and its photos inside, opened from the phone's files)
@@ -85,11 +79,16 @@ lib/              the shared library
 screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.js, also the app controller: a labelled
                   switch for Day · Explore · All days. Explore: search any place, today's route (each stop with the
                   walk, transit or drive between them and its directions, and one button that opens the whole day in
-                  Google Maps, unpinned stops by name), a real street map on top (the map pack where the city has one,
-                  tapping a pin opens it in Google Maps; elsewhere the Mapbox day map; never a sketch), the free parts of the day with three picks
+                  Google Maps, unpinned stops by name), the day's storyboard (each stop's photo in order with the walk,
+                  ride or drive between and when to leave; a stop opens its Google listing, a leg its directions), the
+                  street map from the city's map pack (every city in a trip has one; the nightly helper builds packs for
+                  new ones, a few a night; tapping a pin opens it in Google Maps; never a sketch or a map picture), the free parts of the day with three picks
                   each, and every idea under the stop of today it is nearest to. On a big screen the Day view shows the
-                  street map beside the day where there is one, otherwise today's route with the Mapbox day map. The
-                  Day · Explore · All days switch runs the full width in three equal parts. All days groups the days by place under a stay bar that sticks to
+                  street map beside the day where there is one, otherwise today's route. Explore on a big screen puts
+                  the search and the storyboard across the top, the route and map on the right below. The
+                  Day · Explore · All days switch runs the full width in three equal parts. A Google map can't be shown
+                  in the page (it may only load from its own server, and Google's terms don't allow keeping its map
+                  pictures), so Google Maps is always one tap away instead. All days groups the days by place under a stay bar that sticks to
                   the top and lights the place you've scrolled to; the storybook opens from the trip menu and All days), Prepare (book.js: To book · Booked · Budget ·
                   Pack · Take along) and Today (travel.js: Travel mode, also the storybook). flow.js has the next-step
                   bar, undo, the stop sheet and the quick start (shown on the very first open); journal, family;
