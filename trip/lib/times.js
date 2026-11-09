@@ -180,7 +180,7 @@
     }
     /* arriving around lunchtime: lunch first, then the first thing to see */
     var order = day.slots.slice();
-    if (out.travel && t >= minStart("lunch") - 30) {
+    if (out.travel && t >= Math.min(minStart("lunch") - 30, hm(11, 30))) {   /* landing late morning or later: eat first */
       var li = order.findIndex(function (x) { return x.slot === "lunch"; }), ai = order.findIndex(function (x) { return x.slot === "am"; });
       if (li > ai && ai > -1) { var L2 = order.splice(li, 1)[0]; order.splice(ai, 0, L2); out.moved = true; }
     }
@@ -199,6 +199,7 @@
         }
       }
     });
+    var lastFree = null;   /* free time is elastic: it ends when the next thing needs to start, never pushes it back */
     function doRow(x) {
       var it = x.item, food = W.isFood(x.slot), row = { warn: [], info: [] };
       out.rows[x.slot] = row;
@@ -208,10 +209,16 @@
         row.info.push("Travel morning: have breakfast before you set off");
         return;
       }
-      var capF = { am: hm(16), lunch: hm(15), pm: hm(17, 30), eve: EVE_CAP }[x.slot];
-      /* arriving after lunchtime: lunch is on the way */
-      if (x.slot === "lunch" && out.travel && out.travel.end > hm(14, 30)) {
+      /* the latest a slot can still start; a long journey that lands after it leaves that meal or outing out */
+      var capF = { am: hm(16), lunch: hm(15), pm: hm(17, 30), dinner: p.kid ? hm(20, 30) : hm(21, 45), eve: EVE_CAP }[x.slot];
+      /* arriving after about two: lunch is on the way (a sit-down lunch at three is not lunch) */
+      if (x.slot === "lunch" && out.travel && out.travel.end >= hm(14)) {
         row.skip = true; row.start = out.travel.start + 180; row.info.push("Travel day: lunch on the way");
+        return;
+      }
+      /* landing late in the evening: eat on the way or after you land, nothing is planned */
+      if (x.slot === "dinner" && out.travel && out.travel.end + 30 > capF) {
+        row.skip = true; row.start = Math.min(out.travel.end, hm(21)); row.info.push("Travel day: dinner on the way or after you land");
         return;
       }
       if (!it) {
@@ -219,9 +226,11 @@
         if (capF && row.start > capF) { row.skip = true; return; }   /* no free evening at 10 pm */
         /* free time ends in time for the next meal (a free afternoon never pushes the children's dinner back) */
         var nextMeal = x.slot === "am" ? minStart("lunch") : x.slot === "pm" ? minStart("dinner") : null;
-        row.end = nextMeal && nextMeal - 15 > row.start ? Math.min(row.start + DFLT[x.slot], nextMeal - 15) : row.start + DFLT[x.slot]; t = row.end; return;
+        row.end = nextMeal && nextMeal - 15 > row.start ? Math.min(row.start + DFLT[x.slot], nextMeal - 15) : row.start + DFLT[x.slot]; t = row.end; lastFree = row; return;
       }
-      var lg = W.leg(prev, it), start = up15(Math.max(t + (lg ? lg.min : 10), minStart(x.slot))), h = it.hours;
+      var lg = W.leg(prev, it), way = lg ? lg.min : 10, start = up15(Math.max(t + way, minStart(x.slot))), h = it.hours;
+      /* after free time, the next thing starts when it should (at least 45 minutes of free time first); the free row shrinks to fit */
+      if (lastFree) { start = up15(Math.max(Math.min(t, lastFree.start + 45) + way, minStart(x.slot))); lastFree.end = Math.max(lastFree.start + 30, start - way); lastFree = null; }
       var dur = W.planMin(it, food, x.slot);
       /* a long journey or a nap can leave no room: say so rather than send you out at midnight */
       var cap = capF;
@@ -248,7 +257,7 @@
       if (meal && !dayOut) {
         /* the way to the meal itself: the next slot's place when it is known, else a quarter hour */
         var nx = order.filter(function (y) { return y.slot === (x.slot === "am" ? "lunch" : "dinner"); })[0], nl = nx && nx.item ? W.leg(it, nx.item) : null, way = nl ? Math.max(5, nl.min) : 15;
-        if (start + dur > meal - way + slack && meal - way - start >= 45) {
+        if (start + dur > meal - way + slack && meal - way - start >= (day.jet ? 30 : 45)) {
           dur = meal - way - start; row.info.push("Leave by " + W.clock(start + dur) + " for " + (x.slot === "am" ? "lunch" : "dinner"));
         }
       }

@@ -554,7 +554,8 @@
         (shut ? "" : '<ul class="checklist">' + shown.map(row).join("") + "</ul>" +
           (more ? '<button type="button" class="chk-done" data-laterall="1">Show all ' + items.length + "</button>" : "")) + "</div>";
     };
-    var groups = BK.slice(0, 3).map(groupHtml).join(""), doneGroup = groupHtml(BK[3]);
+    /* only the open segment's markup is built: a tap on Prepare paints one list, not five */
+    var groups = seg === "tobook" ? BK.slice(0, 3).map(groupHtml).join("") : "", doneGroup = seg === "booked" ? groupHtml(BK[3]) : "";
     /* one line on top: how many are left and the next deadline */
     var nextAll = list.filter(function (c) { return !c.done && c.by; }).sort(function (a, b) { return a.by - b.by; })[0];
     var top = (left ? left + " to book" : "All booked") + (nextAll ? " · next: " + esc(nextAll.short || nextAll.title) + " by " + fmtDay(nextAll.by, { month: "short", day: "numeric" }) : "") +
@@ -573,6 +574,7 @@
     }
 
     /* your bookings */
+    if (seg === "booked") {
     var bl = bookings().slice().sort(function (a, b) { return String(a.start).localeCompare(String(b.start)); });
     var gmUI = ro ? "" : gm.state === "search" ? '<span class="loading">Searching Gmail…</span>'
       : gm.state === "read" ? '<span class="loading">Reading ' + (gm.done || 0) + " of " + gm.n + " emails…</span>"
@@ -593,22 +595,23 @@
       '<input class="field" id="bkCur" placeholder="EUR" maxlength="3" aria-label="Currency" value="' + esc((W.C.cost[W.cityKey(P.stops[0].country, P.stops[0].name)] || {}).cur || "EUR") + '">' +
       '<input class="field" id="bkRef" placeholder="Confirmation code" aria-label="Confirmation code">' +
       '<button type="button" class="btn quiet" data-addbk="1">Add</button></div></details>';
-    if (seg === "booked") {
       h += section("Booked", nBooked ? nBooked + " booked" : "Nothing booked yet. Tick things off under To book as you go, and they'll gather here.", (list.some(function (c) { return c.done; }) ? doneGroup : ""), "bk-done");
       h += section("Confirmations", ro ? "" : "Confirmation emails for these places, placed on their days. Only you see these, even on a shared trip.",
         '<div class="row bk-row">' + gmUI + "</div>" + gmMsg + (bRows ? '<ul class="bklist">' + bRows + "</ul>" : "") + form);
     }
 
     /* budget */
+    if (seg === "budget") {
     var bud = W.budget(P), costBusy = Object.keys(W.status).some(function (k) { return k.indexOf("cost|") === 0 && W.status[k] === "loading"; });
     var tb = Object.keys(bud.rows).map(function (k) {
       var r = bud.rows[k]; if (!Object.keys(r.booked).length && !Object.keys(r.est).length && !r.open && !r.flights) return "";
       return "<tr><th scope=\"row\">" + esc(r.label) + "</th><td>" + sumText(r.booked) + "</td><td>" + (Object.keys(r.est).length ? "≈ " + sumText(r.est) : "—") +
         (r.flights ? '<div class="small muted">' + (r.flights.length > 1 ? "plus flights" : r.flights[0] === "home" ? "plus the flight home" : "plus the flight out") + "</div>" : r.open ? '<div class="small muted">' + (costBusy ? "estimating…" : "some not known") + "</div>" : "") + "</td></tr>";
     }).join("");
-    if (seg === "budget") h += section("Budget", "Booked amounts from your bookings; the rest estimated from typical prices for your group" + (costBusy ? ' <span class="loading">working out prices…</span>' : "") + ".",
+    h += section("Budget", "Booked amounts from your bookings; the rest estimated from typical prices for your group" + (costBusy ? ' <span class="loading">working out prices…</span>' : "") + ".",
       '<div class="tbl"><table class="budget"><thead><tr><th scope="col"></th><th scope="col">Booked</th><th scope="col">Still to pay</th></tr></thead><tbody>' + tb +
       '</tbody><tfoot><tr><th scope="row">Total</th><td>' + sumText(bud.tot.booked) + "</td><td>" + (Object.keys(bud.tot.est).length ? "≈ " + sumText(bud.tot.est) : "—") + "</td></tr></tfoot></table></div>");
+    }
 
     /* what to pack and sort out, read off the plan */
     if (seg === "pack" && W.packBlock) h += W.packBlock(P);

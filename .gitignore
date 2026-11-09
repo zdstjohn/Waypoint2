@@ -11,3 +11,4 @@ trip/maps/*.json
 !trip/maps/italy-venice.json
 __pycache__/
 *.pyc
+trip/src/

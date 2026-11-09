@@ -76,10 +76,10 @@
   });
   const colRef = (path) => ({
     path, doc: (id) => docRef(path + '/' + (id || Math.random().toString(36).slice(2))),
-    get: () => op('list', path).then(list => ({ docs: list.map(x => snapDoc(x.id, x.body)), size: list.length, empty: !list.length, metadata: { fromCache: false } })),
+    get: () => op('list', path).then(list0 => { const list = Array.isArray(list0) ? list0 : []; return ({ docs: list.map(x => snapDoc(x.id, x.body)), size: list.length, empty: !list.length, metadata: { fromCache: false } }); }),
     onSnapshot: (next) => {
       let last = null, prev = {}; let on = true;
-      const poll = () => { if (!on) return; op('list', path).then(list => {
+      const poll = () => { if (!on) return; op('list', path).then(list0 => { const list = Array.isArray(list0) ? list0 : [];
         const s = JSON.stringify(list); if (s !== last) {
           last = s; const cur = {}; list.forEach(x => cur[x.id] = x.body);
           const changes = []; list.forEach(x => { changes.push({ type: prev[x.id] ? 'modified' : 'added', doc: snapDoc(x.id, x.body) }); });

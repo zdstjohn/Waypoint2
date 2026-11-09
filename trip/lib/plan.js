@@ -223,7 +223,7 @@
       if (slot === "eve" && c.intensity >= 2) shape -= 6;
       if (p.kid && c.adults) shape -= 8;   /* wine tastings are not for the children */
       /* grandparents along: steep climbs, long hikes and gorges are left out; moderate ones are a last resort */
-      if (p.senior) { if (c.intensity >= 3) shape -= 10; else if (c.intensity === 2) shape -= 2; }
+      if (p.senior) { if (c.intensity >= 3) return null; else if (c.intensity === 2) shape -= 2; }   /* a long hike or a gorge is left out, not merely marked down */
       /* the clock: would it still fit before the next meal, with the journey there? */
       if (ctx.at != null) {
         var lg = W.leg(ctx.prev, item), start = ctx.at + (lg ? lg.min : 10), next = slot === "am" ? ctx.lunchAt : slot === "pm" ? ctx.dinnerAt : ctx.eveCap;

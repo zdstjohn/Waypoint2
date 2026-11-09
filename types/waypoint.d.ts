@@ -179,7 +179,8 @@ interface Waypoint {
   fxAfter: any;
   fxCollapse: any;
   fxExpand: any;
-  fxFlip: any;
+  fxFlip: (kind: string, dir: number, update: () => void) => void;
+  fxFlipsOff: () => boolean;
   fxOff: any;
   fxPulse: any;
   fxRunAfter: any;
@@ -419,6 +420,8 @@ declare var maplibregl: any;
 
 /* Browser shapes as this app uses them. Event targets here are always elements (the handlers run on clicks and inputs),
    and ids looked up with W.$ are often inputs: these say so once, instead of a cast at every site. */
+/** Device Memory API: Chrome only, absent in the standard lib */
+interface Navigator { deviceMemory?: number }
 interface EventTarget { files?: FileList | null; closest?(sel: string): Element | null; matches?(sel: string): boolean; getAttribute?(name: string): string | null; dataset?: DOMStringMap; tagName?: string; value?: string; id?: string; classList?: DOMTokenList; open?: boolean }
 interface Element { value?: string; dataset?: DOMStringMap; click?(): void; focus(opts?: FocusOptions): void; blur?(): void; select?(): void; type?: string; checked?: boolean; files?: FileList | null;
   readOnly?: boolean; selectionStart?: number | null; selectionEnd?: number | null; setSelectionRange?(a: number, b: number): void; showPicker?(): void; offsetLeft?: number; offsetTop?: number; offsetWidth?: number; offsetHeight?: number; style?: CSSStyleDeclaration; hidden?: boolean; disabled?: boolean; __step?: any }

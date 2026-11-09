@@ -68,17 +68,22 @@
   };
 
   /* page turns: between Plan and My trip ("page"), and from day to day ("day"). dir 1 = forward, -1 = back */
-  var flipping = false;
+  /* A page turn snapshots the whole screen before its first frame. On a slow phone that takes long enough to make the
+     tap feel sluggish, so: a modest phone (4 GB or 4 cores or less) never turns pages, and any phone that takes over
+     120 ms to the first frame of a turn changes pages plainly from then on. The decoration gives way to the response. */
+  var flipping = false, slowFlips = (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ? 1 : 0;
+  W.fxFlipsOff = function () { return slowFlips >= 1; };
   W.fxFlip = function (kind, dir, update) {
-    if (off() || flipping) { update(); return; }
+    if (off() || flipping || slowFlips >= 1) { update(); return; }
     var root = document.documentElement;
     if (document.startViewTransition) {
       flipping = true;
       root.classList.add("vt-" + kind); root.setAttribute("data-flip", dir < 0 ? "back" : "fwd");
-      var t;
+      var t, t0 = performance.now();
       try { t = document.startViewTransition(function () { update(); }); }
       catch (e) { flipping = false; root.classList.remove("vt-" + kind); update(); return; }
       var done = function () { flipping = false; root.classList.remove("vt-" + kind); root.removeAttribute("data-flip"); };
+      t.ready.then(function () { if (performance.now() - t0 > 120) slowFlips++; else slowFlips = Math.max(0, slowFlips - 1); }, function () {});
       t.finished.then(done, done);
       return;
     }

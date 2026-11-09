@@ -12,7 +12,8 @@ exports.run = async t => {
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, db: mkdb(seed) }); await exampleTrip(pg);
   await pg.waitForFunction(() => !!W.photoFor({ n: 'Colosseum' }, false, 'Italy', 'Rome'), null, { timeout: 8000 }).catch(() => {});
 
-  /* save */
+  /* save, once every list has arrived (a save made while lists are still coming would miss the items they bring) */
+  await settle(pg, 8000);
   const s = await pg.evaluate(async () => { await W.offline.save(W.P, 'test'); const O = W.offline; return { state: O.state, n: O.n, total: O.total, at: O.at > 0, rec: JSON.parse(localStorage.getItem('waypoint-offline-v1') || 'null') }; });
   t.eq(s.state, 'done', 'saving finishes');
   t.ok(s.n > 0 && s.n === s.total, `every photo the trip shows is saved (${s.n})`);
@@ -58,9 +59,9 @@ exports.run = async t => {
   const file = path.join(t.out, 'offline-copy.html'); fs.writeFileSync(file, html);
   const c2 = await b.newContext({ viewport: { width: 390, height: 800 } }); const fp = await c2.newPage(); const ferr = []; fp.on('pageerror', e => ferr.push(e.message));
   await fp.goto('file://' + file); await fp.waitForTimeout(2500);
-  const fc = await fp.evaluate(() => ({ copy: W.offline.copy, slots: W.P.days.reduce((a, d) => a + (d.slots || []).length, 0), shown: document.querySelectorAll('main:not([hidden]) .slot, main:not([hidden]) .go-tl li').length, photos: [...document.querySelectorAll('img.photo')].map(i => i.getAttribute('src').slice(0, 5)), city: W.P.stops[0] && W.P.stops[0].name, block: (W.S.appMode = 'travel', W.S.appModeAt = W.isoDay(W.now()), W.render(), W.offline.block(W.P)), fonts: [...document.fonts].some(f => f.status === 'loaded') }));
+  const fc = await fp.evaluate(() => ({ copy: W.offline.copy, slots: W.P.days.reduce((a, d) => a + (d.slots || []).length, 0), shown: document.querySelectorAll('main:not([hidden]) .slot, main:not([hidden]) .go-tl li').length, photos: [...document.querySelectorAll('img.photo')].map(i => i.getAttribute('src').slice(0, 5)), inFile: Object.keys((window.__WP_OFFLINE || {}).blobs || {}).length, city: W.P.stops[0] && W.P.stops[0].name, block: (W.S.appMode = 'travel', W.S.appModeAt = W.isoDay(W.now()), W.render(), W.offline.block(W.P)), fonts: [...document.fonts].some(f => f.status === 'loaded') }));
   t.ok(fc.copy && fc.slots > 4 && fc.shown > 0 && fc.city === 'Rome', `the copy opens from disk with the trip in it (${fc.slots} slots, ${fc.shown} on screen, ${fc.city})`);
-  t.ok(fc.photos.length && fc.photos.every(s => s === 'data:'), `its photos are inside the file (${fc.photos.length})`);
+  t.ok(fc.inFile > 0 && fc.photos.every(s => s === 'data:'), `its photos are inside the file (${fc.inFile} in the file, ${fc.photos.length} on screen, all from the file)`);
   t.ok(/Offline copy/.test(fc.block), 'and it says it is the offline copy');
   t.eq(ferr.filter(e => !/forEach/.test(e)), [], 'no errors in the copy');
   await c2.close();

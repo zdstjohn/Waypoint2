@@ -55,6 +55,7 @@
 
   /* ---------- saving ---------- */
   O.save = function (P, why) {
+    if (P && W.plan) P = W.plan();   /* the plan as the data stands now, not as last drawn (answers may have arrived since) */
     if (O.state === "saving" || !P || !P.stops.length || O.off || W.readOnly || O.copy) return Promise.resolve();
     O.state = "saving"; O.err = ""; O.why = why || "";
     var list = photoUrls(P), todo = [], n = 0;
@@ -161,6 +162,7 @@
     });
   }
   O.exportCopy = function (P) {
+    if (P && W.plan) P = W.plan();
     if (O.copyState === "making" || !P || !P.stops.length) return Promise.resolve();
     O.copyState = "making"; O.copyErr = ""; W.changed();
     var seed = { at: Date.now(), S: null, C: null, photos: W.photosSnapshot ? W.photosSnapshot() : null, blobs: {}, maps: {} };
@@ -185,8 +187,9 @@
         var scriptTags = "<script>window.__WP_OFFLINE=" + JSON.stringify(seed).replace(/<\/script/gi, "<\\/script").replace(/<!--/g, "<\\!--") + "</script>\n<script>" + js.replace(/<\/script/gi, "<\\/script").replace(/<!--/g, "<\\!--") + "</script>";
         var page = html
           .replace(/<link rel="preload"[^>]*>\s*/g, "")
-          .replace('<link rel="stylesheet" href="app.min.css">', function () { return styleTag; })
-          .replace('<script src="app.js" charset="utf-8"></script>', function () { return scriptTags; });
+          .replace(/<link rel="stylesheet" href="app.min.css"[^>]*>/, function () { return styleTag; })
+          .replace(/<script src="app.js"[^>]*><\/script>/, function () { return scriptTags; });
+        if (page.indexOf(scriptTags) < 0 || page.indexOf(styleTag) < 0) throw new Error("the page's script or style tag was not found");
         /* the live page is wrapped in a document by its host; the file needs its own (and its charset, or the browser guesses) */
         page = '<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>' + page + "</body></html>";
         var name = (W.tripName ? W.tripName() : "Trip").replace(/[^\w\- ]+/g, "").trim() || "Trip";

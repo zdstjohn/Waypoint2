@@ -19,13 +19,15 @@
    validate  the one door for Claude's answers: bad names dropped, far-off and 0,0 pins cleared, enums and links checked
    types     TypeScript checks the plain JavaScript against types/waypoint.d.ts (base for all, strictNullChecks for the listed files)
    a11y      axe-core over every screen, light and dark: no WCAG A/AA violations
+   fuzz      hundreds of random trips (seeded) checked against the planner's promises; FUZZ=2000 for more, FUZZ_SEED=n replays one
+   vitals    a mid-range phone (4x slower CPU, slow 4G): first paint, largest paint, layout shift, and every common tap under 200 ms
    warm      names used everywhere, the banner's greeting and sky, postcards, milestones, the kids' view, readiness,
              moods and the highlight reel, a year later
    visual    screenshots against test/base (only with --shots; --update-baseline rewrites the baseline) */
 const { spawn, spawnSync } = require('child_process'); const fs = require('fs'); const path = require('path');
 const ROOT = path.resolve(__dirname, '..'); const OUT = path.join(__dirname, 'out'); fs.mkdirSync(OUT, { recursive: true });
 const args = process.argv.slice(2); const flags = new Set(args.filter(a => a.startsWith('--'))); const pick = args.filter(a => !a.startsWith('--'));
-const ALL = ['smoke', 'layout', 'planner', 'shape', 'flow', 'bookings', 'travel', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
+const ALL = ['smoke', 'layout', 'planner', 'shape', 'flow', 'bookings', 'travel', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'fuzz', 'vitals'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
 const suites = pick.length ? pick : ALL;
 
 async function serverUp() {

@@ -8,7 +8,13 @@
   W.STYLE_NAME = {}; STYLES.forEach(function (s) { W.STYLE_NAME[s[0]] = s[1]; });
   W.$ = function (id) { return document.getElementById(id); };
   W.esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
-  W.norm = function (s) { return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim(); };
+  /* called for every name on every redraw; the last few thousand answers are kept */
+  var normCache = Object.create(null), normN = 0;
+  W.norm = function (s0) {
+    var s = String(s0 || ""); var h = normCache[s]; if (h !== undefined) return h;
+    if (normN > 4000) { normCache = Object.create(null); normN = 0; }
+    normN++; return (normCache[s] = s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim());
+  };
   /* a link that opens in a new tab */
   W.extLink = function (url, txt, cls) { return "<a" + (cls ? ' class="' + cls + '"' : "") + ' href="' + W.esc(url) + '" target="_blank" rel="noopener">' + txt + "</a>"; };
   /* "just now", "5 min ago", "3 h ago", "2 d ago", then the date */
@@ -105,9 +111,16 @@
     return out;
   };
   W.countryBlurb = function (name) { return (window.TD[name] || {}).blurb || (W.C.country[name] || {}).blurb || ""; };
+  /* looked up for every stop on every redraw: one index per country, rebuilt when either list it was made from is
+     replaced (the built-in one, or Claude's, which arrives later or comes back from a saved trip) */
+  var fcCache = Object.create(null);
   W.findCity = function (country, name) {
-    var k = W.norm(name);
-    return W.countryCities(country).filter(function (c) { return W.norm(c.name) === k; })[0] || null;
+    var built = (window.TD[country] || {}).cities || null, ai = (W.C.country[country] || {}).cities || null, e = fcCache[country];
+    if (!e || e.built !== built || e.ai !== ai) {
+      e = fcCache[country] = { built: built, ai: ai, map: Object.create(null) };
+      W.countryCities(country).forEach(function (c) { var k = W.norm(c.name); if (!e.map[k]) e.map[k] = c; });
+    }
+    return e.map[W.norm(name)] || null;
   };
   W.cityKey = function (country, city) { return country + "|" + city; };
   /* idea pool for a city: Claude's list, or the built-in fallback when Claude isn't available */
@@ -129,6 +142,17 @@
   W.dataV = 0;   /* goes up whenever cached data arrives or the state is reported changed; the planner reuses its last plan until it does */
   function changed() { W.dataV++; W.save(); listeners.forEach(function (fn) { fn(); }); }
   W.changed = changed;
+  /* answers arriving: the planner is told at once (dataV), but the screen is redrawn once for the whole burst, after the
+     frame already on its way has painted. A tap that opens a screen asking for five lists paints its screen first and
+     fills in once, instead of redrawing (and replanning) five times before the first frame. */
+  var flushPending = false;
+  function flush() { flushPending = false; W.save(); listeners.forEach(function (fn) { fn(); }); }
+  function redraw() {
+    if (flushPending) return; flushPending = true;
+    var later = function () { if (window.requestIdleCallback) requestIdleCallback(flush, { timeout: 300 }); else setTimeout(flush, 50); };
+    if (window.requestAnimationFrame) requestAnimationFrame(later); else later();
+  }
+  function arrived() { W.dataV++; redraw(); }
 
   try {
     if (window.claude && window.claude.use) {
@@ -151,13 +175,12 @@
         var code = err && err.code;
         if (code === "not_granted") { W.sampleState = "off"; delete W.status[key]; }
         else W.status[key] = code === "rate_limited" ? "Busy right now. Try again in a minute." : "Couldn't load this. Try again.";
-      }).then(function () { running--; changed(); pump(); });
+      }).then(function () { running--; arrived(); pump(); });
     });
     soon(); pump();
   }
-  /* redraw once after a burst of new requests, instead of once per request (which re-entered the planner mid-loop) */
-  var soonPending = false;
-  function soon() { if (soonPending) return; soonPending = true; Promise.resolve().then(function () { soonPending = false; changed(); }); }
+  /* the "loading" marks: shown once the current frame has painted (a status is not data, the plan stands) */
+  function soon() { redraw(); }
   /* nothing is asked of Claude while offline (or in an offline copy); the queue waits for the signal to come back */
   function pump() { if (W.holdLoads || !navigator.onLine || window.__WP_OFFLINE) return; while (running < 3 && queue.length) queue.shift()(); }
   W.pump = pump;

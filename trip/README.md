@@ -75,6 +75,30 @@ Checks (node test/run.js, from the folder above trip/)
   a11y          axe-core (WCAG 2.0/2.1 A and AA) over every screen in light and dark: no violations. Text colors have
                 their own tokens (--muted, --note-text, --food-text) so a fill color can stay bright while text passes.
   validate      the door above, fed the kinds of answers a model can return.
+  fuzz          random trips nobody wrote by hand: a seeded generator builds hundreds (1-3 countries, 1-4 places each or
+                "suggest", 3-21 days, any mix of ages, interests and focus, near or far departure, random rest days and
+                freed slots) and every plan is checked against the rules the hand-built tests check one trip at a time:
+                day count, places, no repeats, every planner-made stop fits, clock order, meal windows, naps, jet-lag
+                days, closures, strenuous outings with grandparents, far pins. A failure prints the seed; FUZZ_SEED=<n>
+                replays that one trip, FUZZ=2000 runs more. The first 300 found five planner bugs (travel-day meals,
+                free time that did not stretch, lunch starting too early, short cuts on jet-lag days, seniors sent on
+                strenuous outings); 2000 now pass.
+  vitals        speed as a mid-range Android feels it: a 390px screen, CPU slowed 4x, slow 4G. Cold start must paint
+                within 1.8 s (FCP) and its largest element within 2.5 s (LCP) with no layout shift (CLS < 0.1); then the
+                taps a traveler makes most (next day, a day pill, open and close a stop, All days, Prepare, Pack, a tick,
+                the trip menu) must each paint within 200 ms (the INP "good" line) without moving the layout. Numbers go
+                into the report so a slowdown shows. What it found and fixed: the test server now gzips (the real host
+                already does; a 448 KB script over slow 4G was the whole FCP); page flips (View Transitions) turn off on
+                slow devices and after a slow flip; answers arriving right after a tap are drawn once, on idle time,
+                after the tap's own frame has painted (they used to redraw and replan five times before it); Prepare
+                builds only the open segment's markup; norm() and findCity() are memoized.
+
+Version control
+  The code lives in a git repository (the repo/ folder here; a clone is the artifact's src/ folder with .txt stripped):
+  trip/, test/, tools/, types/, build/, the test server, package.json. `npm install` then `npm test` runs everything;
+  `npm run types` only the type check. GitHub Actions (.github/workflows/ci.yml) runs the full suite on every push and
+  pull request; a tag v<N> matching the published artifact version builds and attaches app.js, app.min.css, index.html
+  and README.md as a release (release.yml). Every published version is a tag.
 
 Source
   src/            the readable sources behind app.js (lib/, screens/ as .js.txt), the type declarations (waypoint.d.ts.txt) and both tsconfig

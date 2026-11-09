@@ -14,7 +14,7 @@ async function open(browser, { width = 360, height = 800, dark = false, scale = 
   if (!firstRun) await pg.addInitScript(() => { try { localStorage.setItem('waypoint-welcome', '1'); } catch (e) {} });   /* the welcome sheet only in the test that checks it */
   await pg.goto('http://127.0.0.1:8771/index.html' + hash); await pg.waitForTimeout(2000);
   if (scale !== 1) await pg.addStyleTag({ content: `html{font-size:${scale * 100}% !important}` });
-  return { pg, ctx, errors: () => errors.filter(e => !/forEach/.test(e)) };
+  return { pg, ctx, errors: () => errors.slice() };
 }
 async function exampleTrip(pg) {
   await pg.evaluate(() => { W.S.start = '2027-06-07'; W.isExample = false; W.S.day = 2; W.S.tview = 'days'; W.render(); });
@@ -22,9 +22,16 @@ async function exampleTrip(pg) {
   await settle(pg);
 }
 /* background work (prices, transit, photos) changes what a screen shows; wait for it to finish so two runs agree */
+/* quiet means: nothing loading, and still nothing loading half a second later (an answer's follow-up requests are made
+   on idle time after the redraw, so a single quiet moment can sit between two batches) */
 async function settle(pg, ms = 2500) {
+  const quiet = () => pg.evaluate(() => !document.querySelector('.loading:not(.map-note .loading)') && !(window.W && W.status && Object.values(W.status).some(v => v === 'loading')));
   await pg.waitForTimeout(600);
-  await pg.waitForFunction(() => !document.querySelector('.loading:not(.map-note .loading)') && !(W.status && Object.values(W.status).some(v => v === 'loading')), null, { timeout: ms }).catch(() => {});
-  await pg.waitForTimeout(300);
+  const end = Date.now() + ms;
+  do {
+    await pg.waitForFunction(() => !document.querySelector('.loading:not(.map-note .loading)') && !(W.status && Object.values(W.status).some(v => v === 'loading')), null, { timeout: Math.max(100, end - Date.now()) }).catch(() => {});
+    await pg.waitForTimeout(500);
+  } while (!(await quiet()) && Date.now() < end);
+  await pg.waitForTimeout(200);
 }
 module.exports = { launch, open, exampleTrip, settle, ROOT };
