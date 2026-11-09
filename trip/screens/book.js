@@ -167,27 +167,37 @@
       para(name, M, PW - 2 * M, "bold", 22, INK, 4);
       var first = W.dateOf(1), last = W.dateOf(P.N);
       para([first ? fmtDay(first, { month: "long", day: "numeric" }) + " – " + fmtDay(last, { month: "long", day: "numeric", year: "numeric" }) : P.N + " days", P.stops.map(function (s) { return s.name + " (" + s.days + ")"; }).join(" → ")].join(" · "), M, PW - 2 * M, "normal", 11, MUTED, 14);
+      var TW = PW - 2 * M - 62, BODY = PH - 2 * M;
+      /* how tall a stop will be: each stop stays together on one page */
+      function stopTall(d, T, x) {
+        var it = x && x.item, R = T && T.rows[x.slot], food = W.isFood(x.slot);
+        if (!it) return 31;
+        return Math.max(31, tall(it.n, TW, "bold", 10.5) + 1 + (it.d ? tall(it.d, TW, "normal", 9.5) + 1 : 0) + 13 +
+          (R ? R.warn.concat(R.info).reduce(function (a, w) { return a + tall(w, TW, "normal", 9) + 1; }, 0) : 0) + (W.officialUrl(it, food, d.country, d.city) ? 13 : 0) + 13 + 5);
+      }
       P.days.forEach(function (d) {
-        var T = W.dayTimes(d, P), date = W.dateOf(d.n);
-        room(130);   /* a day's heading never sits alone at the foot of a page: room for it and its first stop */
+        var T = W.dayTimes(d, P), date = W.dateOf(d.n), home = W.homebase(d.country, d.city);
+        var order = (T && T.order ? T.order.map(function (sl) { return d.slots.filter(function (y) { return y.slot === sl; })[0]; }) : d.slots || []).filter(Boolean);
+        var head = "Day " + d.n + " · " + d.city + (date ? " · " + fmtDay(date, { weekday: "long", month: "short", day: "numeric" }) : "");
+        var from = "From " + home.label + (d.moveFrom ? " · travel day from " + d.moveFrom : "") + (d.tripLast ? " · flight home" : "");
+        var L = T && T.travel ? T.travel.leg : null, o = L ? L.best : null;
+        var move = L ? W.clock(T.travel.start) + "   " + L.a.name + " → " + L.b.name + (o ? " by " + W.modeName(o.mode).toLowerCase() + " · " + [o.dur, o.price, o.op].filter(Boolean).join(" · ") : "") : "";
+        /* a day's heading never sits alone at the foot of a page: room for it, the travel line and the whole first stop */
+        room(Math.min(BODY, 10 + tall(head, PW - 2 * M, "bold", 14) + 2 + tall(from, PW - 2 * M, "normal", 9.5) + 6 +
+          (L ? tall(move, PW - 2 * M, "bold", 10.5) + 2 + (o && o.url ? 13 : 0) + 4 : 0) + (order.length ? stopTall(d, T, order[0]) : 0)));
         doc.setDrawColor(52, 48, 45); doc.setLineWidth(1.2); doc.line(M, y + 2, PW - M, y + 2); y += 10;
-        para("Day " + d.n + " · " + d.city + (date ? " · " + fmtDay(date, { weekday: "long", month: "short", day: "numeric" }) : ""), M, PW - 2 * M, "bold", 14, INK, 2);
-        var home = W.homebase(d.country, d.city);
-        para("From " + home.label + (d.moveFrom ? " · travel day from " + d.moveFrom : "") + (d.tripLast ? " · flight home" : ""), M, PW - 2 * M, "normal", 9.5, MUTED, 6);
-        if (T && T.travel) {
-          var L = T.travel.leg, o = L.best;
-          para(W.clock(T.travel.start) + "   " + L.a.name + " → " + L.b.name + (o ? " by " + W.modeName(o.mode).toLowerCase() + " · " + [o.dur, o.price, o.op].filter(Boolean).join(" · ") : ""), M, PW - 2 * M, "bold", 10.5, INK, 2);
+        para(head, M, PW - 2 * M, "bold", 14, INK, 2);
+        para(from, M, PW - 2 * M, "normal", 9.5, MUTED, 6);
+        if (L) {
+          para(move, M, PW - 2 * M, "bold", 10.5, INK, 2);
           if (o && o.url) linkLine("Tickets: " + W.hostOf(o.url), o.url, M + 62);
           y += 4;
         }
-        (T && T.order ? T.order.map(function (sl) { return d.slots.filter(function (y) { return y.slot === sl; })[0]; }) : d.slots || []).forEach(function (x) {
-          var it = x.item, R = T && T.rows[x.slot], food = W.isFood(x.slot), TW = PW - 2 * M - 62;
-          /* each stop stays together: measure it, and start a new page first when it won't fit. (A stop split across two
-             pages used to leave the rest of the second page blank: its spacing was measured from where it began.) */
-          var est = 31;
-          if (it) est = Math.max(31, tall(it.n, TW, "bold", 10.5) + 1 + (it.d ? tall(it.d, TW, "normal", 9.5) + 1 : 0) + 13 +
-            (R ? R.warn.concat(R.info).reduce(function (a, w) { return a + tall(w, TW, "normal", 9) + 1; }, 0) : 0) + (W.officialUrl(it, food, d.country, d.city) ? 13 : 0) + 13 + 5);
-          room(est);
+        order.forEach(function (x) {
+          var it = x.item, R = T && T.rows[x.slot], food = W.isFood(x.slot);
+          /* start a new page first when the stop won't fit. (A stop split across two pages used to leave the rest of the
+             second page blank: its spacing was measured from where it began.) */
+          room(Math.min(BODY, stopTall(d, T, x)));
           var top = y, pg0 = doc.internal.getNumberOfPages(), same = function () { return doc.internal.getNumberOfPages() === pg0; };
           font("bold", 10.5); color(INK); doc.text(lat1(R && R.start != null && !R.skip ? W.clock(R.start) : ""), M, y + 10.5);
           font("normal", 8.5); color(MUTED); doc.text(lat1(R && R.label || W.SLOT_NAME[x.slot]), M, y + 22);

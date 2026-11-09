@@ -20,17 +20,27 @@ exports.run = async t => {
   if (!out.bytes) { await ctx.close(); await b.close(); return; }
   fs.writeFileSync(path.join(t.out, 'take-along.pdf'), Buffer.from(out.bytes));   /* to look at */
   const pdf = Buffer.from(out.bytes).toString('latin1');
-  /* the pages' drawing, in order: the lowest line of text on each (PDF y counts up from the bottom; 792 pt tall) */
+  /* the pages' text lines, in order, with where each sits (PDF y counts up from the bottom; letter is 792 pt tall, with
+     48 pt margins, so a page's text runs from 733.5 down to about 52) */
   const streams = [...pdf.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)].map(m => m[1]).filter(s => /\bBT\b/.test(s));
   const pages = streams.map(s => {
-    const ys = [...s.matchAll(/([\d.]+) ([\d.]+) Td/g)].map(m => +m[2]), texts = [...s.matchAll(/\((.*?)\) Tj/g)].map(m => m[1]);
-    const body = ys.filter(y => y > 40);   /* not the footer line */
-    return { low: body.length ? Math.min(...body) : 792, n: texts.length, book: texts.some(x => /^Book ahead$/.test(x)), text: texts.join(' ') };
+    const lines = [...s.matchAll(/([\d.]+) ([\d.]+) Td\s*\((.*?)\) Tj/g)].map(m => ({ y: +m[2], s: m[3] })).filter(l => l.y > 40);   /* not the footer */
+    const texts = lines.map(l => l.s), ys = lines.map(l => l.y);
+    return { lines, low: ys.length ? Math.min(...ys) : 792, n: texts.length, book: texts.some(x => /^Book ahead$/.test(x)), text: texts.join(' ') };
   });
   const firstList = pages.findIndex(p => p.book), plan = pages.slice(0, firstList < 0 ? pages.length : firstList);
   t.ok(plan.length >= 3, `the plan runs over several pages (${plan.length}) for a ${out.days}-day trip`);
-  const thin = plan.slice(0, -1).map((p, i) => ({ page: i + 1, low: Math.round(p.low) })).filter(p => p.low > 160);
-  t.eq(thin, [], 'every page of the plan but the last is filled to the bottom (no blank sheets)');
+  /* a page ends early only because what starts the next page didn't fit: the room left at its foot is less than the
+     next page's first block (a stop, ending with its "Open in Google Maps" line, or a day heading with its first stop) */
+  const TOP = 744, FOOT = 48;
+  const early = plan.slice(0, -1).map((p, i) => {
+    const next = plan[i + 1], end = next.lines.find(l => /^(Open in Google Maps|Free time)$/.test(l.s));
+    const block = end ? TOP - end.y + 8 : TOP - FOOT;
+    return { page: i + 1, left: Math.round(p.low - FOOT - 8), next: Math.round(block) };
+  });
+  t.eq(early.filter(p => p.left > p.next + 6), [], 'no page ends sooner than it must (no blank sheets): ' + early.map(p => p.left + '<' + p.next).join(' '));
+  const lone = plan.map((p, i) => { const h = p.lines.map(l => l.s).lastIndexOf(p.lines.map(l => l.s).filter(x => /^Day \d+ · /.test(x)).pop()); return h >= 0 && !p.lines.slice(h).some(l => /^(Open in Google Maps|Free time)$/.test(l.s)) ? i + 1 : 0; }).filter(Boolean);
+  t.eq(lone, [], 'a day heading is never alone at the foot of a page');
   t.ok(/Open in Google Maps/.test(pdf) && !/\(Map\) Tj/.test(pdf), 'each stop links "Open in Google Maps"');
   t.ok(plan.every(p => p.n > 3), 'no page holds only a stray line');
   t.eq(errors(), [], 'no page errors');
