@@ -16,8 +16,21 @@
   };
   /* for a view that can't wait: true when ready; otherwise asks for it and the view shows a moment's "Loading…" */
   W.needLater = function () { if (!W.laterReady) W.loadLater(); return W.laterReady; };
+  /* after the first screen has painted (watched for, not guessed), on the next idle moment; a page that never paints
+     (opened in a background tab) still gets it after a few seconds */
   if (!W.laterReady) {
     var go = function () { W.loadLater(); };
-    if (window.requestIdleCallback) window.requestIdleCallback(go, { timeout: 1500 }); else setTimeout(go, 600);
+    var idle = function () { if (window.requestIdleCallback) window.requestIdleCallback(go, { timeout: 1500 }); else setTimeout(go, 200); };
+    var watching = false;
+    try {
+      if (window.PerformanceObserver && (PerformanceObserver.supportedEntryTypes || []).indexOf("paint") > -1) {
+        new PerformanceObserver(function (list, obs) {
+          if (list.getEntries().some(function (e) { return e.name === "first-contentful-paint"; })) { obs.disconnect(); idle(); }
+        }).observe({ type: "paint", buffered: true });
+        watching = true;
+      }
+    } catch (e) {}
+    if (!watching) idle();
+    setTimeout(go, 4000);
   }
 })();

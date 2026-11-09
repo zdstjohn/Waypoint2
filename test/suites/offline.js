@@ -14,6 +14,15 @@ exports.run = async t => {
 
   /* save, once every list has arrived (a save made while lists are still coming would miss the items they bring) */
   await settle(pg, 8000);
+  /* which ideas the plan uses depends on the order the mock's lists arrive in, so the stops it has now get a photo too */
+  const added = await pg.evaluate(async (px) => {
+    const cur = JSON.parse(await window.__dbOp('get', 'photos/italy-rome', null)), names = [];
+    W.plan().days.forEach(d => { if (d.city === 'Rome') d.slots.forEach(x => { if (x.item) { cur.items[W.norm(x.item.n)] = { url: px + '#' + W.slug(x.item.n), credit: 'Test, CC BY-SA 4.0', page: 'x' }; names.push(x.item.n); } }); });
+    await window.__dbOp('set', 'photos/italy-rome', JSON.stringify(cur));
+    return names;
+  }, px);
+  /* the index has taken them (it arrives as one document) */
+  await pg.waitForFunction(n => !!W.photoFor({ n }, false, 'Italy', 'Rome'), added[added.length - 1] || 'Colosseum', { timeout: 8000 }).catch(() => {});
   /* and once the plan shows photos (a slow machine gets the city's lists later); an automatic save already running is let finish */
   await pg.waitForFunction(() => { const P = W.plan(); return W.offline.state !== 'saving' && P.days.some(d => d.slots.some(x => x.item && W.photoFor(x.item, W.isFood(x.slot), d.country, d.city))); }, null, { timeout: 20000 }).catch(() => {});
   const s = await pg.evaluate(async () => { await W.offline.save(W.P, 'test'); const O = W.offline; return { state: O.state, n: O.n, total: O.total, at: O.at > 0, rec: JSON.parse(localStorage.getItem('waypoint-offline-v1') || 'null') }; });
