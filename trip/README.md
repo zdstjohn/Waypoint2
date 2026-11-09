@@ -231,8 +231,10 @@ Version control
   The code lives at github.com/zdstjohn/Waypoint2: trip/, test/, tools/, types/, build/, the test server, package.json.
   `npm install` then `npm test` runs everything; `npm run types` only the type check. GitHub Actions
   (.github/workflows/ci.yml) runs the full suite on every push and pull request in three groups side by side (test/run.js
-  --shard=k/3 balances them by time; about 6 minutes), and a second job, "screens", takes every screen (phone, side
-  panel, desktop; light and dark) for this commit and the one before. A commit that means to change screens lists them
+  --shard=k/3 balances them by time; about 6 minutes), and a second job, "screens", takes every screen for this commit
+  and the one before, one run per size side by side (phone, large text, dark, tablet, desktop; SHOT_SIZES), both
+  photographed by this commit's test/shots.js, which waits for every answer, plans again and then asks for no more
+  ideas, so two runs of the same code give the same pictures. A commit that means to change screens lists them
   in test/screens-expected.txt (names or patterns like "swap-*"; read only when that commit changed the file); any other
   screen that changed fails the check, and the run's summary lists both, with the pictures attached. Every night .github/workflows/fuzz.yml plans 2000 random trips (pushes run 300) and lists any failing seed
   in its summary, ready to replay with FUZZ_SEED=<n>. Every published version of the artifact becomes a release: pushing a branch release/v<N> (or a tag v<N>)

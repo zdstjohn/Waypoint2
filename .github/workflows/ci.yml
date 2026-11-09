@@ -1,6 +1,7 @@
 # Every push and pull request: build the bundle, check the types, run every test suite against the mocked runtime, in
 # three groups side by side (test/run.js --shard balances them by time; every suite is in exactly one).
-# Alongside, "screens" photographs every screen before (the previous commit) and after this one. A commit that means to
+# Alongside, "screens" photographs every screen before (the previous commit) and after this one, one run per screen size
+# (phone, large text, dark, tablet, desktop) side by side. A commit that means to
 # change some screens lists them in test/screens-expected.txt (only read when the commit changed that file); a changed
 # screen not on the list fails the check. The run's summary lists both, with before | after | difference images.
 name: tests
@@ -34,7 +35,20 @@ jobs:
           if-no-files-found: ignore
   screens:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
+    # one run per screen size, side by side; each photographs the previous commit and this one at its size
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { size: n, label: phone }
+          - { size: big, label: large text }
+          - { size: dark, label: dark }
+          - { size: wide, label: tablet }
+          - { size: desk, label: desktop }
+    name: screens (${{ matrix.label }})
+    env:
+      SHOT_SIZES: ${{ matrix.size }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 2 }
@@ -61,4 +75,7 @@ jobs:
         run: cat test/out/visual/summary.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "No summary." >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
-        with: { name: screens, path: test/out/visual, if-no-files-found: ignore }
+        with:
+          name: screens-${{ matrix.size }}
+          path: test/out/visual
+          if-no-files-found: ignore

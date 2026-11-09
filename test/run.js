@@ -29,7 +29,8 @@
    storage   Settings > Storage: unused files found, shown, deleted only on confirmation, never anything in use
    visual    screenshots against test/base (only with --shots; --update-baseline rewrites the baseline). Changes to the
              screens listed in test/screens-expected.txt are expected (--expect, or SCREENS_EXPECT=<file> as GitHub sets
-             it when the commit changed that file); any other changed screen fails
+             it when the commit changed that file); any other changed screen fails. SHOT_SIZES=n,big,dark,wide,desk takes
+             only those sizes (GitHub runs each size side by side)
    --shard=k/n  one of n groups of suites balanced by time (GitHub runs three side by side) */
 const { spawn, spawnSync } = require('child_process'); const fs = require('fs'); const path = require('path');
 const ROOT = path.resolve(__dirname, '..'); const OUT = path.join(__dirname, 'out'); fs.mkdirSync(OUT, { recursive: true });

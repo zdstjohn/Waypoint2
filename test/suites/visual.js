@@ -6,14 +6,21 @@
    A commit that means to change screens lists them in test/screens-expected.txt, one name or pattern per line (* matches
    anything: "swap-*", "today-dark-0.png"; # starts a comment). The list is used when SCREENS_EXPECT names it (GitHub does
    that only when the commit changed the file, so an old list never hides a later change) or with --expect. A screen
-   that changed and is on the list is reported as expected; any other changed screen fails. */
+   that changed and is on the list is reported as expected; any other changed screen fails.
+   SHOT_SIZES=n,big,dark,wide,desk takes and compares only those sizes (GitHub runs each size side by side). */
 const { spawnSync } = require('child_process'); const fs = require('fs'); const path = require('path');
 exports.run = async t => {
   const base = path.join(t.root, 'test', 'base'), cur = path.join(t.root, 'test', 'out', 'shots');
   fs.rmSync(cur, { recursive: true, force: true });
   const r = spawnSync('node', ['test/shots.js', cur], { cwd: t.root, encoding: 'utf8', timeout: 900000 });
   if (!t.ok(r.status === 0, 'screenshots taken ' + (r.stderr || '').slice(-200))) return;
-  if (t.flags.has('--update-baseline') || !fs.existsSync(base)) { fs.rmSync(base, { recursive: true, force: true }); fs.cpSync(cur, base, { recursive: true }); t.note('baseline written to test/base'); return; }
+  const only = (process.env.SHOT_SIZES || '').split(',').map(x => x.trim()).filter(Boolean), size = n => n.slice(0, -4).split('-').slice(-2)[0];
+  if (t.flags.has('--update-baseline') || !fs.existsSync(base)) {
+    /* with SHOT_SIZES, only those sizes' pictures are replaced; the others stay */
+    if (only.length && fs.existsSync(base)) { fs.readdirSync(base).filter(n => only.includes(size(n))).forEach(n => fs.rmSync(path.join(base, n))); fs.readdirSync(cur).forEach(n => fs.copyFileSync(path.join(cur, n), path.join(base, n))); }
+    else { fs.rmSync(base, { recursive: true, force: true }); fs.cpSync(cur, base, { recursive: true }); }
+    t.note('baseline written to test/base' + (only.length ? ' (' + only.join(', ') + ')' : '')); return;
+  }
   const d = spawnSync('python3', ['test/lib/diff.py', base, cur, path.join(t.root, 'test', 'out', 'visual')], { cwd: t.root, encoding: 'utf8' });
   const lines = (d.stdout || '').split('\n'), changed = [], expected = [];
   const ef = process.env.SCREENS_EXPECT || (t.flags.has('--expect') ? 'test/screens-expected.txt' : ''), efp = ef && path.join(t.root, ef);
@@ -28,7 +35,8 @@ exports.run = async t => {
   }
   if (pats.length) t.note(`${expected.length} screen(s) changed as listed in ${ef}` + (res.some(r => !r.hit) ? '; listed but unchanged: ' + res.filter(r => !r.hit).map(r => r.p).join(', ') : ''));
   fs.mkdirSync(path.join(t.root, 'test', 'out', 'visual'), { recursive: true });
-  fs.writeFileSync(path.join(t.root, 'test', 'out', 'visual', 'summary.md'), '### Screens\n\n' +
+  const NAMES = { n: 'phone', big: 'large text', dark: 'dark', wide: 'tablet', desk: 'desktop' };
+  fs.writeFileSync(path.join(t.root, 'test', 'out', 'visual', 'summary.md'), '### Screens' + (only.length ? ' (' + only.map(x => NAMES[x] || x).join(', ') + ')' : '') + '\n\n' +
     (changed.length ? `${changed.length} screenshot(s) changed that this commit didn't list in test/screens-expected.txt (before | after | difference images in the "screens" artifact):\n\n` + changed.join('\n') : 'No unexpected screen change.') +
     (expected.length ? `\n\n${expected.length} changed as this commit said they would:\n\n` + expected.join('\n') : '') + '\n');
   t.ok(true, lines.filter(l => /^same/.test(l)).join(''));
