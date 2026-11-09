@@ -10,6 +10,9 @@ OpenStreetMap (Photon, near the city); clear matches become "open" records with 
       extra (";"-separated, all optional): name=<real name>  place=<real place behind an outing>  k=<-1..2>  note=<text>
                                            replace=<real place to go instead (hint in parentheses)>  <https://evidence>
       writes <work_dir>/places/<slug>.json = the existing record plus everything checked tonight (ready to "set")
+  python3 place_check.py recheck <db_dir> <work_dir>
+      every pin a record took from the map is matched again under the current rules, and places with no pin are looked
+      for once more; better matches replace pins, matches that shared nothing with the place are taken off
   python3 place_check.py pins <db_dir> <work_dir>
       every pin a trip still shows from a guess (no checked pin) is tested against the map's water (pin_check.py):
       a pin a little out in a harbour moves to the nearest shore ("approx"), one far out at sea loses its pin ("nopin",
@@ -79,33 +82,73 @@ TYPES = [("museum", "museo", "musee", "gallery", "galleria"), ("library", "bibli
          ("park", "parc", "parco", "garden", "gardens", "giardino", "jardin"), ("hotel", "inn", "resort", "apartments", "rooms", "hostel"),
          ("restaurant", "ristorante", "taverna", "tavern", "trattoria", "osteria", "bistro", "grill", "pizzeria"), ("bar", "pub", "cocktail"),
          ("cafe", "caffe", "coffee", "kafeneio"), ("bakery", "boulangerie", "patisserie", "pastry", "bougatsa", "forno"), ("gelato", "gelateria", "glacier", "ice", "cream"),
-         ("square", "piazza", "plaza", "place", "plateia"), ("port", "harbour", "harbor", "marina", "porto", "lighthouse"), ("school", "university", "hospital", "clinic", "pharmacy", "bank", "station", "stop")]
+         ("square", "piazza", "plaza", "place", "plateia"), ("port", "harbour", "harbor", "marina", "porto", "lighthouse"), ("school", "university", "hospital", "clinic", "pharmacy", "bank", "station", "stop"),
+         ("cemetery", "cimitero", "cimetiere", "cementerio", "graveyard", "funeral", "mortuary", "office", "administration", "police", "municipality")]
 def _types(s):
     w = set(norm(s).split()); return {i for i, g in enumerate(TYPES) if w & set(g)}
 GENERICW = {"municipal", "central", "national", "old", "new", "great", "little", "grand", "royal", "public", "city", "town", "main", "upper", "lower",
             "north", "south", "east", "west", "sunset", "sea", "view", "blue", "white", "golden", "green", "venetian", "historic", "ancient", "family", "local"}
+TYPEW = {w for g in TYPES for w in g}
+WEAKW = GENERICW | TYPEW | {"seafront", "shore", "promenade", "waterfront", "lanes", "quarter", "district", "area", "spot", "spots", "evening", "dusk", "night",
+                             "walk", "walks", "stroll", "tour", "visit", "views", "sunrise", "morning", "afternoon", "people", "watching", "swim", "picnic", "boat", "trip", "day", "half",
+                             "breakfast", "brunch", "lunch", "dinner", "dessert", "aperitivo", "drinks", "snack", "coffee", "tasting", "shopping", "seasonal", "christmas"}
+# the same town in its own language: "Venezia" in "Lido di Venezia" is the town's name, not a clue to one place
+CITY_ALIAS = {"venice": "venezia", "rome": "roma", "florence": "firenze", "naples": "napoli", "genoa": "genova", "milan": "milano", "turin": "torino",
+              "athens": "athina athinai", "corfu": "kerkyra kerkira", "rhodes": "rodos", "crete": "kriti cretan", "heraklion": "iraklio iraklion herakleion",
+              "rethymno": "rethymnon rethimno", "chania": "hania xania", "santorini": "thira fira", "zakynthos": "zante zakinthos", "lefkada": "lefkas",
+              "seville": "sevilla", "mallorca": "majorca", "lisbon": "lisboa", "munich": "munchen", "vienna": "wien", "prague": "praha", "thessaloniki": "saloniki"}
+def set_city(city, country):
+    CITY_TOKS.clear(); CITY_TOKS.update(toks(city)); CITY_TOKS.update(toks(country))
+    for t in list(CITY_TOKS): CITY_TOKS.update(CITY_ALIAS.get(t, "").split())
 def sim(a, b):
     full_a = a; a = re.sub(r"\s*[\(\[].*?[\)\]]", "", a)
     A, B = set(toks(a)), set(toks(b))
-    if A - CITY_TOKS and B - CITY_TOKS: A, B = A - CITY_TOKS, B - CITY_TOKS
+    ta, tb = _types(full_a), _types(b)
+    if CITY_TOKS:
+        # The town's own name says nothing about which place it is. A map label that is only the town's name
+        # ("Rethymno") is no match for "Rethymno Public Garden"; "Rethymno Beach" still is one for "Rethymno City Beach".
+        A2 = {t for t in A if not _close(t, CITY_TOKS)}; B2 = {t for t in B if not _close(t, CITY_TOKS)}
+        if not B and rawtoks(b) and set(rawtoks(b)) <= STOP | WEAKW: return 0      # a place on the map called just "Bakery"
+        if (A and not A2) or (B and not B2):
+            return 0.8 if (ta & tb) and (A2 | B2) <= WEAKW else 0
+        A, B = A2, B2
     if A and B:
         shared = {t for t in A if _close(t, B)}; inter = len(shared)
         if not inter: return 0
         s = inter / min(len(A), len(B))
-        ta, tb = _types(full_a), _types(b)
         if ta and tb and not (ta & tb): s *= 0.5                            # a market is not a library, a beach not a hotel
-        elif shared <= GENERICW and not (ta & tb): s *= 0.5                 # only "Municipal" or "Old" in common
+        if shared <= WEAKW:
+            # only "Municipal", "Old" or "Port" in common: a weak hint, and none at all when the item has a name of its own
+            # that the candidate lacks ("Hersonissos Old Port" is not Rethymno's "Old Port")
+            if A - shared - WEAKW: s *= 0.3
+            elif not ({t for t in B if not _close(t, shared)} - WEAKW):
+                # the same name either way ("Fortezza" / "Fortetza"), when it names the same kind of place: "Public" (a shop)
+                # is not "Public Garden"
+                s *= 0.9 if (ta & tb) or (shared & TYPEW) else 0.4
+            else: s *= 0.8 if ta & tb else 0.5
         return s
-    A, B = set(rawtoks(a)), set(rawtoks(b))
+    A, B = set(rawtoks(a)) - CITY_TOKS, set(rawtoks(b)) - CITY_TOKS
     if not A or not B: return 0
     inter = len(A & B); return 0.85 * inter / max(len(A), len(B))
 GENERIC = re.compile(r"(street food|snack bars?|kiosks?|stalls|food trucks?|\bor\b|/|any of|various|local tavernas?|beach bars?\b.*\(|picnic|supermarket|self-catering|grab-and-go|takeaway spots|cafes? (along|around|near|on)|restaurants? (along|around|near|on|in)|lunch spots?|village bakery|seaside caf)", re.I)
 EXPERIENCE = re.compile(r"\b(stroll|walk|evening|sunset|sunrise|tour|tasting|class|workshop|cruise|boat|kayak|paddle|snorkel|hike|day trip|picnic|swim|wander|gelato|dinner|lunch|breakfast|aperitivo|market day|ride|lesson|experience|shopping|show|concert)\b", re.I)
 FOOD_TYPES = {"restaurant", "cafe", "bar", "pub", "fast_food", "ice_cream", "bakery", "pastry", "food_court", "biergarten", "marketplace", "confectionery", "deli", "wine", "chocolate", "coffee", "seafood", "pizza"}
 STRIP = re.compile(r"\s*[\(\[].*?[\)\]]|\s*\b(day trip|half day|evening|sunset|morning|afternoon|stroll|walk|tour|visit|tasting|class|experience|ride|cruise|boat trip|hike|lunch|dinner|breakfast|gelato)\b.*$", re.I)
+LEAD = re.compile(r"^(?:an?\s+|the\s+)?(?:sunset|sunrise|evening|morning|afternoon|late[- ]night|night|dinner|lunch|breakfast|brunch|drinks?|stroll|walk|wander|swim|picnic|cocktails?|people[- ]watching)\b.*?\b(?:at|in|on|through|along|by|around|over|to|of)\s+(?:the\s+)?", re.I)
+def proper(n):
+    """the names in a description: "Stroll through the lanes of Sfakaki seafront at dusk" -> ["Sfakaki"]"""
+    out = []
+    for run in re.findall(r"[A-ZÀ-Ý][\wÀ-ÿ'’-]+(?:\s+[A-ZÀ-Ý][\wÀ-ÿ'’-]+)*", n or ""):
+        ws = [w for w in run.split() if norm(w) not in STOP and norm(w) not in WEAKW and not _close(norm(w), CITY_TOKS) and len(w) > 3]
+        if ws and run.split()[0] != (n or "").split()[0] or (ws and len(ws) < len(run.split())): out.append(" ".join(ws))
+    return [x for x in dict.fromkeys(out) if x]
 def variants(n):
-    out = [n]; a = STRIP.sub("", n).strip(" -–,:&")
+    out = [n]; lead = LEAD.sub("", n).strip()
+    if lead and lead != n: out.append(lead)                                  # "Sunset at Skaleta or Adelianos Kampos" -> "Skaleta or ..."
+    a = STRIP.sub("", lead or n).strip(" -–,:&") or lead
     if a and a != n: out.append(a)
+    if " or " in a: out += [x.strip() for x in a.split(" or ")][:2]          # either one is the place
+    out += proper(n)[:2]
     for sep in [" and ", " & ", ": ", " at ", " in ", ", ", " - ", " – "]:
         if sep in a: out += [x.strip() for x in a.split(sep)][:2]      # "Firkas Fortress & Maritime Museum": both halves
     core = " ".join(toks(a))                                             # "Mythos Cafe Bar" -> "mythos"
@@ -113,7 +156,7 @@ def variants(n):
     seen, res = set(), []
     for v in out:
         if len(v) > 2 and norm(v) not in seen: seen.add(norm(v)); res.append(v)
-    return res[:5]
+    return res[:7]
 def photon(q, lat, lng):
     u = "https://photon.komoot.io/api/?" + urllib.parse.urlencode({"q": q, "limit": 6, "lang": "en", "lat": lat, "lon": lng, "zoom": 12, "location_bias_scale": 0.4})
     d = get(u); time.sleep(0.25); return d.get("features") or []
@@ -197,6 +240,14 @@ def match(name, food, lat, lng, guess=None):
             c["s"] = round(s, 2); cands.append(c)
     if not cands or max(c["s"] for c in cands) < 0.67:
         cands += nominatim_cands(name, food, lat, lng)
+    # "Adelianos Kampos Beach" when the map has the village but no beach of that name: the shore in front of the
+    # village, marked as an area pin (the stretch of sand, not one exact spot)
+    if re.search(r"\b(beach|beaches|shore|seafront|bay|cove|paralia|spiaggia|plage|playa)\b", name, re.I) and not any(c["s"] >= 0.67 and c.get("key") not in ("place", "highway") for c in cands):
+        for c in sorted(cands, key=lambda c: (-c["s"], c["km"])):
+            if c.get("key") == "place" and c.get("val") in ("village", "hamlet", "town", "suburb", "quarter", "neighbourhood", "locality", "isolated_dwelling") and sim(name, c["name"]) >= 0.67 and c["km"] <= 25:
+                try: sh = _pc().nearest_shore(c["lat"], c["lng"])
+                except Exception: sh = None
+                if sh: cands.append(dict(c, lat=sh[0], lng=sh[1], key="natural", val="beach", s=0.75, area=1, name=c["name"] + " shore")); break
     # an OpenStreetMap pin well out in the water is not the place (a boat, a buoy, a ferry route): never take it
     for c in cands:
         if c["s"] >= 0.4 and not watery(name) and water_m(c["lat"], c["lng"]) > 150: c["s"] = 0
@@ -285,7 +336,7 @@ def prepare(db, work, max_cities):
         if not c: continue
         cities += 1
         if cities > max_cities: break
-        CITY_TOKS.clear(); CITY_TOKS.update(toks(w.get("city") or "")); CITY_TOKS.update(toks(w.get("country") or ""))
+        set_city(w.get("city") or "", w.get("country") or "")
         auto[slug] = {"center": c, "items": {}}
         allnames = [(n, f) for n, f in [(n, False) for n in (w.get("spots") or [])] + [(n, True) for n in (w.get("food") or [])]]
         raw_pts = w.get("pts") or []
@@ -334,7 +385,8 @@ def finish(db, work, verdict_file):
                     if not good and not v: continue
             if good:
                 rec.update({"osm": b["osm"], "lat": b["lat"], "lng": b["lng"], "name": b["name"]})
-                rec.pop("approx", None); rec.pop("nopin", None); rec.pop("pin_tried", None)
+                rec.pop("approx", None); rec.pop("nopin", None); rec.pop("pin_tried", None); rec.pop("area", None)
+                if b.get("area"): rec["area"] = 1
                 d = DET.get(b["osm"]) or {}
                 if d.get("web"): rec["site"] = d["web"]
                 hh = hours_from_osm(d.get("hours"))
@@ -372,6 +424,74 @@ def finish(db, work, verdict_file):
         doc = dict(old); doc["items"] = items; doc["checked"] = TODAY
         json.dump(doc, open(os.path.join(work, "places", slug + ".json"), "w"), ensure_ascii=False)
     print(json.dumps({"cities": len(set(auto) | set(web)), "records": stats}))
+
+def recheck(db, work):
+    """Every pin a record took from the map is matched again under the current rules (the town's own name is no evidence,
+    nor is a lone "Port" or "Municipal"); places with no pin are looked for once more with the names inside their
+    description ("Sunset at Skaleta or Adelianos Kampos" -> Skaleta). A better match replaces the pin; a match with
+    some evidence stays; one that shared nothing with the place is taken off, and the trip's own pin shows instead.
+    Writes <work>/places/<slug>.json for every city it changed; resumes from <work>/recheck.json when cut short."""
+    wanted, places = load_dir(os.path.join(db, "wanted")), load_dir(os.path.join(db, "places"))
+    os.makedirs(os.path.join(work, "places"), exist_ok=True)
+    prog_f = os.path.join(work, "recheck.json"); prog = json.load(open(prog_f)) if os.path.exists(prog_f) else {}
+    stats = {"looked": 0, "repinned": 0, "kept": 0, "unpinned": 0, "found_nopin": 0, "cities": 0}
+    for slug in sorted(places):
+        doc = json.loads(json.dumps(places[slug])); w = wanted.get(slug) or {}
+        city = w.get("city") or slug.split("-", 1)[-1].replace("-", " "); country = w.get("country") or slug.split("-")[0]
+        set_city(city, country)
+        names = [(n, False) for n in (w.get("spots") or [])] + [(n, True) for n in (w.get("food") or [])]
+        orig = {norm(n): (n, f) for n, f in names if isinstance(n, str)}
+        pts = w.get("pts") or []; guess = {norm(n): p for (n, f), p in zip(names, pts) if isinstance(n, str)} if len(pts) == len(names) else {}
+        c = doc.get("center") or (w.get("center") if isinstance(w.get("center"), list) and len(w.get("center")) == 2 else None)
+        good_pts = [(r["lat"], r["lng"]) for r in (doc.get("items") or {}).values() if r.get("lat") is not None and not r.get("stay")]
+        if not c and good_pts: c = [statistics.median(p[0] for p in good_pts), statistics.median(p[1] for p in good_pts)]
+        if not c: continue
+        changed = False
+        for k, r in list((doc.get("items") or {}).items()):
+            if r.get("st") in ("closed", "unfound", "dup") or r.get("stay"): continue
+            n, food = orig.get(k, (k, False))
+            if r.get("lat") is not None and r.get("name") and not r.get("approx"): old_s = sim(n, r["name"])
+            elif r.get("nopin") and not (food and GENERIC.search(n)): old_s = None
+            else: continue
+            if old_s is not None and old_s >= 0.67: continue
+            key = slug + "|" + k
+            if key in prog: res = prog[key]
+            else:
+                g = guess.get(k); g = g if isinstance(g, list) and len(g) == 2 and isinstance(g[0], (int, float)) else (c if r.get("nopin") else [r["lat"], r["lng"]])
+                best, v, kind = match(n, food, c[0], c[1], g)
+                res = {"best": best, "v": v}; prog[key] = res; json.dump(prog, open(prog_f, "w"), ensure_ascii=False)
+            stats["looked"] += 1
+            b, v = res["best"], res["v"]
+            good = b and v in ("ok", "moved") and (v == "ok" or b["km"] <= 25)
+            if good and not watery(n):
+                wm = water_m(b["lat"], b["lng"])
+                if wm > 25:
+                    land = ashore(b["lat"], b["lng"]) if wm <= 400 else None
+                    if land: b = dict(b, lat=land[0], lng=land[1])
+                    else: good = False
+            r = dict(r)
+            if good and not (old_s is not None and r.get("lat") is not None and km(r["lat"], r["lng"], b["lat"], b["lng"]) < 0.03 and old_s >= 0.3):
+                if r.get("osm") != b["osm"]: r.pop("site", None); r.pop("hours", None)
+                r.update({"osm": b["osm"], "lat": b["lat"], "lng": b["lng"], "name": b["name"], "checked": TODAY})
+                for x in ("approx", "nopin", "pin_tried", "area"): r.pop(x, None)
+                if b.get("area"): r["area"] = 1
+                if not r.get("st") or r.get("st") == "unverified": r["st"] = "open"
+                stats["found_nopin" if old_s is None else "repinned"] += 1
+            elif old_s is None:
+                r["pin_tried"] = TODAY
+            elif old_s >= 0.3:
+                stats["kept"] += 1; continue
+            else:
+                # the map's match shared nothing with the place: off it comes, and what it brought (site, hours, "open")
+                r["was"] = [r["lat"], r["lng"]]    # phones that saved this wrong pin into their lists put it back where it was before
+                for x in ("lat", "lng", "osm", "name", "site", "hours"): r.pop(x, None)
+                if r.get("st") == "open" and not r.get("src"): r.pop("st", None)
+                r["checked"] = TODAY; stats["unpinned"] += 1
+            doc["items"][k] = r; changed = True
+        if changed:
+            doc["checked"] = TODAY; json.dump(doc, open(os.path.join(work, "places", slug + ".json"), "w"), ensure_ascii=False); stats["cities"] += 1
+        print(slug, json.dumps(stats), flush=True)
+    print(json.dumps(stats))
 
 def pins(db, work):
     """guessed pins in the water: to the shore when close, off the map when far out; a city centre in the water moves ashore"""
@@ -452,4 +572,5 @@ if __name__ == "__main__":
     if len(sys.argv) >= 4 and sys.argv[1] == "prepare": prepare(sys.argv[2], sys.argv[3], int(sys.argv[4]) if len(sys.argv) > 4 else 6)
     elif len(sys.argv) >= 5 and sys.argv[1] == "finish": finish(sys.argv[2], sys.argv[3], sys.argv[4])
     elif len(sys.argv) >= 4 and sys.argv[1] == "pins": pins(sys.argv[2], sys.argv[3])
+    elif len(sys.argv) >= 4 and sys.argv[1] == "recheck": recheck(sys.argv[2], sys.argv[3])
     else: print(__doc__)

@@ -6,7 +6,7 @@
 (function () {
   "use strict";
   var W = window.W, ML = null;
-  var S = { idx: null, idxState: "idle", engine: "idle", packs: {}, glyphs: null, map: null, el: null, sig: "", slug: "", markers: [], ready: false, pend: null };
+  var S = { idx: null, idxState: "idle", engine: "idle", packs: {}, glyphs: null, map: null, el: null, sig: "", slug: "", markers: [], pinMarkers: [], pinPts: null, groupSig: "", ready: false, pend: null };
   W.vt = S;
 
   /* ---------- which cities have a pack: the database list (asset packs) over the bundled list (file packs) ---------- */
@@ -308,18 +308,54 @@
   }
 
   /* ---------- pins ---------- */
-  function pinEl(p, C) {
+  /** one marker: the lodging, or one or more stops that sit on the same spot at this zoom ("1·2·4") @param {any} g */
+  function pinEl(g) {
     var el = document.createElement("div");
-    el.className = "vt-pin" + (p.home ? " home" : p.food ? " food" : "");
-    el.innerHTML = p.home ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 7.5 8 3l5.5 4.5V13h-3.5V9.5h-4V13H2.5z" fill="currentColor"/></svg>' : "<b>" + p.num + "</b><span>" + W.esc(p.n) + "</span>";
-    el.setAttribute("aria-label", p.home ? "Where you're staying" : p.num + ". " + p.n);
+    if (g.home) {
+      el.className = "vt-pin home";
+      el.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 7.5 8 3l5.5 4.5V13h-3.5V9.5h-4V13H2.5z" fill="currentColor"/></svg>';
+      el.setAttribute("aria-label", "Where you're staying");
+      return el;
+    }
+    var ps = g.items, many = ps.length > 1, nums = ps.map(function (p) { return p.num; }).join("·");
+    el.className = "vt-pin" + (many ? " many" : ps[0].food ? " food" : "");
+    el.innerHTML = "<b>" + nums + "</b><span>" + W.esc(ps[0].n) + (many ? " +" + (ps.length - 1) : "") + "</span>";
+    el.setAttribute("aria-label", ps.map(function (p) { return p.num + ". " + p.n; }).join(", "));
+    el.title = ps.map(function (p) { return p.num + ". " + p.n; }).join("\n");
     return el;
+  }
+  /* Stops closer together on screen than a pin is wide share one marker at their common spot, numbers in a row, so
+     none hides another (a café inside the market, dinner at the sunset spot). Regrouped whenever the zoom changes. */
+  /** stops grouped by where they fall on screen: any two closer than minPx share a group, placed at their average
+      @param {any[]} pts @param {(p: any) => {x: number, y: number}} project @param {number} [minPx] */
+  W.pinGroups = function (pts, project, minPx) {
+    var groups = [], m = minPx || 24;
+    pts.forEach(function (p) {
+      var at = project(p);
+      var g = groups.filter(function (g) { return Math.hypot(g.x - at.x, g.y - at.y) < m; })[0];
+      if (g) { g.items.push(p); g.x = (g.x * (g.items.length - 1) + at.x) / g.items.length; g.y = (g.y * (g.items.length - 1) + at.y) / g.items.length; }
+      else groups.push({ x: at.x, y: at.y, items: [p] });
+    });
+    return groups;
+  };
+  function groupPins() {
+    if (!S.map || !S.pinPts) return;
+    var groups = W.pinGroups(S.pinPts, function (p) { return S.map.project([p.lng, p.lat]); });
+    var sig = groups.map(function (g) { return g.items.map(function (p) { return p.num; }).join("."); }).join("|");
+    if (sig === S.groupSig) return;
+    S.groupSig = sig;
+    S.pinMarkers.forEach(function (m) { m.remove(); }); S.pinMarkers = [];
+    groups.forEach(function (g) {
+      var ll = S.map.unproject([g.x, g.y]);
+      S.pinMarkers.push(new ML.Marker({ element: pinEl(g), anchor: "left", offset: [-13, 0] }).setLngLat(ll).addTo(S.map));
+    });
   }
   function setPins(pts, home) {
     S.markers.forEach(function (m) { m.remove(); }); S.markers = [];
+    (S.pinMarkers || []).forEach(function (m) { m.remove(); }); S.pinMarkers = []; S.groupSig = "";
     var all = pts.filter(function (p) { return p.lat != null; });
     if (home && home.lat != null) S.markers.push(new ML.Marker({ element: pinEl({ home: 1 }) }).setLngLat([home.lng, home.lat]).addTo(S.map));
-    all.forEach(function (p) { S.markers.push(new ML.Marker({ element: pinEl(p), anchor: "left", offset: [-13, 0] }).setLngLat([p.lng, p.lat]).addTo(S.map)); });
+    S.pinPts = all; groupPins();
     var line = (home && home.lat != null ? [[home.lng, home.lat]] : []).concat(all.map(function (p) { return [p.lng, p.lat]; }));
     if (home && home.lat != null && all.length) line.push([home.lng, home.lat]);
     var src = S.map.getSource("route");
@@ -332,6 +368,7 @@
     var b = new ML.LngLatBounds(c[0], c[0]); c.forEach(function (q) { b.extend(q); });
     var w = S.el.clientWidth || 340;
     S.map.fitBounds(b, { padding: { top: 36, bottom: 30, left: 26, right: Math.min(110, w * 0.3) }, maxZoom: 16.2, duration: animate ? 600 : 0 });
+    if (!animate) groupPins();
   }
 
   /* ---------- show the map in a slot; returns true once the detailed map is on screen ---------- */
@@ -358,6 +395,7 @@
           S.map.touchZoomRotate.disableRotation();
           /* once you move the map yourself, it stops re-fitting to the day's stops until the day changes */
           ["dragstart", "zoomstart"].forEach(function (ev) { S.map.on(ev, function (e) { if (e && e.originalEvent) S.moved = true; }); });
+          S.map.on("zoomend", groupPins);
           S.map.on("load", function () { S.ready = true; S.sig = ""; if (S.pend) W.vtMount(S.pend.slot, S.pend.o); W.changed(); });
           S.map.on("error", function (e) {
             var msg = String(e && e.error && e.error.message || e);

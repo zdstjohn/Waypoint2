@@ -24,7 +24,16 @@ lib/              the shared library
                   Pins: a place found on OpenStreetMap gets its real pin; a guessed pin that falls in the sea, a lake or a
                   river (tools/pin_check.py tests it against the map's own water) moves to the nearest shore when it is
                   close ("approx") or loses its pin when it is far out ("nopin": no pin beats a wrong one); a city centre
-                  in the water gets one on land ("center"), which is where you stay until you pick a place
+                  in the water gets one on land ("center"), which is where you stay until you pick a place. A match
+                  needs evidence beyond the town's own name (a map label that just says "Rethymno" is no match for
+                  "Rethymno Public Garden") and beyond a lone generic word ("Port", "Municipal", "Breakfast"); a beach the
+                  map knows only by its village gets the shore in front of the village ("area"). `place_check.py recheck`
+                  re-matches every stored pin under the current rules.
+                  On the day map, stops on (nearly) the same spot share one marker showing every number ("1·2·4",
+                  W.pinGroups, regrouped as you zoom), and a stop with no checked spot is listed as "not on the map".
+                  Each place keeps its list's own pin (g) apart from any record's, so a record that is corrected gives
+                  it back; a record that took a wrong pin off says which ("was"), and a saved list still holding that
+                  pin asks Claude once where the place is (W.loadPins, checked against the city like every answer)
   times.js        the clock for each day: starts, ends, the nap, travel days; how tiring a day is
   shape.js        the trip as a whole: nights per base, day trips instead of hotel moves, the way between bases,
                   what the group (toddlers, grandparents) can take
@@ -92,6 +101,12 @@ Checks (node test/run.js, from the folder above trip/)
                 slow devices and after a slow flip; answers arriving right after a tap are drawn once, on idle time,
                 after the tap's own frame has painted (they used to redraw and replan five times before it); Prepare
                 builds only the open segment's markup; norm() and findCity() are memoized.
+  desktop       the app with a mouse, from a 600 px side panel (the phone layout, as in the Claude app's artifact panel)
+                to a 1920 px monitor, on a seven-place trip: every screen passes the phone's clipping checks and never
+                scrolls sideways, and what a phone lets you swipe is reachable without swiping: stays shrink to fit and
+                then wrap to an even second row, the Prepare tabs wrap, the previous/next day arrows stay at every width,
+                the trip menu opens under the trip's name wherever the banner puts it, and the kids' corner stays
+                picture-book sized and centred on a big screen.
 
 Version control
   The code lives at github.com/zdstjohn/Waypoint2: trip/, test/, tools/, types/, build/, the test server, package.json.

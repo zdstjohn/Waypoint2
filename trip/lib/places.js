@@ -19,9 +19,15 @@
   function lay(list, items, food, added, pool) {
     (list || []).forEach(function (it) {
       var r = it && it.n && items[W.norm(it.n)]; if (!r) return;
+      /* the list's own pin, kept before any record moves it, so a record that is later corrected can give it back.
+         "was" is a pin an earlier check got wrong: a saved list that still carries it has no own pin to go back to. */
+      if (it.g === undefined) it.g = it.lat != null && it.lng != null ? [it.lat, it.lng] : null;
+      var was = r.was && r.was.length === 2 ? r.was : null, same = function (a, b) { return Math.abs(a - b) < 2e-6; };
+      if (was && it.g && same(it.g[0], was[0]) && same(it.g[1], was[1])) it.g = null;
       if (r.lat != null && r.lng != null) { it.lat = r.lat; it.lng = r.lng; }
       /* a guessed pin that landed far out in the water, with the real place not found yet: no pin beats a wrong one */
       else if (r.nopin) { it.lat = null; it.lng = null; }
+      else { it.lat = it.g ? it.g[0] : null; it.lng = it.g ? it.g[1] : null; }
       if (r.st) it.st = r.st;
       if (r.site) {
         if (food) { if (!it.menu) it.menu = r.site; }

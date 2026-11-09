@@ -4,8 +4,8 @@ const { chromium } = require('playwright'); const fs = require('fs'); const path
 const ROOT = path.resolve(__dirname, '..', '..');
 const SEED = `(() => { let s = 12345; Math.random = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; })();`;
 async function launch() { return chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] }); }
-async function open(browser, { width = 360, height = 800, dark = false, scale = 1, uid = 'u-test', hash = '#trip', mocks = ['test/mocks/mockdur.js', 'test/mocks/mock2.js'], seeded = true, db = null, tz = null, firstRun = false } = {}) {
-  const ctx = await browser.newContext(Object.assign({ viewport: { width, height }, deviceScaleFactor: 2, colorScheme: dark ? 'dark' : 'light', hasTouch: true, reducedMotion: 'reduce' }, tz ? { timezoneId: tz } : {}));
+async function open(browser, { width = 360, height = 800, dark = false, scale = 1, uid = 'u-test', hash = '#trip', mocks = ['test/mocks/mockdur.js', 'test/mocks/mock2.js'], seeded = true, db = null, tz = null, firstRun = false, touch = true } = {}) {
+  const ctx = await browser.newContext(Object.assign({ viewport: { width, height }, deviceScaleFactor: 2, colorScheme: dark ? 'dark' : 'light', hasTouch: touch, reducedMotion: 'reduce' }, tz ? { timezoneId: tz } : {}));
   const pg = await ctx.newPage(); const errors = []; pg.on('pageerror', e => errors.push(e.message));
   await pg.exposeFunction('__dbOp', db || (() => null));
   if (seeded) await pg.addInitScript(SEED);

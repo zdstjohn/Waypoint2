@@ -272,6 +272,35 @@ def nearest_land(lat, lng, inland_m=12):
     return lat, lng
 
 
+def nearest_shore(lat, lng, max_m=2500, inland_m=15):
+    """from a point on land (a village behind its beach), the nearest real shoreline within max_m, as a point just
+    inland of it: (lat, lng), or None when no water is that close or the map is unreachable"""
+    fx, fy = tilexy_f(lat, lng); x0, y0 = int(fx), int(fy)
+    best = None
+    for dx in (-1, 0, 1):
+        for dy in (-1, 0, 1):
+            t = water_polys(x0 + dx, y0 + dy)
+            if t is None: continue
+            polys, extent = t
+            px, py = (fx - x0 - dx) * extent, (fy - y0 - dy) * extent      # the point in this tile's units
+            for rings in polys:
+                d, qx, qy = _nearest_edge(px, py, rings, extent)
+                if d < 1e17 and (best is None or d < best[0]): best = (d, qx, qy, x0 + dx, y0 + dy, extent)
+    if best is None: return None
+    d, qx, qy, tx, ty, extent = best
+    mpu = 40075016.686 * math.cos(math.radians(lat)) / (2 ** Z) / extent
+    if d * mpu > max_m: return None
+    px, py = (fx - tx) * extent, (fy - ty) * extent
+    ux, uy = (px - qx) / (d or 1), (py - qy) / (d or 1)                 # from the shore back toward the village
+    n = 2 ** Z
+    for step in (inland_m, inland_m * 2, inland_m * 4):
+        sx, sy = qx + ux * step / mpu, qy + uy * step / mpu
+        lng2 = (tx + sx / extent) / n * 360 - 180
+        lat2 = math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * (ty + sy / extent) / n))))
+        if not in_water(lat2, lng2): return round(lat2, 6), round(lng2, 6)
+    return None
+
+
 def load_dir(d):
     out = {}
     for f in glob.glob(os.path.join(d, '*.json')):

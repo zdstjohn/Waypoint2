@@ -31,6 +31,13 @@
             { n: 2, city: 'Lisbon', items: [{ name: 'Belém Tower', food: false, slot: 'pm', d: 'Riverside fort', lat: 38.6916, lng: -9.216 }] },
             { n: 4, city: 'Porto', items: [{ name: 'Livraria Lello', food: false, slot: 'am', d: 'Famous bookshop', lat: 41.1469, lng: -8.6148 }] }] }; }
       if (/IANA time zone/.test(prompt)) return { tz: 'Europe/Rome' };
+      if (/^Where exactly is each of these places in or near (.+?), (.+?)\?/.test(prompt)) {
+        /* every stop a pin a little east of the city centre, so a test can tell an answered pin from the old one */
+        const m = prompt.match(/in or near (.+?), (.+?)\?/), c = window.W.findCity(m[2], m[1]) || { lat: 41.9, lng: 12.49 };
+        const names = prompt.split('\n')[1].split('; ');
+        window.__pinAsk = (window.__pinAsk || []).concat(names);
+        return { pins: names.map((n, i) => ({ n, lat: c.lat + 0.001 * (i + 1), lng: c.lng + 0.002 })) };
+      }
       if (/emails from a traveler's own inbox/.test(prompt)) {
         window.__extract = prompt;
         const P = window.W.P, d1 = window.W.dateOf(1), iso = d => window.W.isoDay(d);

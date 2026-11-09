@@ -583,6 +583,8 @@
       /* today's map, with zoom controls that never move. On a phone the day list hides it (Explore has its own), so it
          isn't built at all there: no sketch, no map index, no map pack lookup */
       var ex = "", stopsLL = pts.filter(function (p) { return p.lat != null; });
+      /* a stop with no pin at all: ask where it is (once), so every stop can be on the map */
+      if (stopsLL.length < pts.length && W.loadPins && !W.readOnly) W.loadPins(day.country, day.city, pts.filter(function (p) { return p.lat == null; }).map(function (p) { return p.n; }));
       if (xp || window.innerWidth > 920) {
       var gm = home.lat != null && stopsLL.length ? "https://www.google.com/maps/dir/?api=1&origin=" + home.lat + "," + home.lng + "&destination=" + home.lat + "," + home.lng +
         "&waypoints=" + encodeURIComponent(stopsLL.map(function (p) { return p.lat + "," + p.lng; }).join("|")) + "&travelmode=walking" : "";
@@ -597,7 +599,10 @@
         '<button type="button" class="icon-btn" data-zoom="in" aria-label="Zoom in">+</button>' +
         '<button type="button" class="icon-btn fit" data-zoom="fit" aria-label="Fit today\'s stops"' + (zoomed || (vtSlug && W.vtActive()) ? "" : ' aria-disabled="true"') + '><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg></button></div></div>' +
         '<div class="map-wrap' + (vtOn ? " vt-on" : vtWait ? " vt-want" : "") + '">' + (vtSlug ? '<div class="vt-slot"></div>' : "") + explorer(day, home, pts, pool) + "</div>" +
-        '<ol class="legend">' + pts.map(function (p) { return '<li><span class="num' + (p.food ? " f" : "") + '">' + p.num + "</span><span>" + esc(p.n) + ' <i>' + W.SLOT_NAME[p.slot] + "</i></span></li>"; }).join("") + "</ol>" +
+        '<ol class="legend">' + pts.map(function (p) {
+          /* a stop with no checked spot is listed, and says so, rather than drawn somewhere it may not be */
+          return '<li' + (p.lat == null ? ' class="nomap"' : "") + '><span class="num' + (p.food ? " f" : "") + '">' + p.num + "</span><span>" + esc(p.n) + ' <i>' + ((T && T.rows[p.slot] && T.rows[p.slot].label) || W.SLOT_NAME[p.slot]) + (p.lat == null ? " · not on the map" : "") + "</i></span></li>";
+        }).join("") + "</ol>" +
         '<p class="map-note">' + (vtOn ? "© OpenMapTiles © OpenStreetMap contributors" : vtWait ? '<span class="loading">Loading the map…</span>' : explorerState === "map" ? "Map data © OpenStreetMap contributors" : explorerState === "maploading" ? "Loading the street map…" : explorerState === "loading" ? "Sketching the area…" : "No street map for this area yet, so this is a sketch. Ask Claude in chat to build the map for " + esc(day.city) + ".") +
         (gm ? " · " + link(gm, "Open in Google Maps") : "") + "</p></aside>";
       if (vtSlug) vtWant = { slug: vtSlug, key: day.n + "|" + day.city, pts: pts, home: home, animate: true };

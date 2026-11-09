@@ -516,6 +516,32 @@
   /* every booking site's price for one place, side by side (Google Hotels), so you can see where it's cheapest */
   W.priceUrl = function (it, city) { return "https://www.google.com/travel/hotels?q=" + encodeURIComponent(it.n + " " + city); };
 
+  /* Stops on the trip with no pin at all (a list saved before its pin was checked and then cleared, or a place added
+     without one): Claude is asked once, for those names only, where each one is. A place the check took off the map
+     on purpose (far out at sea) is not asked again; every answer must fall near the city like any other pin. */
+  W.loadPins = function (country, city, names) {
+    var ck = W.cityKey(country, city), cur = W.C.city[ck]; if (!cur || !names || !names.length) return;
+    var want = {}; names.forEach(function (n) { want[W.norm(n)] = 1; });
+    var need = /** @type {(Spot | Food)[]} */ ([]).concat(cur.spots || [], cur.food || []).filter(function (x) {
+      if (!x || !want[W.norm(x.n)] || x.lat != null || x.pinAsked) return false;
+      var r = W.placeInfo ? W.placeInfo(x, country, city) : null;
+      return !(r && (r.nopin || r.st === "closed" || r.st === "unfound" || r.st === "dup"));
+    }).slice(0, 20);
+    if (!need.length) return;
+    var center = centerOf(ck);
+    run("pins|" + ck + "|" + need.map(function (x) { return W.norm(x.n); }).join(";"), "Where exactly is each of these places in or near " + city + ", " + country + "? " +
+      "Give the latitude and longitude of the place itself (its entrance, or the middle of a beach, square or market). If a name covers an area or a choice of places, give its most typical spot. " +
+      "Use null for any you cannot place with confidence.\n" + need.map(function (x) { return x.n; }).join("; ") +
+      "\nReply with JSON only: {\"pins\":[{\"n\":\"the name exactly as given\",\"lat\":0.0,\"lng\":0.0}]}", "quick", function (r) {
+        var map = {}; (r && r.pins || []).forEach(function (q) { if (q && q.n) map[W.norm(q.n)] = q; });
+        need.forEach(function (x) {
+          var q = map[W.norm(x.n)] || {}, p = V.pinNear(q.lat, q.lng, center, 120);
+          x.pinAsked = 1;
+          if (p) { x.lat = p.lat; x.lng = p.lng; x.g = [p.lat, p.lng]; }
+        });
+      });
+  };
+
   /* official booking and menu links, and recommended visit times, for ideas saved before those existed.
      first = names to fill first (today's stops) */
   W.loadBookLinks = function (country, city, first) {

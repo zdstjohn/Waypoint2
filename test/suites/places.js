@@ -42,6 +42,36 @@ exports.run = async t => {
   t.eq(stay.named, [41.8894, 12.4698], 'a stay chosen by name takes its checked pin (its guessed one was in the water)');
   t.eq(stay.booked, [41.95, 12.3], 'a Booking.com pick keeps the hotel\'s own pin');
   t.ok(r.home === 'own' || (r.home[0] === 41.8986 && r.home[1] === 12.4769), `a checked city centre is the stay pin until you pick a place (${r.home})`);
+  /* stops on (nearly) the same spot share one marker on the detailed map, numbers in a row, so none hides another */
+  const g = await pg.evaluate(() => {
+    const pts = [{ num: 1, lat: 35.36012, lng: 24.49616 }, { num: 2, lat: 35.36012, lng: 24.49616 }, { num: 3, lat: 35.37, lng: 24.47 }, { num: 4, lat: 35.36013, lng: 24.49617 }];
+    const proj = p => ({ x: (p.lng - 24.4) * 20000, y: -(p.lat - 35.3) * 20000 });   /* about 2 px per 10 m */
+    return W.pinGroups(pts, proj).map(x => x.items.map(p => p.num).join('·'));
+  });
+  t.eq(g, ['1·2·4', '3'], 'stops on the same spot share one marker that shows every number');
+  /* on a phone the map's list says which stops have no checked spot, instead of leaving them silently off the map */
+  const lg = await pg.evaluate(async () => {
+    W.S.tview = 'map'; W.render(); await new Promise(r => setTimeout(r, 300));
+    const lis = [...document.querySelectorAll('#viewTrip .legend li')], d = W.P.days[W.S.day - 1];
+    const stops = (d.slots || []).filter(x => x.item).map(x => x.item);
+    return { n: lis.length, nomap: lis.filter(l => l.classList.contains('nomap')).length, noLL: stops.filter(it => it.lat == null).length, said: lis.filter(l => /not on the map/.test(l.textContent)).length };
+  });
+  t.ok(lg.n > 0 && lg.nomap === lg.noLL && lg.said === lg.noLL, `the map's list marks the stops it cannot place (${lg.nomap} of ${lg.n})`);
+  await pg.evaluate(() => { W.S.tview = 'days'; W.render(); });
+  /* A record that lost a wrong pin (it carries "was"): a stop whose saved list still holds that wrong pin has no own pin
+     to go back to, so it is asked for once and lands where the answer says, never back on the wrong spot. */
+  const fix = await pg.evaluate(async () => {
+    const d = W.P.days.find(x => x.city === 'Rome' && x.slots.some(s => s.item && !W.isFood(s.slot)));
+    const x = d.slots.find(s => s.item && !W.isFood(s.slot)), it = x.item, wrong = [41.95, 12.6];
+    it.lat = wrong[0]; it.lng = wrong[1]; delete it.g; delete it.pinAsked;   /* as an older version left it: the wrong pin in the saved list */
+    const cur = JSON.parse(await window.__dbOp('get', 'places/italy-rome', null)); cur.items[W.norm(it.n)] = { checked: '2026-11-08', was: wrong };
+    await window.__dbOp('set', 'places/italy-rome', JSON.stringify(cur));
+    W.S.day = d.n; W.S.tview = 'map'; W.render();
+    for (let i = 0; i < 60 && (it.lat == null || it.lat === wrong[0]); i++) { await new Promise(r => setTimeout(r, 100)); W.render(); }
+    return { n: it.n, lat: it.lat, lng: it.lng, asked: (window.__pinAsk || []).includes(it.n), wrong };
+  });
+  t.ok(fix.asked && fix.lat != null && Math.abs(fix.lat - fix.wrong[0]) > 0.001, `a stop that only had a wrong pin is placed again (${fix.n}: ${fix.lat && fix.lat.toFixed(4)}, ${fix.lng && fix.lng.toFixed(4)})`);
+  await pg.evaluate(() => { W.S.tview = 'days'; W.render(); });
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

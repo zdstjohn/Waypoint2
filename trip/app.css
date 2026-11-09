@@ -158,6 +158,8 @@ main[hidden]{display:none!important}
 /* the menu scrolls inside itself, so it paints its own background: a ::before card would scroll away with the first
    screenful and leave the rest of the menu see-through over the page */
 .top .trip-menu{background:var(--surface);border:var(--hair)}
+/* wider than a phone, the trip name sits at the right of the banner: the menu opens under it, not at the far left */
+@media (min-width:561px){.top .trip-menu{left:auto;right:8px;width:min(440px,calc(100% - 16px))}}
 .top .trip-menu.sk::before{display:none}
 @media (max-width:560px){.top{gap:10px;padding-block:8px 10px;margin-bottom:4px}}
 @media (max-width:560px){.brand svg{width:100px}}
@@ -424,6 +426,8 @@ details.transit > div{margin-top:7px}
 @media (max-width:560px){.route{padding:12px 14px}}
 @media (max-width:560px){.daybar{gap:6px}}
 @media (max-width:560px){.daybar > .icon-btn{display:none}}
+/* a mouse can't swipe the day pills: keep the previous/next day arrows at every width */
+@media (max-width:560px) and (hover:hover) and (pointer:fine){.daybar > .icon-btn{display:inline-grid}}
 @media (max-width:560px){.day-h h2{font-size:30px}}
 @media (max-width:560px){.day-h .sub{font-size:14.5px}}
 @media (max-width:560px){.slot{gap:10px;padding:10px}}
@@ -802,6 +806,7 @@ details.ideas summary h2{font-family:var(--f-display);font-weight:400;font-size:
 .legend .num{width:24px;height:22px;font-size:11px;flex:none}
 .legend .num.f{background:var(--food)}
 .legend i{font-style:normal;font-weight:600;color:var(--muted);font-size:12.5px;margin-left:2px}
+.legend li.nomap .num{background:transparent;color:var(--muted);box-shadow:inset 0 0 0 2px var(--soft)}
 .map-note{padding:8px 16px 14px;font-size:12.5px;color:var(--muted)}
 .map-note a{font-weight:800}
 @media (min-width:921px){.legend{display:none}}
@@ -883,6 +888,7 @@ details.ideas summary h2{font-family:var(--f-display);font-weight:400;font-size:
 .vt-pin{display:flex;align-items:center;gap:5px;cursor:default}
 .vt-pin b{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:#fff;font:400 12px/1 var(--f-display);border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.28)}
 .vt-pin.food b{background:var(--food)}
+.vt-pin.many b{width:auto;min-width:26px;padding:0 7px;border-radius:13px;background:#2E2A27;letter-spacing:.02em}
 .vt-pin span{font:800 12px/1.2 var(--f-body);color:#2E2A27;background:rgba(255,255,255,.92);padding:2px 7px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.18);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .vt-pin.home{width:30px;height:30px;padding:0;border-radius:9px;background:#2E2A27;color:#fff;display:flex;align-items:center;justify-content:center;gap:0;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3)}
 .vt-pin.home svg{width:17px;height:17px;display:block;flex:none}
@@ -1251,6 +1257,7 @@ html.offline .brand::after{content:"Offline";position:absolute;right:-6px;top:-8
 /* ---------- prepare: segments ---------- */
 .prep-seg{display:flex;gap:4px;background:var(--sunk);border-radius:13px;padding:4px;margin:0 0 14px;overflow-x:auto;scrollbar-width:none}
 .prep-seg::-webkit-scrollbar{display:none}
+@media (hover:hover) and (pointer:fine){.prep-seg{flex-wrap:wrap;overflow-x:visible}.prep-seg button{flex:1 1 auto}}
 .prep-seg button{flex:1 1 0;border:0;background:transparent;border-radius:10px;padding:8px 6px;font:800 13.5px/1.2 var(--f-body);color:var(--muted);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;justify-content:center}
 .prep-seg button[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgba(52,48,45,.16)}
 .prep-seg .gn{font-size:11px;background:var(--sunk);border-radius:8px;padding:1px 5px;color:var(--muted)}
@@ -1296,7 +1303,10 @@ html.offline .brand::after{content:"Offline";position:absolute;right:-6px;top:-8
 .staybar{position:sticky;top:0;z-index:20;display:flex;gap:3px;padding:6px 4px;margin:0 -4px;overflow-x:auto;scrollbar-width:none;background:transparent;transition:box-shadow .2s ease}
 .staybar.stuck{background:var(--bg) var(--grain);box-shadow:0 8px 10px -10px rgba(0,0,0,.35)}
 .staybar::-webkit-scrollbar{display:none}
-.sb-seg{flex:1 0 auto;min-width:86px;display:grid;gap:1px;align-content:center;text-align:left;padding:7px 10px;border:0;border-radius:10px;background:var(--sunk);color:var(--fg);font:inherit;cursor:pointer;position:relative;transition:background-color .18s ease,color .18s ease}
+/* Segments shrink to fit before the bar ever scrolls (a long name ends in "…", the full name is on hover). With a
+   mouse there is no swipe, so a bar that still doesn't fit wraps onto a second row instead of hiding stays past the edge. */
+@media (hover:hover) and (pointer:fine){.staybar{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));overflow-x:visible}.sb-seg{min-width:0}.sb-seg:first-child,.sb-seg:last-child{border-radius:10px}}
+.sb-seg{flex:1 1 76px;min-width:76px;display:grid;gap:1px;align-content:center;text-align:left;padding:7px 10px;border:0;border-radius:10px;background:var(--sunk);color:var(--fg);font:inherit;cursor:pointer;position:relative;transition:background-color .18s ease,color .18s ease}
 .sb-seg b{font-weight:800;font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sb-seg span{font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sb-seg:first-child{border-radius:12px 8px 8px 12px}
@@ -1452,6 +1462,8 @@ html.offline .brand::after{content:"Offline";position:absolute;right:-6px;top:-8
 /* ==================== the kids' corner ==================== */
 .kids-chip{display:flex;align-items:center;gap:8px;width:100%;margin:2px 0 12px;padding:10px 14px;border:0;border-radius:14px;background:linear-gradient(100deg,#f6c46b,#e0895a);color:#2a1c10;font:800 14.5px/1.25 var(--f-body);text-align:left;cursor:pointer}
 .kids{display:grid;gap:14px;padding-bottom:20px}
+/* on a big screen the kids' corner stays the size of a picture book, centred, not one card stretched edge to edge */
+@media (min-width:921px){.kids{max-width:820px;margin-inline:auto}}
 .k-hero h2{font:400 32px/1.05 var(--f-display);margin:2px 0 4px}
 .k-hero p{margin:0;font-size:16px;font-weight:700;color:var(--muted)}
 .k-tabs{display:flex;gap:4px;background:var(--sunk);border-radius:16px;padding:5px}

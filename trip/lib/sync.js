@@ -429,6 +429,14 @@
         (seenShares.length ? '<ul class="trips">' + seenShares.map(function (x) { return '<li><button type="button" data-sync="openshare" data-code="' + esc(x.code) + '"><b>' + esc(x.name || x.code) + '</b><span class="small muted">' + esc(x.code) + "</span></button></li>"; }).join("") + "</ul>" : "") + "</div></div>";
     }
     el.innerHTML = h;
+    /* wider than a phone, the menu opens under the trip's name, wherever the banner has put it (right of the tabs on a
+       wide screen, a second row on the left when the banner wraps) */
+    var m = menuOpen && window.innerWidth > 560 ? /** @type {HTMLElement | null} */ (el.querySelector(".trip-menu")) : null, sw = el.querySelector(".trip-sw"), top = el.closest(".top");
+    if (m && sw && top) {
+      var tr = top.getBoundingClientRect(), sr = sw.getBoundingClientRect();
+      if (sr.left + sr.width / 2 > tr.left + tr.width / 2) { m.style.left = "auto"; m.style.right = Math.max(8, Math.round(tr.right - sr.right)) + "px"; }
+      else { m.style.right = "auto"; m.style.left = Math.max(8, Math.round(sr.left - tr.left)) + "px"; }
+    }
   }
   /* Trip settings: sharing this trip, view-only, with family */
   W.shareBlock = function () {

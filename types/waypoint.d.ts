@@ -1,7 +1,7 @@
 /* Waypoint: the shapes that travel between files. Hand-written; checked against the sources by tsc (checkJs, noEmit) in
    test/suites/types.js. W is one shared object every file adds to; everything typed `any` below has not been described yet. */
 
-type LatLng = { lat: number | null; lng: number | null; [k: string]: any };
+type LatLng = { lat: number | null; lng: number | null; g?: [number, number] | null; pinAsked?: 1; [k: string]: any };
 type Slot = "breakfast" | "am" | "lunch" | "pm" | "dinner" | "eve";
 type View = "setup" | "trip" | "book" | "go" | "recap" | "settings" | "kids" | "explore";
 type Focus = "icons" | "both" | "gems";
@@ -64,7 +64,7 @@ interface PackItem { key: string; text: string; who?: string; why?: string; own?
 interface PackLists { pack: PackItem[]; todo: PackItem[]; facts: Record<string, any>; hidden?: number }
 interface Photo { url: string; credit?: string; page?: string; near?: string | boolean }
 /** a checked place record (places/<city> in the database) */
-interface PlaceRecord extends Partial<LatLng> { checked?: string; osm?: string; name?: string; st?: Spot["st"]; site?: string; hours?: Hours; k?: Kid; note?: string; place?: string; replace?: Partial<Food & Spot> & { n: string }; approx?: 1; nopin?: 1; ashore?: 1; stay?: 1; pin_tried?: string }
+interface PlaceRecord extends Partial<LatLng> { checked?: string; osm?: string; name?: string; st?: Spot["st"]; site?: string; hours?: Hours; k?: Kid; note?: string; place?: string; replace?: Partial<Food & Spot> & { n: string }; approx?: 1; nopin?: 1; ashore?: 1; stay?: 1; pin_tried?: string; area?: 1; was?: [number, number] }
 interface OfflineState { state: string; n: number; total: number; at: number; maps: any[]; err: string; off: boolean; copy: boolean; trip: any; copyState: string; copyErr: string; why: string; save(P: Plan, why?: string): void; tick(P: Plan): void; src(url: string): string; block(P: Plan): string; takeBlock(P: Plan): string; exportCopy(P: Plan): Promise<void>; click(d: DOMStringMap, P: Plan): boolean; [k: string]: any }
 interface ReadOnly { code: string; [k: string]: any }
 interface Milestone { key: string; title: string; text: string; also?: string[]; go?: View }
@@ -79,6 +79,7 @@ interface Validators { stats: { dropped: number; cleared: number; farPins: numbe
 
 /** the shared object every file adds to */
 interface Waypoint {
+  loadPins: (country: string, city: string, names: string[]) => void;
   $: (id: string) => HTMLElement | null;
   C: Cache;
   FOCUS: Record<Focus, string>;
@@ -388,6 +389,7 @@ interface Waypoint {
   viewSwitch: any;
   vt: any;
   vtActive: any;
+  pinGroups: <T>(pts: T[], project: (p: T) => { x: number; y: number }, minPx?: number) => { x: number; y: number; items: T[] }[];
   vtFor: any;
   vtLoadTest: any;
   vtMount: any;

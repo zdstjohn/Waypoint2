@@ -395,7 +395,7 @@
     return '<nav class="staybar" aria-label="Your stays, in order">' + P.stops.map(function (s, si) {
       var r = rangeOf(P, si), n = s.days;
       return '<button type="button" class="sb-seg' + (si === 0 ? " on" : "") + (si === cur ? " now" : "") + '" data-staygo="' + si + '" style="flex-grow:' + n + '"' + (si === 0 ? ' aria-current="true"' : "") +
-        ' aria-label="' + esc(s.name + ", " + n + " night" + (n === 1 ? "" : "s") + (r ? ", " + r : "")) + '"><b>' + esc(s.name) + "</b><span>" + esc(r || n + " night" + (n === 1 ? "" : "s")) + "</span></button>";
+        ' aria-label="' + esc(s.name + ", " + n + " night" + (n === 1 ? "" : "s") + (r ? ", " + r : "")) + '" title="' + esc(s.name + (r ? " · " + r : "")) + '"><b>' + esc(s.name) + "</b><span>" + esc(r || n + " night" + (n === 1 ? "" : "s")) + "</span></button>";
     }).join("") + "</nav>";
   };
   /* which stay is under the bar while you scroll; tapping a stay scrolls to it */
