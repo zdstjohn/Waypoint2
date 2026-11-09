@@ -25,12 +25,29 @@
    vitals    a mid-range phone (4x slower CPU, slow 4G): first paint, largest paint, layout shift, and every common tap under 200 ms
    warm      names used everywhere, the banner's greeting and sky, postcards, milestones, the kids' view, readiness,
              moods and the highlight reel, a year later
-   visual    screenshots against test/base (only with --shots; --update-baseline rewrites the baseline) */
+   nope      "Not for us" and the day bag (with the screen kept on)
+   storage   Settings > Storage: unused files found, shown, deleted only on confirmation, never anything in use
+   visual    screenshots against test/base (only with --shots; --update-baseline rewrites the baseline). Changes to the
+             screens listed in test/screens-expected.txt are expected (--expect, or SCREENS_EXPECT=<file> as GitHub sets
+             it when the commit changed that file); any other changed screen fails
+   --shard=k/n  one of n groups of suites balanced by time (GitHub runs three side by side) */
 const { spawn, spawnSync } = require('child_process'); const fs = require('fs'); const path = require('path');
 const ROOT = path.resolve(__dirname, '..'); const OUT = path.join(__dirname, 'out'); fs.mkdirSync(OUT, { recursive: true });
 const args = process.argv.slice(2); const flags = new Set(args.filter(a => a.startsWith('--'))); const pick = args.filter(a => !a.startsWith('--'));
-const ALL = ['smoke', 'layout', 'planner', 'shape', 'flow', 'bookings', 'travel', 'tickets', 'holidays', 'firstview', 'together', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'fuzz', 'vitals', 'desktop', 'explore'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
-const suites = pick.length ? pick : ALL;
+const ALL = ['smoke', 'layout', 'planner', 'shape', 'flow', 'bookings', 'travel', 'tickets', 'holidays', 'firstview', 'together', 'nope', 'storage', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'fuzz', 'vitals', 'desktop', 'explore'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
+let suites = pick.length ? pick : ALL;
+/* --shard=k/n runs one of n groups, balanced by how long each suite takes (seconds, from the online runs; a suite not
+   listed counts as 15): GitHub runs the three groups side by side. Every suite lands in exactly one group. */
+const SECS = { smoke: 110, layout: 183, desktop: 166, a11y: 71, flow: 44, together: 37, fuzz: 30, firstview: 23, travel: 22, shape: 21, nope: 20,
+  warm: 19, vitals: 19, planner: 17, bookings: 17, packing: 16, storage: 15, offline: 15, explore: 14, perf: 14, sync: 12, places: 11, tickets: 10,
+  focus: 9, holidays: 7, photos: 7, types: 4, validate: 2, judge: 1 };
+const shard = [...flags].map(f => /^--shard=(\d+)\/(\d+)$/.exec(f)).find(Boolean);
+if (shard) {
+  const k = +shard[1], n = +shard[2], bins = Array.from({ length: n }, () => ({ t: 0, s: new Set() }));
+  [...suites].sort((a, b) => (SECS[b] || 15) - (SECS[a] || 15) || (a < b ? -1 : 1)).forEach(s => { const bin = bins.reduce((m, x) => x.t < m.t ? x : m); bin.s.add(s); bin.t += SECS[s] || 15; });
+  suites = suites.filter(s => bins[k - 1].s.has(s));
+  console.log(`shard ${k}/${n}: ${suites.join(', ')} (about ${Math.round(bins[k - 1].t / 60)} min)`);
+}
 
 async function serverUp() {
   const http = require('http');

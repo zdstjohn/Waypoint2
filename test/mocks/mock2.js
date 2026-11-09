@@ -106,7 +106,7 @@
     onSnapshot: (next) => { let last = '\u0000'; let on = true; const poll = () => { if (!on) return; op('get', path).then(b => { const s = JSON.stringify(b); if (s !== last) { last = s; next(snapDoc(path.split('/').pop(), b)); } }).finally(() => setTimeout(poll, 400)); }; poll(); return () => { on = false; }; }
   });
   const colRef = (path) => (checked(path, false), {
-    path, doc: (id) => docRef(path + '/' + (id || Math.random().toString(36).slice(2))),
+    path, doc: (id) => docRef(path + '/' + (id || Math.random().toString(36).slice(2))), limit: () => colRef(path),
     get: () => op('list', path).then(list0 => { const list = Array.isArray(list0) ? list0 : []; return ({ docs: list.map(x => snapDoc(x.id, x.body)), size: list.length, empty: !list.length, metadata: { fromCache: false } }); }),
     onSnapshot: (next) => {
       let last = null, prev = {}; let on = true;
@@ -154,7 +154,12 @@
     throw { code: 'not_in_manifest' };
   } };
   window.__assets = []; window.__composer = [];
-  const assets = { upload: async (blob) => { await new Promise(r => setTimeout(r, 60)); const id = 'a' + (window.__assets.length + 1) + 'f0e1d2c3b4a5968778695a4b3c2d1e0f'.slice(0, 30); window.__assets.push({ id, size: blob.size, type: blob.type }); return { id, url: '/_blob/' + id }; } };
+  /* stored files for the Storage card: window.__assetList = [{id, url, contentType, sizeBytes, createdAt}] */
+  const assetsMore = {
+    list: async () => { const l = (window.__assetList || []).slice(); return { assets: l, usage: { files: l.length, bytes: l.reduce((a, x) => a + (x.sizeBytes || 0), 0), maxFiles: 5000, maxBytes: 1073741824 } }; },
+    delete: async (id) => { const l = window.__assetList || [], i = l.findIndex(a => a.id === id); if (i < 0) return { deleted: false }; l.splice(i, 1); (window.__deleted = window.__deleted || []).push(id); return { deleted: true }; }
+  };
+  const assets = { list: (...a) => assetsMore.list(...a), delete: (...a) => assetsMore.delete(...a), upload: async (blob) => { await new Promise(r => setTimeout(r, 60)); const id = 'a' + (window.__assets.length + 1) + 'f0e1d2c3b4a5968778695a4b3c2d1e0f'.slice(0, 30); window.__assets.push({ id, size: blob.size, type: blob.type }); return { id, url: '/_blob/' + id }; } };
   const comments = { openComposer: async (o) => { window.__composer.push(o.element && (o.element.className || o.element.tagName)); return { status: 'opened' }; } };
   window.__dl = null;
   const downloads = { save: async ({ filename, data }) => { window.__dl = { filename, size: data.size || data.length }; return { status: 'saved' }; } };

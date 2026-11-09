@@ -1,6 +1,8 @@
-# Every push and pull request: build the bundle, check the types, run every test suite against the mocked runtime.
-# Alongside, "screens" photographs every screen before (the previous commit) and after this one and lists what changed
-# on screen in the run's summary, with before | after | difference images to download; it reports, it never blocks.
+# Every push and pull request: build the bundle, check the types, run every test suite against the mocked runtime, in
+# three groups side by side (test/run.js --shard balances them by time; every suite is in exactly one).
+# Alongside, "screens" photographs every screen before (the previous commit) and after this one. A commit that means to
+# change some screens lists them in test/screens-expected.txt (only read when the commit changed that file); a changed
+# screen not on the list fails the check. The run's summary lists both, with before | after | difference images.
 name: tests
 on:
   push: { branches: [main] }
@@ -8,7 +10,11 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: { shard: [1, 2, 3] }
+    name: test (${{ matrix.shard }}/3)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,14 +25,16 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run build
-      - run: npm test
+      - run: node test/run.js --shard=${{ matrix.shard }}/3
       - uses: actions/upload-artifact@v4
         if: failure()
-        with: { name: failure-screenshots, path: test/out, if-no-files-found: ignore }
+        with:
+          name: failure-screenshots-${{ matrix.shard }}
+          path: test/out
+          if-no-files-found: ignore
   screens:
     runs-on: ubuntu-latest
     timeout-minutes: 40
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 2 }
@@ -37,17 +45,18 @@ jobs:
       - run: pip install pillow
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Screens before (the previous commit)
+      - name: Screens before (the previous commit's app, photographed by this commit's script)
         run: |
           git worktree add ../before HEAD~1
           ln -s "$GITHUB_WORKSPACE/node_modules" ../before/node_modules
           cd ../before && node build/bundle.js
           (python3 csp_server.py 8771 self > /dev/null 2>&1 &) ; sleep 2
-          node test/shots.js "$GITHUB_WORKSPACE/test/base"
+          node "$GITHUB_WORKSPACE/test/shots.js" "$GITHUB_WORKSPACE/test/base"
           pkill -f "csp_server.py 8771" || true
-      - name: Screens after, compared
-        continue-on-error: true   # a changed screen is listed in the summary, not a failure: it may be intended
-        run: npm run build && node test/run.js visual
+      - name: Screens after, compared (a changed screen this commit didn't list fails)
+        run: |
+          if git diff --quiet HEAD~1 HEAD -- test/screens-expected.txt; then export SCREENS_EXPECT=""; else export SCREENS_EXPECT=test/screens-expected.txt; fi
+          npm run build && node test/run.js visual
       - if: always()
         run: cat test/out/visual/summary.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "No summary." >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4

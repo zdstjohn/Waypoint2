@@ -7,6 +7,9 @@ const SCREENS = require('./lib/screens');
   const b = await launch();
   for (const [tag, scale, dark, width] of [['n', 1, false, 360], ['big', 1.3, false, 360], ['dark', 1, true, 360], ['wide', 1, false, 900], ['desk', 1, false, 1440]]) {
     const { pg, ctx } = await open(b, { width, dark, scale: 1, touch: width < 1000 ? undefined : false }); await exampleTrip(pg);
+    /* the planner keeps the picks it made first, and what it knew then depends on which answers had come in: plan again
+       once everything has, so the pictures depend only on the code and the data, never on timing */
+    await settle(pg); await pg.evaluate(() => { W.resetPicks(); W.replan(); W.render(); }); await settle(pg);
     if (scale !== 1) await pg.addStyleTag({ content: `html{font-size:${scale * 100}% !important}` });
     for (const sc of SCREENS) {
       await pg.keyboard.press('Escape').catch(() => {});

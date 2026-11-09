@@ -1,18 +1,18 @@
-/* Waypoint build: the source scripts become two minified files, and app.css becomes app.min.css. app.js holds what the
-   first screen needs; app2.js (LATER: packing, the Prepare screen, the booking autopilot, place search, family, journal,
+/* Waypoint build: the source scripts become two minified files, and app.css becomes app.min.css and app2.css. app.js holds what the
+   first screen needs; app2.js (LATER: Plan, drawing the street map, packing, the Prepare screen, the booking autopilot, place search, family, journal, the day bag,
    kids' corner, settings) is fetched by lib/later.js once
    the first screen is up. Sources stay where they are (lib/, screens/, data/); the order below is the dependency order.
-     node build/bundle.js            -> trip/app.js, trip/app.min.css (+ app.js.map, kept local)
+     node build/bundle.js            -> trip/app.js, trip/app2.js, trip/app.min.css, trip/app2.css (+ .map files, kept local)
      node build/bundle.js --check    -> only report sizes */
 const esbuild = require('esbuild'); const fs = require('fs'); const path = require('path');
 const TRIP = path.resolve(__dirname, '..', 'trip');
 const ORDER = [
   'data/data1.js', 'data/data2.js',
-  'lib/validate.js', 'lib/core.js', 'lib/errlog.js', 'lib/later.js', 'lib/classify.js', 'lib/photos.js', 'lib/places.js', 'lib/fx.js', 'lib/vtmap.js', 'lib/offline.js', 'lib/times.js', 'lib/holidays.js', 'lib/shape.js', 'lib/plan.js', 'lib/packing.js', 'lib/warm.js',
+  'lib/validate.js', 'lib/core.js', 'lib/errlog.js', 'lib/later.js', 'lib/classify.js', 'lib/photos.js', 'lib/places.js', 'lib/fx.js', 'lib/vtindex.js', 'lib/vtmap.js', 'lib/offline.js', 'lib/times.js', 'lib/holidays.js', 'lib/shape.js', 'lib/plan.js', 'lib/packing.js', 'lib/warm.js',
   'screens/setup.js', 'lib/sync.js', 'lib/bookcore.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/route.js', 'lib/import.js', 'lib/prices.js', 'lib/watch.js', 'lib/search.js',
-  'screens/today.js', 'screens/family.js', 'screens/journal.js', 'screens/kids.js', 'screens/travel.js', 'screens/flow.js', 'screens/settings.js', 'screens/trip.js'
+  'screens/today.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/travel.js', 'screens/flow.js', 'screens/settings.js', 'screens/trip.js'
 ];
-const LATER = ['lib/packing.js', 'lib/prices.js', 'lib/watch.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/search.js', 'screens/family.js', 'screens/journal.js', 'screens/kids.js', 'screens/settings.js'];
+const LATER = ['screens/setup.js', 'lib/vtmap.js', 'lib/packing.js', 'lib/prices.js', 'lib/watch.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/search.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/settings.js'];
 module.exports.ORDER = ORDER; module.exports.LATER = LATER;
 
 async function build() {
@@ -30,10 +30,45 @@ async function build() {
   fs.writeFileSync(path.join(TRIP, 'app.js.map'), js.map);
   fs.writeFileSync(path.join(TRIP, 'app2.js'), js2.code + '\n//# sourceMappingURL=app2.js.map\n');
   fs.writeFileSync(path.join(TRIP, 'app2.js.map'), js2.map);
-  const css = await esbuild.transform(fs.readFileSync(path.join(TRIP, 'app.css'), 'utf8'), { loader: 'css', minify: true });   /* ASCII only: a stylesheet served without a charset would garble · and → */
+  /* the stylesheet in two: app2.css carries what only the second script's screens use (see splitCss) */
+  const first = ORDER.filter(f => !LATER.includes(f)).map(f => fs.readFileSync(path.join(TRIP, f), 'utf8')).join('\n') + fs.readFileSync(path.join(TRIP, 'index.html'), 'utf8');
+  const parts = splitCss(fs.readFileSync(path.join(TRIP, 'app.css'), 'utf8'), first);
+  const css = await esbuild.transform(parts.first, { loader: 'css', minify: true });   /* ASCII only: a stylesheet served without a charset would garble · and → */
+  const css2 = await esbuild.transform(parts.later, { loader: 'css', minify: true });
   fs.writeFileSync(path.join(TRIP, 'app.min.css'), css.code);
+  fs.writeFileSync(path.join(TRIP, 'app2.css'), css2.code);
   const kb = n => (n / 1024).toFixed(0) + ' KB';
-  console.log(`app.js ${kb(src.length)} -> ${kb(js.code.length)} (+ app2.js ${kb(js2.code.length)} after the first screen); app.min.css ${kb(fs.statSync(path.join(TRIP, 'app.css')).size)} -> ${kb(css.code.length)}`);
+  console.log(`app.js ${kb(src.length)} -> ${kb(js.code.length)} (+ app2.js ${kb(js2.code.length)} after the first screen); app.min.css ${kb(fs.statSync(path.join(TRIP, 'app.css')).size)} -> ${kb(css.code.length)} (+ app2.css ${kb(css2.code.length)}, ${parts.moved} rules)`);
 }
+/* The second script's screens (Plan, Prepare and packing, the journal and recap, settings, the kids' corner) have their
+   own sections of app.css. A rule in one of those sections moves to app2.css, which comes with app2.js, only when none
+   of its class names appears in the first script's code or index.html: whatever the first screen draws keeps its
+   style in app.min.css. Rules keep their order; @media blocks are split rule by rule; @keyframes, @font-face and other
+   at-rules stay. */
+const LATER_CSS = [/^Setup\b/, /^Bookings\b/, /^journal, recap/, /^Trip settings\b/, /^pack and prepare\b/, /^prepare: segments\b/, /^the kids' corner\b/, /^Settings: stored files\b/];
+function splitCss(text, firstSrc) {
+  const used = new Set(firstSrc.match(/[A-Za-z][\w-]*/g));
+  let first = '', later = '', moved = 0, section = '', i = 0;
+  const heading = c => { const m = /^\/\*\s*(?:=+|-+)\s*(.*?)\s*(?:=+|-+)\s*\*\/$/.exec(c); return m ? m[1] : null; };
+  const goes = sel => { if (!LATER_CSS.some(r => r.test(section))) return false; const cs = sel.match(/\.([A-Za-z][\w-]*)/g); return !!cs && cs.every(c => !used.has(c.slice(1))); };
+  const block = (s, at) => { let d = 0; for (let j = at; j < s.length; j++) { if (s[j] === '{') d++; else if (s[j] === '}' && --d === 0) return j; } throw new Error('unbalanced braces in app.css'); };
+  while (i < text.length) {
+    if (/\s/.test(text[i])) { first += text[i++]; continue; }
+    if (text.startsWith('/*', i)) { const e = text.indexOf('*/', i) + 2; const c = text.slice(i, e), h = heading(c); if (h != null) section = h; first += c; i = e; continue; }
+    const open = text.indexOf('{', i), semi = text.indexOf(';', i);
+    if (text[i] === '@' && semi > -1 && (open < 0 || semi < open)) { first += text.slice(i, semi + 1); i = semi + 1; continue; }
+    const close = block(text, open), head = text.slice(i, open), body = text.slice(open + 1, close);
+    if (/^@media\b/.test(head.trim())) {
+      /* split the rules inside */
+      let a = '', b = ''; const re = /([^{}]+)\{([^{}]*)\}/g; let m;
+      while ((m = re.exec(body))) { if (goes(m[1])) { b += m[0]; moved++; } else a += m[0]; }
+      if (a.trim()) first += head + '{' + a + '}'; if (b.trim()) later += head + '{' + b + '}\n';
+    } else if (head.trim()[0] !== '@' && goes(head)) { later += head.trim() + '{' + body + '}\n'; moved++; }
+    else first += text.slice(i, close + 1);
+    i = close + 1;
+  }
+  return { first, later, moved };
+}
+module.exports.splitCss = splitCss;
 if (require.main === module) build().catch(e => { console.error(e.message); process.exit(1); });
 module.exports.build = build;

@@ -14,7 +14,8 @@
     book: svg('<path d="M3 6.5a1.5 1.5 0 0 0 0 3v4A1.5 1.5 0 0 0 4.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-4a1.5 1.5 0 0 1 0-3v0A1.5 1.5 0 0 0 15.5 5h-11A1.5 1.5 0 0 0 3 6.5z"/><path d="M12 5v10" stroke-dasharray="1.5 2"/>'),
     list: svg('<path d="M7 5.5h10M7 10h10M7 14.5h10"/><path d="M3 5.5h.01M3 10h.01M3 14.5h.01" stroke-width="2.6"/>'),
     order: svg('<path d="M6 3.5v13M3 6.5l3-3 3 3M14 16.5v-13M11 13.5l3 3 3-3"/>'),
-    free: svg('<circle cx="10" cy="10" r="7"/><path d="M6.5 13.5l7-7"/>')
+    free: svg('<circle cx="10" cy="10" r="7"/><path d="M6.5 13.5l7-7"/>'),
+    no: svg('<path d="M13.5 11.5V3.5M13.5 11.5l-3 5.2a1.6 1.6 0 0 1-2-1.5v-2.7H4.6a1.7 1.7 0 0 1-1.7-1.9l.9-5.6a1.8 1.8 0 0 1 1.8-1.5h7.9"/><path d="M13.5 3.5h3v8h-3"/>')
   };
   var CHEVL = '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>';
   var XI = '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
@@ -158,7 +159,7 @@
     legpick: "Changed how you travel", sheetmove: "Moved a stop", sheetremove: "Removed a stop", style: "Changed the trip style", cdays: "Changed the days", late: "Moved today's plan",
     jdel: "Removed a photo", rmbk: "Removed a booking", watch: "Watching the price", unwatch: "Stopped watching", heart: "",
     pick: "Changed the places", addcity: "Added a place", up: "Changed the order", pace: "Changed the pace", paceall: "Changed the pace", mode: "Changed how places are picked",
-    delta: "Changed the days", resetdays: "Reset the days", setstay: "Changed where you stay", lstay: "Changed where you stay", addbk: "Added a booking", age: "Changed a traveler" };
+    delta: "Changed the days", resetdays: "Reset the days", nope: "We won't suggest it again", unnope: "Brought it back", setstay: "Changed where you stay", lstay: "Changed where you stay", addbk: "Added a booking", age: "Changed a traveler" };
   var IDS = { addAdult: "Added a traveler", addChild: "Added a traveler", daysMinus: "Changed the days", daysPlus: "Changed the days", addCountry: "Added a country" };
   function labelFor(b) {
     var d = b.dataset;
@@ -235,7 +236,8 @@
         (!W.canEdit() ? "" : '<button type="button" class="sh-act" data-sheetact="swap"><span class="ic">' + IC.swap + "</span>Swap</button>" +
         '<button type="button" class="sh-act" data-sheetact="move"><span class="ic">' + IC.move + "</span>Move to another day</button>" +
         '<button type="button" class="sh-act" data-sheetact="reorder"><span class="ic">' + IC.order + "</span>Reorder today</button>" +
-        '<button type="button" class="sh-act danger" data-sheetact="remove"><span class="ic">' + IC.free + "</span>Leave free</button>") +
+        '<button type="button" class="sh-act danger" data-sheetact="remove"><span class="ic">' + IC.free + "</span>Leave free</button>" +
+        '<button type="button" class="sh-act danger" data-sheetact="nope"><span class="ic">' + IC.no + "</span>Not for us</button>") +
         "</div>" + (!W.canEdit() ? "" : '<p class="small muted sh-tip">Tip: press and hold a photo to swap two stops.</p>');
     }
     host.innerHTML = h + "</div>";
@@ -252,6 +254,12 @@
     if (a === "swap") { sheet = null; drawSheet(); dayList(function () { var r = document.querySelector('[data-reroll="' + x.slot + '"]'); if (r) r.click(); }); return; }
     if (a === "move") { sheet.mode = "move"; return drawSheet(); }
     if (a === "reorder") { var lk = sheet.key; sheet = null; drawSheet(); dayList(function () { startLift(lk); }); return; }
+    if (a === "nope") {
+      /* never this place again in this city: the slot gets a new suggestion */
+      var b4 = snap(), pc = x.trip && day.trip ? [day.trip.country, day.trip.name] : [day.country, day.city];
+      W.sayNo(pc[0], pc[1], x.item, P);
+      sheet = null; drawSheet(); W.undoPoint(b4, "We won't suggest it again"); W.save(); W.changed(); return;
+    }
     if (a === "remove") {
       var before = snap();
       (S.free || (S.free = {}))[x.key] = 1; delete S.picks[x.key]; if (S.mine) delete S.mine[x.key];

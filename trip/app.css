@@ -506,10 +506,8 @@ html.modal-open,html.modal-open body{overflow:hidden}
 .dn-b svg{width:16px;height:16px;flex:none;color:var(--muted)}
 @media (hover:hover){.dn-b:hover{border-color:var(--muted)}}
 .dn-b:active{transform:scale(.98)}
-/* all days at a glance */
-.daybar .gl-btn{flex:none}
-.daybar .gl-btn[aria-expanded="true"]{background:var(--ink);color:var(--bg)}
-@media (max-width:560px){.daybar > .gl-btn{display:inline-grid}}
+
+
 .glance{display:grid;margin:10px 0 2px;padding:4px;max-height:min(62vh,560px);overflow:auto;overscroll-behavior:contain}
 .g-day{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"t e" "m e";column-gap:12px;row-gap:1px;align-items:center;text-align:left;border:0;border-top:var(--hair);background:transparent;padding:9px 10px;cursor:pointer;color:var(--fg);font:inherit;border-radius:0}
 .g-day:first-child{border-top:0}
@@ -541,8 +539,15 @@ html.modal-open,html.modal-open body{overflow:hidden}
 .scard{display:grid;gap:3px;align-content:start;text-align:left;border:var(--hair);border-radius:12px;background:var(--surface);padding:0 0 9px;overflow:hidden;cursor:pointer;color:var(--fg);font:inherit;min-width:0}
 .scard .sc-pic{position:relative;display:block;aspect-ratio:4/3;background:var(--soft);margin-bottom:4px}
 .scard .sc-pic .pic{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.scard .sc-none{display:flex;align-items:center;justify-content:center;background:var(--sunk);color:var(--muted)}.scard .sc-none svg{width:28px;height:28px;opacity:.7}
+.scard .sc-none span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .scard .nm{font-weight:800;font-size:14px;line-height:1.22;padding:0 8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.scard .info{font-size:12px;color:var(--muted);font-weight:700;padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* (large text on a phone: the distance wraps to a second line rather than being cut to "400 m awa…") */
+.scard .info{font-size:12px;color:var(--muted);font-weight:700;padding:0 8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* the journal's way to Today, at the bottom of a day on Trip */
+.j-go{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin:14px 0 4px;padding:12px 16px;border:var(--hair);border-radius:14px;background:var(--surface);color:var(--fg);font:inherit;font-size:15px;cursor:pointer;text-align:left}
+.j-go .small{font-weight:600}
+@media (hover:hover){.j-go:hover{border-color:var(--muted)}}
 @media (hover:hover){.scard:hover{border-color:var(--muted)}}
 .scard:active{transform:scale(.98)}
 .swapcards + .opts{margin-top:2px}
@@ -569,10 +574,8 @@ html.lifting .slots .slot:not(.lifted):not(.droppable){opacity:.45}
 html.lifting #undohost{display:none}
 .day-h .sub .energy{display:inline-flex;align-items:center;gap:5px;font-weight:700;vertical-align:-1px}
 .day-h .sub .energy .bars{margin-right:0}
-.daybar .st-btn{flex:none}
-@media (max-width:560px){.daybar > .st-btn,.daybar > .mp-btn{display:inline-grid}}
-.daybar .mp-btn{flex:none}
-.daybar .mp-btn[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+
+
 .day-end{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px;margin-top:6px}
 .de-i{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--sunk);color:var(--muted)}
 .de-i svg{width:19px;height:19px}
@@ -714,7 +717,7 @@ a.menu-btn{font-weight:800;color:var(--accent)}
 .sd .meta{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13.5px;color:var(--muted)}
 .sd .rev{display:grid;gap:4px;font-size:14px}
 .sheet .sh-acts{margin-top:2px}
-.sd-cap{font-style:italic}
+
 
 /* ==================== the storybook view ==================== */
 .ttop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px;flex-wrap:wrap}
@@ -1056,7 +1059,7 @@ table.budget tfoot th,table.budget tfoot td{border-top:2px solid var(--ink);font
 .chk.flash{animation:flash 1.8s ease-out}
 .day-end .chip-a.pri{background:var(--accent-soft);border-color:transparent}
 .set-c .sites{margin:0}
-.bk-more{padding:0 4px}
+
 
 /* ==================== Today: the Travel-mode screen ==================== */
 .today{padding:12px 16px;display:grid;gap:6px}
@@ -1185,16 +1188,15 @@ button.tl-b{cursor:pointer}
 /* ==================== Trip settings: sharing, calendar and PDF, booking sites, price watches, import a plan ==================== */
 .share{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;border-top:var(--hair);padding-top:12px}
 .field.code{flex:0 1 170px;min-width:120px;font-weight:800;letter-spacing:.16em;text-transform:lowercase}
-.ro-banner{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;padding:12px 16px}
-.ro-banner > div{flex:1;min-width:200px}
-.ro-banner::before{background:var(--accent-soft)}
+
+
+
 .import-row{display:flex;justify-content:flex-end;margin:-6px 2px 10px;font-size:14.5px}
 .import{padding:16px 18px;display:grid;gap:12px;margin-bottom:16px}
 .import textarea{width:100%;resize:vertical;min-height:150px;font:15px/1.45 var(--f-body)}
 .import .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 @media (max-width:560px){.import-row{justify-content:flex-start}}
-.ro-r{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.ro-r .tm-sw{margin-left:0}
+
 .tm-set{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:11px 12px;border-radius:12px;background:var(--sunk);border:0;color:inherit;font:inherit;cursor:pointer}
 .tm-set svg{width:22px;height:22px;flex:none;color:var(--muted)}
 .tm-set > span{display:grid;gap:1px;min-width:0}
@@ -1408,13 +1410,13 @@ html.offline .brand::after{content:"Offline";position:absolute;right:-6px;top:-8
 .pc-k{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--note-text)}
 .pc-b h3{font:400 20px/1.15 var(--f-display);margin:0}
 .pc-b p{margin:0;font-size:14.5px;line-height:1.45;color:var(--muted)}
-.pc-about b{color:var(--fg)}
+
 .pc-a{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-top:4px}
 /* compact on a phone: the photo sits to the left, the words keep to a few lines, so the day itself stays in view */
 .postcard.haspic{grid-template-columns:112px minmax(0,1fr)}
 .postcard.haspic .pc-pic{aspect-ratio:auto;min-height:100%;border-radius:18px 0 0 18px}
 .pc-b > p{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden}
-.pc-b > p.pc-about{-webkit-line-clamp:2}
+
 .postcard.haspic .pc-b{gap:4px;padding:12px 14px}
 .postcard.haspic .pc-b h3{font-size:18px;overflow-wrap:anywhere}
 .postcard.haspic .pc-a .chip{font-size:13.5px;padding:5px 10px}
@@ -1586,3 +1588,53 @@ html.offline .brand::after{content:"Offline";position:absolute;right:-6px;top:-8
 a.vt-pin{text-decoration:none;cursor:pointer}
 .map-wait{position:absolute;inset:0;display:grid;place-items:center;margin:0}
 @media (max-width:560px){.psearch,.freetime{padding:12px}.ps-row .btn{padding-inline:14px}}
+
+/* ==================== "Not for us": a thumbs-down beside each idea (swap cards, the longer list, Explore), and the list of places you said no to ==================== */
+.scard-w{position:relative;display:grid;min-width:0}
+.scard-w .scard{height:100%}
+.sc-no{position:absolute;top:5px;right:5px;width:32px;height:32px;border-radius:50%;border:0;padding:0;background:rgba(18,18,28,.58);color:#fff;display:grid;place-items:center;cursor:pointer}
+.sc-no svg{width:16px;height:16px}
+@media (hover:hover){.sc-no:hover{background:rgba(18,18,28,.82)}}
+.opt-w{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;border-top:var(--hair)}
+.opt-w:first-child{border-top:0}
+.opt-w .opt{border-top:0}
+.op-no{width:40px;height:40px;margin-right:4px;border:0;border-radius:10px;padding:0;background:transparent;color:var(--muted);display:grid;place-items:center;cursor:pointer}
+.op-no svg{width:18px;height:18px}
+@media (hover:hover){.op-no:hover{background:var(--sunk);color:var(--fg)}}
+.swap-hl{display:flex;align-items:center;gap:6px 16px;flex-wrap:wrap}
+.sw-no{display:inline-flex;align-items:center;gap:5px;color:var(--muted);font-size:14px;min-height:32px}
+.sw-no svg{width:16px;height:16px}
+.idea-meta .id-no{color:var(--muted);font-weight:800}
+.nope-l{margin-top:14px;border-top:var(--hair);padding-top:10px}
+.nope-l summary{cursor:pointer;font-weight:800;min-height:32px;display:flex;align-items:center;gap:6px}
+.nope-l ul{list-style:none;margin:6px 0;padding:0;display:grid;gap:4px}
+.nope-l li{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:36px}
+
+/* ==================== Today: the day bag ==================== */
+.go-bag{padding:14px 16px;display:grid;gap:8px}
+.gb-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.gb-h h3{font:400 18px/1.2 var(--f-display)}
+.gb-l{list-style:none;margin:0;padding:0;display:grid}
+.gb-l li + li{border-top:var(--hair)}
+.gb-i{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center;width:100%;text-align:left;border:0;background:transparent;padding:9px 0;font:inherit;color:var(--fg);cursor:pointer}
+.gb-i > span:last-child{display:grid;gap:1px;min-width:0}
+.gb-i b{font-size:15px;font-weight:800;line-height:1.3}
+.gb-i .box{width:24px;height:24px;border-radius:7px;border:2px solid var(--muted);display:grid;place-items:center;color:#fff;transition:background-color .15s,border-color .15s}
+.gb-i .box svg{width:15px;height:15px}
+.gb-i.on .box{background:var(--accent);border-color:var(--accent)}
+.gb-i.on b{color:var(--muted);text-decoration:line-through;text-decoration-thickness:1.5px}
+.gb-i:disabled{cursor:default;opacity:1}
+.gb-awake{display:grid;gap:4px;border-top:var(--hair);padding-top:10px}
+.gb-awake .tog{display:flex;align-items:center;gap:10px;border:0;background:transparent;padding:4px 0;font:700 14px/1.3 var(--f-body);color:var(--fg);cursor:pointer;text-align:left}
+.gb-awake .tg{width:36px;height:22px;border-radius:999px;background:var(--soft);position:relative;flex:none;transition:background-color .2s}
+.gb-awake .tg i{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s cubic-bezier(.2,.8,.2,1)}
+.gb-awake .tog[aria-checked="true"] .tg{background:var(--accent)}
+.gb-awake .tog[aria-checked="true"] .tg i{transform:translateX(14px)}
+
+/* ==================== Settings: stored files ==================== */
+.st-body{display:grid;gap:10px}
+.st-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:4px}
+.st-grid img{width:100%;height:auto;aspect-ratio:1;object-fit:cover;border-radius:6px;background:var(--sunk);display:block}
+.st-acts{display:flex;gap:8px;flex-wrap:wrap}
+.st-conf{display:grid;gap:8px;border:var(--hair);border-radius:12px;padding:12px;background:var(--sunk)}
+.btn.danger{background:var(--note-text);color:var(--surface);border-color:var(--note-text)}

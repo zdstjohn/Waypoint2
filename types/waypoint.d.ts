@@ -33,7 +33,7 @@ interface Country { name: string; mode: "manual" | "suggest"; picked: string[] }
 interface Stay { label: string; lat?: number | null; lng?: number | null; live?: { total: number; cur: string; url: string; at: number; in: string; out: string; src: string } }
 /** the trip, as saved (localStorage "waypoint-v2" and the account) */
 interface TripState { v: 2; algo?: number; tripId?: string; tripName?: string; styles: string[]; focus?: Focus; countries: Country[]; days: number; start: string; depart: string; travelers: (number | "")[]; names?: string[];
-  stays: Record<string, Stay>; picks: Record<string, string>; seen: Record<string, string[]>; mine?: Record<string, 1>; free?: Record<string, 1>; rest?: Record<string, 1>; fold?: Record<string, unknown>; legPick?: Record<string, unknown>;
+  stays: Record<string, Stay>; picks: Record<string, string>; seen: Record<string, string[]>; mine?: Record<string, 1>; free?: Record<string, 1>; rest?: Record<string, 1>; fold?: Record<string, unknown>; legPick?: Record<string, unknown>; nope?: Record<string, string>; bag?: Record<string, Record<string, 1>>;
   cityDays: Record<string, number>; day: number; tview?: "days" | "map" | "story"; glanceOpen?: boolean; stepClosed?: Record<string, boolean>; prepTab?: string; transitOpen?: unknown; jetOpen?: unknown; nextHide?: unknown; tripFolded?: any; mapZoom?: number; late?: any;
   appMode?: string; appModeAt?: string; exF?: unknown; exSort?: unknown; pack?: Record<string, unknown>; packHide?: Record<string, 1>; packOwn?: PackItem[]; journal?: Record<string, { mood?: number; note?: string; photos?: { id: string; [k: string]: any }[] }>;
   kidPicks?: Record<string, string[]>; hunt?: Record<string, Record<string, 1>>; stamps?: Record<string, string>; celebrated?: Record<string, string>; warmSeen?: string; lodge?: Record<string, string>; lodgeSeen?: Record<string, string[]>;
@@ -272,6 +272,23 @@ interface Waypoint {
   coDescribe: (f: string, key: string, v: any) => string;
   coLogHtml: (list: { who: string; at: number; t: string }[], n?: number) => string;
   coTick: () => void;
+  /** open Today on a given day (screens/travel.js) */
+  goToDay: (n: number) => void;
+  nopeKey: (country: string, city: string, it: Spot | Food) => string;
+  isNope: (country: string, city: string, it: Spot | Food) => boolean;
+  nopeList: (country: string, city: string) => { k: string; n: string }[];
+  sayNo: (country: string, city: string, it: Spot | Food, P?: Plan) => void;
+  unNope: (k: string) => void;
+  dayBag: (day: Day, P: Plan) => { id: string; t: string; why: string }[];
+  dayBagCard: (day: Day, P: Plan, live: boolean) => string;
+  bagClick: (d: DOMStringMap) => boolean;
+  awakeOn: () => boolean;
+  awakeCan: () => boolean;
+  awakeRefused: () => boolean;
+  awakeTick: (live: boolean) => void;
+  /** the Settings screen's Storage card and its buttons (lib/storage.js) */
+  storageCard: (card: (title: string, sub: string, body: string, id?: string) => string) => string;
+  storageClick: (d: DOMStringMap) => boolean;
   /** asks Rome2Rio (your connector) for real journey times between two stops, on a tap */
   checkRoutes: (a: any, b: any) => void;
   r2rMsg: string;

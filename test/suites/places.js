@@ -45,6 +45,7 @@ exports.run = async t => {
   t.eq(stay.booked, [41.95, 12.3], 'a Booking.com pick keeps the hotel\'s own pin');
   t.ok(r.home === 'own' || (r.home[0] === 41.8986 && r.home[1] === 12.4769), `a checked city centre is the stay pin until you pick a place (${r.home})`);
   /* stops on (nearly) the same spot share one marker on the detailed map, numbers in a row, so none hides another */
+  await pg.evaluate(() => W.needLater()); await pg.waitForFunction(() => !!W.pinGroups, null, { timeout: 15000 });   /* map pins come with the second script */
   const g = await pg.evaluate(() => {
     const pts = [{ num: 1, lat: 35.36012, lng: 24.49616 }, { num: 2, lat: 35.36012, lng: 24.49616 }, { num: 3, lat: 35.37, lng: 24.47 }, { num: 4, lat: 35.36013, lng: 24.49617 }];
     const proj = p => ({ x: (p.lng - 24.4) * 20000, y: -(p.lat - 35.3) * 20000 });   /* about 2 px per 10 m */

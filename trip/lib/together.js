@@ -4,12 +4,12 @@
    time. Your app reads those lists, takes every change newer than the last one it took from that person (unless you
    changed the same thing after them), keeps a short log of who changed what, and the shared copy (shared/<code>)
    carries the result back to them. What can change: the stop in a slot (and that it was chosen by a person), a rest
-   day, a slot left free, and how you travel between two stops. Places to stay, dates, bookings and the route stay
+   day, a slot left free, how you travel between two stops, and the places someone said "not for us" to. Places to stay, dates, bookings and the route stay
    yours. Everything read from another person's list is checked before it is used. */
 (function () {
   "use strict";
   var W = window.W, S = W.S;
-  var ALLOW = ["picks", "mine", "rest", "free", "legPick"];
+  var ALLOW = ["picks", "mine", "rest", "free", "legPick", "nope"];
   var db = null, uid = null, touchedAt = 0;
   /* only what a person does counts as a change of theirs (the planner filling a new day on its own is not one) */
   ["click", "change", "input", "pointerup"].forEach(function (ev) { document.addEventListener(ev, function (e) { if (e.isTrusted !== false) touchedAt = Date.now(); }, true); });
@@ -28,7 +28,7 @@
   function safeKey(k) { return typeof k === "string" && k.length > 0 && k.length <= 200 && !/^(__proto__|constructor|prototype)$/.test(k) && !/[\u0000-\u001f]/.test(k); }
   function clean(f, v) {
     if (v === null) return null;
-    if (f === "picks" || f === "legPick") return typeof v === "string" && v.trim() ? v.slice(0, 160) : undefined;
+    if (f === "picks" || f === "legPick" || f === "nope") return typeof v === "string" && v.trim() ? v.slice(0, 160) : undefined;
     return v === 1 || v === true ? 1 : v === 0 || v === false ? null : undefined;
   }
   function snap(st) { var o = {}; ALLOW.forEach(function (f) { o[f] = clone(st[f] && typeof st[f] === "object" ? st[f] : {}); }); return o; }
@@ -55,6 +55,7 @@
     if (f === "picks") return v ? "chose " + v + " for " + where : "cleared " + where;
     if (f === "rest") return v ? "made " + where + " a rest day" : "made " + where + " a full day again";
     if (f === "free") return v ? "left " + where + " free" : "filled " + where + " again";
+    if (f === "nope") return v ? "said no to " + v : "brought back a place in " + (key.split("|")[1] || "a city");
     if (f === "legPick") { var ab = key.split(">").map(function (x) { return x.split("|")[1] || x; }); return "changed how to get from " + ab[0] + " to " + (ab[1] || "the next stop"); }
     return "";
   }

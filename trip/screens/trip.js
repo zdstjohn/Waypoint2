@@ -290,12 +290,20 @@
   var link = W.extLink;
 
   /* the three closest fits, as photo cards you can tap */
+  /* no photo yet: a plain outline icon (fork and knife, or a pin), never a drawing of the place, and no words that repeat the line below */
+  var SC_FOOD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M16 21V3c-2 1-3 4-3 7 0 1.5 1 2.5 3 2.5"/></svg>';
+  var SC_PIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-5.5-6-11a6 6 0 0 1 12 0c0 5.5-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>';
+  /* "Not for us": never plan or offer this place again in this city (lib/plan.js W.sayNo); a thumbs-down beside each idea */
+  var ICON_NO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 14V4M16 14l-3.6 6.2a1.9 1.9 0 0 1-2.4-1.8V15H5.6a2 2 0 0 1-2-2.3l1.1-6.8A2.2 2.2 0 0 1 6.9 4H16"/><path d="M16 4h3.4v10H16"/></svg>';
+  function noBtn(slot, name, cls) { return W.canEdit() ? '<button type="button" class="' + cls + '" data-nope="' + slot + '" data-name="' + esc(name) + '" aria-label="Not for us: ' + esc(name) + '" title="Not for us">' + ICON_NO + "</button>" : ""; }
   function swapCards(list, x, food, day, nm) {
     if (!list.length) return "";
     return '<div class="swapcards">' + list.map(function (o) {
       var it = o.it, ph = W.picture(it, food, day.country, day.city), info = [o.km != null ? W.fmtKm(o.km) + " away" : "", food ? it.cuisine || it.price : W.stayText(it, food, x.slot)].filter(Boolean).join(" · ");
-      return '<button type="button" class="scard" data-use="' + x.slot + '" data-name="' + esc(it.n) + '" aria-label="Use ' + esc(it.n) + " for " + nm + '">' +
-        (ph ? '<span class="sc-pic">' + ph + "</span>" : "") + "<span class=\"nm\">" + esc(it.n) + "</span>" + (info ? '<span class="info">' + esc(info) + "</span>" : "") + "</button>";
+      return '<div class="scard-w"><button type="button" class="scard" data-use="' + x.slot + '" data-name="' + esc(it.n) + '" aria-label="Use ' + esc(it.n) + " for " + nm + '">' +
+        /* no photo yet: the same space with a plain outline icon, so every card's name and distance line up (never a drawing) */
+        (ph ? '<span class="sc-pic">' + ph + "</span>" : '<span class="sc-pic sc-none" aria-hidden="true">' + (food ? SC_FOOD : SC_PIN) + "</span>") +
+        "<span class=\"nm\">" + esc(it.n) + "</span>" + (info ? '<span class="info">' + esc(info) + "</span>" : "") + "</button>" + noBtn(x.slot, it.n, "sc-no") + "</div>";
     }).join("") + "</div>";
   }
   /* swap a slot: the next suggestion, or pick from the best options for that time of day */
@@ -304,16 +312,31 @@
     var busy = W.cityBusy(ck), pool = W.pool(day.country, day.city);
     var nm = W.SLOT_NAME[x.slot].toLowerCase();
     return '<div class="swap sk" role="region" aria-label="Swap ' + nm + '"><div class="swap-h">' +
-      '<button type="button" class="btn sm" data-next="' + x.slot + '">' + ICON_REROLL + (x.item ? "Next suggestion" : "Suggest one") + "</button>" +
+      '<span class="swap-hl"><button type="button" class="btn sm" data-next="' + x.slot + '">' + ICON_REROLL + (x.item ? "Next suggestion" : "Suggest one") + "</button>" +
+      (x.item && W.canEdit() ? '<button type="button" class="linkish sw-no" data-nope="' + x.slot + '" data-name="' + esc(x.item.n) + '" aria-label="Not for us: ' + esc(x.item.n) + '">' + ICON_NO + "Not for us</button>" : "") + "</span>" +
       '<button type="button" class="icon-btn" data-swapclose="1" aria-label="Close"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></div>' +
       (opts.length ? '<b class="swap-l">or pick one for ' + nm + "</b>" + swapCards(opts.slice(0, 3), x, food, day, nm) + (opts.length > 3 ? '<div class="opts">' : "") + opts.slice(3, n).map(function (o) {
         var it = o.it, info = [W.stayText(it, food, x.slot), o.km != null ? W.fmtKm(o.km) + " away" : "", food ? it.cuisine : it.ticket].filter(Boolean).join(" · ");
-        return '<button type="button" class="opt" data-use="' + x.slot + '" data-name="' + esc(it.n) + '" aria-label="Use ' + esc(it.n) + " for " + nm + '"><span class="nm">' + esc(it.n) + '</span><span class="desc">' + esc(it.d) + "</span>" + (info ? '<span class="info">' + esc(info) + "</span>" : "") + "</button>";
+        return '<div class="opt-w"><button type="button" class="opt" data-use="' + x.slot + '" data-name="' + esc(it.n) + '" aria-label="Use ' + esc(it.n) + " for " + nm + '"><span class="nm">' + esc(it.n) + '</span><span class="desc">' + esc(it.d) + "</span>" + (info ? '<span class="info">' + esc(info) + "</span>" : "") + "</button>" + noBtn(x.slot, it.n, "op-no") + "</div>";
       }).join("") + (opts.length > 3 ? "</div>" : "") : '<p class="small muted">No other ideas nearby yet.</p>') +
       '<div class="swap-f">' + (opts.length > n ? '<button type="button" class="linkish" data-swapall="1">Show all ' + opts.length + "</button>" : swapAll && opts.length > 5 ? '<button type="button" class="linkish" data-swapall="1">Show fewer</button>' : "") +
       (pool && pool.fallback ? "" : busy ? '<span class="loading">Finding more…</span>' : W.ideasFull(pool) ? "" : '<button type="button" class="linkish" data-more="1">Find more ideas</button>') + "</div></div>";
   }
 
+  /* the places you said no to in this city, each with a way back */
+  function nopeList(day) {
+    var l = W.canEdit() ? W.nopeList(day.country, day.city) : []; if (!l.length) return "";
+    return '<details class="nope-l"><summary>Not for us <span class="muted">(' + l.length + ")</span></summary><ul>" + l.map(function (o) {
+      return "<li><span>" + esc(o.n) + '</span><button type="button" class="linkish" data-unnope="' + esc(o.k) + '" aria-label="Bring back ' + esc(o.n) + '">Bring back</button></li>';
+    }).join("") + '</ul><p class="small muted">We won\'t plan or suggest these in ' + esc(day.city) + " again.</p></details>";
+  }
+  /* the idea a "Not for us" button is about, and the city whose list it came from (on a day trip, the other town) */
+  function ideaFor(day, slot, name) {
+    var x = slot ? (day.slots || []).filter(function (y) { return y.slot === slot; })[0] : null, c = x && x.trip && day.trip ? [day.trip.country, day.trip.name] : [day.country, day.city];
+    var pl = /** @type {Pool} */ (W.pool(c[0], c[1]) || { spots: [], food: [] }), n = W.norm(name), list = /** @type {Array<Spot | Food>} */ ([]).concat(slot ? (W.isFood(slot) ? pl.food : pl.spots) || [] : (pl.spots || []).concat(/** @type {any} */ (pl.food || [])));
+    var it = list.filter(function (i) { return W.norm(i.n) === n; })[0];
+    return it ? { it: it, c: c } : null;
+  }
   W.renderTrip = function (P, target) {
     /* the map is a way of looking at the trip (list · map · storybook); the old Explore view draws the same thing */
     var xp = target === "explore" || (S.tview === "map" && target !== "story"), el = $(target === "explore" ? "viewExplore" : "viewTrip");
@@ -487,7 +510,8 @@
           : window.innerWidth > 920 ? routeCard(day, P, T, home, pts, gm, "", "") : "";
         h += '<div class="dayview mode-list' + (side ? "" : " solo") + '"><div class="slots">' + list + "</div>" + side + "</div>";
         h += W.dayNav ? W.dayNav(day, P) : "";
-        h += W.journalCard ? W.journalCard(day) : "";
+        /* the journal lives on Today; here, a way there when the day has one */
+        if (W.journalCard && W.journalCard(day)) h += '<button type="button" class="j-go" data-journalgo="' + day.n + '"><span><b>Journal</b><span class="small muted"> · Day ' + day.n + "</span></span><span aria-hidden=\"true\">→</span></button>";
       } else {
         /* Explore: find any place, today's route (on the street map where the city has one), the free time, then
            every idea by what it's near */
@@ -515,7 +539,7 @@
         });
       }
       /* places the check could not find, and duplicates, stay out of the list altogether */
-      all = all.filter(function (x) { return x.on || !W.gone(x.it); });
+      all = all.filter(function (x) { return x.on || (!W.gone(x.it) && !W.isNope(day.country, day.city, x.it)); });   /* and what you said no to */
       var planned = all.filter(function (x) { return x.on; }).sort(function (a, b) { return a.on.ord - b.on.ord; }), rest = all.filter(function (x) { return !x.on; });
       var free = day.slots.filter(function (x) { return W.isFood(x.slot) === eat; }), folded = S.tripFolded !== false;   /* the route card already shows today: what's on the trip starts folded */
       /* the rest, by what they're near: each idea under the stop of today it is closest to (or where you stay), with
@@ -558,7 +582,8 @@
         return '<div class="idea' + (ph ? " has-photo" : "") + '">' + (ph ? '<div class="pic-wrap">' + ph + onTag + "</div>" : onTag) + "<h4>" + esc(it.n) + "</h4>" + bTag + '<p class="desc">' + esc(it.d) + "</p>" +
           (row.near ? '<p class="near">' + esc(row.near) + "</p>" : "") +
           (info ? '<p class="small muted">' + esc(info) + "</p>" : "") +
-          '<p class="small idea-meta">' + warn + (it.st === "open" ? '<span class="chk-ok" title="Confirmed by the nightly check">✓ Checked</span>' : "") + (eat ? menuLink(it, day.city) : "") + bookLink(it, day.city, eat, day.country) + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it, day.city), "Google Maps") + "</p>" +
+          '<p class="small idea-meta">' + warn + (it.st === "open" ? '<span class="chk-ok" title="Confirmed by the nightly check">✓ Checked</span>' : "") + (eat ? menuLink(it, day.city) : "") + bookLink(it, day.city, eat, day.country) + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it, day.city), "Google Maps") +
+            (W.canEdit() ? '<button type="button" class="linkish id-no" data-nope="" data-name="' + esc(it.n) + '" aria-label="Not for us: ' + esc(it.n) + '">Not for us</button>' : "") + "</p>" +
           (on && on.n === day.n || !free.length ? "" : '<div class="use">' + free.map(function (x) { return '<button type="button" data-use="' + x.slot + '" data-name="' + esc(it.n) + '" aria-label="Put ' + esc(it.n) + " in " + W.SLOT_NAME[x.slot].toLowerCase() + '">' + W.SLOT_NAME[x.slot] + "</button>"; }).join("") + "</div>") + "</div>";
       }
       if (xp) h += '<section class="ideas sk"><div class="ideas-t"><h2>Ideas in ' + esc(day.city) + '</h2><span class="small muted">' + (pool.spots || []).length + " things to do · " + (pool.food || []).length + " places to eat</span></div>" +
@@ -571,7 +596,7 @@
           '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="' + (folded ? "M6 3l5 5-5 5" : "M3 6l5 5 5-5") + '"/></svg>' +
           "On your trip <span>(" + planned.length + ")</span><em>" + (folded ? "show" : "hide") + "</em></button></h3>" + (folded ? "" : planned.map(ideaCard).join("")) : "") +
         groups.map(function (g) { return '<h3 class="idea-group near-g">' + esc(g.h) + (g.sub ? " <span>(" + esc(g.sub.toLowerCase()) + ")</span>" : "") + "</h3>" + g.rows.map(ideaCard).join(""); }).join("") + "</div>" +
-        (rest.length > restShown.length || showAll && rest.length > 6 ? '<div><button type="button" class="btn quiet" data-showall="1">' + (showAll ? "Show fewer" : "Show all " + rest.length) + "</button></div>" : "") + "</section>";
+        (rest.length > restShown.length || showAll && rest.length > 6 ? '<div><button type="button" class="btn quiet" data-showall="1">' + (showAll ? "Show fewer" : "Show all " + rest.length) + "</button></div>" : "") + nopeList(day) + "</section>";
 
       if (xp && pool.transit) {
         var t = pool.transit, rows = [["Transit", t.system], ["Best pass", t.pass], ["From airport", t.airport], ["Tip", t.tip]].filter(function (x) { return x[1]; });
@@ -582,7 +607,9 @@
     /* on a phone in list view the map is hidden: don't run it in the background */
     if (vtWant && (xp || window.innerWidth > 920)) {
       var slotEl = el.querySelector(".vt-slot");
-      if (slotEl && W.vtMount(slotEl, vtWant)) { slotEl.parentNode.classList.add("vt-on"); slotEl.parentNode.classList.remove("vt-want"); }
+      /* the drawing code comes with the second script: until then the place stays held, saying the map is loading */
+      if (!W.vtMount) W.needLater();
+      else if (slotEl && W.vtMount(slotEl, vtWant)) { slotEl.parentNode.classList.add("vt-on"); slotEl.parentNode.classList.remove("vt-want"); }
     }
     var pill = el.querySelector('.dpill[aria-current="true"]'), sc = $("dayScroller");
     if (pill && sc) { var pr = pill.getBoundingClientRect(), sr = sc.getBoundingClientRect(); sc.scrollLeft += pr.left - sr.left - sc.clientWidth / 2 + pr.width / 2; }
@@ -613,9 +640,9 @@
     if (W.eventsTick) W.eventsTick(P);
     if (W.offline) W.offline.tick(P);
     if (W.warmTick) W.warmTick(P);
-    /* Prepare, the kids' corner, the recap and settings live in the second script: until it has come, a moment's "Loading…" */
-    var later = view === "kids" || view === "recap" || view === "settings" || view === "book";
-    if (later && !W.needLater()) { var lv = $(view === "kids" ? "viewKids" : view === "recap" ? "viewRecap" : view === "book" ? "viewBook" : "viewSettings"); if (lv && !lv.firstChild) lv.innerHTML = '<p class="loading later-wait">Loading…</p>'; }
+    /* Plan, Prepare, the kids' corner, the recap and settings live in the second script: until it has come, a moment's "Loading…" */
+    var later = view === "kids" || view === "recap" || view === "settings" || view === "book" || view === "setup";
+    if (later && !W.needLater()) { var lv = $(view === "kids" ? "viewKids" : view === "recap" ? "viewRecap" : view === "book" ? "viewBook" : view === "setup" ? "viewSetup" : "viewSettings"); if (lv && !lv.firstChild) lv.innerHTML = '<p class="loading later-wait">Loading…</p>'; }
     else if (view === "kids") W.renderKids(P); else if (view === "setup") W.renderSetup(P); else if (view === "book") W.renderBook(P); else if (view === "recap") W.renderRecap(P); else if (view === "go") W.renderGo(P); else if (view === "explore") W.renderTrip(P, "explore"); else if (view === "settings") W.renderSettings(P); else W.renderTrip(P);
     W.save();
     if (W.fxRunAfter) W.fxRunAfter();
@@ -636,13 +663,13 @@
     var d = b.dataset, P = W.P;
     /* a shared trip: look around, change nothing */
     /* a shared trip: looking around only; planning together adds swapping stops, rest days, free time and the way you travel */
-    var coOk = W.readOnly && W.readOnly.edit && (d.reroll || d.next || d.use || d.swapall || d.rest || d.free || d.legpick || d.sheetact || d.r2r || d.undo);
-    if (W.readOnly && !coOk && !(d.day || d.step || d.tab || d.showall || d.foldtrip || d.open || d.zoom || d.ro || d.late || d.heart || d.comment || d.exf || d.psearch)) return;
+    var coOk = W.readOnly && W.readOnly.edit && (d.reroll || d.next || d.use || d.swapall || d.rest || d.free || d.legpick || d.sheetact || d.r2r || d.undo || d.nope != null || d.unnope || d.bag);
+    if (W.readOnly && !coOk && !(d.day || d.step || d.tab || d.showall || d.foldtrip || d.open || d.zoom || d.ro || d.late || d.heart || d.comment || d.exf || d.psearch || d.awake)) return;
     if (!W.readOnly) W.isExample = false;
     /* family: hearts and comments (a comment opens claude.ai's composer on this card, so nothing redraws) */
     if (d.comment) { if (W.familyClick) W.familyClick(b, d); return; }
     if (d.heart) { if (W.familyClick) W.familyClick(b, d); W.render(); return; }
-    if (view === "setup") { W.setupClick(b, d, P); return; }
+    if (view === "setup") { if (W.setupClick) W.setupClick(b, d, P); return; }
     if (view === "book") { if (W.bookClick) W.bookClick(b, d, P); return; }
     if (view === "settings") { if (W.settingsClick) W.settingsClick(b, d, P); return; }
     var day = P.days[S.day - 1];
@@ -680,6 +707,13 @@
       if (sw2 && b.closest(".swap")) { W.fxCollapse(sw2, apply, { dur: 200 }); return; }
       apply(); return;
     }
+    else if (d.nope != null && d.name) {
+      var fi = ideaFor(day, d.nope, d.name); if (!fi) return;
+      var ns2 = d.nope; W.sayNo(fi.c[0], fi.c[1], fi.it, P);
+      if (ns2) W.fxAfter(function () { W.fxPulse(slotEl(ns2)); });
+    }
+    else if (d.unnope) W.unNope(d.unnope);
+    else if ((d.bag || d.awake) && W.bagClick) { if (!W.bagClick(d)) return; }
     else if (d.swapall) { swapAll = !swapAll; if (swapAll) W.fxAfter(function () { W.fxStagger(Array.prototype.slice.call(document.querySelectorAll(".swap .opt"), 5), { y: 6, step: 20 }); }); }
     else if (d.gostay != null) {
       /* lodging lives on the Setup page: open that city's "where to stay" */
@@ -702,6 +736,7 @@
     else if (d.rescue) { var rd = P.days[(S.day || 1) - 1]; if (rd && W.rescue) { W.rescue(rd, P, d.rescue); W.fxAfter(function () { W.fxStagger(".go-tl li", { step: 30 }); }); } }
     else if (d.unrescue) { var ud = P.days[(S.day || 1) - 1]; if (ud && W.unrescue) W.unrescue(ud); }
     else if (d.jdel != null && W.journalClick) W.journalClick(d);
+    else if (d.journalgo) { if (W.goToDay) W.goToDay(+d.journalgo); W.goView("go"); setTimeout(function () { var j = document.querySelector("#viewGo .journal"); if (j) j.scrollIntoView({ block: "start", behavior: "smooth" }); }, 350); return; }
     else if ((d.live || d.livepick != null || d.site) && W.liveClick) W.liveClick(d, P);
     else if (d.rest) { var rs = S.rest || (S.rest = {}); if (rs[d.rest]) delete rs[d.rest]; else rs[d.rest] = 1; W.fxAfter(function () { W.fxStagger(".slots > .slot", { step: 30 }); }); }
     else if (d.more) { var mk = W.cityKey(day.country, day.city); ["spots|", "food|"].forEach(function (p) { if (W.status[p + mk] !== "loading") delete W.status[p + mk]; }); W.loadCity(day.country, day.city, true); }
@@ -713,9 +748,9 @@
     if (e.key !== "Enter" || !e.target.matches("input")) return;
     e.preventDefault();
     if (view === "book") { if (W.bookEnter) W.bookEnter(e.target); return; }
-    W.setupEnter(e.target, W.P);
+    if (W.setupEnter) W.setupEnter(e.target, W.P);
   });
-  document.addEventListener("change", function (e) { if (view === "setup" && e.target.matches("input")) W.setupChange(e.target); });
+  document.addEventListener("change", function (e) { if (view === "setup" && e.target.matches("input") && W.setupChange) W.setupChange(e.target); });
   /* folded sections remember whether you left them open */
   W.saveFold = function (el, open) {
     var f = el && el.dataset && el.dataset.fold; if (!f) return;

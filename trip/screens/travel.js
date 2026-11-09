@@ -70,6 +70,8 @@
 
   /* ======================= travel mode: one screen ======================= */
   var goN = null;   /* a day you're previewing; null = today */
+  /* open Today on a given day (the journal button on Trip) */
+  W.goToDay = function (n) { var tn = W.todayN(W.P); goN = n === tn ? null : n; W.S.day = n; };
   W.renderGo = function (P) {
     var el = $("viewGo"); if (!el) return;
     if (!P.stops.length) { el.innerHTML = '<div class="empty sk">Plan a trip first, then this screen walks you through each day.</div>'; return; }
@@ -147,6 +149,9 @@
         (c.url && !c.done ? '<a class="chip-a pri" href="' + esc(c.url) + '" target="_blank" rel="noopener">Book ↗</a>' : '<button type="button" class="chip-a" data-gobook="' + esc(c.key) + '">Details</button>') + "</div>";
     }).join("") + "</section>";
 
+    /* what to take out today (comes with the second script) */
+    if (W.dayBagCard) h += W.dayBagCard(day, P, live);
+
     /* tonight and tomorrow */
     var tom = P.days[n], stay = S.stays[W.cityKey(day.country, day.city)];
     if (W.offline && W.offline.off) h = W.offline.block(P) + h;   /* offline: say so first */
@@ -167,6 +172,7 @@
     if (W.offline && !W.offline.off) h += W.offline.block(P);
     h += '<p class="small muted go-foot">' + (tn ? 'While the trip is on, the app opens here. <button type="button" class="linkish" data-appmode="plan">Open on Trip instead</button>' : "") + "</p>";
     el.innerHTML = '<div class="go">' + h + "</div>";
+    if (W.awakeTick) W.awakeTick(live);
   };
   /* the journey in a line: your ticket when one is booked with a time, else the way you chose */
   function travelLine(L, e) {

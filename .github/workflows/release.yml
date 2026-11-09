@@ -1,5 +1,5 @@
 # Every published version of the app becomes a GitHub release carrying the built bundle, so any version can be rolled
-# back to by republishing its app.js, app2.js and app.min.css. A release is cut from a tag v<N>, or from a branch release/v<N>
+# back to by republishing its app.js, app2.js, app.min.css and app2.css. A release is cut from a tag v<N>, or from a branch release/v<N>
 # (the session that publishes the app may push branches but not tags; the workflow then creates the tag itself).
 name: release
 on:
@@ -32,6 +32,7 @@ jobs:
             trip/app.js
             trip/app2.js
             trip/app.min.css
+            trip/app2.css
             trip/index.html
             trip/README.md
           generate_release_notes: true

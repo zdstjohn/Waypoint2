@@ -22,9 +22,12 @@ exports.run = async t => {
   t.ok(st.fonts >= 3 && st.fonts <= 6, `the fonts it needs load from the app itself (${st.fonts})`);
   const kb = Math.round((fs.statSync(path.join(t.root, 'trip', 'app.js')).size + fs.statSync(path.join(t.root, 'trip', 'app.min.css')).size) / 1024);
   t.ok(kb < 520, `first script + stylesheet under 520 KB before compression (${kb} KB)`);
-  const css = fs.readFileSync(path.join(t.root, 'trip', 'app.min.css')); const wide = css.filter(c => c > 127).length;
-  t.eq(wide, 0, 'the stylesheet is plain ASCII, so "·" and "→" in it never show up garbled');
-  t.note(`startup: ${st.n} requests, first script+css ${kb} KB, then app2.js ${Math.round(fs.statSync(path.join(t.root, 'trip', 'app2.js')).size / 1024)} KB`);
+  const wide = ['app.min.css', 'app2.css'].map(f => fs.readFileSync(path.join(t.root, 'trip', f)).filter(c => c > 127).length);
+  t.eq(wide, [0, 0], 'the stylesheets are plain ASCII, so "·" and "→" in them never show up garbled');
+  const css2 = await pg.evaluate(() => { const e = performance.getEntriesByType('resource').find(r => /app2\.css$/.test(r.name)); return e ? e.startTime : null; });
+  t.ok(css2 != null && firstPaint != null && css2 >= firstPaint - 1, `the second script's styles (app2.css) come with it, after the first paint (${css2 && Math.round(css2)} ms)`);
+  const kb2 = f => Math.round(fs.statSync(path.join(t.root, 'trip', f)).size / 1024);
+  t.note(`startup: ${st.n} requests, first script+css ${kb} KB, then app2.js ${kb2('app2.js')} KB + app2.css ${kb2('app2.css')} KB`);
 
   /* a 17-day trip, then timings with the CPU throttled 4x */
   await pg.evaluate(SP => {
@@ -56,6 +59,7 @@ exports.run = async t => {
   const part = path.join(t.root, 'vtassets', 'parts', 'greece-nafplio.p0.js');
   if (fs.existsSync(part)) {
     fs.copyFileSync(part, path.join(dir, 'p0.js'));
+    await pg.waitForFunction(() => W.laterReady && !!W.vtLoadTest, null, { timeout: 15000 });   /* drawing maps comes with the second script */
     const r = await pg.evaluate(async () => {
       const t0 = performance.now(); const p = await W.vtLoadTest('pack|perf-test', 'v1', { urls: ['vt/_t/p0.js'] }); const t1 = performance.now();
       const p2 = await W.vtLoadTest('pack|perf-test', 'v1', { urls: ['vt/_t/p0.js'] }); const g = await W.vtLoadTest('glyphs|core', '2', { url: 'vt/glyphs.wasm' });

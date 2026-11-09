@@ -1,11 +1,17 @@
 # Waypoint — how the code is laid out
 
 One page. `index.html` is the markup; the code is plain files under data/, lib/ and screens/, joined and minified into
-`app.js` (and app.css into `app.min.css`) by `build/bundle.js`. All code shares one namespace, `window.W`; the order in
-`build/bundle.js` is the dependency order. `node test/run.js` builds first. The screens a first open never needs (the
-Prepare screen, live prices and price watch, the booking autopilot, planning together, place search in Explore, the
-journal, family, settings, the kids' corner, the recap, the packing list: LATER in build/bundle.js) go into a second script, `app2.js`, which lib/later.js loads once the first screen has painted (on idle time, or at once when you open one
-of them, with "Loading…" for the moment it takes); W.needLater() says whether it has arrived. The offline copy carries both.
+`app.js` (and app.css into `app.min.css` and `app2.css`) by `build/bundle.js`. All code shares one namespace, `window.W`; the order in
+`build/bundle.js` is the dependency order. `node test/run.js` builds first. The screens a first open never needs (Plan,
+drawing the street map, the Prepare screen, live prices and price watch, the booking autopilot, planning together, place search in Explore, the
+journal, the day bag, family, settings, the kids' corner, the recap, the packing list: LATER in build/bundle.js) go into a second script, `app2.js`, which lib/later.js loads once the first screen has painted (on idle time, or at once when you open one
+of them, with "Loading…" for the moment it takes); W.needLater() says whether it has arrived. Their styles go into
+`app2.css`, which comes with it (a rule moves only when it sits in one of those screens' sections of app.css and none of
+its class names appears in the first script or index.html; build/bundle.js splitCss), and the screens count as ready when
+both have come. The street map is in two: lib/vtindex.js (first script: which cities have a pack, the map's state, so
+the first screen holds the map's place) and lib/vtmap.js (second: packs, the engine, the look, pins). The postcards and
+greetings (lib/warm.js) stay in the first script: they are on the first screen, and arriving later would move it.
+The offline copy carries both scripts and both stylesheets.
 Travel mode stays in the first script on purpose: on the trip it is the first screen, often on a weak signal. What the
 first screen reads from Prepare (the book-by checklist, the budget, which booking belongs to a stop) is lib/bookcore.js.
 The first render happens while app.js is still running (the end of screens/trip.js), so lib/later.js comes right after
@@ -15,7 +21,7 @@ starting is logged ([boot] in the console, the phone's error log) and the rest o
 test/suites/firstview.js opens the app on every screen.
 
 ```
-index.html        markup (header, tabs, one <main> per view); loads app.js and app.min.css (built)
+index.html        markup (header, tabs, one <main> per view); loads app.js and app.min.css (built; app2.js and app2.css follow)
 app.css           the stylesheet, grouped by screen: fonts, foundations, header, Setup, My trip, a stop, storybook,
                   Explore, Bookings, Today, journal, settings, motion
 fonts/            Nunito, Dela Gothic One and Patrick Hand SC as woff2, served by the app itself (Latin; extended Latin
@@ -75,6 +81,13 @@ lib/              the shared library
                   day picks up from the arrival. Without a ticket, the journey's length is Rome2Rio's real time for the
                   way you go once you've tapped "Check real journey times" on the journey card (W.checkRoutes, your
                   Rome2Rio connector, get-routes), else Claude's estimate, else a guess from the distance ("rough")
+  daybag.js       (second script) Today's day bag: what to take out for the day, read off its stops (a beach:
+                  swimsuits and sunscreen; a church: shoulders and knees covered; a market: cash; a boat: a layer and
+                  something for seasickness; a hike: shoes and water; a travel day: tickets in one pocket and snacks),
+                  each line naming the stop that asked; ticks in S.bag by day. While the trip is on and Today is open
+                  the screen is kept on (the screen wake lock, asked for again when the page comes back, let go on any
+                  other view within 5 s); the switch under the bag is per phone (localStorage "waypoint-awake"), and
+                  a browser that refuses says so there
   holidays.js     public holidays and festivals on the trip's days. National holidays are worked out in the app for
                   Spain, Italy, Greece, France, Portugal, the UK, Ireland, Germany, Austria, the Netherlands, Croatia,
                   Iceland, Mexico, Costa Rica, Japan, Thailand and the US (Easter and Orthodox Easter, "the last Monday
@@ -96,8 +109,15 @@ lib/              the shared library
                   skeleton for longer words) catches "Liston" and "Liston Promenade", and two stays close together (two
                   bases on one island, or a city you come back to) share it, though a place you chose yourself always
                   stays. A gelateria, crêperie or juice bar is never lunch or dinner; a bakery is never dinner.
+                  "Not for us" (a thumbs-down on the swap panel, each swap card and list row, Explore's ideas and the
+                  stop's menu: W.sayNo) puts the place in S.nope ("<country>|<city>|<place key>": name, the city being
+                  the one whose list it came from, so a day trip's town). The planner counts those as taken ("~no",
+                  like an earlier stop's place: a place you then put on a day yourself still stays, and W.useIdea
+                  takes it off the list), the slot that had it gets a new suggestion, the options and Explore leave it
+                  out, and Explore lists them at the end with "Bring back". Undo works as for any change.
   together.js     planning together: when you share a trip and tick "They can change the plan too", the person you
-                  shared with can swap stops, set rest days, leave time free and change how you travel between places.
+                  shared with can swap stops, set rest days, leave time free, change how you travel between places and
+                  say "not for us" to a place.
                   Each of them writes their own list of changes (shared/<code>/edits/<their id>), one entry per thing
                   changed with its time; your app takes every change newer than the last it took from them (unless you
                   changed the same thing after them), logs who changed what (the share box, their bar), saves it and
@@ -105,7 +125,13 @@ lib/              the shared library
                   counts (not the planner filling a day on its own), and everything read from their list is checked
                   first. Places to stay, dates, bookings and the route stay yours. They need edit access to the page.
   route.js        trip shape check (and its one-tap fixes)   import.js  paste an itinerary   prices.js  live prices and booking sites
-  watch.js        price watches   sync.js  saved and shared trips   fx.js  motion   vtmap.js  the street map (cities with a map pack)
+  watch.js        price watches   sync.js  saved and shared trips   fx.js  motion   vtindex.js/vtmap.js  the street map (cities with a map pack)
+  storage.js      (second script) Settings > Storage, for people who can edit the app: finds stored files nothing points
+                  at (every 32-character id in the app's lists photos, maps, links, places, wanted, shared, your saved
+                  trips, this phone's storage, the page and its scripts counts as in use; files from the last two days
+                  are kept, as the nightly photo run records its uploads after making them), shows them with thumbnails,
+                  and deletes them only after you confirm, checking again first. It deletes nothing when a list can't be
+                  read in full (1000 documents) or when more than half the files would go.
   search.js       find any place and put it on the day: the city's own ideas, Mapbox (real places with exact pins,
                   through the viewer's Mapbox connection) and Claude (marked "Suggested by Claude" until the nightly
                   check confirms it), merged into one list; a Google Maps search for the same words is one link away.
@@ -142,7 +168,7 @@ screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.
                   the top and lights the place you've scrolled to; the storybook opens from the trip menu and All days), Prepare (book.js: To book · Booked · Budget ·
                   Pack · Take along) and Today (travel.js: Travel mode, also the storybook). flow.js has the next-step
                   bar, undo, the stop sheet and the quick start (shown on the very first open); journal, family;
-                  settings.js is now only "Import a plan" (sharing lives in the trip menu); kids.js is "For the kids"
+                  settings.js is "Import a plan" and Storage (sharing lives in the trip menu); kids.js is "For the kids"
                   (from the trip menu and Today): today's outings in big photo cards with a heart per kid, a passport
                   that stamps each place, and a treasure hunt per town
 vt/              street-map data: the detailed packs live in the asset store (maps/<city> in the
@@ -156,6 +182,9 @@ vt/              street-map data: the detailed packs live in the asset store (ma
 
 Tests: `node test/run.js` (see test/run.js for the suites; `perf` records startup requests and render times). The nightly photo finder and its judge live in `tools/`.
 
+Error watch: a scheduled task every evening (9:41 PM Pacific) reads the phone's error log (data/users/me/errlog/d) and
+  sends a phone notification listing any error from the last 24 hours (screen, message, count, build, phone); read only.
+
 Checks (node test/run.js, from the folder above trip/)
   types         TypeScript reads the plain JavaScript (checkJs, noEmit) against types/waypoint.d.ts, the shapes that
                 travel between files (Spot, Food, Pool, TripState, Plan, Day, PlaceRecord, the W object ...). Every file
@@ -164,6 +193,14 @@ Checks (node test/run.js, from the folder above trip/)
   a11y          axe-core (WCAG 2.0/2.1 A and AA) over every screen in light and dark: no violations. Text colors have
                 their own tokens (--muted, --note-text, --food-text) so a fill color can stay bright while text passes.
   validate      the door above, fed the kinds of answers a model can return.
+  nope          "Not for us" from the swap panel, a swap card, a list row and the stop's menu: a new suggestion fills
+                the slot, the place is nowhere on the plan in that city nor among the options, Explore lists it with
+                "Bring back", Undo and choosing it yourself take it off the list. The day bag: a beach, a cathedral, a
+                market and a travel day ask for the right things, each naming its stop; a tick is kept; the screen
+                wake lock is asked for on a live Today and let go when switched off or when you leave Today.
+  storage       Settings > Storage: of ten stored files it finds only the three old ones nothing points at (a place
+                photo, a map part, a journal photo and today's uploads are never listed), deletes nothing by looking,
+                asks once more, keeps one that came into use in between, and refuses when most files would go.
   fuzz          random trips nobody wrote by hand: a seeded generator builds hundreds (1-3 countries, 1-4 places each or
                 "suggest", 3-21 days, any mix of ages, interests and focus, near or far departure, random rest days and
                 freed slots) and every plan is checked against the rules the hand-built tests check one trip at a time:
@@ -193,12 +230,13 @@ Checks (node test/run.js, from the folder above trip/)
 Version control
   The code lives at github.com/zdstjohn/Waypoint2: trip/, test/, tools/, types/, build/, the test server, package.json.
   `npm install` then `npm test` runs everything; `npm run types` only the type check. GitHub Actions
-  (.github/workflows/ci.yml) runs the full suite on every push and pull request (about 14 minutes), and a second job,
-  "screens", takes every screen (phone, side panel, desktop; light and dark) for this commit and the one before and
-  lists what changed in the run's summary, with the pictures attached (it never fails the build: a change can be
-  intended). Every night .github/workflows/fuzz.yml plans 2000 random trips (pushes run 300) and lists any failing seed
+  (.github/workflows/ci.yml) runs the full suite on every push and pull request in three groups side by side (test/run.js
+  --shard=k/3 balances them by time; about 6 minutes), and a second job, "screens", takes every screen (phone, side
+  panel, desktop; light and dark) for this commit and the one before. A commit that means to change screens lists them
+  in test/screens-expected.txt (names or patterns like "swap-*"; read only when that commit changed the file); any other
+  screen that changed fails the check, and the run's summary lists both, with the pictures attached. Every night .github/workflows/fuzz.yml plans 2000 random trips (pushes run 300) and lists any failing seed
   in its summary, ready to replay with FUZZ_SEED=<n>. Every published version of the artifact becomes a release: pushing a branch release/v<N> (or a tag v<N>)
-  makes release.yml create the tag v<N>, build, and attach app.js, app2.js, app.min.css, index.html and README.md, so
+  makes release.yml create the tag v<N>, build, and attach app.js, app2.js, app.min.css, app2.css, index.html and README.md, so
   any version can be restored by republishing those files.
 
 Source

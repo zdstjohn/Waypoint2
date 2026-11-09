@@ -218,8 +218,8 @@
     if (O.copyState === "making" || !P || !P.stops.length) return Promise.resolve();
     O.copyState = "making"; O.copyErr = ""; W.changed();
     var seed = { at: Date.now(), S: null, C: null, photos: W.photosSnapshot ? W.photosSnapshot() : null, blobs: {} };
-    return Promise.all([text("index.html"), text("app.min.css"), text("app.js"), text("app2.js")]).then(function (r) {
-      var html = r[0], css = r[1], js = r[2], js2 = r[3];
+    return Promise.all([text("index.html"), text("app.min.css"), text("app.js"), text("app2.js"), text("app2.css")]).then(function (r) {
+      var html = r[0], css = r[1] + "\n" + r[4], js = r[2], js2 = r[3];   /* both stylesheets in one */
       /* fonts become data URIs inside the stylesheet */
       var fonts = []; css.replace(/url\((fonts\/[^)]+)\)/g, function (m, u) { if (fonts.indexOf(u) < 0) fonts.push(u); return m; });
       return Promise.all(fonts.map(dataUri)).then(function (ds) {

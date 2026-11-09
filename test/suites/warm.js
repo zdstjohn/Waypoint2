@@ -75,8 +75,12 @@ exports.run = async t => {
 
   /* during the trip: a great day is saved and the recap counts it */
   await pg.evaluate(() => { localStorage.setItem('waypoint-now', '2027-04-26T19:30'); W.S.appMode = 'plan'; W.S.appModeAt = '2027-04-26'; W.S.day = 4; W.goView('trip'); }); await pg.waitForTimeout(700);
-  await pg.evaluate(() => document.querySelector('.journal').scrollIntoView({ block: 'center' }));
-  await pg.click('.journal [data-mood="3"]'); await pg.waitForTimeout(400);
+  /* the journal lives on Today: Trip has a button that goes there */
+  const jt = await pg.evaluate(() => ({ card: !!document.querySelector('#viewTrip .journal'), btn: !!document.querySelector('#viewTrip .j-go') }));
+  t.ok(!jt.card && jt.btn, 'on Trip the journal is a button to Today, not the card itself: ' + JSON.stringify(jt));
+  await pg.click('#viewTrip .j-go'); await pg.waitForTimeout(800);
+  t.ok(await pg.evaluate(() => W.view() === 'go' && !!document.querySelector('#viewGo .journal')), 'and it opens Today on that day, at the journal');
+  await pg.click('#viewGo .journal [data-mood="3"]'); await pg.waitForTimeout(400);
   const mood = await pg.evaluate(() => { const k = Object.keys(W.S.journal || {}).find(k => W.S.journal[k].mood === 3); return { k, on: !!document.querySelector('.journal [data-mood="3"][aria-checked="true"]'), cheer: (document.querySelector('#cheerhost b') || {}).textContent }; });
   t.ok(mood.k && mood.on && mood.cheer === 'Wonderful!', 'a great day is saved with the journal, with a cheer');
   const reel = await pg.evaluate(() => { localStorage.setItem('waypoint-now', '2027-05-20T10:00'); W.goView('recap'); const r = document.querySelector('.reel'); return r ? { n: r.querySelectorAll('.rt').length, txt: r.textContent.replace(/\s+/g, ' '), send: !!document.querySelector('[data-sendhome]') } : null; });

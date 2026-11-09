@@ -276,6 +276,50 @@
   function byName(list, n) { var k = W.norm(n); return list.filter(function (x) { return W.norm(x.n) === k; })[0] || null; }
   function key(day, slot) { return day.country + "|" + day.city + "|" + day.dayInCity + "|" + slot; }
 
+  /* ---------- "not for us" ---------- */
+  /* A place the family said no to is never planned or offered again in that city on this trip. S.nope holds
+     "<country>|<city>|<place key>": "<name>" (the city whose list it came from: on a day trip, the other town).
+     Putting it on a day yourself later takes it off the list. */
+  function nopes() { var o = W.S.nope; return o && typeof o === "object" ? o : {}; }
+  function poolCity(d, x) { return x && x.trip && d.trip ? [d.trip.country, d.trip.name] : [d.country, d.city]; }
+  W.nopeKey = function (country, city, it) { return country + "|" + city + "|" + W.placeKey(it); };
+  W.isNope = function (country, city, it) { return !!nopes()[W.nopeKey(country, city, it)]; };
+  W.nopeList = function (country, city) {
+    var pre = country + "|" + city + "|", o = nopes();
+    return Object.keys(o).filter(function (k) { return k.indexOf(pre) === 0 && typeof o[k] === "string"; }).map(function (k) { return { k: k, n: o[k] }; });
+  };
+  W.sayNo = function (country, city, it, P) {
+    var S = W.S; if (!it || !it.n) return;
+    (S.nope || (S.nope = {}))[W.nopeKey(country, city, it)] = String(it.n).slice(0, 160);
+    /* wherever the plan has it in that city, the slot gets a new suggestion */
+    var pk = W.placeKey(it);
+    ((P || W.P || {}).days || []).forEach(function (d) {
+      (d.slots || []).forEach(function (x) {
+        var pc = poolCity(d, x);
+        if (!x.item || pc[0] !== country || pc[1] !== city || (W.placeKey(x.item) !== pk && W.norm(x.item.n) !== W.norm(it.n))) return;
+        delete S.picks[x.key]; if (S.mine) delete S.mine[x.key];
+      });
+    });
+  };
+  W.unNope = function (k) { if (W.S.nope) delete W.S.nope[k]; };
+  function unNopeName(d, x, name) {
+    var o = W.S.nope; if (!o) return;
+    var pc = poolCity(d, x), pre = pc[0] + "|" + pc[1] + "|", n = W.norm(name);
+    Object.keys(o).forEach(function (k) { if (k.indexOf(pre) === 0 && W.norm(o[k]) === n) delete o[k]; });
+  }
+  /* the planner's list of what is taken: what you said no to counts as taken (marked "~" like an earlier stop's place,
+     so a place you put on a day by hand still stays) */
+  function markNope(used, s, cdays) {
+    var o = nopes(), pres = [s.country + "|" + s.name + "|"];
+    cdays.forEach(function (d) { if (d.trip) pres.push(d.trip.country + "|" + d.trip.name + "|"); });
+    Object.keys(o).forEach(function (k) {
+      var pre = pres.filter(function (p) { return k.indexOf(p) === 0; })[0]; if (!pre || typeof o[k] !== "string") return;
+      var pk = k.slice(pre.length), nn = W.norm(o[k]);
+      if (pk && !used["@" + pk]) used["@" + pk] = "~no";
+      if (nn && !used[nn]) used[nn] = "~no";
+    });
+  }
+
   /* best idea for a slot that isn't used elsewhere and wasn't rerolled away; nearby first, then anywhere */
   function choose(pool, slot, used, seen, ctx, p, strictOnly) {
     var list = W.isFood(slot) ? pool.food || [] : pool.spots || [];
@@ -335,7 +379,7 @@
   /* The plan is rebuilt only when something it depends on changed: the trip state (less the keys that only say what the
      screen shows), the cached city lists and journeys (W.dataV goes up when any arrive), and the day. Opening a sheet or
      ticking a booking re-renders without re-planning, which is most taps. */
-  var memo = null, VIEW_ONLY = ["day", "transitOpen", "stepClosed", "tripFolded", "mapZoom", "jetOpen", "glanceOpen", "nextHide", "tview", "exF", "exSort", "prepTab", "pack", "packHide", "packOwn", "journal", "names", "kidPicks", "hunt", "stamps", "celebrated", "warmSeen"];
+  var memo = null, VIEW_ONLY = ["day", "transitOpen", "stepClosed", "tripFolded", "mapZoom", "jetOpen", "glanceOpen", "nextHide", "tview", "exF", "exSort", "prepTab", "pack", "packHide", "packOwn", "journal", "names", "kidPicks", "hunt", "stamps", "celebrated", "warmSeen", "bag"];
   function planSig() {
     var o = {}, S = W.S;
     for (var k in S) if (VIEW_ONLY.indexOf(k) < 0) o[k] = S[k];
@@ -389,6 +433,7 @@
         if (!(b.city === W.cityKey(s.country, s.name) || (dk != null && dk <= 40))) return;
         Object.keys(b.used).forEach(function (k) { if (!used[k] && String(b.used[k]).charAt(0) !== "~") used[k] = "~" + b.used[k]; });
       });
+      markNope(used, s, cdays);
       /* reserve the picks you already have */
       cdays.forEach(function (d) {
         d.slots.forEach(function (x) {
@@ -589,7 +634,8 @@
   W.useIdea = function (day, slot, name, P) {
     var k = key(day, slot), used = P.stops[day.stop].used || {}, other = used[W.norm(name)];
     if (other && String(other).charAt(0) === "~") other = null;   /* it was on an earlier stop's day: nothing to trade */
-    var cur = W.S.picks[k];
+    var cur = W.S.picks[k], x = (day.slots || []).filter(function (y) { return y.slot === slot; })[0];
+    unNopeName(day, x, name);   /* you chose it after all */
     if (other && other !== k) { if (cur) { W.S.picks[other] = cur; mine()[other] = 1; } else delete W.S.picks[other]; }
     W.S.picks[k] = name; mine()[k] = 1;
     if (W.S.free) delete W.S.free[k];

@@ -142,6 +142,7 @@
     return e.map[W.norm(name)] || null;
   };
   W.cityKey = function (country, city) { return country + "|" + city; };
+  W.openStay = {};   /* which cities have their lodging panel open on Plan (screens/setup.js, second script) */
   /* idea pool for a city: Claude's list, or the built-in fallback when Claude isn't available */
   W.pool = function (country, city) {
     var c = W.C.city[W.cityKey(country, city)];

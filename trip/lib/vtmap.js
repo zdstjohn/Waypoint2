@@ -1,58 +1,13 @@
-/* Waypoint detailed map: the MapLibre engine drawing real vector map data (streets and their names, buildings,
-   landmarks, stations, parks, water) from map packs for the trip's cities. Packs live in the app's asset store (built
-   nightly, listed in the database under maps/<city>, in parts the store accepts); a few older ones ship as files.
+/* Waypoint detailed map, part 2 (second script): the MapLibre engine drawing real vector map data (streets and their
+   names, buildings, landmarks, stations, parks, water) from map packs for the trip's cities. Packs live in the app's
+   asset store (built nightly, listed in the database under maps/<city>, in parts the store accepts); a few older ones
+   ship as files. Which city has one is lib/vtindex.js (first script); the state they share is W.vt.
    If anything is missing or blocked on this device, the app keeps its simpler built-in map.
    Map data © OpenMapTiles © OpenStreetMap contributors (ODbL), tiles via OpenFreeMap. */
 (function () {
   "use strict";
   var W = window.W, ML = null;
-  var S = { idx: null, idxState: "idle", engine: "idle", packs: {}, glyphs: null, map: null, el: null, sig: "", slug: "", markers: [], pinMarkers: [], pinPts: null, groupSig: "", ready: false, pend: null };
-  W.vt = S;
-
-  /* ---------- which cities have a pack: the database list (asset packs) over the bundled list (file packs) ---------- */
-  var FILES = null, DBMAPS = null, dbState = "idle";
-  function merge() {
-    if (FILES === null || (dbState !== "ready" && dbState !== "off")) return;
-    var out = {}; Object.keys(FILES).forEach(function (k) { out[k] = FILES[k]; });
-    Object.keys(DBMAPS || {}).forEach(function (k) { out[k] = DBMAPS[k]; });
-    S.idx = out; S.idxState = "ready"; W.changed();
-  }
-  function loadIndex() {
-    if (S.idxState !== "idle") return;
-    S.idxState = "loading";
-    fetch("vt/index.json", { cache: "no-cache" }).then(function (r) { return r.ok ? r.json() : {}; })
-      .then(function (j) { FILES = j || {}; merge(); }, function () { FILES = {}; merge(); });
-    try {
-      if (window.claude && window.claude.use) {
-        dbState = "loading";
-        var t = setTimeout(function () { if (dbState === "loading") { dbState = "off"; merge(); } }, 8000);
-        window.claude.use("db").then(function (db) {
-          if (!db) { clearTimeout(t); dbState = "off"; merge(); return; }
-          db.collection("maps").onSnapshot(function (snap) {
-            clearTimeout(t); DBMAPS = {};
-            snap.docs.forEach(function (d) { var x = d.data() || {}; if (x.parts && x.parts.length && x.b) DBMAPS[d.id] = { b: x.b, places: x.places || x.b, city: x.city, country: x.country, parts: x.parts.slice(), size: x.size || 0 }; });
-            /* a pack that moved to the asset store replaces the file one, so the file can go */
-            dbState = "ready"; merge();
-          }, function () { clearTimeout(t); dbState = "off"; merge(); });
-        }, function () { clearTimeout(t); dbState = "off"; merge(); });
-      } else dbState = "off";
-    } catch (e) { dbState = "off"; }
-    if (dbState === "off") merge();
-  }
-  /* a pack's size in bytes (0 when not known), for "about how much will this download" */
-  W.vtSize = function (slug) { var e = S.idx && S.idx[slug]; return e && e.size || 0; };
-  W.vtFor = function (country, city, lat, lng) {
-    if (S.engine === "off") return null;
-    loadIndex();
-    if (S.idxState !== "ready") return null;
-    var slug = W.slug(country + " " + city);
-    if (S.idx[slug]) return slug;
-    if (lat == null) return null;
-    var hit = null;
-    Object.keys(S.idx).forEach(function (k) { var b = S.idx[k].places; if (!hit && b && lat >= b[1] && lat <= b[3] && lng >= b[0] && lng <= b[2]) hit = k; });
-    return hit;
-  };
-
+  var S = W.vt;
   /* ---------- packs: one file per city with all its tiles (gzipped), read once ---------- */
   function gunzip(u8) {
     return new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
@@ -190,7 +145,6 @@
     })().then(function () { S.engine = "ready"; W.changed(); }, function (e) { S.engine = "off"; S.why = String(e && e.message || e); W.changed(); });
     return S.engineP;
   }
-  W.vtState = function () { return S.engine; };
 
   /* ---------- the look: warm paper land, clear white streets, readable names (and a dark version) ---------- */
   function palette() {
@@ -424,8 +378,4 @@
     else if (S.pend) { S.moved = false; fit(S.pend.o.pts, S.pend.o.home, true); }
     return true;
   };
-  W.vtActive = function () { return !!(S.map && S.ready && S.el && document.body.contains(S.el)); };
-  /* still finding out whether this city has a detailed map (the list of map packs is on its way) */
-  W.vtPending = function () { return S.engine !== "off" && S.idxState !== "ready"; };
-  loadIndex();   /* ask for the list straight away, so the first screen already knows */
 })();

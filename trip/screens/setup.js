@@ -1,4 +1,4 @@
-/* Waypoint setup view: trip style, where, how long, from where, who, and where you're staying. */
+/* Waypoint setup view (second script): trip style, where, how long, from where, who, and where you're staying. */
 (function () {
   "use strict";
   var W = window.W, $ = W.$, esc = W.esc, S = W.S;
@@ -21,7 +21,7 @@
   var openBrowse = {};
   var ageLabel = function (a) { return a < 2 ? "Baby" : a < 5 ? "Toddler" : a < 13 ? "Child" : a < 18 ? "Teen" : a >= 65 ? "Grandparent" : "Adult"; };   /* 65 and over: shorter days, fewer moves */
 
-  var openStay = W.openStay = {};   /* which cities have their lodging panel open */
+  var openStay = W.openStay = W.openStay || {};   /* which cities have their lodging panel open (made in lib/core.js: Trip and Today open one before this script has come) */
   var X_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
   var UP_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 13V3M4 7l4-4 4 4"/></svg>';
   var BED_ICON = '<svg viewBox="0 0 20 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3v11M2 10h16v4M18 10V8a2 2 0 0 0-2-2H9v4"/><circle cx="5.5" cy="7.5" r="1.6"/></svg>';

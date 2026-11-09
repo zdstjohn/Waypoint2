@@ -1,4 +1,4 @@
-/* Waypoint trip settings, under the trip name: sharing with family and importing a plan. Calendar, PDF and the offline
+/* Waypoint trip settings, under the trip name: importing a plan, and the app's stored files (lib/storage.js). Calendar, PDF and the offline
    copy live on Prepare (Take along); booking sites and price watches next to the prices they affect (Prepare, To book). */
 (function () {
   "use strict";
@@ -12,8 +12,9 @@
     var host = el;
     var back = W.prevView ? W.prevView() : "trip";
     var h = '<div class="settings"><button type="button" class="linkish back" data-view="' + back + '">← ' + esc(BACK[back] || "Back") + "</button>" +
-      '<header class="set-h"><h2>Import a plan</h2><p class="muted">' + esc(W.tripName ? W.tripName() : "This trip") + "</p></header>";
+      '<header class="set-h"><h2>Settings</h2><p class="muted">' + esc(W.tripName ? W.tripName() : "This trip") + "</p></header>";
     h += card("Paste an itinerary", "Paste an itinerary from Wanderlog, a document or an email. It becomes a new trip, with the places you'd already chosen pinned to their days.", W.importBlock ? W.importBlock(true) : "", "set-import");
+    if (W.storageCard) h += W.storageCard(card);   /* the app's stored files, for people who can edit it (lib/storage.js) */
     W.keepInputs(host, function () {
       var t = W.$("importText"), keep = t && t.value;
       host.innerHTML = h + "</div>";
@@ -22,6 +23,7 @@
   };
   W.settingsClick = function (b, d, P) {
     if (d.sync) return;   /* sharing buttons are handled by sync.js */
+    if (W.storageClick && W.storageClick(d)) return;
     if (W.importClick && W.importClick(d)) return;
     if (W.takeItClick && W.takeItClick(d, P)) return;
     if (W.liveClick && W.liveClick(d, P)) { W.render(); return; }
