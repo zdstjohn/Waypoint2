@@ -45,6 +45,34 @@ def plan(d):
         T[z] = r if len(r) <= lim else {(x // 2, y // 2) for x, y in T[z + 1]}
     return T, bb, pts
 
+def km(a, b):
+    la1, ln1, la2, ln2 = map(math.radians, (a[0], a[1], b[0], b[1]))
+    h = math.sin((la2 - la1) / 2) ** 2 + math.cos(la1) * math.cos(la2) * math.sin((ln2 - ln1) / 2) ** 2
+    return 6371 * 2 * math.asin(math.sqrt(h))
+
+def trim(res, d, pts):
+    """keep a pack light enough for a phone on mobile data (PACK_MAX_MB, 4 by default): past that, the detailed
+    tiles farthest from where you stay go first (a tile with one of the trip's places in it counts as three times
+    closer), then the next level's. The app shows the coarser map wherever the detailed one stops."""
+    limit = float(os.environ.get('PACK_MAX_MB', '4')) * 1e6
+    total = sum(len(b) for _, b in res if b)
+    if total <= limit: return res
+    anchor = tuple(d['home']) if d.get('home') else tuple(d['center']) if d.get('center') else pts[0]
+    def score(j):
+        z, x, y = j; b = tile_bounds(x, y, z)
+        dist = km(anchor, ((b[1] + b[3]) / 2, (b[0] + b[2]) / 2))
+        has = any(b[0] <= p[1] <= b[2] and b[1] <= p[0] <= b[3] for p in pts)
+        return dist / 3 if has else dist
+    keep = {j: b for j, b in res}
+    for z in (14, 13):
+        for j in sorted([j for j, b in res if b and j[0] == z], key=score, reverse=True):
+            if total <= limit: break
+            if score(j) <= 0.8: break          # never the streets right around where you stay
+            total -= len(keep[j]); keep[j] = None
+    dropped = sum(1 for j, b in res if b and keep[j] is None)
+    if dropped: print('  trimmed %d detailed tiles to %.1f MB' % (dropped, total / 1e6), flush=True)
+    return [(j, keep[j]) for j, _ in res]
+
 def build(slug, d, out_dir, tpl):
     T, bb, pts = plan(d)
     jobs = [(z, x, y) for z in sorted(T) for (x, y) in sorted(T[z])]
@@ -57,6 +85,7 @@ def build(slug, d, out_dir, tpl):
                 err = e; time.sleep(2 * (i + 1))
         print('  skip tile', j, err, file=sys.stderr); return j, None
     with ThreadPoolExecutor(6) as ex: res = list(ex.map(fetch, jobs))
+    res = trim(res, d, pts)
     body = bytearray(); index = {}
     for (z, x, y), b in res:
         if not b: continue

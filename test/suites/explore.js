@@ -1,9 +1,9 @@
 /* Explore (the tab that replaced the map): search any place and put it on the day; today's route with the way between
    stops and the whole day in Google Maps; the free parts of the day with picks; every idea under the stop it's near.
    Search sources, all mocked here: the city's own list, Mapbox (through the viewer's connection) and Claude. */
-const { launch, open, exampleTrip, settle } = require('../lib/page');
+const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb = require('../lib/db');
 exports.run = async t => {
-  const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390 }); await exampleTrip(pg);
+  const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, db: mkdb() }); await exampleTrip(pg);
   await pg.evaluate(() => { W.S.day = 3; W.S.tview = 'map'; W.render(); }); await settle(pg, 4000);
   const first = await pg.evaluate(() => ({ search: !!document.getElementById('placeQ'), route: !!document.querySelector('.rcard'), sketch: !!document.querySelector('svg.map'),
     gm: (document.querySelector('.rc-gm') || {}).href || '', groups: [...document.querySelectorAll('.idea-group.near-g')].map(h => h.textContent), near: document.querySelectorAll('.idea .near').length,
@@ -60,6 +60,34 @@ exports.run = async t => {
     window.__mcpFail = null; return document.querySelector('.psearch').textContent;
   });
   t.ok(/Connect Mapbox/.test(none) && /Search Google Maps/.test(none), 'without the map connection it says how to add it, and Google Maps is still a link away');
+  /* "Find more" asks for a few more at a time (10 things to do, 8 places to eat), and stops at the city's cap */
+  const more = await pg.evaluate(async () => {
+    W.S.tview = 'map'; W.S.day = 2; W.render(); const n0 = (window.__full || []).length;
+    document.querySelector('[data-more="1"]').click(); await new Promise(r => setTimeout(r, 900));
+    const asks = (window.__full || []).slice(n0).map(p => (p.match(/List (\d+) MORE (things to do|places to eat)/) || []).slice(1, 3).join(' ')).filter(Boolean);
+    const pool = W.pool('Italy', 'Rome'), keep = { s: pool.spots.slice(), f: pool.food.slice() };
+    while (pool.spots.length < W.IDEA_CAP.spots) pool.spots.push(Object.assign({}, pool.spots[0], { n: 'Filler sight ' + pool.spots.length }));
+    while (pool.food.length < W.IDEA_CAP.food) pool.food.push(Object.assign({}, pool.food[0], { n: 'Filler eatery ' + pool.food.length }));
+    W.render(); await new Promise(r => setTimeout(r, 100));
+    const full = { btn: !!document.querySelector('.ideas [data-more="1"]'), note: /Plenty to choose from/.test((document.querySelector('.ideas-h') || {}).textContent || '') };
+    const n1 = (window.__full || []).length; W.loadCity('Italy', 'Rome', true); await new Promise(r => setTimeout(r, 300));
+    full.asked = (window.__full || []).slice(n1).filter(p => /MORE/.test(p)).length;
+    pool.spots.length = 0; keep.s.forEach(x => pool.spots.push(x)); pool.food.length = 0; keep.f.forEach(x => pool.food.push(x)); W.render();
+    return { asks, full };
+  });
+  t.ok(more.asks.includes('10 things to do') && more.asks.includes('8 places to eat'), '"Find more" asks for 10 more things to do and 8 more places to eat: ' + JSON.stringify(more.asks));
+  t.ok(!more.full.btn && more.full.note && more.full.asked === 0, 'a city at its cap (60 things to do, 40 places to eat) asks for no more and says there is plenty');
+  /* what the nightly checks are told: this trip's stops first, with their dates, the soonest day as "when", the rest up to the cap */
+  const want = await pg.evaluate(async () => {
+    const pool = W.pool('Italy', 'Rome'); W.wantPhotos('Italy', 'Rome', pool, W.P); await new Promise(r => setTimeout(r, 600));
+    const doc = JSON.parse(await window.__dbOp('get', 'wanted/italy-rome', null) || 'null');
+    const onTrip = []; W.P.days.filter(d => d.city === 'Rome').forEach(d => d.slots.forEach(x => { if (x.item && !onTrip.includes(x.item.n)) onTrip.push(x.item.n); }));
+    const firstDay = W.isoDay(W.dateOf(W.P.days.find(d => d.city === 'Rome').n));
+    return doc && { when: doc.when, firstDay, used: doc.used.length, onTrip: onTrip.length, headOk: onTrip.every(n => doc.spots.concat(doc.food).includes(n)),
+      first: onTrip.filter(n => pool.spots.some(x => x.n === n)).every((n, i, a) => doc.spots.indexOf(n) < a.length), pairs: doc.pts.length === doc.spots.length + doc.food.length,
+      cap: doc.spots.length <= Math.max(W.IDEA_CAP.spots, onTrip.length) && doc.food.length <= Math.max(W.IDEA_CAP.food, onTrip.length) };
+  });
+  t.ok(want && want.when === want.firstDay && want.used === want.onTrip && want.headOk && want.first && want.pairs && want.cap, 'the nightly lists put this trip\'s stops first with their dates (' + JSON.stringify(want) + ')');
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

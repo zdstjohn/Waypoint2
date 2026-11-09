@@ -74,6 +74,22 @@ exports.run = async t => {
   t.eq(gg.ids, '|ChIJtest3', 'the whole-day Google Maps link names each stop Google knows, in order');
   t.ok(gg.pin && gg.pin[0] === 41.9011 && gg.gpin === 1, 'a pin from Google is used while it is fresh');
   t.ok(gg.stale && gg.stale[0] !== 41.7 && !gg.staleG, `a pin from Google older than 30 days is no longer used (${gg.stale})`);
+  /* Explore's ideas: in each group the places the nightly check confirmed come first, marked "Checked" */
+  const ck = await pg.evaluate(async () => {
+    W.S.tview = 'map'; W.S.tab = 'do'; W.render(); await new Promise(r => setTimeout(r, 300));
+    const groups = [...document.querySelectorAll('.idea-list .idea-group.near-g')];
+    const rowsOf = h => { const out = []; for (let e = h.nextElementSibling; e && !e.classList.contains('idea-group'); e = e.nextElementSibling) if (e.classList.contains('idea')) out.push(e.querySelector('h4').textContent); return out; };
+    const g = groups.find(h => rowsOf(h).length >= 2); if (!g) return null;
+    const title = g.textContent, rows = rowsOf(g), last = rows[rows.length - 1];
+    const cur = JSON.parse(await window.__dbOp('get', 'places/italy-rome', null)); cur.items[W.norm(last)] = { st: 'open', checked: '2026-11-08' };
+    await window.__dbOp('set', 'places/italy-rome', JSON.stringify(cur));
+    for (let i = 0; i < 30; i++) { await new Promise(r => setTimeout(r, 100)); W.render(); const h = [...document.querySelectorAll('.idea-list .idea-group.near-g')].find(x => x.textContent === title); if (h && rowsOf(h)[0] === last) break; }
+    const h = [...document.querySelectorAll('.idea-list .idea-group.near-g')].find(x => x.textContent === title);
+    const first = h && h.nextElementSibling;
+    W.S.tview = 'days'; W.render();
+    return { before: rows, after: h ? rowsOf(h) : [], tag: !!(first && /✓ Checked/.test(first.textContent)), last };
+  });
+  t.ok(ck && ck.after[0] === ck.last && ck.tag, `a confirmed idea comes first in its group and says it was checked (${ck && ck.before.join(', ')} → ${ck && ck.after.join(', ')})`);
   /* A record that lost a wrong pin (it carries "was"): a stop whose saved list still holds that wrong pin has no own pin
      to go back to, so it is asked for once and lands where the answer says, never back on the wrong spot. */
   const fix = await pg.evaluate(async () => {

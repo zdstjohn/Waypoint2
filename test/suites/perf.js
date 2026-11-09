@@ -14,13 +14,17 @@ exports.run = async t => {
   });
   t.ok(st.n <= 12, `startup makes at most 12 requests (${st.n}: ${st.list.join(', ')})`);
   t.eq(st.external, [], 'nothing is fetched from another site at startup');
-  t.eq(st.scripts, 1, 'one script: the bundle');
+  /* the first screen needs one script; the second (packing, kids' corner, journal, family, settings) follows when the page is idle */
+  const firstPaint = await pg.evaluate(() => { const fp = performance.getEntriesByType('paint').find(e => e.name === 'first-contentful-paint'); return fp ? fp.startTime : null; });
+  const app2 = await pg.evaluate(() => { const e = performance.getEntriesByType('resource').find(r => /app2\.js$/.test(r.name)); return e ? { start: e.startTime } : null; });
+  t.eq(st.list.filter(n => /\.js$/.test(n)).sort(), ['app.js', 'app2.js'].filter(n => n === 'app.js' || app2), 'the first screen needs one script; the second comes after');
+  t.ok(app2 && firstPaint != null && app2.start >= firstPaint - 1 && await pg.evaluate(() => W.laterReady && !!W.packBlock && !!W.renderKids), `the second script loads after the first paint (${app2 && Math.round(app2.start)} ms vs ${firstPaint && Math.round(firstPaint)} ms) and brings its screens`);
   t.ok(st.fonts >= 3 && st.fonts <= 6, `the fonts it needs load from the app itself (${st.fonts})`);
   const kb = Math.round((fs.statSync(path.join(t.root, 'trip', 'app.js')).size + fs.statSync(path.join(t.root, 'trip', 'app.min.css')).size) / 1024);
-  t.ok(kb < 600, `bundle + stylesheet under 600 KB before compression (${kb} KB)`);
+  t.ok(kb < 560, `first script + stylesheet under 560 KB before compression (${kb} KB)`);
   const css = fs.readFileSync(path.join(t.root, 'trip', 'app.min.css')); const wide = css.filter(c => c > 127).length;
   t.eq(wide, 0, 'the stylesheet is plain ASCII, so "·" and "→" in it never show up garbled');
-  t.note(`startup: ${st.n} requests, bundle+css ${kb} KB`);
+  t.note(`startup: ${st.n} requests, first script+css ${kb} KB, then app2.js ${Math.round(fs.statSync(path.join(t.root, 'trip', 'app2.js')).size / 1024)} KB`);
 
   /* a 17-day trip, then timings with the CPU throttled 4x */
   await pg.evaluate(SP => {

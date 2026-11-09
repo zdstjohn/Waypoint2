@@ -1255,6 +1255,15 @@ html.offline .brand::after{content:"Offline";position:absolute;right:-6px;top:-8
 .prep-seg .gn{font-size:11px;background:var(--sunk);border-radius:8px;padding:1px 5px;color:var(--muted)}
 @media (max-width:420px){.prep-seg button{font-size:12.5px;padding:8px 4px;gap:4px}}
 .prep-seg button[aria-selected="true"] .gn{background:var(--accent-soft);color:var(--ink)}
+/* Take along: download the trip (city by city, with photo coverage) */
+.dl-trip .k{display:block;font:600 12px/1 var(--f-display,var(--f-body));letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.dl-trip > p{margin:0 0 8px}
+.dl-list{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:6px}
+.dl-row{display:grid;gap:1px;padding:8px 10px;border-radius:10px;background:var(--sunk)}
+.dl-row b{font-size:14.5px}
+.dl-row.done b::after{content:" \2713";color:#2f7a4a}
+.dl-trip .row{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+.dl-trip + .take-it,.dl-trip + *{margin-top:16px}
 .take-off{margin-top:14px;padding-top:12px;border-top:var(--hair)}
 .take-off .k{display:block;font:600 12px/1 var(--f-display,var(--f-body));letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
 .take-off .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
@@ -1544,6 +1553,7 @@ html.offline .brand::after{content:"Offline";position:absolute;right:-6px;top:-8
 .rc-gm{display:flex;justify-content:center;margin:10px 16px 14px;text-decoration:none;white-space:normal;text-align:center;text-wrap:balance;min-width:0}
 .rc-empty{padding:4px 16px 16px;margin:0}
 .rcard .map-wrap{margin:4px 10px 6px}
+.idea-meta .chk-ok{display:inline-block;font-size:12px;font-weight:800;color:#1f5130;background:#d6ebcd;border-radius:999px;padding:0 8px;margin-right:10px;white-space:nowrap}
 .freetime{padding:14px 16px;margin-bottom:16px;display:grid;gap:12px}
 .freetime h3{font-family:var(--f-display);font-weight:400;font-size:19px}
 .ft{display:grid;gap:8px}

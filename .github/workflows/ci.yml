@@ -1,4 +1,6 @@
 # Every push and pull request: build the bundle, check the types, run every test suite against the mocked runtime.
+# Alongside, "screens" photographs every screen before (the previous commit) and after this one and lists what changed
+# on screen in the run's summary, with before | after | difference images to download; it reports, it never blocks.
 name: tests
 on:
   push: { branches: [main] }
@@ -21,3 +23,32 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with: { name: failure-screenshots, path: test/out, if-no-files-found: ignore }
+  screens:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 2 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install pillow
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Screens before (the previous commit)
+        run: |
+          git worktree add ../before HEAD~1
+          ln -s "$GITHUB_WORKSPACE/node_modules" ../before/node_modules
+          cd ../before && node build/bundle.js
+          (python3 csp_server.py 8771 self > /dev/null 2>&1 &) ; sleep 2
+          node test/shots.js "$GITHUB_WORKSPACE/test/base"
+          pkill -f "csp_server.py 8771" || true
+      - name: Screens after, compared
+        run: npm run build && node test/run.js visual
+      - if: always()
+        run: cat test/out/visual/summary.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "No summary." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: screens, path: test/out/visual, if-no-files-found: ignore }

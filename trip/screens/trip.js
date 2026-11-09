@@ -296,7 +296,7 @@
         return '<button type="button" class="opt" data-use="' + x.slot + '" data-name="' + esc(it.n) + '" aria-label="Use ' + esc(it.n) + " for " + nm + '"><span class="nm">' + esc(it.n) + '</span><span class="desc">' + esc(it.d) + "</span>" + (info ? '<span class="info">' + esc(info) + "</span>" : "") + "</button>";
       }).join("") + (opts.length > 3 ? "</div>" : "") : '<p class="small muted">No other ideas nearby yet.</p>') +
       '<div class="swap-f">' + (opts.length > n ? '<button type="button" class="linkish" data-swapall="1">Show all ' + opts.length + "</button>" : swapAll && opts.length > 5 ? '<button type="button" class="linkish" data-swapall="1">Show fewer</button>' : "") +
-      (pool && pool.fallback ? "" : busy ? '<span class="loading">Finding more…</span>' : '<button type="button" class="linkish" data-more="1">Find more ideas</button>') + "</div></div>";
+      (pool && pool.fallback ? "" : busy ? '<span class="loading">Finding more…</span>' : W.ideasFull(pool) ? "" : '<button type="button" class="linkish" data-more="1">Find more ideas</button>') + "</div></div>";
   }
 
   W.renderTrip = function (P, target) {
@@ -310,10 +310,10 @@
     }
     W.jumpToToday(P);   /* during the trip, open on today */
     S.day = Math.max(1, Math.min(P.N, S.day || 1));
-    W.familyTick();
+    if (W.familyTick) W.familyTick();
     /* the whole trip as a storybook, one photo page per day */
     if (!xp && S.tview === "story" && W.storyHtml) {
-      P.stops.forEach(function (st) { W.wantPhotos(st.country, st.name, W.pool(st.country, st.name)); });
+      P.stops.forEach(function (st) { W.wantPhotos(st.country, st.name, W.pool(st.country, st.name), P); });
       el.innerHTML = W.tripTop(P) + W.storyHtml(P); W.storyMount(); return;
     }
     var day = P.days[S.day - 1], ap = P.ap, h = "", stop = P.stops[day.stop], mode = "list", vtWant = null, xpCols = false;
@@ -356,7 +356,7 @@
       W.loadBookLinks(day.country, day.city, firstN);
     }
     /* let the photo finder know which places this trip uses */
-    P.stops.forEach(function (st) { W.wantPhotos(st.country, st.name, W.pool(st.country, st.name)); });
+    P.stops.forEach(function (st) { W.wantPhotos(st.country, st.name, W.pool(st.country, st.name), P); });
     var err = W.status["spots|" + ck] && W.status["spots|" + ck] !== "loading" ? W.status["spots|" + ck] : null;
     /* when a day's ideas first arrive, its stops slide in one after another */
     var lk = day.n + "|" + ck, wasWaiting = W.renderTrip.waiting === lk;
@@ -379,7 +379,7 @@
         /* the day's clock notes, as one quiet line under the stop: warnings first */
         var notes = R ? R.warn.map(function (w) { return '<span class="warn">' + esc(shortNote(w)) + "</span>"; }).join("") + R.info.map(function (w) { return "<span>" + esc(shortNote(w)) + "</span>"; }).join("") : "";
         var bk = it && W.bookingFor ? W.bookingFor(it, day) : null;
-        var booked = (bk ? '<span class="booked-tag" title="' + esc(bk.title || "") + '">✓ Booked' + (bk.ref ? " · " + esc(bk.ref) : "") + "</span>" : "") + (it ? W.heartBadge(it) : "");
+        var booked = (bk ? '<span class="booked-tag" title="' + esc(bk.title || "") + '">✓ Booked' + (bk.ref ? " · " + esc(bk.ref) : "") + "</span>" : "") + (it && W.heartBadge ? W.heartBadge(it) : "");
         var rr = '<button type="button" class="icon-btn" data-reroll="' + x.slot + '" aria-expanded="' + swap + '" aria-label="Swap ' + W.SLOT_NAME[x.slot].toLowerCase() + '" title="Swap">' + ICON_REROLL + "</button>";
         /* the end of a day trip: the drive or train back before dinner */
         if (day.trip && !x.trip && wasOut && prevPt !== home) { var rb = W.leg(prevPt, home); if (rb) list += '<div class="travel-note">Back from ' + esc(day.trip.name) + " to " + esc(home.label) + " · " + W.fmtMin(rb.min) + " " + rb.label + " " + link(W.gmapsDir(prevPt, home, rb.mode), "Directions") + "</div>"; prevPt = home; wasOut = false; }
@@ -470,7 +470,7 @@
           : window.innerWidth > 920 ? routeCard(day, P, T, home, pts, gm, "", "") : "";
         h += '<div class="dayview mode-list' + (side ? "" : " solo") + '"><div class="slots">' + list + "</div>" + side + "</div>";
         h += W.dayNav ? W.dayNav(day, P) : "";
-        h += W.journalCard(day);
+        h += W.journalCard ? W.journalCard(day) : "";
       } else {
         /* Explore: find any place, today's route (on the street map where the city has one), the free time, then
            every idea by what it's near */
@@ -517,12 +517,16 @@
           (bd <= 3 ? byA[best] : far).push(r);
         });
         var cap = showAll ? 999 : 3;
+        /* in each group the places the nightly check confirmed come first, then those not checked yet, then the doubtful
+           ones (couldn't confirm, or not found on the web), each by distance */
+        var tier = function (it) { return it.st === "open" ? 0 : !it.st ? 1 : it.st === "unsure" ? 2 : 3; };
+        var byTier = function (a, b) { return tier(a.it) - tier(b.it) || a.km - b.km; };
         A.forEach(function (x, i) {
           if (!byA[i].length) return;
-          byA[i].sort(function (a, b) { return a.km - b.km; });
+          byA[i].sort(byTier);
           groups.push({ h: x.home ? "Near where you're staying" : "Near " + x.label, sub: x.sub, rows: byA[i].slice(0, cap) });
         });
-        far.sort(function (a, b) { return a.km - b.km; });
+        far.sort(byTier); nopin.sort(function (a, b) { return tier(a.it) - tier(b.it); });
         if (far.length) groups.push({ h: "Further out", sub: "", rows: far.slice(0, cap) });
         if (nopin.length) groups.push({ h: "Elsewhere in " + day.city, sub: "", rows: nopin.slice(0, cap) });
         groups.forEach(function (g) { restShown = restShown.concat(g.rows); });
@@ -536,14 +540,14 @@
         return '<div class="idea' + (ph ? " has-photo" : "") + '">' + (ph ? '<div class="pic-wrap">' + ph + onTag + "</div>" : onTag) + "<h4>" + esc(it.n) + "</h4>" + bTag + '<p class="desc">' + esc(it.d) + "</p>" +
           (row.near ? '<p class="near">' + esc(row.near) + "</p>" : "") +
           (info ? '<p class="small muted">' + esc(info) + "</p>" : "") +
-          '<p class="small idea-meta">' + warn + (eat ? menuLink(it, day.city) : "") + bookLink(it, day.city, eat, day.country) + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it, day.city), "Google Maps") + "</p>" +
+          '<p class="small idea-meta">' + warn + (it.st === "open" ? '<span class="chk-ok" title="Confirmed by the nightly check">✓ Checked</span>' : "") + (eat ? menuLink(it, day.city) : "") + bookLink(it, day.city, eat, day.country) + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it, day.city), "Google Maps") + "</p>" +
           (on && on.n === day.n || !free.length ? "" : '<div class="use">' + free.map(function (x) { return '<button type="button" data-use="' + x.slot + '" data-name="' + esc(it.n) + '" aria-label="Put ' + esc(it.n) + " in " + W.SLOT_NAME[x.slot].toLowerCase() + '">' + W.SLOT_NAME[x.slot] + "</button>"; }).join("") + "</div>") + "</div>";
       }
       if (xp) h += '<section class="ideas sk"><div class="ideas-t"><h2>Ideas in ' + esc(day.city) + '</h2><span class="small muted">' + (pool.spots || []).length + " things to do · " + (pool.food || []).length + " places to eat</span></div>" +
         '<div class="ideas-h"><div class="row"><div class="seg" role="group" aria-label="Ideas">' +
         '<button type="button" data-tab="do" aria-pressed="' + !eat + '">Things to do (' + (pool.spots || []).length + ")</button>" +
         '<button type="button" data-tab="eat" aria-pressed="' + eat + '">Places to eat (' + (pool.food || []).length + ")</button></div>" +
-        (pool.fallback ? "" : moreBusy ? '<span class="loading">Finding more…</span>' : '<button type="button" class="btn ghost" data-more="1">Find more</button>') + "</div></div>" +
+        (pool.fallback ? "" : moreBusy ? '<span class="loading">Finding more…</span>' : W.ideasFull(pool) ? '<span class="small muted">Plenty to choose from</span>' : '<button type="button" class="btn ghost" data-more="1">Find more</button>') + "</div></div>" +
         (xp ? exChips(F, eat, P, hasBeach, all.length, total) : "") + '<div class="idea-list">' +
         (planned.length ? '<h3 class="idea-group"><button type="button" class="fold" data-foldtrip="1" aria-expanded="' + !folded + '">' +
           '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="' + (folded ? "M6 3l5 5-5 5" : "M3 6l5 5 5-5") + '"/></svg>' +
@@ -588,7 +592,10 @@
     if (W.autoTick) W.autoTick(P);
     if (W.offline) W.offline.tick(P);
     if (W.warmTick) W.warmTick(P);
-    if (view === "kids" && W.renderKids) W.renderKids(P); else if (view === "setup") W.renderSetup(P); else if (view === "book") W.renderBook(P); else if (view === "recap") W.renderRecap(P); else if (view === "go") W.renderGo(P); else if (view === "explore") W.renderTrip(P, "explore"); else if (view === "settings") W.renderSettings(P); else W.renderTrip(P);
+    /* the kids' corner, the recap and settings live in the second script: until it has come, a moment's "Loading…" */
+    var later = view === "kids" || view === "recap" || view === "settings";
+    if (later && !W.needLater()) { var lv = $(view === "kids" ? "viewKids" : view === "recap" ? "viewRecap" : "viewSettings"); if (lv && !lv.firstChild) lv.innerHTML = '<p class="loading later-wait">Loading…</p>'; }
+    else if (view === "kids") W.renderKids(P); else if (view === "setup") W.renderSetup(P); else if (view === "book") W.renderBook(P); else if (view === "recap") W.renderRecap(P); else if (view === "go") W.renderGo(P); else if (view === "explore") W.renderTrip(P, "explore"); else if (view === "settings") W.renderSettings(P); else W.renderTrip(P);
     W.save();
     if (W.fxRunAfter) W.fxRunAfter();
     if (W.afterRender) W.afterRender();
@@ -610,11 +617,11 @@
     if (W.readOnly && !(d.day || d.step || d.tab || d.showall || d.foldtrip || d.open || d.zoom || d.ro || d.late || d.heart || d.comment || d.exf || d.psearch)) return;
     if (!W.readOnly) W.isExample = false;
     /* family: hearts and comments (a comment opens claude.ai's composer on this card, so nothing redraws) */
-    if (d.comment) { W.familyClick(b, d); return; }
-    if (d.heart) { W.familyClick(b, d); W.render(); return; }
+    if (d.comment) { if (W.familyClick) W.familyClick(b, d); return; }
+    if (d.heart) { if (W.familyClick) W.familyClick(b, d); W.render(); return; }
     if (view === "setup") { W.setupClick(b, d, P); return; }
     if (view === "book") { W.bookClick(b, d, P); return; }
-    if (view === "settings") { W.settingsClick(b, d, P); return; }
+    if (view === "settings") { if (W.settingsClick) W.settingsClick(b, d, P); return; }
     var day = P.days[S.day - 1];
     if (d.day || d.step) {
       var nd = d.day ? +d.day : Math.max(1, Math.min(P.N, S.day + +d.step));
@@ -670,7 +677,7 @@
     else if ((d.offsave || d.offcopy) && W.offline) W.offline.click(d, P);
     else if (d.rescue) { var rd = P.days[(S.day || 1) - 1]; if (rd && W.rescue) { W.rescue(rd, P, d.rescue); W.fxAfter(function () { W.fxStagger(".go-tl li", { step: 30 }); }); } }
     else if (d.unrescue) { var ud = P.days[(S.day || 1) - 1]; if (ud && W.unrescue) W.unrescue(ud); }
-    else if (d.jdel != null) W.journalClick(d);
+    else if (d.jdel != null && W.journalClick) W.journalClick(d);
     else if (d.live || d.livepick != null || d.site) W.liveClick(d, P);
     else if (d.rest) { var rs = S.rest || (S.rest = {}); if (rs[d.rest]) delete rs[d.rest]; else rs[d.rest] = 1; W.fxAfter(function () { W.fxStagger(".slots > .slot", { step: 30 }); }); }
     else if (d.more) { var mk = W.cityKey(day.country, day.city); ["spots|", "food|"].forEach(function (p) { if (W.status[p + mk] !== "loading") delete W.status[p + mk]; }); W.loadCity(day.country, day.city, true); }
@@ -732,6 +739,7 @@
     W.fxFlip("page", VIEWS[to] > VIEWS[view] ? 1 : -1, function () { view = to; try { history.replaceState(null, "", HASH[view]); } catch (x) {} W.render(); window.scrollTo(0, 0); });
   };
   W.setView = function (v) { view = v; try { history.replaceState(null, "", HASH[v]); } catch (x) {} };
+  W.currentView = function () { return view; };
 
   W.render();
   W.fxStagger("main:not([hidden]) > *", { step: 70, y: 14 });   /* the first view settles in */

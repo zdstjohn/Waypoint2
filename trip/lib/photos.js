@@ -84,19 +84,31 @@
   /* tell the photo finder which places this trip uses (one write per city, only when the list changes) */
   var written = {}, pending = {};
   try { written = JSON.parse(localStorage.getItem("waypoint-wanted-v1") || "null") || {}; } catch (e) {}
-  W.wantPhotos = function (country, city, pool) {
+  W.wantPhotos = function (country, city, pool, P) {
     if (!pool || pool.fallback) return;
+    /* the places this trip has on its days come first (with the day's date), then the best of the rest, up to the city's
+       cap: the nightly checks and the photo finder work down these lists, the soonest trip first ("when") */
+    var used = {}, first = "";
+    ((P && P.days) || []).forEach(function (d) {
+      if (d.country !== country || d.city !== city) return;
+      var dt = W.dateOf ? W.dateOf(d.n) : null, iso = dt ? W.isoDay(dt) : "";
+      if (iso && (!first || iso < first)) first = iso;
+      (d.slots || []).forEach(function (x) { if (x.item && x.item.n && !(x.item.n in used)) used[x.item.n] = iso; });
+    });
+    function pick(list, cap) { var a = list.filter(function (x) { return x.n in used; }), b = list.filter(function (x) { return !(x.n in used); }); return a.concat(b).slice(0, Math.max(cap, a.length)); }
+    var spotsL = pick(pool.spots || [], W.IDEA_CAP.spots), foodL = pick(pool.food || [], W.IDEA_CAP.food);
     /* one entry per place, in the same order as the names (null where a place has no pin), so the nightly tools can pair them */
-    var pts = (pool.spots || []).concat(pool.food || []).map(function (x) { return x.lat != null ? [Math.round(x.lat * 1e4) / 1e4, Math.round(x.lng * 1e4) / 1e4] : null; });
+    var pts = spotsL.concat(foodL).map(function (x) { var la = x.lat, ln = x.lng; return la != null && ln != null ? [Math.round(la * 1e4) / 1e4, Math.round(ln * 1e4) / 1e4] : null; });
     var hb = W.homebase(country, city);
     var info = (pool.spots || []).filter(function (x) { return W.isPaid(x) || W.needsBooking(x); }).map(function (x) { return { n: x.n, ticket: x.ticket || "", book: x.book || "", lat: x.lat, lng: x.lng }; });
     var st = W.S.stays[W.cityKey(country, city)];
     var stays = (pool.stay || []).filter(function (x) { return x && x.n && x.lat != null; });
-    var body = { country: country, city: city, spots: (pool.spots || []).map(function (x) { return x.n; }), food: (pool.food || []).map(function (x) { return x.n; }), pts: pts, paid: info, home: hb && hb.lat != null ? [hb.lat, hb.lng] : null, center: pool.lat != null ? [pool.lat, pool.lng] : null,
+    var body = { country: country, city: city, spots: spotsL.map(function (x) { return x.n; }), food: foodL.map(function (x) { return x.n; }), pts: pts,
+      when: first || null, used: Object.keys(used).map(function (n) { return [n, used[n]]; }), paid: info, home: hb && hb.lat != null ? [hb.lat, hb.lng] : null, center: pool.lat != null ? [pool.lat, pool.lng] : null,
       /* where-to-stay areas and the stay you chose by name (not a Booking.com pick, whose pin is real): their pins are checked too */
-      stays: stays.map(function (x) { return x.n; }), stayPts: stays.map(function (x) { return [Math.round(x.lat * 1e4) / 1e4, Math.round(x.lng * 1e4) / 1e4]; }),
+      stays: stays.map(function (x) { return x.n; }), stayPts: stays.map(function (x) { return [Math.round((x.lat || 0) * 1e4) / 1e4, Math.round((x.lng || 0) * 1e4) / 1e4]; }),
       homeLabel: st && st.label && !st.live && st.lat != null ? st.label : null };
-    var sig = "v4/" + (body.homeLabel || "") + "/" + body.stays.length + "/" + info.filter(function (x) { return x.book; }).length + "/" + (body.home ? body.home.join(",") : "") + "/" + body.spots.length + "/" + body.food.length + "/" + (body.spots[body.spots.length - 1] || "") + "/" + (body.food[body.food.length - 1] || "");
+    var sig = "v5/" + (first || "") + "/" + body.used.length + "/" + (body.used.length ? body.used[body.used.length - 1][0] : "") + "/" + (body.homeLabel || "") + "/" + body.stays.length + "/" + info.filter(function (x) { return x.book; }).length + "/" + (body.home ? body.home.join(",") : "") + "/" + body.spots.length + "/" + body.food.length + "/" + (body.spots[body.spots.length - 1] || "") + "/" + (body.food[body.food.length - 1] || "");
     var id = citySlug(country, city);
     if (written[id] === sig || (pending[id] && pending[id].sig === sig)) return;
     pending[id] = { sig: sig, body: body }; flushWanted();

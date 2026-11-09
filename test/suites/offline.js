@@ -19,6 +19,17 @@ exports.run = async t => {
   const s = await pg.evaluate(async () => { await W.offline.save(W.P, 'test'); const O = W.offline; return { state: O.state, n: O.n, total: O.total, at: O.at > 0, rec: JSON.parse(localStorage.getItem('waypoint-offline-v1') || 'null') }; });
   t.eq(s.state, 'done', 'saving finishes');
   t.ok(s.n > 0 && s.n === s.total, `every photo the trip shows is saved (${s.n})`);
+  /* Prepare, Take along: the trip city by city (street map, photos for how many stops), the share of stops with a photo,
+     and each city marked done once its photos are on the phone */
+  const dl = await pg.evaluate(() => {
+    W.setView('book'); W.S.prepTab = 'take'; W.render();
+    const box = document.querySelector('.dl-trip'); if (!box) return null;
+    const cov = W.tripPhotoCoverage(W.plan()), rows = [...box.querySelectorAll('.dl-row')];
+    const out = { rows: rows.length, cities: W.P.stops.length, done: rows.filter(r => r.classList.contains('done')).length, pct: new RegExp('Photos for ' + cov.pct + '% of stops').test(box.textContent), cov, btn: (box.querySelector('[data-offsave]') || {}).textContent };
+    W.setView('trip'); W.render(); return out;
+  });
+  t.ok(dl && dl.rows === dl.cities && dl.pct && dl.cov.withPhoto > 0 && dl.cov.withPhoto <= dl.cov.stops, `Take along lists the trip city by city with its photo coverage (${dl && dl.cov.withPhoto} of ${dl && dl.cov.stops} stops have a photo)`);
+  t.ok(dl && dl.done >= 1 && /Download/.test(dl.btn || ''), `after saving, the cities whose photos are on the phone are marked done (${dl && dl.done} of ${dl && dl.rows})`);
   t.ok(s.rec && s.rec.n === s.n, 'the save is recorded for next time');
   const before = await pg.evaluate(() => { W.S.appMode = 'travel'; W.S.appModeAt = W.isoDay(W.now()); W.S.day = 2; W.render(); return W.offline.block(W.P).includes('Ready for offline'); });
   t.ok(before, 'Travel mode says the trip is ready for offline');

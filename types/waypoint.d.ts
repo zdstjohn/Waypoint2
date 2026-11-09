@@ -66,7 +66,7 @@ interface Photo { url: string; credit?: string; page?: string; near?: string | b
 /** a checked place record (places/<city> in the database) */
 /** g: Google's place ID (kept for good); gpin/gat: the pin came from Google on that day (kept 30 days, never on the free map) */
 interface PlaceRecord { lat?: number | null; lng?: number | null; g?: string; gpin?: 1; gat?: string; [k: string]: any; checked?: string; osm?: string; name?: string; st?: Spot["st"]; site?: string; hours?: Hours; k?: Kid; note?: string; place?: string; replace?: Partial<Food & Spot> & { n: string }; approx?: 1; nopin?: 1; ashore?: 1; stay?: 1; pin_tried?: string; area?: 1; was?: [number, number] }
-interface OfflineState { state: string; n: number; total: number; at: number; maps: any[]; err: string; off: boolean; copy: boolean; trip: any; copyState: string; copyErr: string; why: string; save(P: Plan, why?: string): void; tick(P: Plan): void; src(url: string): string; block(P: Plan): string; takeBlock(P: Plan): string; exportCopy(P: Plan): Promise<void>; click(d: DOMStringMap, P: Plan): boolean; [k: string]: any }
+interface OfflineState { cities?: Record<string, { photos: number; of: number; map: boolean }>; tripBlock(P: Plan): string; state: string; n: number; total: number; at: number; maps: any[]; err: string; off: boolean; copy: boolean; trip: any; copyState: string; copyErr: string; why: string; save(P: Plan, why?: string): void; tick(P: Plan): void; src(url: string): string; block(P: Plan): string; takeBlock(P: Plan): string; exportCopy(P: Plan): Promise<void>; click(d: DOMStringMap, P: Plan): boolean; [k: string]: any }
 interface ReadOnly { code: string; [k: string]: any }
 interface Milestone { key: string; title: string; text: string; also?: string[]; go?: View }
 interface Readiness { pct: number; [k: string]: any }
@@ -397,7 +397,20 @@ interface Waypoint {
   vtWarm: any;
   vtWorkerUsed: any;
   vtZoom: any;
-  wantPhotos: any;
+  wantPhotos: (country: string, city: string, pool: Pool | null, P?: Plan) => void;
+  IDEA_CAP: { spots: number; food: number };
+  tripPhotoCoverage: (P: Plan) => { stops: number; withPhoto: number; pct: number; rows: { key: string; country: string; city: string; stops: number; urls: string[]; map: string | null; items: Record<string, string> }[] };
+  vtSize: (slug: string) => number;
+  logError: (msg: any, where: string, stack?: any) => void;
+  currentView: () => string;
+  flushErrors: () => void;
+  errBuild: string;
+  placeKey: (it: { n: string; cuisine?: string; meal?: string; [k: string]: any } | null | undefined) => string;
+  laterReady: boolean;
+  laterLoading?: boolean;
+  loadLater: () => void;
+  needLater: () => boolean;
+  ideasFull: (pool: Pool | null | undefined) => boolean;
   warmTick: any;
   watchBanner: any;
   watchChip: any;

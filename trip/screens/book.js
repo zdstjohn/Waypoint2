@@ -614,9 +614,9 @@
     }
 
     /* what to pack and sort out, read off the plan */
-    if (seg === "pack" && W.packBlock) h += W.packBlock(P);
+    if (seg === "pack") h += W.packBlock ? W.packBlock(P) : (W.needLater && W.needLater(), '<p class="loading later-wait">Loading…</p>');
     /* the plan in your calendar, as a PDF, or as an offline copy */
-    if (seg === "take") h += section("Take along", "Each stop as a timed event in your own calendar, the whole plan as a PDF, or an offline copy of the app with this trip inside.", W.takeItBlock(P) + (W.offline && !ro ? W.offline.takeBlock(P) : ""), "bk-take");
+    if (seg === "take") h += section("Take along", "The trip on this phone for no-signal days, each stop as a timed event in your own calendar, the whole plan as a PDF, or an offline copy of the app with this trip inside.", (W.offline && !ro ? W.offline.tripBlock(P) : "") + W.takeItBlock(P) + (W.offline && !ro ? W.offline.takeBlock(P) : ""), "bk-take");
     W.keepInputs(el, function () { el.innerHTML = '<div class="bookview">' + h + "</div>"; });
     if (tickFx) { var j = el.querySelector(".chk.just"); tickFx = null; if (j) W.fxPulse(j); }
     /* time zones for the calendar */
@@ -652,7 +652,7 @@
     if (W.liveClick(d, P)) { W.render(); return; }
     if (W.watchClick && W.watchClick(d, P)) { W.render(); return; }
     if (W.packClick && W.packClick(d)) { W.render(); return; }
-    if (d.offcopy && W.offline) { W.offline.click(d, P); W.render(); return; }
+    if ((d.offcopy || d.offsave) && W.offline) { W.offline.click(d, P); W.render(); return; }
     if (W.takeItClick && W.takeItClick(d, P)) return;
     if (d.chkgroup) { var f = fold(); f[d.chkgroup] = isShut(d.chkgroup) ? 0 : 1; try { localStorage.setItem("waypoint-bkfold", JSON.stringify(f)); } catch (e) {} W.render(); return; }
     if (d.prep) { S.prepTab = d.prep; W.render(); window.scrollTo(0, 0); return; }

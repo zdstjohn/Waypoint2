@@ -61,6 +61,18 @@ exports.run = async t => {
   t.ok(a.N === 14, 'auto Greece: 14 days'); t.eq(a.bad, [], 'auto Greece: every planner-made stop fits'); t.eq(a.order, [], 'auto Greece: clock order');
   const ms = await pg.evaluate(() => { const t0 = performance.now(); for (let i = 0; i < 5; i++) W.plan(); return Math.round((performance.now() - t0) / 5); });
   t.ok(ms < 400, `planning a 14-day trip takes under 400 ms (${ms} ms)`);
+  /* the same place twice in a trip: two stays a few miles apart (or coming back to a city) share no planner picks */
+  const twice = await pg.evaluate(async () => {
+    const ps = W.S.countries[0]; ps.mode = 'manual'; ps.picked = ['Corfu', 'Santorini', 'Fira'];
+    W.S.cityDays = { 'Greece|Corfu': 4, 'Greece|Santorini': 5, 'Greece|Fira': 5 }; W.S.days = 14; W.S.picks = {}; W.S.mine = {}; W.changed();
+    for (let i = 0; i < 60 && W.plan().days.some(d => d.loading); i++) await new Promise(r => setTimeout(r, 250));
+    /* Fira is on Santorini: give it the same list, as the real ones overlap */
+    const sp = W.pool('Greece', 'Santorini'); if (sp) { if (sp.lat == null) { sp.lat = 36.42; sp.lng = 25.43; } W.C.city['Greece|Fira'] = Object.assign(JSON.parse(JSON.stringify(sp)), { lat: sp.lat + 0.01 }); W.S.picks = {}; W.replan(); }
+    const P = W.plan(), seen = {}, rep = [], km = (o, d) => W.km(W.homebase(o.country, o.city), W.homebase(d.country, d.city));
+    P.days.forEach(d => (d.slots || []).forEach(x => { if (!x.item) return; const k = W.placeKey(x.item); const near = (seen[k] || []).filter(o => o.stop !== d.stop && (o.city === d.city || (km(o, d) != null && km(o, d) <= 40))); if (near.length) rep.push(x.item.n + ' days ' + near[0].n + '/' + d.n); (seen[k] = seen[k] || []).push(d); }));
+    return { stops: P.stops.map(s => s.name), rep: rep.slice(0, 8), same: !!sp };
+  });
+  if (twice.stops.length >= 2 && twice.same) t.eq(twice.rep, [], 'two stays close together don\'t repeat a place: ' + JSON.stringify(twice)); else t.note('Greece pick trip did not plan: ' + JSON.stringify(twice));
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

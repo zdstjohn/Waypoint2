@@ -1,8 +1,11 @@
 # Waypoint — how the code is laid out
 
 One page. `index.html` is the markup; the code is plain files under data/, lib/ and screens/, joined and minified into
-`app.js` (and app.css into `app.min.css`) by `build/bundle.js`, so the page makes one script request. All code shares one
-namespace, `window.W`; the order in `build/bundle.js` is the dependency order. `node test/run.js` builds first.
+`app.js` (and app.css into `app.min.css`) by `build/bundle.js`. All code shares one namespace, `window.W`; the order in
+`build/bundle.js` is the dependency order. `node test/run.js` builds first. The screens a first open never needs (the
+journal, family, settings, the kids' corner, the recap, the packing list: LATER in build/bundle.js) go into a second
+script, `app2.js`, which lib/later.js loads once the first screen has painted (on idle time, or at once when you open one
+of them, with "Loading…" for the moment it takes); W.needLater() says whether it has arrived. The offline copy carries both.
 
 ```
 index.html        markup (header, tabs, one <main> per view); loads app.js and app.min.css (built)
@@ -12,13 +15,24 @@ fonts/            Nunito, Dela Gothic One and Patrick Hand SC as woff2, served b
                   letters in separate files the browser fetches only when a label needs them)
 data/             built-in destinations (data1: Europe, data2: the rest, plus airports)
 lib/              the shared library
-  core.js         state, caches, helpers, Claude-powered data loading
+  core.js         state, caches, helpers, Claude-powered data loading. "Find more" asks for 10 more things to do (at
+                  least 3 for the evening) and 8 more places to eat, and stops offering once a city has 60 things to do
+                  and 40 places to eat (W.IDEA_CAP, W.ideasFull): past that the planner has plenty and the nightly checks
+                  and photos keep up
+  errlog.js       what goes wrong on a real phone: uncaught errors and unhandled promise failures (not a connection you
+                  didn't allow), at most 40 different ones a day, a repeat only counted, written every 15 seconds to your
+                  own private corner of the database, data/users/<you>/errlog/<YYYY-MM-DD> ({items: [{msg, at, stack,
+                  view, tv, build, ua, w, on, n}], updated}). Nothing personal: the message, where in the code, which
+                  screen, the build, the browser and the screen width. Read it with ArtifactData get on that path.
+  later.js        loads app2.js (above); loaded last
   classify.js     what a place is (kind, how long, how tiring, indoors, which parts of the day) — read by the planner,
                   the clock and the pictures
   validate.js     the one door for everything Claude sends back (W.V): names, pins near the city they were asked for
                   (a pin on another continent or at 0,0 is cleared, the place kept), tags, ratings, kid scores, times of
                   day, meals, hours, beach facts, money, time zones; links through the own-site rule. Loaded first.
-  photos.js       real photos (from the nightly finder) and the credit line; a place with no photo shows no picture
+  photos.js       real photos (from the nightly finder) and the credit line; a place with no photo shows no picture.
+                  The list it leaves for the finder (wanted/<city>) puts the places your trip actually uses first, with
+                  the trip's first day ("when") and the day each is used, so the nightly tasks do the soonest trip first
   places.js       checked place records (places/<city> in the database): fixed pins, official sites, hours, places
                   that have closed or never existed, and what to go to instead — laid over a city's list as it is read.
                   Pins: a place found on OpenStreetMap gets its real pin; a guessed pin that falls in the sea, a lake or a
@@ -45,7 +59,8 @@ lib/              the shared library
                   it is the one such place in town (a park, a museum; never "any gelateria"); never a car park, a street,
                   a station, a tour desk or a supermarket unless the item says so, nor a hotel for a place to eat; a
                   day-trip match (over 15 km) must be the very same name, and nothing past 120 km or away from a town
-                  the item names. Ratings and reviews are not kept.
+                  the item names. Ratings and reviews are not kept. A city's ideas list the checked places first (open,
+                  then not yet checked, then unsure) and a checked one says so ("✓ Checked").
   times.js        the clock for each day: starts, ends, the nap, travel days; how tiring a day is
   shape.js        the trip as a whole: nights per base, day trips instead of hotel moves, the way between bases,
                   what the group (toddlers, grandparents) can take
@@ -55,7 +70,11 @@ lib/              the shared library
                   asked for (fame 2/1/0, a review score; older lists are rated once by W.loadFame), only well-reviewed
                   places are asked for, poorly reviewed ones fall away, and stop cards say Must-see or Hidden gem; rescuing
                   the rest of a day that has gone wrong (rain, tired, behind, closed). The plan is kept until the trip,
-                  the cached data or the day changes, so most taps re-render without re-planning
+                  the cached data or the day changes, so most taps re-render without re-planning. One place is never
+                  planned twice: a place key (W.placeKey: the name without generic words or brackets, a consonant
+                  skeleton for longer words) catches "Liston" and "Liston Promenade", and two stays close together (two
+                  bases on one island, or a city you come back to) share it, though a place you chose yourself always
+                  stays. A gelateria, crêperie or juice bar is never lunch or dinner; a bakery is never dinner.
   route.js        trip shape check (and its one-tap fixes)   import.js  paste an itinerary   prices.js  live prices and booking sites
   watch.js        price watches   sync.js  saved and shared trips   fx.js  motion   vtmap.js  the street map (cities with a map pack)
   search.js       find any place and put it on the day: the city's own ideas, Mapbox (real places with exact pins,
@@ -65,7 +84,9 @@ lib/              the shared library
                   the day you pick. The page can't reach the internet itself: the map comes through the connection.
   offline.js      the trip without a signal: the photo index and photos kept on the phone (IndexedDB), map packs
                   warmed into the worker's cache, the offline note in Travel mode, and the "offline copy" (one HTML
-                  file with the app, the trip and its photos inside, opened from the phone's files)
+                  file with the app, the trip and its photos inside, opened from the phone's files). Prepare > Take
+                  along has "Before you leave": one button that saves the whole trip, with a row per place (street map
+                  saved or not, photos for how many of its stops) and the size to expect, so it can be done on Wi-Fi
   packing.js      the packing list and the before-you-go list, read off the plan (who is going, how you travel, what
                   the days hold, the season, the plugs); ticks, removals and your own items stay with the trip
   warm.js         the warm touches: the family by name (typed in Plan; "Great for Mila & Leo", "Easy for Joe", a kid's
@@ -94,7 +115,9 @@ screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.
                   (from the trip menu and Today): today's outings in big photo cards with a heart per kid, a passport
                   that stamps each place, and a treasure hunt per town
 vt/              street-map data: the detailed packs live in the asset store (maps/<city> in the
-                  database lists them), built nightly by tools/build.py and pack2json.py. vt/ keeps the engine, the
+                  database lists them), built nightly by tools/build.py and pack2json.py. A pack stays under 4 MB
+                  (PACK_MAX_MB): the closest zoom levels are dropped farthest from the town first, never within 0.8 km
+                  of it or of a place on its list; a city's wider area is still drawn from the coarser levels. vt/ keeps the engine, the
                   pack worker (packworker.js: downloads and decodes packs off the main thread, caches them in IndexedDB)
                   and the glyphs (glyphs.wasm: everyday letters; glyphs-ext.wasm: extended Latin, Greek, Cyrillic, on
                   demand; split by tools/glyphsplit.py)
@@ -137,10 +160,12 @@ Checks (node test/run.js, from the folder above trip/)
 Version control
   The code lives at github.com/zdstjohn/Waypoint2: trip/, test/, tools/, types/, build/, the test server, package.json.
   `npm install` then `npm test` runs everything; `npm run types` only the type check. GitHub Actions
-  (.github/workflows/ci.yml) runs the full suite on every push and pull request (about 11 minutes). Every published
-  version of the artifact becomes a release: pushing a branch release/v<N> (or a tag v<N>) makes release.yml create
-  the tag v<N>, build, and attach app.js, app.min.css, index.html and README.md, so any version can be restored by
-  republishing its two files.
+  (.github/workflows/ci.yml) runs the full suite on every push and pull request (about 14 minutes), and a second job,
+  "screens", takes every screen (phone, side panel, desktop; light and dark) for this commit and the one before and
+  lists what changed in the run's summary, with the pictures attached (it never fails the build: a change can be
+  intended). Every published version of the artifact becomes a release: pushing a branch release/v<N> (or a tag v<N>)
+  makes release.yml create the tag v<N>, build, and attach app.js, app2.js, app.min.css, index.html and README.md, so
+  any version can be restored by republishing those files.
 
 Source
   src/            the readable sources behind app.js (lib/, screens/ as .js.txt), the type declarations (waypoint.d.ts.txt) and both tsconfig

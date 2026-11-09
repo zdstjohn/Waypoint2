@@ -1,6 +1,7 @@
 node_modules/
 build/node_modules
 trip/app.js.map
+trip/app2.js.map
 test/out/
 test/base/
 test/diffout/

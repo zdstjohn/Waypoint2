@@ -312,6 +312,9 @@
 
   /* 25+ things to do, plus places to eat, transit and where to stay, for one city */
   var tries = {};
+  /* enough ideas for a city: past this, "Find more" stops asking (the lists stay as they are) */
+  W.IDEA_CAP = { spots: 60, food: 40 };
+  W.ideasFull = function (pool) { return !!pool && (pool.spots || []).length >= W.IDEA_CAP.spots && (pool.food || []).length >= W.IDEA_CAP.food; };
   W.loadCity = function (country, city, more) {
     var ck = W.cityKey(country, city), cur = W.C.city[ck];
     if (!more && cur && cur.spots && cur.spots.length) return;
@@ -334,11 +337,16 @@
         "\nReply with JSON only: {" + (extra || "") + "\"food\":[" + FOOD_EX + "]}\n" + foodRules() + (extra ? " Give 4 stay neighborhoods." : "");
     }
     if (more) {
-      run("spots|" + ck, "List 20 MORE things to do in and around " + where + ". Mix famous sights, local favorites, parks, markets, neighborhoods, experiences and a few day trips." + lean + focusAsk() +
-        " Include at least 5 evening options (sunset spots, evening strolls, shows, night markets)." + EVE + nearStay + " " + who() +
-        (ex.length ? " Do not repeat any of these: " + ex.join("; ") + "." : "") + "\nReply with JSON only: {\"spots\":[" + SPOT_EX + "]}\n" + spotRules(),
-        "default", function (r) { addSpots(ck, r); });
-      run("food|" + ck, foodAsk("List 18 MORE places to eat in " + where + ": breakfast cafés and bakeries, local classics, casual spots and markets, spread across the city or region." + focusAsk() + nearStay), "default", function (r) { addFood(ck, r); });
+      /* a few more at a time, up to the city's cap: the last ideas of a long list are the likeliest to be made up, and
+         every one of them waits for a nightly check and a photo */
+      var have = W.pool(country, city), nS = have ? (have.spots || []).length : 0, nF = have ? (have.food || []).length : 0;
+      if (nS < W.IDEA_CAP.spots)
+        run("spots|" + ck, "List 10 MORE things to do in and around " + where + ". Mix famous sights, local favorites, parks, markets, neighborhoods, experiences and a day trip." + lean + focusAsk() +
+          " Include at least 3 evening options (sunset spots, evening strolls, shows, night markets)." + EVE + nearStay + " " + who() +
+          (ex.length ? " Do not repeat any of these: " + ex.join("; ") + "." : "") + "\nReply with JSON only: {\"spots\":[" + SPOT_EX + "]}\n" + spotRules(),
+          "default", function (r) { addSpots(ck, r); });
+      if (nF < W.IDEA_CAP.food)
+        run("food|" + ck, foodAsk("List 8 MORE places to eat in " + where + ": breakfast cafés and bakeries, local classics, casual spots and markets, spread across the city or region." + focusAsk() + nearStay), "default", function (r) { addFood(ck, r); });
       return;
     }
     /* the first lists come in two halves asked at the same time, so the first days can be planned as soon as either arrives */

@@ -63,7 +63,15 @@ def prepare(db_dir, vt_index_path, work, max_lookups=300, max_packs=3):
     def missing(slug):
         w, have = wanted[slug], set(((photos.get(slug) or {}).get("items") or {}).keys())
         return len({p2.wp.norm(n) for n in (w.get("spots") or []) + (w.get("food") or [])} - have)
-    for slug in sorted(wanted, key=missing, reverse=True):   # cities missing the most first
+    def soon(slug):
+        """days until this city's first trip day ("when"); trips under way count as now; none comes last"""
+        import datetime
+        d = wanted[slug].get("when") if isinstance(wanted[slug].get("when"), str) else ""
+        try: days = (datetime.date.fromisoformat(d[:10]) - datetime.date.today()).days
+        except Exception: return 10 ** 6
+        return max(days, 0) if days >= -30 else 10 ** 6
+    # the soonest trip's cities first (their lists start with the stops on its days), then those missing the most
+    for slug in sorted(wanted, key=lambda s: (soon(s), -missing(s))):
         w = wanted[slug]
         if time.time() > p2.DEADLINE:
             print("photo time budget used: the rest wait for tomorrow", file=sys.stderr); break

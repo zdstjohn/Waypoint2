@@ -470,17 +470,31 @@ def load_dir(d):
         except Exception: pass
     return out
 
+# ---------- what to do first: the soonest trip's cities, and in each the places that trip has on its days ----------
+def trip_rank(w):
+    """days until the first day this city is on a trip ("when" in the wanted list); a trip under way (up to 30 days
+    back) counts as now; no trip, or long past, comes last"""
+    import datetime
+    d = w.get("when") if isinstance(w.get("when"), str) else ""
+    try: days = (datetime.date.fromisoformat(d[:10]) - datetime.date.today()).days
+    except Exception: return 10 ** 6
+    return max(days, 0) if days >= -30 else 10 ** 6
+def used_names(w):
+    """the places the trip has on its days (wanted "used": [[name, date], ...])"""
+    return {norm(p[0]) for p in (w.get("used") or []) if isinstance(p, list) and p and isinstance(p[0], str)}
 def prepare(db, work, max_cities):
     wanted, places = load_dir(os.path.join(db, "wanted")), load_dir(os.path.join(db, "places"))
     os.makedirs(work, exist_ok=True); todo = []; cities = 0
     ap = os.path.join(work, "auto.json"); auto = json.load(open(ap)) if os.path.exists(ap) else {}   # a run cut short resumes
-    for slug in sorted(wanted, key=lambda s: -(wanted[s].get("updated") or 0) if isinstance(wanted[s].get("updated"), (int, float)) else 0):
+    # the soonest trip's cities first (then the most recently changed lists)
+    for slug in sorted(wanted, key=lambda s: (trip_rank(wanted[s]), -(wanted[s].get("updated") or 0) if isinstance(wanted[s].get("updated"), (int, float)) else 0)):
         # settled: a real pin, or gone (closed/unfound/dup), or already looked for on the map once without luck.
         # A record without a pin (checked on the web, or a guess moved ashore) gets one more look on the map.
         w = wanted[slug]; have = {k: v for k, v in ((places.get(slug) or {}).get("items") or {}).items()
                                   if (v.get("lat") is not None and not v.get("approx")) or v.get("st") in ("closed", "unfound", "dup") or v.get("pin_tried")}
         names = [(n, False) for n in (w.get("spots") or [])] + [(n, True) for n in (w.get("food") or [])]
         names = [(n, f) for n, f in names if isinstance(n, str) and n.strip() and norm(n) not in have]
+        on_trip = used_names(w); names.sort(key=lambda x: norm(x[0]) not in on_trip)   # the trip's own stops first
         if not names or slug in auto: continue
         pts = [p for p in (w.get("pts") or []) if isinstance(p, list) and len(p) == 2 and isinstance(p[0], (int, float))]
         c = w.get("center") if isinstance(w.get("center"), list) and len(w.get("center")) == 2 else None
@@ -674,8 +688,10 @@ def gpass(db, work):
             r = items.get(norm(n)) or {}
             if r.get("st") in ("closed", "unfound", "dup") or r.get("stay") or r.get("g") or (food and GENERIC.search(n)): continue
             weak = 0 if r.get("lat") is None else 1 if (r.get("approx") or r.get("area") or r.get("pin_tried") or r.get("gpin")) else 2 if not r.get("name") else 3
-            todo.append((weak, slug, n, food))
-    todo.sort(key=lambda x: (x[0], x[1]))
+            todo.append((trip_rank(w), norm(n) not in used_names(w), weak, slug, n, food))
+    # the soonest trip's stops first, then its other ideas, then other trips; within each, the weakest pins first
+    todo.sort(key=lambda x: (x[0] if x[1] is False else 10 ** 6 + x[0], x[2], x[3]))
+    todo = [x[2:] for x in todo]
     docs, stats = {}, {"looked": 0, "matched": 0, "free_pin": 0, "google_pin": 0, "closed": 0, "cities": 0}
     for weak, slug, n, food in todo:
         if GUSED[0] >= GMAX: break

@@ -156,8 +156,14 @@
   }
   /* afternoon places that also make a good evening: strolls, views, waterfronts */
   var EVENING_OK = ["viewpoint", "oldtown", "square", "harbor", "beach", "park", "bridge", "nightlife", "market"];
+  /* a gelateria or a sweet shop is a treat, never lunch or dinner for a family (whatever the list says); a bakery or pastry
+     shop can do a quick lunch, not dinner */
+  var TREAT = /\b(gelato|gelateria|gelaterie|ice[- ]?cream|glacier|helader[ií]a|dessert|desserts|cr[eê]pe|cr[eê]perie|donuts?|churros|sweets|sweet shop|chocolaterie|juice bar|smoothies?|frozen yogh?urt|loukoumades)\b/i;
+  var BAKE = /\b(bakery|bakeries|boulangerie|panader[ií]a|patisserie|p[aâ]tisserie|pasticceria|pastry|pastries|bougatsa|fournos)\b/i;
   function fits(item, slot) {
     if (slot === "breakfast") return breakfastOK(item);
+    if ((slot === "lunch" || slot === "dinner") && TREAT.test(item.n + " " + (item.cuisine || ""))) return false;
+    if (slot === "dinner" && BAKE.test(item.n + " " + (item.cuisine || ""))) return false;
     if (slot === "lunch") return item.meal !== "dinner" && item.meal !== "breakfast";
     if (slot === "dinner") return item.meal !== "lunch" && item.meal !== "breakfast";
     /* a sight: the data's own part of the day first; then the kind of place (a show is for the evening, a hike for the morning) */
@@ -242,6 +248,30 @@
     var bf = p.kid && !W.isFood(slot) && W.beachFit ? W.beachFit(item) : "", beach = bf === "safe" ? 4 : bf === "care" ? (p.toddler ? -9 : -5) : 0;
     return (W.isFood(slot) ? foodStyle(item) : styleScore(item.t)) + top + focusScore(item, idx, W.isFood(slot)) + kidScore(item.k, p) + (f === 2 ? 4 : 0) + (len - idx) / len * 3 - g + early + heart + beach + shape + checked;
   }
+  /* the same place under another name: lists asked for in several goes come back with "Liston Promenade", "Liston
+     Promenade Evening Stroll" and "Liston Promenade Evening Stroll and Gelato", or "Rouvas Restaurant" and "Rouvas
+     Taverna". A place key keeps a name's own words (not "evening", "stroll", "restaurant", "old town"...), spelled
+     loosely ("Palaeopolis" = "Palaiopolis"), and the planner never puts two places with one key on the same trip. */
+  var PK_GEN = {};
+  ("a an and the of at in on to by for with from di de del della la le il el les des du da dei degli ta tou tis " +
+   "promenade evening stroll walk walking gelato ice cream breakfast brunch lunch dinner dessert swim swimming snorkel sunset sunrise " +
+   "seafront waterfront restaurant ristorante taverna tavern trattoria osteria cafe caffe cafes bar bistro grill old town visit tour trip " +
+   "day half kids family local short easy morning afternoon night view views viewpoint time free experience tasting class picnic shopping " +
+   "area quarter district neighborhood neighbourhood traditional authentic classic best famous little").split(" ").forEach(function (w) { PK_GEN[w] = 1; });
+  function skel(w) { return w.length < 5 ? w : w.charAt(0) + w.slice(1).replace(/[aeiouy]/g, "").replace(/(.)\1+/g, "$1"); }
+  W.placeKey = function (it) {
+    if (!it || !it.n) return "";
+    if (it._pk && it._pkn === it.n) return it._pk;
+    var words = W.norm(String(it.n).replace(/\([^)]*\)/g, " ")).split(/[^a-z0-9]+/).filter(Boolean);
+    var own = words.filter(function (w) { return !PK_GEN[w]; }).map(skel);   /* in order: "13-6" is not "6-13" */
+    var k = ("cuisine" in it || "meal" in it ? "f:" : "s:") + (own.length ? own.join(" ") : words.join(" "));
+    try { Object.defineProperty(it, "_pk", { value: k, writable: true, configurable: true, enumerable: false }); Object.defineProperty(it, "_pkn", { value: it.n, writable: true, configurable: true, enumerable: false }); } catch (e) {}
+    return k;
+  };
+  function isUsed(used, it) { return !!(used[W.norm(it.n)] || used["@" + W.placeKey(it)]); }
+  function usedHere(used, it) { var a = used[W.norm(it.n)], b = used["@" + W.placeKey(it)]; return !!((a && String(a).charAt(0) !== "~") || (b && String(b).charAt(0) !== "~")); }
+  function mark(used, it, k) { used[W.norm(it.n)] = k; used["@" + W.placeKey(it)] = k; }
+  function unmark(used, it, k) { if (used[W.norm(it.n)] === k) delete used[W.norm(it.n)]; if (used["@" + W.placeKey(it)] === k) delete used["@" + W.placeKey(it)]; }
   function byName(list, n) { var k = W.norm(n); return list.filter(function (x) { return W.norm(x.n) === k; })[0] || null; }
   function key(day, slot) { return day.country + "|" + day.city + "|" + day.dayInCity + "|" + slot; }
 
@@ -251,7 +281,7 @@
     for (var pass = 0; pass < (strictOnly ? 1 : 2); pass++) {
       /** @type {Spot | Food | null} */ var best = null, bs = -1e9;
       list.forEach(function (it, i) {
-        var k = W.norm(it.n); if (used[k] || seen.indexOf(k) > -1) return;
+        var k = W.norm(it.n); if (isUsed(used, it) || seen.indexOf(k) > -1) return;
         var sc = score(it, i, list.length, slot, ctx, p, pass === 0); if (sc != null && sc > bs) { bs = sc; best = it; }
       });
       if (best) return best;
@@ -283,7 +313,7 @@
   }
   function remaining(pool, slot, used) {
     var list = W.isFood(slot) ? pool.food || [] : pool.spots || [];
-    return list.filter(function (it) { return !used[W.norm(it.n)] && fits(it, slot); }).length;
+    return list.filter(function (it) { return !isUsed(used, it) && fits(it, slot); }).length;
   }
 
   /* ---------- the whole trip ---------- */
@@ -338,7 +368,9 @@
       if (W.placeTrips) W.placeTrips(s, days.filter(function (d) { return d.stop === si; }));
     });
 
-    /* fill each city's days from its own pool */
+    /* fill each city's days from its own pool. A place the plan already used at an earlier stop close by (two stays on
+       one island, or coming back to a city) isn't planned again; marks from that stop start with "~" */
+    var before = [];
     st.forEach(function (s, si) {
       var pool = W.pool(s.country, s.name);
       var cdays = days.filter(function (d) { return d.stop === si; });
@@ -351,6 +383,11 @@
         /* a day trip: the morning, lunch and afternoon come from the other town's list (fetched if needed) */
         if (d.trip) { d.fullDay = true; if (!W.pool(d.trip.country, d.trip.name)) { W.loadCity(d.trip.country, d.trip.name); d.slots.forEach(function (x) { if (x.trip) x.loading = true; }); } }
       });
+      before.forEach(function (b) {
+        var dk = W.km(b.home, home);   /* null when either has no pin */
+        if (!(b.city === W.cityKey(s.country, s.name) || (dk != null && dk <= 40))) return;
+        Object.keys(b.used).forEach(function (k) { if (!used[k] && String(b.used[k]).charAt(0) !== "~") used[k] = "~" + b.used[k]; });
+      });
       /* reserve the picks you already have */
       cdays.forEach(function (d) {
         d.slots.forEach(function (x) {
@@ -360,7 +397,8 @@
           var it = nm && byName(list, nm);
           /* a pick the planner made (not you) that turns out to be shut that day, or a dinner that opens too late for the kids, is replanned */
           if (it && !mine()[x.key] && W.badForDay(it, W.weekday(d.n), x.slot, W.kidDinner())) it = null;
-          if (it && !used[W.norm(it.n)]) { x.item = it; used[W.norm(it.n)] = x.key; }
+          /* a place you chose yourself stays even if an earlier stop had it; one the planner chose doesn't */
+          if (it && (mine()[x.key] ? !usedHere(used, it) : !isUsed(used, it))) { x.item = it; mark(used, it, x.key); }
         });
       });
       countMix(cdays.reduce(function (a, d) { return a.concat(d.slots.map(function (x) { return W.isFood(x.slot) ? null : x.item; })); }, []));
@@ -374,20 +412,21 @@
         if (am && !am.item && !am.rest && !am.free && !am.loading) {
           var pa = dayPool(d, am, s);
           var a1 = choose(pa.pool, "am", used, S.seen[am.key] || [], ctxFor(d, am, pa.home, pa.geo, !d.trip && fullDays < maxFull && !(d.tripFirst || d.moveFrom || d.tripLast || d.jet)), p);
-          if (a1) { am.item = a1; used[W.norm(a1.n)] = am.key; addMix(a1); if (!pa.pool.fallback) S.picks[am.key] = a1.n; }
+          if (a1) { am.item = a1; mark(used, a1, am.key); addMix(a1); if (!pa.pool.fallback) S.picks[am.key] = a1.n; }
         }
         if (am && am.item && am.item.s === "any" && !d.trip) dropForFull();
         d.slots.forEach(function (x) {
           if (x.item || x.rest || x.free || x.loading) return;
           var px = dayPool(d, x, s);
           var it = choose(px.pool, x.slot, used, S.seen[x.key] || [], ctxFor(d, x, px.home, px.geo, false), p);
-          if (it) { x.item = it; used[W.norm(it.n)] = x.key; if (!W.isFood(x.slot)) addMix(it); if (!px.pool.fallback) S.picks[x.key] = it.n; }
+          if (it) { x.item = it; mark(used, it, x.key); if (!W.isFood(x.slot)) addMix(it); if (!px.pool.fallback) S.picks[x.key] = it.n; }
         });
         /* how far today goes from your lodging, for the day header */
         var far = 0; d.slots.forEach(function (x) { var k = x.item && W.km(home, x.item); if (k && k > far) far = k; });
         d.farthest = far;
       });
       s.used = used;
+      before.push({ city: W.cityKey(s.country, s.name), home: home, used: used });
       /* long stays use up ideas quickly: top up the pool once or twice in the background */
       var ck = W.cityKey(s.country, s.name);
       var lowSpots = remaining(pool, "pm", used) < 10 || remaining(pool, "eve", used) < 3, lowFood = remaining(pool, "dinner", used) < 6;
@@ -412,7 +451,7 @@
   function slotOf(d, sl) { return d.slots.filter(function (y) { return y.slot === sl; })[0]; }
   function drop(d, x, P) {
     var used = P.stops[d.stop].used || {};
-    if (x.item && used[W.norm(x.item.n)] === x.key) delete used[W.norm(x.item.n)];
+    if (x.item) unmark(used, x.item, x.key);
     x.item = null; x.cut = true; delete W.S.picks[x.key];
   }
   /* another idea for this slot that fits the clock, or none */
@@ -428,7 +467,7 @@
       if (!it) break;
       x.item = it; x.cut = false;
       var T = W.dayTimes(d, P);
-      if (T && !conflict(T.rows[x.slot])) { used[W.norm(it.n)] = x.key; if (!pool.fallback) W.S.picks[x.key] = it.n; return true; }
+      if (T && !conflict(T.rows[x.slot])) { mark(used, it, x.key); if (!pool.fallback) W.S.picks[x.key] = it.n; return true; }
       tried[W.norm(it.n)] = 1; x.item = null; x.cut = true;
     }
     return false;
@@ -469,8 +508,8 @@
         var cx = ctxFor(d, x, home, pl.geo, false); cx.light = true; if (st === "pmEasy") cx.rest = true;
         var av = Object.assign({}, used); av[W.norm(was.n)] = 1;
         var it = choose(pool, sl, av, W.S.seen[x.key] || [], cx, P.p);
-        if (it) { x.item = it; x.cut = false; used[W.norm(it.n)] = x.key; if (!pool.fallback) W.S.picks[x.key] = it.n; fitDay(d, P); }
-        else if (st === "amNear") { x.item = was; x.cut = false; used[W.norm(was.n)] = x.key; if (!pool.fallback) W.S.picks[x.key] = was.n; }   /* nothing nearer: keep the morning */
+        if (it) { x.item = it; x.cut = false; mark(used, it, x.key); if (!pool.fallback) W.S.picks[x.key] = it.n; fitDay(d, P); }
+        else if (st === "amNear") { x.item = was; x.cut = false; mark(used, was, x.key); if (!pool.fallback) W.S.picks[x.key] = was.n; }   /* nothing nearer: keep the morning */
       } else drop(d, x, P);
     }
   }
@@ -513,14 +552,14 @@
   W.slotOptions = function (day, slot, P) {
     var c = slotCtx(day, slot, P); if (!c) return [];
     var list = W.isFood(slot) ? c.pool.food || [] : c.pool.spots || [], p = W.party(), cur = W.S.picks[c.k], have = {}, out = [];
-    if (cur) have[W.norm(cur)] = 1;
+    if (cur) { have[W.norm(cur)] = 1; var curIt = byName(list, cur); if (curIt) have["@" + W.placeKey(curIt)] = 1; }
     [true, false].forEach(function (strict) {
       var sc = [];
       list.forEach(function (it, i) {
-        var n = W.norm(it.n); if (have[n] || c.u[n]) return;
+        var n = W.norm(it.n); if (have[n] || have["@" + W.placeKey(it)] || isUsed(c.u, it)) return;
         var v = score(it, i, list.length, slot, c.ctx, p, strict); if (v != null) sc.push([v, it]);
       });
-      sc.sort(function (a, b) { return b[0] - a[0]; }).forEach(function (q) { have[W.norm(q[1].n)] = 1; out.push({ it: q[1], km: q[1].lat != null && c.ctx.prev && c.ctx.prev.lat != null ? W.km(c.ctx.prev, q[1]) : null }); });
+      sc.sort(function (a, b) { return b[0] - a[0]; }).forEach(function (q) { if (have["@" + W.placeKey(q[1])]) return; have[W.norm(q[1].n)] = 1; have["@" + W.placeKey(q[1])] = 1; out.push({ it: q[1], km: q[1].lat != null && c.ctx.prev && c.ctx.prev.lat != null ? W.km(c.ctx.prev, q[1]) : null }); });
     });
     return out;
   };
@@ -548,6 +587,7 @@
   /* put a specific idea into a slot; if it's on another day, the two trade places */
   W.useIdea = function (day, slot, name, P) {
     var k = key(day, slot), used = P.stops[day.stop].used || {}, other = used[W.norm(name)];
+    if (other && String(other).charAt(0) === "~") other = null;   /* it was on an earlier stop's day: nothing to trade */
     var cur = W.S.picks[k];
     if (other && other !== k) { if (cur) { W.S.picks[other] = cur; mine()[other] = 1; } else delete W.S.picks[other]; }
     W.S.picks[k] = name; mine()[k] = 1;
@@ -569,7 +609,7 @@
     S.rescueUndo = S.rescueUndo || {}; S.rescueUndo[W.restKey(day)] = undo;
     function booked(it) { var e = W.bookEntryFor ? W.bookEntryFor(P, day, it) : null; return !!(e && e.done); }
     function later(x) { var R = T.rows[x.slot]; return R && !R.skip && R.start != null && R.start > nm + 5; }
-    function setFree(x, why) { (S.free || (S.free = {}))[x.key] = 1; if (x.item && used[W.norm(x.item.n)] === x.key) delete used[W.norm(x.item.n)]; delete S.picks[x.key]; x.item = null; freed++; changed.push({ slot: x.slot, why: why }); }
+    function setFree(x, why) { (S.free || (S.free = {}))[x.key] = 1; if (x.item) unmark(used, x.item, x.key); delete S.picks[x.key]; x.item = null; freed++; changed.push({ slot: x.slot, why: why }); }
     function swap(x, filter, why) {
       var pl = dayPool(day, x, s), was = x.item, avoid = Object.assign({}, used); if (was) avoid[W.norm(was.n)] = 1;
       var cx = ctxFor(day, x, pl.home, pl.geo, false); cx.light = true;
@@ -581,8 +621,8 @@
         if (sc != null && sc > bs) { bs = sc; best = it; }
       }
       if (!best) return false;
-      if (was && used[W.norm(was.n)] === x.key) delete used[W.norm(was.n)];
-      x.item = best; used[W.norm(best.n)] = x.key; S.picks[x.key] = best.n; mine()[x.key] = 1; if (S.free) delete S.free[x.key];
+      if (was) unmark(used, was, x.key);
+      x.item = best; mark(used, best, x.key); S.picks[x.key] = best.n; mine()[x.key] = 1; if (S.free) delete S.free[x.key];
       changed.push({ slot: x.slot, from: was ? was.n : "", to: best.n, why: why }); return true;
     }
     var openNow = function (it) { var h = it.hours; if (!h) return true; var t = nm + 30; return !(W.weekday(day.n) != null && h.closed.indexOf(W.weekday(day.n)) > -1) && h.o <= t && h.c > t + 45; };

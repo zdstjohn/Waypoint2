@@ -36,7 +36,7 @@ module.exports = () => {
       // not an overlay on purpose (a sheet over the page, a badge on a picture)
       const za = getComputedStyle(a), zb = getComputedStyle(b);
       if ((za.position !== 'static' && za.zIndex !== 'auto') || (zb.position !== 'static' && zb.zIndex !== 'auto')) continue;
-      if (a.closest('.sheet, .modal, .undo, .toast, .lifthint, .sheet-back, .tm, .menu, .trip-menu') !== b.closest('.sheet, .modal, .undo, .toast, .lifthint, .sheet-back, .tm, .menu, .trip-menu')) continue;
+      if (a.closest('.sheet, .modal, .undo, .toast, .lifthint, .sheet-back, .tm, .menu, .trip-menu, #cheerhost') !== b.closest('.sheet, .modal, .undo, .toast, .lifthint, .sheet-back, .tm, .menu, .trip-menu, #cheerhost')) continue;
       if (a.closest('.thumb, .pic-wrap, .sd-pic, .sp-hero, .gh-pic') || b.closest('.thumb, .pic-wrap, .sd-pic, .sp-hero, .gh-pic')) continue;
       push('overlap', a, 'with ' + label(b) + ' (' + Math.round(ox) + 'x' + Math.round(oy) + ')');
     }

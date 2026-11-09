@@ -30,7 +30,7 @@
           if (!db) { clearTimeout(t); dbState = "off"; merge(); return; }
           db.collection("maps").onSnapshot(function (snap) {
             clearTimeout(t); DBMAPS = {};
-            snap.docs.forEach(function (d) { var x = d.data() || {}; if (x.parts && x.parts.length && x.b) DBMAPS[d.id] = { b: x.b, places: x.places || x.b, city: x.city, country: x.country, parts: x.parts.slice() }; });
+            snap.docs.forEach(function (d) { var x = d.data() || {}; if (x.parts && x.parts.length && x.b) DBMAPS[d.id] = { b: x.b, places: x.places || x.b, city: x.city, country: x.country, parts: x.parts.slice(), size: x.size || 0 }; });
             /* a pack that moved to the asset store replaces the file one, so the file can go */
             dbState = "ready"; merge();
           }, function () { clearTimeout(t); dbState = "off"; merge(); });
@@ -39,6 +39,8 @@
     } catch (e) { dbState = "off"; }
     if (dbState === "off") merge();
   }
+  /* a pack's size in bytes (0 when not known), for "about how much will this download" */
+  W.vtSize = function (slug) { var e = S.idx && S.idx[slug]; return e && e.size || 0; };
   W.vtFor = function (country, city, lat, lng) {
     if (S.engine === "off") return null;
     loadIndex();
