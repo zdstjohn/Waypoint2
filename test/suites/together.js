@@ -45,6 +45,9 @@ exports.run = async t => {
   await B.pg.waitForTimeout(1500);
   const bv = await B.pg.evaluate(k => ({ pick: W.S.picks[k], pending: Object.keys(JSON.parse(localStorage.getItem('waypoint-co-' + W.readOnly.code) || '{}')).length, log: /Sam chose/.test((document.querySelector('.co-bar') || {}).innerText || '') }), before.key);
   t.ok(bv.pick === pick && bv.pending === 0 && bv.log, 'Sam sees it stand, nothing left waiting, and the log: ' + JSON.stringify(bv));
+  /* a person's choice stands on every phone, also where the planner wouldn't pick it (the shared copy carries which picks
+     were chosen; without it, Sam's app planned that slot afresh) */
+  t.ok(await B.pg.evaluate(k => !!(W.S.mine || {})[k], before.key), 'and on Sam\'s phone it is a person\'s choice too');
   /* the owner changes the same slot afterwards: theirs stands, Sam's older change is not taken again */
   await A.pg.evaluate(() => { const m = document.querySelector('.trip-menu'); if (m) document.querySelector('[data-sync="menu"]').click(); });
   await A.pg.evaluate(d => { W.S.day = d; W.render(); }, before.day); await A.pg.waitForTimeout(300);

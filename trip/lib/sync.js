@@ -5,8 +5,9 @@
   var W = window.W, $ = W.$, esc = W.esc, S = W.S;
   /* how you're looking at a trip on this device; never synced */
   var VIEW_KEYS = ["day", "transitOpen", "stepClosed", "tripFolded", "mapZoom", "jetOpen", "late", "glanceOpen", "nextHide", "appMode", "appModeAt", "tview", "exF", "exSort", "prepTab"];
-  /* yours only: never in a shared copy */
-  var PRIVATE = ["bookings", "booked", "exported", "mailSeen", "mine", "seen", "lodgeSeen", "share", "tripId", "shareEdit", "coSeen", "coLog", "coMine"];
+  /* yours only: never in a shared copy. (Which picks a person made, "mine", does go: the planner keeps a place someone
+     chose even where it would not pick it, so without it a shared copy could show a different plan from yours) */
+  var PRIVATE = ["bookings", "booked", "exported", "mailSeen", "seen", "lodgeSeen", "share", "tripId", "shareEdit", "coSeen", "coLog", "coMine"];
   /* can this view change the plan? your own trip, or a shared one whose owner lets you plan together (lib/together.js) */
   W.canEdit = function () { return !W.readOnly || !!W.readOnly.edit; };
   function lget(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }

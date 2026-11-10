@@ -37,7 +37,9 @@ lib/              the shared library
   core.js         state, caches, helpers, Claude-powered data loading. "Find more" asks for 10 more things to do (at
                   least 3 for the evening) and 8 more places to eat, and stops offering once a city has 60 things to do
                   and 40 places to eat (W.IDEA_CAP, W.ideasFull): past that the planner has plenty and the nightly checks
-                  and photos keep up
+                  and photos keep up. A city's list keeps a fixed order whichever answer comes in first (the planner
+                  favors a list's first places): the headline half, the other half, "more" pages, trip-style ideas,
+                  hidden gems, rainy-day places (RANK in merge)
   errlog.js       what goes wrong on a real phone: uncaught errors and unhandled promise failures (not a connection you
                   didn't allow), at most 40 different ones a day, a repeat only counted, written every 15 seconds to your
                   own private corner of the database, data/users/<you>/errlog/d/<YYYY-MM-DD> ({items: [{msg, at, stack,
@@ -111,7 +113,9 @@ lib/              the shared library
                   holiday or festival is
   shape.js        the trip as a whole: nights per base, day trips instead of hotel moves, the way between bases,
                   what the group (toddlers, grandparents) can take
-  plan.js         which cities, how many days each, what to do each day (the chooser and its shape rules). Above the
+  plan.js         which cities, how many days each, what to do each day (the chooser and its shape rules). A city
+                  short of ideas for its days is topped up in the background (up to three times, and breakfast places
+                  once), judged only once its first lists are all in and counted only when actually asked for. Above the
                   interests sits the trip's feel (S.focus, Plan step 1): Must-sees (the default: the famous places first),
                   Hidden gems (where locals go) or Best of both (famous and hidden in turn). Every idea is rated when it is
                   asked for (fame 2/1/0, a review score; older lists are rated once by W.loadFame), only well-reviewed
@@ -144,6 +148,8 @@ lib/              the shared library
                   shares it back (shared/<code> carries what was taken, coSeen, and the log). Only what a person does
                   counts (not the planner filling a day on its own), and everything read from their list is checked
                   first. Places to stay, dates, bookings and the route stay yours. They need edit access to the page.
+                  The shared copy says which picks a person made (S.mine), so a place someone chose stands on every
+                  phone, also where the planner wouldn't have picked it.
   route.js        trip shape check (and its one-tap fixes)   import.js  paste an itinerary   prices.js  live prices and booking sites
   watch.js        price watches   sync.js  saved and shared trips   fx.js  motion   vtindex.js/vtmap.js  the street map (cities with a map pack)
   storage.js      (second script) Settings > Storage, for people who can edit the app: finds stored files nothing points
@@ -267,8 +273,10 @@ Version control
   (.github/workflows/ci.yml) runs the full suite on every push and pull request in three groups side by side (test/run.js
   --shard=k/3 balances them by time; about 6 minutes), and a second job, "screens", takes every screen for this commit
   and the one before, one run per size side by side (phone, large text, dark, tablet, desktop; SHOT_SIZES), both
-  photographed by this commit's test/shots.js, which waits for every answer, plans again and then asks for no more
-  ideas, so two runs of the same code give the same pictures. A commit that means to change screens lists them
+  photographed by this commit's test/shots.js, so two runs of the same code give the same pictures: it turns off the
+  background top-ups (test/mocks/steady.js), waits for every answer and a few quiet seconds, asks for no more ideas,
+  fetches every idea's details, and plans afresh until the plan stops changing; the mocks answer by what was asked
+  (lists numbered by kind, places placed and described by name), never by the order or batch the requests came in. A commit that means to change screens lists them
   in test/screens-expected.txt (names or patterns like "swap-*"; read only when that commit changed the file); any other
   screen that changed fails the check, and the run's summary lists both, with the pictures attached. Every night .github/workflows/fuzz.yml plans 2000 random trips (pushes run 300) and lists any failing seed
   in its summary, ready to replay with FUZZ_SEED=<n>. Every published version of the artifact becomes a release: pushing a branch release/v<N> (or a tag v<N>)

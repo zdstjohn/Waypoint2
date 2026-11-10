@@ -5,7 +5,7 @@
   let sampleP = base('sample');
   const wrap = async () => {
     const s = await sampleP; const orig = s.json;
-    s.json = async (prompt, opts) => {
+    const inner = async (prompt, opts) => {
       window.__prompts = window.__prompts || []; window.__prompts.push(prompt.slice(0, 160)); (window.__full = window.__full || []).push(prompt);
       if (/^How should this group travel from/.test(prompt)) {
         const m = prompt.match(/from (.+?), (.+?) to (.+?), (.+?)\?/);
@@ -75,16 +75,26 @@
       }
       const r = await orig(prompt, opts);
       if (/^For each of these places/.test(prompt) && r && r.links) {
-        r.links.forEach((l, i) => {
+        /* each place's details follow from its name, never from where it sat in the batch (which places share a batch
+           follows timing, and the plan would follow it) */
+        r.links.forEach(l => {
+          const i = [...String(l.n)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % 1000;
           const food = /eatery|cafe/i.test(l.n);
           l.hours = /cafe/i.test(l.n) ? { open: '07:00', close: '13:00', closed: [] } : food ? (i % 2 ? { open: '19:30', close: '23:30', closed: [] } : { open: '12:00', close: '22:30', closed: [] }) : (i % 3 === 0 ? { open: '09:00', close: '17:00', closed: [1] } : { open: '10:00', close: '19:00', closed: [] });
           l.lead = food ? (i % 4 === 0 ? 7 : 0) : (i % 2 ? 30 : 0);
-          if (window.__closedName && l.n === window.__closedName) l.st = 'closed'; else l.st = i === 6 ? 'unsure' : 'open';
+          if (window.__closedName && l.n === window.__closedName) l.st = 'closed'; else l.st = i % 12 === 6 ? 'unsure' : 'open';
           l.love = food ? 'Handmade pasta and a patient staff with kids' : 'Wide open spaces and a great view from the top';
           l.gripe = i % 2 ? 'Long lines after 11am' : '';
         });
       }
       return r;
+    };
+    /* when the last request started and ended, and how many are out: test/shots.js waits for a few quiet seconds (a
+       plan asks for its next top-up a moment after the last one comes in, which a look at the spinners alone can miss) */
+    window.__asks = { out: 0, at: Date.now() };
+    s.json = async (prompt, opts) => {
+      window.__asks.out++; window.__asks.at = Date.now();
+      try { return await inner(prompt, opts); } finally { window.__asks.out--; window.__asks.at = Date.now(); }
     };
     return s;
   };

@@ -477,12 +477,15 @@
       });
       s.used = used;
       before.push({ city: W.cityKey(s.country, s.name), home: home, used: used });
-      /* long stays use up ideas quickly: top up the pool once or twice in the background */
-      var ck = W.cityKey(s.country, s.name);
+      /* long stays use up ideas quickly: top up the pool up to three times in the background, once the city's first lists
+         are all in (half of them looked short, and whether a plan ran between the halves decided whether a city got a
+         top-up), and counted only when asked for, not while one is on its way (plans redrawn meanwhile used them up) */
+      var ck = W.cityKey(s.country, s.name), topping = W.cityBusy(ck);
       var lowSpots = remaining(pool, "pm", used) < 10 || remaining(pool, "eve", used) < 3, lowFood = remaining(pool, "dinner", used) < 6;
-      if (!pool.fallback && (lowSpots || lowFood) && (autoMore[ck] || 0) < 3) { autoMore[ck] = (autoMore[ck] || 0) + 1; W.loadCity(s.country, s.name, true); }
-      /* ideas saved before breakfast existed: fetch breakfast places once */
-      if (!pool.fallback && remaining(pool, "breakfast", used) < 3 && !autoMore[ck + "|bf"]) { autoMore[ck + "|bf"] = 1; W.loadBreakfast(s.country, s.name); }
+      if (!pool.fallback && (lowSpots || lowFood) && !topping && (autoMore[ck] || 0) < 3) { autoMore[ck] = (autoMore[ck] || 0) + 1; W.loadCity(s.country, s.name, true); }
+      /* too few breakfast places (ideas saved before breakfast existed, or a short list): fetch them once, judged on the
+         city's whole first lists, not on the half that came in first */
+      if (!pool.fallback && !topping && remaining(pool, "breakfast", used) < 3 && !autoMore[ck + "|bf"]) { autoMore[ck + "|bf"] = 1; W.loadBreakfast(s.country, s.name); }
     });
     var P = { stops: st, days: days, N: N, p: p, ap: ap };
     fitDays(P);
