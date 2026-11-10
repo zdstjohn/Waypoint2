@@ -428,6 +428,7 @@
         '<div class="row"><button type="button" class="btn quiet" data-sync="new">+ New trip</button>' +
         (renaming ? '<input class="field" id="tripNameIn" value="' + esc(W.tripName()) + '" aria-label="Trip name" maxlength="60"><button type="button" class="btn quiet" data-sync="savename">Save</button>'
           : '<button type="button" class="linkish" data-sync="rename">Rename this trip</button>') + "</div>" +
+        W.simpleSwitch() +
         (W.P && W.P.stops && W.P.stops.length ? '<button type="button" class="tm-set" data-sync="kids"><svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L2.8 7.8l5-.7z"/></svg>' +
           '<span><b>For the kids</b><span class="small muted">Their day in big photos, a passport and treasure hunts</span></span></button>' : "") +
         (W.P && W.P.stops && W.P.stops.length ? '<button type="button" class="tm-set" data-sync="story"><svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5.5C8.2 4.2 5.7 3.8 3 4.2v11.3c2.7-.4 5.2 0 7 1.3 1.8-1.3 4.3-1.7 7-1.3V4.2c-2.7-.4-5.2 0-7 1.3zM10 5.5v11.3"/></svg>' +

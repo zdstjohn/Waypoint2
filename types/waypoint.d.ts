@@ -478,6 +478,14 @@ interface Waypoint {
   vtMount: any;
   vtPending: any;
   vtReadParts: any;
+  /** Simple view (this phone only): no photos, no street map, fewer words */
+  simple: () => boolean;
+  /** turn Simple view on or off (saved on this phone) and redraw */
+  setSimple: (on: boolean) => void;
+  /** the Simple view switch, as drawn in the trip menu and Settings */
+  simpleSwitch: () => string;
+  /** the street map's cover over the detailed tiles that loaded: tile keys "z/x/y" -> GeoJSON boxes at one zoom (for the tests) */
+  vtMask: (keys: string[], z: number) => { type: string; features: any[] };
   vtState: any;
   vtWarm: any;
   vtWorkerUsed: any;

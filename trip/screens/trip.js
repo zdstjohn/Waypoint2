@@ -494,7 +494,7 @@
       var gm = pts.length ? W.dayRouteUrl(day, pts, home) : "";
       /* a real street map (street names, buildings, landmarks) only for cities that have a map pack; never a sketch */
       var vtSlug = W.vtFor ? W.vtFor(day.country, day.city, home.lat, home.lng) : null, mapBox = "";
-      if (vtSlug && W.vtState() !== "off" && (xp || window.innerWidth > 920)) {
+      if (vtSlug && !W.simple() && W.vtState() !== "off" && (xp || window.innerWidth > 920)) {   /* Simple view: the stops and walks, no map */
         var vtOn = !!W.vtActive();
         mapBox = '<div class="map-wrap' + (vtOn ? " vt-on" : " vt-want") + '"><div class="vt-slot"></div>' + (vtOn ? "" : '<p class="loading map-wait">Loading the street map…</p>') + "</div>";
         vtWant = { slug: vtSlug, key: day.n + "|" + day.city, pts: pts, home: home, animate: true, city: day.city };

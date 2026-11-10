@@ -1,4 +1,7 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v113
-setup-*         # Plan, step 3 "What do you eat?": the allergy and diet lists fold to one line each, showing what's picked
+# v114
+stop-panel-*    # a stop's panel: "Leave free" and "Not for us" move to its foot, apart from the links, each saying what it does
+meal-panel-*    # the same for a place to eat
+menu-*          # the trip menu: the Simple view switch
+settings-*      # Settings: the Simple view card

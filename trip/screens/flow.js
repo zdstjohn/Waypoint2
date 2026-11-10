@@ -210,6 +210,17 @@
     if (!x || !x.item) return;
     sheet = { key: key, slot: x.slot, mode: "acts" }; drawSheet();
   }
+  /* taking a stop off the plan: at the foot of its panel, well apart from its links (menu, photos, Google Maps) so a
+     thumb can't hit it by mistake, each saying what it does; "Not for us" asks once before it acts */
+  function outBlock(it, x, day, nm) {
+    var city = x.trip && day.trip ? day.trip.name : day.city, slot = nm.toLowerCase();
+    if (sheet.ask === "nope") return '<div class="sh-out ask" role="alert"><p><b>Not for us?</b> ' + esc(it.n) + " comes off your plan and won't be suggested in " +
+      esc(city) + ' again. You can bring it back from Explore.</p><div class="sh-out-b"><button type="button" class="btn danger" data-sheetact="nopeyes">Yes, not for us</button>' +
+      '<button type="button" class="btn quiet" data-sheetact="nopeno">Keep it</button></div></div>';
+    return '<div class="sh-out"><p class="sh-out-h">Don\'t want this one?</p>' +
+      '<button type="button" class="sh-out-r" data-sheetact="remove"><span class="ic">' + IC.free + "</span><span><b>Leave the " + esc(slot) + ' free</b><span class="small muted">Nothing planned then. You can undo it.</span></span></button>' +
+      '<button type="button" class="sh-out-r danger" data-sheetact="nope"><span class="ic">' + IC.no + '</span><span><b>Not for us</b><span class="small muted">Take it off and never suggest it in ' + esc(city) + " again</span></span></button></div>";
+  }
   function drawSheet() {
     var host = $("sheethost"); if (!host) { host = document.createElement("div"); host.id = "sheethost"; document.body.appendChild(host); }
     if (!sheet) { host.innerHTML = ""; if (!qs.open) document.documentElement.classList.remove("modal-open"); return; }
@@ -235,10 +246,8 @@
         '<a class="sh-act" href="' + esc(dir) + '" target="_blank" rel="noopener"><span class="ic">' + IC.dir + "</span>Directions</a>" +
         (!W.canEdit() ? "" : '<button type="button" class="sh-act" data-sheetact="swap"><span class="ic">' + IC.swap + "</span>Swap</button>" +
         '<button type="button" class="sh-act" data-sheetact="move"><span class="ic">' + IC.move + "</span>Move to another day</button>" +
-        '<button type="button" class="sh-act" data-sheetact="reorder"><span class="ic">' + IC.order + "</span>Reorder today</button>" +
-        '<button type="button" class="sh-act danger" data-sheetact="remove"><span class="ic">' + IC.free + "</span>Leave free</button>" +
-        '<button type="button" class="sh-act danger" data-sheetact="nope"><span class="ic">' + IC.no + "</span>Not for us</button>") +
-        "</div>" + (!W.canEdit() ? "" : '<p class="small muted sh-tip">Tip: press and hold a photo to swap two stops.</p>');
+        '<button type="button" class="sh-act" data-sheetact="reorder"><span class="ic">' + IC.order + "</span>Reorder today</button>") +
+        "</div>" + (!W.canEdit() ? "" : '<p class="small muted sh-tip">Tip: press and hold a photo to swap two stops.</p>' + outBlock(it, x, day, nm));
     }
     host.innerHTML = h + "</div>";
     document.documentElement.classList.add("modal-open");
@@ -254,7 +263,9 @@
     if (a === "swap") { sheet = null; drawSheet(); dayList(function () { var r = document.querySelector('[data-reroll="' + x.slot + '"]'); if (r) r.click(); }); return; }
     if (a === "move") { sheet.mode = "move"; return drawSheet(); }
     if (a === "reorder") { var lk = sheet.key; sheet = null; drawSheet(); dayList(function () { startLift(lk); }); return; }
-    if (a === "nope") {
+    if (a === "nope") { sheet.ask = "nope"; drawSheet(); var q = document.querySelector("#sheethost .sh-out.ask"); if (q && q.scrollIntoView) q.scrollIntoView({ block: "nearest" }); return; }
+    if (a === "nopeno") { delete sheet.ask; return drawSheet(); }
+    if (a === "nopeyes") {
       /* never this place again in this city: the slot gets a new suggestion */
       var b4 = snap(), pc = x.trip && day.trip ? [day.trip.country, day.trip.name] : [day.country, day.city];
       W.sayNo(pc[0], pc[1], x.item, P);

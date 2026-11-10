@@ -128,6 +128,7 @@
   /* ---------- the picture element ---------- */
   W.picture = function (it, food, country, city, opts) {
     opts = opts || {};
+    if (W.simple && W.simple()) return "";   /* Simple view: no photos */
     var ph = W.photoFor(it, food, country, city);
     /* a place to eat shows a public picture of the restaurant itself or nothing at all (not a photo of the street outside) */
     if (ph && food && ph.near) ph = null;

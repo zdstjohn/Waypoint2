@@ -133,7 +133,12 @@
           ML.addProtocol("wpvt", function (params) {
             var m = /^wpvt:\/\/([^/]+)\/(\d+)\/(\d+)\/(\d+)/.exec(params.url);
             if (!m) return Promise.resolve({ data: EMPTY });
-            return pack(m[1]).then(function (p) { return piece(p, m[2] + "/" + m[3] + "/" + m[4]); }).then(function (d) { return { data: d }; });
+            var key = m[2] + "/" + m[3] + "/" + m[4];
+            /* a tile that fails to come out of its pack is tried twice more before the map is told */
+            function once() { return pack(m[1]).then(function (p) { return piece(p, key); }); }
+            function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+            return once().then(null, function () { return wait(150).then(once); }).then(null, function () { return wait(600).then(once); })
+              .then(function (d) { return { data: d }; }, function (e) { mapErr("tile " + key + ": " + (e && e.message || e)); throw e; });
           });
           ML.addProtocol("wpgl", function (params) {
             var m = /^wpgl:\/\/([^/]+)\/([0-9]+-[0-9]+)/.exec(params.url), stack = m ? decodeURIComponent(m[1]).split(",")[0] : "";
@@ -230,11 +235,32 @@
     function lat(t) { return Math.atan(Math.sinh(Math.PI * (1 - 2 * t / n))) * 180 / Math.PI; }
     return [[lng0, lat(y)], [lng1, lat(y)], [lng1, lat(y + 1)], [lng0, lat(y + 1)], [lng0, lat(y)]];
   }
-  function mask(hdr, zl) {
-    var feats = Object.keys(hdr.t).filter(function (k) { return +k.split("/")[0] === zl; }).map(function (k) {
+  /* The cover (land colour, under the detailed map) hides the coarse map where a detailed tile is on screen, so streets
+     never double up. It covers only the detailed tiles that have actually loaded: one that failed (or hasn't come yet)
+     leaves the coarse map showing there, never an empty box. (It used to cover every tile the pack lists, so a single
+     detailed tile that failed on a phone left a blank square until a zoom loaded others.) */
+  var NONE = { type: "FeatureCollection", features: [] };
+  function mask(keys, zl) {
+    return { type: "FeatureCollection", features: keys.filter(function (k) { return +k.split("/")[0] === zl; }).map(function (k) {
       var q = k.split("/").map(Number); return { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [tileBox(q[0], q[1], q[2])] } };
+    }) };
+  }
+  W.vtMask = mask;   /* (for the tests) */
+  function coverSoon() {
+    if (S.coverT) return;
+    S.coverT = requestAnimationFrame(function () {
+      S.coverT = 0; if (!S.map) return;
+      var keys = Object.keys(S.got || {});
+      [13, 14].forEach(function (zl) { var src = S.map.getSource("mask" + zl); if (src && src.setData) src.setData(mask(keys, zl)); });
     });
-    return { type: "FeatureCollection", features: feats };
+  }
+  /* map trouble goes to the app's error log (once per kind of message), so the evening error report says what failed */
+  var mapSeen = {};
+  function mapErr(msg) {
+    var kind = String(msg).replace(/\d+\/\d+\/\d+/g, "z/x/y").slice(0, 160);
+    if (mapSeen[kind]) return; mapSeen[kind] = 1;
+    if (window.console) console.warn("[waypoint map]", msg);
+    if (W.logError) W.logError("map: " + String(msg).slice(0, 200), "vtmap");
   }
   function style(slug, hdr) {
     var C = palette(), url = "wpvt://" + slug + "/{z}/{x}/{y}";
@@ -256,7 +282,7 @@
       sources: {
         lo: { type: "vector", tiles: [url], minzoom: hdr.zmin || 8, maxzoom: 12, bounds: b },
         hi: { type: "vector", tiles: [url], minzoom: 13, maxzoom: 14, bounds: b },
-        mask13: { type: "geojson", data: mask(hdr, 13) }, mask14: { type: "geojson", data: mask(hdr, 14) },
+        mask13: { type: "geojson", data: NONE }, mask14: { type: "geojson", data: NONE },
         route: { type: "geojson", data: { type: "FeatureCollection", features: [] } }
       },
       layers: layers
@@ -360,9 +386,24 @@
           ["dragstart", "zoomstart"].forEach(function (ev) { S.map.on(ev, function (e) { if (e && e.originalEvent) S.moved = true; }); });
           S.map.on("zoomend", groupPins);
           S.map.on("load", function () { S.ready = true; S.sig = ""; if (S.pend) W.vtMount(S.pend.slot, S.pend.o); W.changed(); });
+          S.got = {}; S.retries = 0; var hdrT = p.hdr.t;
+          var tkey = function (t) { var c = t && t.tileID && t.tileID.canonical; return c ? c.z + "/" + c.x + "/" + c.y : ""; };
+          S.map.on("sourcedata", function (e) {
+            if (!e || e.sourceId !== "hi" || !e.tile) return;
+            var k = tkey(e.tile); if (!k || !hdrT[k]) return;
+            if (e.tile.state === "loaded" || e.tile.state === "reloading") { if (!S.got[k]) { S.got[k] = 1; coverSoon(); } }
+          });
           S.map.on("error", function (e) {
             var msg = String(e && e.error && e.error.message || e);
-            if (window.console) console.warn("[waypoint map]", msg);
+            if (e && e.sourceId === "hi" && e.tile) {
+              var k = tkey(e.tile); if (k && S.got[k]) { delete S.got[k]; coverSoon(); }
+              /* ask for the detailed tiles again a moment later (a few times at most) */
+              if (S.retries < 3 && !S.retryT) S.retryT = setTimeout(function () {
+                S.retryT = 0; S.retries++;
+                try { var sc = S.map && S.map.style && S.map.style.sourceCaches && S.map.style.sourceCaches.hi; if (sc && sc.reload) sc.reload(); } catch (x) {}
+              }, 1500);
+            }
+            mapErr(msg);
             if (!S.ready && /webgl|context/i.test(msg)) { S.engine = "off"; W.changed(); }
           });
         } catch (e) { S.engine = "off"; S.why = String(e && e.message || e); W.changed(); }

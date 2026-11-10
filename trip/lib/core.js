@@ -7,6 +7,26 @@
   var STYLES = window.STYLES;
   W.STYLE_NAME = {}; STYLES.forEach(function (s) { W.STYLE_NAME[s[0]] = s[1]; });
   W.$ = function (id) { return document.getElementById(id); };
+  /* Simple view (this phone only, so it holds in a shared trip too): no photos, no street map, fewer words. The switch
+     is in the trip menu and Settings; html.simple hides the extra lines (app.css), W.picture draws no photo and the
+     Trip screen no map */
+  var SIMPLE = (function () { try { return localStorage.getItem("waypoint-simple") === "1"; } catch (e) { return false; } })();
+  document.documentElement.classList.toggle("simple", SIMPLE);
+  W.simple = function () { return SIMPLE; };
+  W.setSimple = function (on) {
+    SIMPLE = !!on; document.documentElement.classList.toggle("simple", SIMPLE);
+    try { if (SIMPLE) localStorage.setItem("waypoint-simple", "1"); else localStorage.removeItem("waypoint-simple"); } catch (e) {}
+    if (W.render) W.render();
+  };
+  /* the switch, the same wherever it shows */
+  W.simpleSwitch = function () {
+    return '<button type="button" class="simple-sw" role="switch" aria-checked="' + SIMPLE + '" data-simple="1"><span class="sw-t"><b>Simple view</b>' +
+      '<span class="small muted">Just the plan: no photos, no maps, fewer words. This phone only.</span></span><span class="tg" aria-hidden="true"><i></i></span></button>';
+  };
+  document.addEventListener("click", function (e) {
+    var b = e.target && e.target.closest && e.target.closest("[data-simple]"); if (!b) return;
+    e.preventDefault(); W.setSimple(!SIMPLE);
+  });
   W.esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
   /* called for every name on every redraw; the last few thousand answers are kept */
   var normCache = Object.create(null), normN = 0;

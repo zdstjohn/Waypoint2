@@ -20,6 +20,9 @@ first screen reads from Prepare (the book-by checklist, the budget, which bookin
 with W.money and "Prices in": each phone shows costs as listed or all in one currency (localStorage "waypoint-cur"),
 converted at the European Central Bank's rates in fx/latest (refreshed nightly) and marked "≈" (W.priceText converts
 prices written in text, like "€15, book ahead"; a currency with no rate stays as listed); Prepare and Settings offer it.
+Simple view (core.js: W.simple, localStorage "waypoint-simple", so this phone only and in shared trips too; the switch is
+in the trip menu and Settings) draws no place photo (W.picture) and no street map, and html.simple hides descriptions,
+the greeting, the kids' banner and photo tips; times, places, walks, directions, what to book and warnings stay.
 The first render happens while app.js is still running (the end of screens/trip.js), so lib/later.js comes right after
 the error log: any screen may ask for the second script on that very first draw (v108 fixed Explore and Prepare, which
 broke on first open when it came last). Each module starts inside its own try (build/bundle.js): one that throws while
@@ -196,14 +199,18 @@ screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.
                   pictures), so Google Maps is always one tap away instead. All days groups the days by place under a stay bar that sticks to
                   the top and lights the place you've scrolled to; the storybook opens from the trip menu and All days), Prepare (book.js: To book · Booked · Budget ·
                   Pack · Take along) and Today (travel.js: Travel mode, also the storybook). flow.js has the next-step
-                  bar, undo, the stop sheet and the quick start (shown on the very first open); journal, family;
+                  bar, undo, the stop sheet and the quick start (shown on the very first open; a stop's sheet keeps
+                  "Leave free" and "Not for us" at its foot, apart from its links, and "Not for us" asks once); journal, family;
                   settings.js is "Import a plan" and Storage (sharing lives in the trip menu); kids.js is "For the kids"
                   (from the trip menu and Today): today's outings in big photo cards with a heart per kid, a passport
                   that stamps each place, and a treasure hunt per town
 vt/              street-map data: the detailed packs live in the asset store (maps/<city> in the
                   database lists them), built nightly by tools/build.py and pack2json.py. A pack stays under 4 MB
                   (PACK_MAX_MB): the closest zoom levels are dropped farthest from the town first, never within 0.8 km
-                  of it or of a place on its list; a city's wider area is still drawn from the coarser levels. vt/ keeps the engine, the
+                  of it or of a place on its list; a city's wider area is still drawn from the coarser levels. Where a
+                  detailed tile is drawn, a land-coloured cover hides the coarse map under it; the cover follows the
+                  detailed tiles that actually loaded (a tile that fails leaves the coarse map, never a blank box), a
+                  failed tile is decoded up to three times and asked for again, and map errors go to the error log. vt/ keeps the engine, the
                   pack worker (packworker.js: downloads and decodes packs off the main thread, caches them in IndexedDB)
                   and the glyphs (glyphs.wasm: everyday letters; glyphs-ext.wasm: extended Latin, Greek, Cyrillic, on
                   demand; split by tools/glyphsplit.py)
@@ -222,7 +229,11 @@ Checks (node test/run.js, from the folder above trip/)
   a11y          axe-core (WCAG 2.0/2.1 A and AA) over every screen in light and dark: no violations. Text colors have
                 their own tokens (--muted, --note-text, --food-text) so a fill color can stay bright while text passes.
   validate      the door above, fed the kinds of answers a model can return.
-  nope          "Not for us" from the swap panel, a swap card, a list row and the stop's menu: a new suggestion fills
+  simple        Simple view: the trip menu's switch takes away photos, descriptions and the greeting on the day,
+                photos and the street map in Explore (the route and its directions stay), photos and the kids' banner
+                on Today and the photo in a stop's panel; kept after a reload; Settings' switch turns it off.
+  nope          "Not for us" from the swap panel, a swap card, a list row and the stop's menu (at the panel's foot,
+                apart from its links; one tap asks, "Keep it" takes it back, "Yes, not for us" acts): a new suggestion fills
                 the slot, the place is nowhere on the plan in that city nor among the options, Explore lists it with
                 "Bring back", Undo and choosing it yourself take it off the list. The day bag: a beach, a cathedral, a
                 market and a travel day ask for the right things, each naming its stop; a tick is kept; the screen
