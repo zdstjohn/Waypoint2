@@ -23,7 +23,8 @@ prices written in text, like "€15, book ahead"; a currency with no rate stays 
 v120: Waypoint on its own, as an installable web app (outside Claude). build/standalone.js turns the same build into
 dist/: a full HTML document, the manifest and icons (build/icon/make-icons.js: the wordmark's W with its night scene),
 a service worker (sw.js: every file kept at install, the page fresh when online, all of it with no connection) and the
-host's headers (vercel.json: a strict content policy). window.__WP_STANDALONE switches lib/pwa.js on: the Install card
+host's settings and headers (vercel.json in the top folder, where Vercel reads it: build commands, a strict content
+policy). Live at https://waypoint-livid-three.vercel.app (Vercel project "waypoint", rebuilt from main on every push). window.__WP_STANDALONE switches lib/pwa.js on: the Install card
 in Settings, asking the phone to keep its data, and W.needsClaude for the wording of what only the Claude version does.
 On its own there is no Claude and no shared database: trips live on the phone, ideas are the ones built into the app
 (the country list and the Plan screen say which countries; a day says where they run out), and Gmail, live prices,

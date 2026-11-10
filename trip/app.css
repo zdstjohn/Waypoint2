@@ -1699,3 +1699,4 @@ html.copy #tabSetup,html.copy [data-sync="new"],html.copy [data-sync="del"],html
 .sa-note{margin:4px 0 0}
 /* on its own (no Claude): what needs Claude or the shared database isn't offered */
 html.standalone [data-offcopy],html.standalone [data-gmail],html.standalone [data-sync="settings"],html.standalone .tm-sharebox,html.standalone .share,html.standalone [data-live],html.standalone [data-cal],html.standalone [data-jadd]{display:none!important}
+.sa-info{margin:10px 0;padding:10px 14px;border-radius:14px;background:var(--sunk);color:var(--muted);font-size:14px;line-height:1.45}
