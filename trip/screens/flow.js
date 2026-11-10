@@ -122,7 +122,9 @@
       }).join("") + '<button type="button" class="btn quiet sm" data-qs="k+">+ Add a child</button></div></div>' +
       '<label class="fld"><span>Flying from</span><input class="field" id="qsFrom" list="airportList" placeholder="Your home city or airport" value="' + esc(from) + '"></label>' +
       (qs.msg ? '<p class="warn">' + esc(qs.msg) + "</p>" : "") +
-      '<div class="qs-go"><button type="button" class="btn" data-qs="go">Plan my trip</button><button type="button" class="linkish" data-qs="' + (qs.first ? "close" : "slow") + '">' + (qs.first ? "Look around the example trip first" : "Set it up step by step instead") + "</button></div></div>";
+      '<div class="qs-go"><button type="button" class="btn" data-qs="go">Plan my trip</button><button type="button" class="linkish" data-qs="' + (qs.first ? "close" : "slow") + '">' + (qs.first ? "Look around the example trip first" : "Set it up step by step instead") + "</button>" +
+        /* the installable version, signed out: the way back to signing in (also in Settings) */
+        (W.standalone && !W.cloud && /** @type {any} */ (window).__WP_CLOUD ? '<p class="small muted qs-acct">Invited to Waypoint? <button type="button" class="linkish" data-acct="in">Sign in</button></p>' : "") + "</div></div>";
     document.documentElement.classList.add("modal-open");
   }
   function qsKids() { document.querySelectorAll("[data-qskid]").forEach(function (e) { var v = Math.round(+e.value); qs.kids[+e.dataset.qskid] = isFinite(v) ? Math.max(0, Math.min(17, v)) : 6; }); }

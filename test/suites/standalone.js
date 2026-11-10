@@ -36,6 +36,7 @@ exports.run = async t => {
     /* every screen: nothing points to Claude, nothing needs it */
     const scan = await pg.evaluate(async () => {
       const wait = ms => new Promise(r => setTimeout(r, ms)), m = () => document.querySelector('main:not([hidden])'), out = { claude: [], ctl: [], empty: [] };
+      out.sheetSignIn = !!document.querySelector('.qs-acct [data-acct="in"]');
       const x = document.querySelector('[data-qs="close"]'); if (x) x.click(); await wait(200);
       const look = name => {
         const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
@@ -60,7 +61,7 @@ exports.run = async t => {
     t.eq(scan.claude, [], 'no screen sends people to Claude for something this version can\'t do');
     t.eq(scan.ctl, [], 'nothing is offered that needs Claude or the shared database (Gmail, live prices, sharing, imports, the plan check…)');
     t.ok(!scan.empty.length && scan.install, 'every screen draws, and Settings has "Install on this phone": ' + scan.empty.join(','));
-    t.ok(/^Settings\s*Sign in/.test(scan.menuSettings) && scan.signIn, 'signed out, the trip menu still leads to Settings, and Settings has Sign in: ' + scan.menuSettings);
+    t.ok(/^Settings\s*Sign in/.test(scan.menuSettings) && scan.signIn && scan.sheetSignIn, 'signed out, the first sheet offers Sign in, the trip menu still leads to Settings, and Settings has Sign in: ' + scan.menuSettings);
     /* a trip from scratch: built-in ideas, and an honest note where they run out */
     const plan = await pg.evaluate(async () => {
       const wait = ms => new Promise(r => setTimeout(r, ms));
