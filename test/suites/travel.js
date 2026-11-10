@@ -26,8 +26,10 @@ exports.run = async t => {
     t.eq(laterOut.map(x => x.n), [], 'no outdoor outing is left in the rest of the day: ' + JSON.stringify(after.slots));
     t.ok(/Plan B for the rain/.test(after.note || ''), 'and the screen says what it did: ' + after.note);
     await pg.click('[data-unrescue]'); await pg.waitForTimeout(700);
-    const undone = await pg.evaluate(() => W.P.days[W.S.day - 1].slots.map(x => x.item ? x.item.n : null));
-    t.eq(undone, before.map(b0 => b0.n), 'undo brings the day back');
+    const undone = await pg.evaluate(() => W.P.days[W.S.day - 1].slots.map(x => ({ n: x.item ? x.item.n : null, free: !!(W.S.free || {})[x.key] })));
+    /* every place that was on the day is back and nothing stays freed; a slot that was empty (no idea fitted it yet) may
+       fill from the ideas the rescue asked for meanwhile */
+    t.eq(undone.map((u, i) => before[i].n ? u.n : u.free ? 'freed' : 'ok'), before.map(b0 => b0.n || 'ok'), 'undo brings the day back: ' + JSON.stringify(undone));
   } else t.note('no rescue control on this day');
   if (await pg.$('.go-eve [data-goprev]')) { await pg.click('.go-eve [data-goprev]'); await pg.waitForTimeout(800); t.ok(await pg.evaluate(() => !!document.querySelector('[data-gotoday]')), 'another day shows a way back to today'); await pg.click('[data-gotoday]'); await pg.waitForTimeout(400); }
   await pg.click('.go-foot [data-appmode="plan"]'); await pg.waitForTimeout(900);

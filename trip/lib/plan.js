@@ -684,6 +684,9 @@
     if (mode === "rain") {
       W.loadIndoor(day.country, day.city);
       day.slots.forEach(function (x) {
+        /* an outing slot still empty later today stays free: the planner would otherwise fill it with whatever comes in
+           next (the indoor list asked for just above brings outdoor places too), outdoors in the rain */
+        if (!x.item && !W.isFood(x.slot) && later(x) && !(S.free || {})[x.key]) { (S.free || (S.free = {}))[x.key] = 1; return; }
         if (!x.item || W.isFood(x.slot) || !later(x) || booked(x.item)) return;
         var c = W.classify(x.item, false); if (c.indoor) return;
         if (!swap(x, function (it) { return W.classify(it, false).indoor && near(Math.max(3, s.geo ? s.geo.R * 2 : 3))(it); }, "rain")) setFree(x, "rain");
