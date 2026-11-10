@@ -1856,3 +1856,22 @@ html.standalone:not(.cloud) .tm-sharebox,html.standalone:not(.cloud) .share{disp
 /* a drawn arrow beside words ("Back to…", "See my trip"): the words' colour, centred on their middle line */
 svg.arr{width:1.1em;height:1.1em;flex:none;display:inline-block;vertical-align:-.175em;margin-right:.35em;stroke:currentColor}
 svg.arr.arr-r{margin:0 0 0 .35em}
+
+/* the Day tab: the whole route in Google Maps, top right under the header */
+.day-gm{display:flex;justify-content:flex-end;margin:-4px 0 12px}
+.day-gm .btn{display:inline-flex;align-items:center;gap:7px;text-decoration:none;min-width:0;white-space:normal;text-align:right}
+.day-gm .btn svg{width:16px;height:16px;flex:none}
+/* Today: the day as a route (the stops and the way between them), with what has passed dimmed and now and next marked */
+.go-route .rc-list{list-style:none;margin:0;padding:0;display:grid}
+.go-route .rc-gm{margin:6px 0 2px}
+.go-route button.rc-b{border:0;background:transparent;padding:4px 6px;margin:-4px -6px;border-radius:var(--r-sm);color:var(--fg);font:inherit;text-align:left;cursor:pointer;flex:1}
+.go-route .rc-b .t{font-weight:800;color:var(--fg);font-variant-numeric:tabular-nums}
+.go-route .rc-find{flex:none;font-weight:800;text-align:right;max-width:96px}
+.go-route .rc-stop.done{opacity:.5}
+.go-route .rc-stop.now > .rc-b{background:var(--sunk)}
+.go-route .rc-stop.now > .num,.go-route .rc-stop.now > .rc-hi{box-shadow:0 0 0 4px var(--accent-soft)}
+.go-route .rc-stop.next > .rc-b b::after{content:"next";margin-left:8px;font:800 var(--t-micro)/1 var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--accent);vertical-align:2px}
+.go-route .rc-nap .rc-hi,.go-route .rc-trav .rc-hi{background:var(--sunk);color:var(--fg)}
+.go-route .ok{color:var(--accent);font-weight:800}
+.go-route .warn-t{color:var(--note-text);font-weight:800}
+@media (min-width:921px){.explore-v .xp-cols.solo{display:block}}

@@ -1,5 +1,5 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v123: every screen. Corners, shadows and text sizes moved onto one scale (half-pixel text sizes round up, 12-13 px
-# corners become 14), and the kids' corner is drawn (night-sky header, inked passport stamps, the treasure map).
+# v125: every screen (Today comes before Prepare in the tab bar); the Day tab gains the Google Maps button under its
+# header, Explore loses the route, and Today shows the day as a route.
 *

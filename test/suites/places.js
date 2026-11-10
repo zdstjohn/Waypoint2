@@ -65,17 +65,17 @@ exports.run = async t => {
     return W.pinGroups(pts, proj).map(x => x.items.map(p => p.num).join('·'));
   });
   t.eq(g, ['1·2·4', '3'], 'stops on the same spot share one marker that shows every number');
-  /* Explore's route lists every stop; one with no pin says so and links to Google Maps by name, and the whole-day
+  /* Today's route lists every stop; one with no pin says so and links to Google Maps by name, and the whole-day
      Google Maps link carries every stop, pinned or by name */
   const rt = await pg.evaluate(async () => {
-    W.S.tview = 'map'; W.render(); await new Promise(r => setTimeout(r, 300));
+    W.goView('go'); await new Promise(r => setTimeout(r, 400));
     const d = W.P.days[W.S.day - 1], stops = (d.slots || []).filter(x => x.item).map(x => x.item);
-    const rows = [...document.querySelectorAll('#viewTrip .rc-stop')], gm = (document.querySelector('#viewTrip .rc-gm') || {}).href || '';
+    const rows = [...document.querySelectorAll('#viewGo .rc-stop:not(.rc-nap):not(.rc-trav)')], gm = (document.querySelector('#viewGo .rc-gm') || {}).href || '';
     const wp = decodeURIComponent((gm.match(/waypoints=([^&]*)/) || [])[1] || '').split('|').filter(Boolean);
     return { n: rows.length, stops: stops.length, noLL: stops.filter(it => it.lat == null).length, byName: rows.filter(r => /find on Google Maps/.test(r.textContent)).length, wp: wp.length };
   });
   t.ok(rt.n === rt.stops && rt.byName === rt.noLL && rt.wp === Math.min(9, rt.stops), `the route lists every stop (${rt.n}), finds the unpinned ones by name (${rt.byName}), and the Google Maps link carries all of them (${rt.wp})`);
-  await pg.evaluate(() => { W.S.tview = 'days'; W.render(); });
+  await pg.evaluate(() => { W.goView('trip'); W.S.tview = 'days'; W.render(); });
   /* Google: a place the nightly check found there carries its place ID, so every "Google Maps" link (the stop, the whole
      day) opens the exact listing; a pin taken from Google is used for 30 days only, and never drawn on the free street map */
   const gg = await pg.evaluate(() => {

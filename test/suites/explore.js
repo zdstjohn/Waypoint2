@@ -5,12 +5,12 @@ const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb
 exports.run = async t => {
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, db: mkdb() }); await exampleTrip(pg);
   await pg.evaluate(() => { W.S.day = 3; W.S.tview = 'map'; W.render(); }); await settle(pg, 4000);
-  const first = await pg.evaluate(() => ({ search: !!document.getElementById('placeQ'), route: !!document.querySelector('.rcard'), sketch: !!document.querySelector('svg.map'),
-    gm: (document.querySelector('.rc-gm') || {}).href || '', groups: [...document.querySelectorAll('.idea-group.near-g')].map(h => h.textContent), near: document.querySelectorAll('.idea .near').length,
+  const first = await pg.evaluate(() => ({ search: !!document.getElementById('placeQ'), route: !!document.querySelector('.rcard, .rc-list'), sketch: !!document.querySelector('svg.map'),
+    gm: (() => { W.S.tview = 'days'; W.render(); const a = document.querySelector('#viewTrip .day-gm a'), h = a ? a.href : ''; W.S.tview = 'map'; W.render(); return h; })(), groups: [...document.querySelectorAll('.idea-group.near-g')].map(h => h.textContent), near: document.querySelectorAll('.idea .near').length,
     label: document.querySelector('[data-vsw="map"]').textContent.trim() }));
   t.eq(first.label, 'Explore', 'the tab is called Explore');
-  t.ok(first.search && first.route && !first.sketch, 'Explore has the search and today\'s route, and no sketch map');
-  t.ok(/^https:\/\/www\.google\.com\/maps\/dir\/\?api=1&origin=/.test(first.gm) && /waypoints=/.test(first.gm), 'one button opens the whole day in Google Maps');
+  t.ok(first.search && !first.route && !first.sketch, 'Explore has the search, and neither the route (that is on Today) nor a sketch map');
+  t.ok(/^https:\/\/www\.google\.com\/maps\/dir\/\?api=1&origin=/.test(first.gm) && /waypoints=/.test(first.gm), 'one button on the Day tab, under the header, opens the whole route in Google Maps');
   t.ok(first.groups.length >= 2 && first.groups.some(g => /^Near /.test(g)) && first.near > 0, 'ideas are grouped by the stop they are near, with the time to get there: ' + first.groups.slice(0, 4).join(' / '));
 
 
@@ -32,10 +32,10 @@ exports.run = async t => {
     const slots = [...document.querySelectorAll('.ps-slot')].map(s => s.querySelector('b').textContent);
     document.querySelector('.ps-slot[data-pslot="pm"]').click(); await new Promise(r => setTimeout(r, 300));
     const d = W.P.days[2], pm = d.slots.find(x => x.slot === 'pm');
-    return { slots, pm: pm.item && pm.item.n, ok: (document.querySelector('.ps-ok') || {}).textContent, imp: ((W.S.imported || {})['Italy|Rome'] || []).map(x => [x.n, x.src]), route: [...document.querySelectorAll('.rc-stop b')].map(b => b.textContent) };
+    return { slots, pm: pm.item && pm.item.n, ok: (document.querySelector('.ps-ok') || {}).textContent, imp: ((W.S.imported || {})['Italy|Rome'] || []).map(x => [x.n, x.src]), route: (() => { W.goView('go'); const r = [...document.querySelectorAll('#viewGo .rc-stop b')].map(b => b.textContent); W.goView('trip'); return r; })() };
   });
   t.eq(added.slots, ['Morning', 'Afternoon', 'Evening'], 'a thing to do can go in the morning, afternoon or evening');
-  t.ok(added.pm && /Secret Garden/.test(added.pm) && added.route.some(n => /Secret Garden/.test(n)), 'the place is on the day, in the route too: ' + JSON.stringify(added));
+  t.ok(added.pm && /Secret Garden/.test(added.pm) && added.route.some(n => /Secret Garden/.test(n)), 'the place is on the day, and in the route on Today: ' + JSON.stringify(added));
   t.ok(added.imp.some(x => /Secret Garden/.test(x[0]) && x[1] === 'claude'), 'it joins the city\'s list as your own, remembering it came from Claude');
   t.ok(/is on Day 3, afternoon/.test(added.ok || ''), 'and says where it went');
   /* it stays after a reload of the plan (it travels with the trip) */

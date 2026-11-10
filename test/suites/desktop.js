@@ -55,10 +55,10 @@ exports.run = async t => {
       const xp = await pg.evaluate(async () => {
         W.S.tview = 'map'; W.render(); await new Promise(r => setTimeout(r, 300));
         const r = s => { const e = document.querySelector('#viewTrip ' + s); return e && e.getBoundingClientRect(); };
-        const ps = r('.psearch'), rc = r('.rcard'), dv = r('.dayflip'); W.S.tview = 'days'; W.render();
-        return ps && rc && dv ? { ps: Math.round(ps.width), dv: Math.round(dv.width), below: rc.top >= ps.bottom - 1, right: rc.left > ps.left + ps.width / 2, story: !!document.querySelector('.dsb') } : null;
+        const ps = r('.psearch'), rc = r('.xp-cols > .explorer'), dv = r('.dayflip'); W.S.tview = 'days'; W.render();
+        return ps && dv ? { ps: Math.round(ps.width), dv: Math.round(dv.width), map: !!rc, below: !rc || rc.top >= ps.bottom - 1, right: !rc || rc.left > ps.left + ps.width / 2, story: !!document.querySelector('.dsb') } : null;
       });
-      t.ok(xp && Math.abs(xp.ps - xp.dv) <= 2 && xp.below && xp.right && !xp.story, `@${width}: Explore puts the search across the top (${xp && xp.ps} px) and the route on the right below`);
+      t.ok(xp && Math.abs(xp.ps - xp.dv) <= 2 && xp.below && xp.right && !xp.story, `@${width}: Explore puts the search across the top (${xp && xp.ps} px) and the street map, where there is one, on the right below`);
     }
     /* the Prepare tabs */
     const tabs = await pg.evaluate(() => {

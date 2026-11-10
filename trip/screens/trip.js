@@ -205,7 +205,8 @@
       '<p class="small muted">' + (out ? "Times today assume you land early or the night before. If you land later, keep the first stops for tomorrow." : "Leave for the airport about 3 hours before an international flight.") + "</p></section>";
   }
 
-  /* ---------- Explore: today's route ---------- */
+  W.legIcon = function (mode) { return LEG_IC[mode] || LEG_IC.transit; };
+  /* ---------- today's route (beside the day on a big screen; the Today tab draws its own: screens/travel.js) ---------- */
   /** today's stops as a route from where you stay and back: the way between each (walk, transit, drive) with its
       directions, the whole day in Google Maps, and the real street map on top where the city has one */
   function routeCard(day, P, T, home, pts, gm, mapBox, zoomBtns) {
@@ -345,6 +346,7 @@
       var hero = W.cityPhoto ? W.cityPhoto(day.country, day.city, (day.slots || []).filter(function (x) { return x.item && !W.isFood(x.slot); }).map(function (x) { return x.item; })) : null;
       h += '<div class="day-h' + (hero ? " has-hero" : "") + '">' + (hero ? W.heroImg(hero, day.city) : "") + '<div class="grow"><h2>' + esc(day.city) + '</h2><div class="sub">' + sub.join(" · ") + dayLevel(day, P) + "</div>" +
         (W.isExample ? '<div class="small ' + (hero ? "hero-note" : "muted") + '">Example trip · change anything under <a href="#plan" data-view="setup">Plan</a></div>' : "") + "</div></div>";
+      h += "<!--day-gm-->";   /* the whole route in Google Maps goes here, once the day's stops are known (below) */
     }
     /* a public holiday or a festival on this day */
     if (!xp && W.holidayLine) h += W.holidayLine(day);
@@ -476,14 +478,16 @@
       var zoomBtns = mapBox ? '<div class="zoom" role="group" aria-label="Map zoom"><button type="button" class="icon-btn" data-zoom="out" aria-label="Zoom out">−</button>' +
         '<button type="button" class="icon-btn" data-zoom="in" aria-label="Zoom in">+</button>' +
         '<button type="button" class="icon-btn fit" data-zoom="fit" aria-label="Fit today\'s stops"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg></button></div>' : "";
+      /* the Day tab: the whole route in Google Maps, top right under the header */
+      h = h.replace("<!--day-gm-->", !xp && gm ? '<div class="day-gm"><a class="btn sm" href="' + esc(gm) + '" target="_blank" rel="noopener">' + W.icon("dir", 2.2) + "Open the whole route in Google Maps ↗</a></div>" : "");
       if (!xp) {
         list += dayEnd(day, P, home, geoBusy);
         if (!W.readOnly) list += '<button type="button" class="add-place" data-addplace="1"><span aria-hidden="true">+</span> Add a place of your own</button>';
         /* on a big screen, beside the day: the street map where the city has one, otherwise today's route with the
            whole day in Google Maps (never a sketch) */
         var side = mapBox ? '<aside class="explorer sk"><div class="explorer-h"><h3>Today\'s map</h3>' + zoomBtns + "</div>" + mapBox +
-          '<p class="map-note">© OpenMapTiles © OpenStreetMap contributors' + (gm ? " · " + link(gm, "Open the day in Google Maps") : "") + "</p></aside>"
-          : window.innerWidth > 920 ? routeCard(day, P, T, home, pts, gm, "", "") : "";
+          '<p class="map-note">© OpenMapTiles © OpenStreetMap contributors</p></aside>'
+          : window.innerWidth > 920 ? routeCard(day, P, T, home, pts, "", "", "") : "";
         h += '<div class="dayview mode-list' + (side ? "" : " solo") + '"><div class="slots">' + list + "</div>" + side + "</div>";
         h += W.dayNav ? W.dayNav(day, P) : "";
         /* the journal lives on Today; here, a way there when the day has one */
@@ -494,8 +498,9 @@
         /* (the search comes with the second script: until then, the box it will be) */
         h += W.searchBlock ? W.searchBlock(day, P) : (W.needLater(), '<section class="psearch sk" aria-label="Search for a place"><div class="ps-row"><input class="field" type="search" disabled placeholder="Search any place in ' + esc(day.city) + '…" aria-label="Search for a place"><button type="button" class="btn" disabled>Search</button></div></section>');
         /* below the search, on a big screen: the route (and street map) on the right, the rest on the left */
-        h += '<div class="xp-cols">'; xpCols = true;
-        h += routeCard(day, P, T, home, pts, gm, mapBox, zoomBtns);
+        /* (today's route, stop by stop, is on the Today tab: screens/travel.js) */
+        h += '<div class="xp-cols' + (mapBox ? "" : " solo") + '">'; xpCols = true;
+        if (mapBox) h += '<aside class="explorer sk"><div class="explorer-h"><h3>Today\'s map</h3>' + zoomBtns + "</div>" + mapBox + '<p class="map-note">© OpenMapTiles © OpenStreetMap contributors</p></aside>';
         h += freeTime(day, P, T);
       }
 
@@ -585,7 +590,7 @@
       }
     }
     /* the same day on the same screen is edited in place (lib/patch.js); another day or view is drawn afresh */
-    W.draw(el, h + (xpCols ? "</div>" : "") + "</div>", "day|" + S.tripId + "|" + S.day + "|" + (xp ? "map" : "list") + "|" + (W.simple() ? 1 : 0));
+    W.draw(el, h.replace("<!--day-gm-->", "") + (xpCols ? "</div>" : "") + "</div>", "day|" + S.tripId + "|" + S.day + "|" + (xp ? "map" : "list") + "|" + (W.simple() ? 1 : 0));
     /* on a phone in list view the map is hidden: don't run it in the background */
     if (vtWant && (xp || window.innerWidth > 920)) {
       var slotEl = el.querySelector(".vt-slot");

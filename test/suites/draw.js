@@ -83,7 +83,7 @@ exports.run = async t => {
   const go = await pg.evaluate(() => {
     const el = document.getElementById('viewGo'); let muts = 0; const mo = new MutationObserver(l => { muts += l.length; });
     W.render(); mo.observe(el, { childList: true, subtree: true, characterData: true }); W.render(); W.render(); muts += mo.takeRecords().length; const quiet = muts;
-    const li = el.querySelector('.go-tl li'), p0 = W.drawn.patched;
+    const li = el.querySelector('.go-rt li'), p0 = W.drawn.patched;
     document.querySelector('[data-late="15"]') && document.querySelector('[data-late="15"]').click();
     const a = el.innerHTML, kept = !!li && li.isConnected; el._sig = null; W.render(); mo.disconnect();
     return { view: W.view(), quiet, kept, patched: W.drawn.patched - p0, equal: a === el.innerHTML };

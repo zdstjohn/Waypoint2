@@ -559,6 +559,7 @@ interface Waypoint {
   /** an icon as an svg; weight is the line's width on the 24 grid */
   icon: (name: string, weight?: number, cls?: string) => string;
   arrow: (dir?: string) => string;
+  legIcon: (mode: string) => string;
   /** a city's own photo for its header: the city, else the first of these places with one, else its best-known sight */
   cityPhoto: (country: string, city: string, prefer?: (Spot | Food)[]) => Photo | null;
   /** the photo filling a header, with its credit */

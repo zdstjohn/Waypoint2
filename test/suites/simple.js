@@ -26,7 +26,9 @@ exports.run = async t => {
   t.ok(d1.stops === d0.stops && d1.walks, 'and every stop with its walk is still there');
   await pg.evaluate(() => { W.S.tview = 'map'; W.render(); }); await pg.waitForTimeout(800);
   const e1 = await look();
-  t.ok(e1.photos === 0 && !e1.map && e1.desc === 0 && /Directions/.test(await pg.evaluate(() => document.querySelector('#viewTrip').textContent)), 'Explore: no photos and no street map, the route with its directions stays: ' + JSON.stringify(e1));
+  t.ok(e1.photos === 0 && !e1.map && e1.desc === 0, 'Explore: no photos and no street map: ' + JSON.stringify(e1));
+  const rt1 = await pg.evaluate(async () => { W.goView('go'); await new Promise(r => setTimeout(r, 500)); const v = document.querySelector('#viewGo'), o = { stops: v.querySelectorAll('.go-rt .rc-stop').length, dir: /Directions/.test(v.textContent), photos: v.querySelectorAll('img.photo').length }; W.goView('trip'); await new Promise(r => setTimeout(r, 300)); return o; });
+  t.ok(rt1.stops > 2 && rt1.dir, 'Today keeps the route with its directions: ' + JSON.stringify(rt1));
   await pg.evaluate(() => W.goView('go')); await pg.waitForTimeout(800);
   const g1 = await look();
   t.ok(g1.photos === 0 && !(await pg.evaluate(() => { const k = document.querySelector('.kids-chip'); return k && k.checkVisibility(); })), 'Today: no photos and no kids\' banner: ' + JSON.stringify(g1));

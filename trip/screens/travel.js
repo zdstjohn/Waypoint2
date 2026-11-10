@@ -130,20 +130,42 @@
         '<span class="small muted">Nothing that has started or is booked changes. One tap, undo any time.</span>' + (W.replanBlock ? W.replanBlock(day) : "") + "</div>";
     }
 
-    /* the whole day */
-    h += '<section class="go-day sk"><h3>' + (live ? "Today" : "The day") + '</h3><ol class="go-tl">' + list.map(function (e) {
+    /* the whole day, as a route: from where you're staying to each stop in turn and back, with the way between each
+       (walk, transit, drive) and its directions, the nap and the travel in their places, and the whole route in
+       Google Maps. What has passed is dimmed, and now and next are marked, as the clock moves */
+    var prev = /** @type {any} */ (home), num = 0, pts = /** @type {any[]} */ ([]), rows = "";
+    var legRow = function (a, b2, last, note) {
+      var lg = W.leg(a, b2), to = b2.lat != null ? b2 : { n: (b2.n || b2.label) + ", " + day.city, lat: null, lng: null };
+      var dir = '<a href="' + esc(W.gmapsDir(a.lat != null ? a : { label: (a.label || a.n) + ", " + day.city, lat: null }, to, lg ? lg.mode : "walking")) + '" target="_blank" rel="noopener">Directions</a>';
+      return '<li class="rc-leg' + (last ? " last" : "") + '">' + (lg ? W.legIcon(lg.mode) + "<span>" + esc(W.fmtMin(lg.min) + " " + lg.label + (note || "")) + "</span>" : "<span>Find it on the map</span>") + dir + "</li>";
+    };
+    var homePt = { n: home.label, label: home.label, lat: home.lat, lng: home.lng };
+    list.forEach(function (e) {
       var st = !live ? "" : e.end <= nm && e.k !== "back" ? " done" : e === cur ? " now" : e === nxt ? " next" : "";
+      var tm = '<span class="t">' + W.clock(e.start) + "</span>";
       if (e.k === "stop") {
         var it = e.x.item, bk = W.bookEntryFor ? W.bookEntryFor(P, day, it) : null;
-        return '<li class="tl-stop' + st + (e.food ? " food" : "") + '"><span class="t">' + W.clock(e.start) + '</span><span class="dot" aria-hidden="true"></span>' +
-          '<button type="button" class="tl-b" data-sheet="' + esc(e.x.key) + '" aria-haspopup="dialog"><b>' + esc(it.n) + '</b><span class="muted">' + esc(slotName(e)) +
-          (bk ? (bk.done ? ' · <span class="ok">booked</span>' : ' · <span class="warn-t">not booked</span>') : "") + "</span></button></li>";
-      }
-      if (e.k === "nap") return '<li class="tl-nap' + st + '"><span class="t">' + W.clock(e.start) + '</span><span class="dot" aria-hidden="true"></span><div class="tl-b"><b>' + (e.away ? "Nap in the stroller or the car" : "Nap or rest") + '</b><span class="muted">' + (e.away ? "out for the day" : "at " + esc(home.label)) + " · until " + W.clock(e.end) + "</span></div></li>";
-      if (e.k === "rest") return '<li class="tl-nap' + st + '"><span class="t">' + W.clock(e.start) + '</span><span class="dot" aria-hidden="true"></span><div class="tl-b"><b>Rest time</b><span class="muted">pool or playground near ' + esc(home.label) + "</span></div></li>";
-      if (e.k === "travel") return '<li class="tl-trav' + st + '"><span class="t">' + W.clock(e.start) + '</span><span class="dot" aria-hidden="true"></span><div class="tl-b"><b>' + esc(day.moveFrom + " → " + day.city) + '</b><span class="muted">' + esc(travelLine(e.leg, e)) + "</span></div></li>";
-      return '<li class="tl-back' + st + '"><span class="t">' + W.clock(e.start) + '</span><span class="dot" aria-hidden="true"></span><div class="tl-b"><b>Back at ' + esc(home.label) + "</b></div></li>";
-    }).join("") + "</ol></section>";
+        num++; pts.push({ n: it.n, lat: it.lat, lng: it.lng, gid: it.gid, gpin: it.gpin, num: num, food: !!e.food, slot: e.x.slot });
+        rows += legRow(prev, it, false);
+        rows += '<li class="rc-stop' + st + '"><span class="num' + (e.food ? " f" : "") + '">' + num + '</span><button type="button" class="rc-b" data-sheet="' + esc(e.x.key) + '" aria-haspopup="dialog"><b>' + esc(it.n) + '</b><span class="small muted">' +
+          tm + " · " + esc(slotName(e)) + (bk ? (bk.done ? ' · <span class="ok">booked</span>' : ' · <span class="warn-t">not booked</span>') : "") + "</span></button>" +
+          (it.lat == null ? '<a class="rc-find small" href="' + esc(W.gmapsPlace(it, day.city)) + '" target="_blank" rel="noopener">find on Google Maps</a>' : "") + "</li>";
+        if (it.lat != null) prev = it;
+      } else if (e.k === "nap" || e.k === "rest") {
+        /* the nap or the rest is back where you're staying (unless it's in the stroller, out for the day) */
+        if (!e.away && prev !== home) { rows += legRow(prev, homePt, false); prev = home; }
+        rows += '<li class="rc-stop rc-nap' + st + '"><span class="rc-hi" aria-hidden="true">' + W.icon("nap", 2.2) + '</span><span class="rc-b"><b>' + (e.k === "rest" ? "Rest time" : e.away ? "Nap in the stroller or the car" : "Nap or rest") + '</b><span class="small muted">' +
+          tm + " · " + (e.k === "rest" ? "pool or playground near " + esc(home.label) : e.away ? "out for the day" : "at " + esc(home.label)) + (e.k === "nap" ? " · until " + W.clock(e.end) : "") + "</span></span></li>";
+      } else if (e.k === "travel") {
+        rows += '<li class="rc-stop rc-trav' + st + '"><span class="rc-hi" aria-hidden="true">' + W.icon("swap", 2.2) + '</span><span class="rc-b"><b>' + esc(day.moveFrom + " → " + day.city) + '</b><span class="small muted">' + tm + " · " + esc(travelLine(e.leg, e)) + "</span></span></li>";
+      } else if (prev !== home) rows += legRow(prev, homePt, true, " · back about " + W.clock(e.start));
+    });
+    if (prev !== home && !list.some(function (e) { return e.k === "back"; })) rows += legRow(prev, homePt, true);
+    var gm = pts.length ? W.dayRouteUrl(day, pts, home) : "";
+    h += '<section class="go-day go-route sk"><h3>' + "Today's route" + "</h3>" +
+      (pts.length || rows ? '<ol class="rc-list go-rt"><li class="rc-home"><span class="rc-hi" aria-hidden="true">' + W.icon("home", 2.4) + '</span><span class="rc-b"><b>' + esc(home.label) + '</b><span class="small muted">where you\'re staying</span></span></li>' + rows + "</ol>"
+        : '<p class="small muted">Nothing planned for this day yet.</p>') +
+      (gm ? '<a class="btn rc-gm" href="' + esc(gm) + '" target="_blank" rel="noopener">Open the whole route in Google Maps ↗</a>' : "") + "</section>";
 
     /* today's tickets and bookings */
     var cl = W.checklist ? W.checklist(P).filter(function (c) { return c.day === n && c.key.indexOf("stay|") !== 0 && c.key.indexOf("flight|") !== 0; }) : [];

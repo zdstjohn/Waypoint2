@@ -5,13 +5,13 @@ exports.run = async t => {
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(pg);
   await pg.evaluate(() => { W.save && W.save(); localStorage.setItem('waypoint-now', '2027-06-09T10:40:00'); });
   await pg.reload(); await pg.waitForTimeout(2500); await settle(pg);
-  const s = await pg.evaluate(() => ({ view: W.view(), travel: document.documentElement.classList.contains('travel'), tl: document.querySelectorAll('.go-tl li').length, hero: !!document.querySelector('.go-hero') }));
+  const s = await pg.evaluate(() => ({ view: W.view(), travel: document.documentElement.classList.contains('travel'), tl: document.querySelectorAll('.go-rt li').length, hero: !!document.querySelector('.go-hero') }));
   t.ok(s.view === 'go' && s.travel, 'during the trip the app opens on Today in Travel mode: ' + JSON.stringify(s));
-  t.ok(s.tl >= 3, 'with a timeline of the day');
-  const t0 = await pg.evaluate(() => (document.querySelector('.go-tl li.next .t') || document.querySelector('.go-tl li:not(.done) .t') || {}).textContent);
+  t.ok(s.tl >= 3, 'with the day laid out as a route');
+  const t0 = await pg.evaluate(() => (document.querySelector('.go-rt li.next .t') || document.querySelector('.go-rt li:not(.done) .t') || {}).textContent);
   if (await pg.$('[data-late="15"]')) {
     await pg.click('[data-late="15"]'); await pg.waitForTimeout(700);
-    const t1 = await pg.evaluate(() => (document.querySelector('.go-tl li.next .t') || document.querySelector('.go-tl li:not(.done) .t') || {}).textContent);
+    const t1 = await pg.evaluate(() => (document.querySelector('.go-rt li.next .t') || document.querySelector('.go-rt li:not(.done) .t') || {}).textContent);
     t.ok(t0 !== t1, `running 15 min late shifts the next time (${t0} -> ${t1})`);
     await pg.click('[data-late="0"]'); await pg.waitForTimeout(400);
   } else t.note('no running-late control on this day');

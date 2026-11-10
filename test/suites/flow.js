@@ -94,7 +94,7 @@ exports.run = async t => {
   await pg.click('.g-day[data-day="3"]'); await pg.waitForTimeout(900);
   t.eq(await pg.evaluate(() => [W.S.day, document.querySelector('#viewTrip [data-vsw][aria-checked="true"]').dataset.vsw]), [3, 'days'], 'picking a day there opens it');
   await pg.click('#viewTrip [data-vsw="map"]'); await pg.waitForTimeout(700);
-  t.ok(await pg.evaluate(() => W.S.tview === 'map' && !!document.querySelector('#viewTrip .rcard') && !!document.querySelector('#placeQ') && !document.querySelector('#viewTrip svg.map')), 'Explore shows the search and today\'s route, and no sketch map');
+  t.ok(await pg.evaluate(() => W.S.tview === 'map' && !document.querySelector('#viewTrip .rcard') && !!document.querySelector('#placeQ') && !document.querySelector('#viewTrip svg.map')), 'Explore shows the search, and neither the route (it is on Today) nor a sketch map');
   /* Day remembers All days across a visit to Explore */
   await pg.click('#viewTrip [data-vsw="day"]'); await pg.waitForTimeout(500);
   await pg.click('#viewTrip [data-vsw="all"]'); await pg.waitForTimeout(500);
