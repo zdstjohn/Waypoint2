@@ -40,7 +40,7 @@ exports.run = async t => {
       const look = name => {
         const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
         [...m().querySelectorAll('*')].filter(e => !e.children.length && vis(e) && /Claude/.test(e.textContent) && !/full Waypoint, in Claude/.test(e.textContent)).forEach(e => out.claude.push(name + ': ' + e.textContent.trim().slice(0, 80)));
-        [...document.querySelectorAll('[data-gmail],[data-live],[data-watch],[data-cal],[data-jadd],[data-replan],[data-review],[data-import],[data-offcopy],[data-sync="share"],[data-sync="openshare"],[data-sync="settings"],[data-sync="review"]')].filter(vis).forEach(e => out.ctl.push(name + ': ' + Object.keys(e.dataset).join(',')));
+        [...document.querySelectorAll('[data-gmail],[data-live],[data-watch],[data-cal],[data-jadd],[data-replan],[data-review],[data-import],[data-offcopy],[data-sync="share"],[data-sync="openshare"],[data-sync="review"]')].filter(vis).forEach(e => out.ctl.push(name + ': ' + Object.keys(e.dataset).join(',')));
         if (m().innerText.trim().length < 60) out.empty.push(name);
       };
       W.goView('go'); await wait(500); look('Today');
@@ -51,12 +51,16 @@ exports.run = async t => {
       for (const tab of ['tobook', 'booked', 'budget', 'pack', 'take']) { W.S.prepTab = tab; W.goView('book'); await wait(tab === 'pack' ? 700 : 250); look('Prepare ' + tab); }
       W.goView('setup'); await wait(500); look('Plan'); W.goView('settings'); await wait(300); look('Settings');
       out.install = !!document.querySelector('#set-install') && /Install on this phone/.test(document.querySelector('#set-install').textContent);
-      W.goView('trip'); document.querySelector('[data-sync="menu"]').click(); await wait(300); look('Trip menu'); document.querySelector('[data-sync="menu"]').click();
+      out.signIn = !!document.querySelector('#set-acct [data-acct="in"]');
+      W.goView('trip'); document.querySelector('[data-sync="menu"]').click(); await wait(300); look('Trip menu');
+      const ms = document.querySelector('.tmenu [data-sync="settings"], [data-sync="settings"]'); out.menuSettings = ms && ms.getBoundingClientRect().height > 0 ? ms.textContent.trim() : '';
+      document.querySelector('[data-sync="menu"]').click();
       return out;
     });
     t.eq(scan.claude, [], 'no screen sends people to Claude for something this version can\'t do');
     t.eq(scan.ctl, [], 'nothing is offered that needs Claude or the shared database (Gmail, live prices, sharing, imports, the plan check…)');
     t.ok(!scan.empty.length && scan.install, 'every screen draws, and Settings has "Install on this phone": ' + scan.empty.join(','));
+    t.ok(/^Settings\s*Sign in/.test(scan.menuSettings) && scan.signIn, 'signed out, the trip menu still leads to Settings, and Settings has Sign in: ' + scan.menuSettings);
     /* a trip from scratch: built-in ideas, and an honest note where they run out */
     const plan = await pg.evaluate(async () => {
       const wait = ms => new Promise(r => setTimeout(r, ms));

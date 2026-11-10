@@ -492,7 +492,9 @@
         (W.P && W.P.stops && W.P.stops.length && !W.readOnly && !window.__WP_OFFLINE && W.sampleState === "on" ? '<button type="button" class="tm-set" data-sync="review"><svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3.5h9l3 3v10H4z"/><path d="M7 10.5l2 2 4-4.5"/></svg>' +
           '<span><b>Check my plan</b><span class="small muted">Claude reads the whole trip and flags real problems</span></span></button>' : "") +
         '<button type="button" class="tm-set" data-sync="settings"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>' +
-        '<span><b>Import a plan</b><span class="small muted">' + "From Wanderlog, a document or an email</span></span></button>" +
+        /* the installable version reaches its account and the install card here too, signed in or not */
+        (W.standalone ? '<span><b>Settings</b><span class="small muted">' + (W.cloud ? "Your account, importing a plan, installing on this phone" : "Sign in, install on this phone, prices") + "</span></span></button>"
+          : '<span><b>Import a plan</b><span class="small muted">' + "From Wanderlog, a document or an email</span></span></button>") +
         '<div class="tm-sharebox"><h3>Share with family</h3>' + (W.shareBlock ? W.shareBlock() : "") + "</div>";
       h += '<div class="share"><h3>Open a shared trip</h3><div class="row"><input class="field code" id="openCode" placeholder="Code" maxlength="8" aria-label="Share code to open" autocapitalize="off" autocomplete="off" spellcheck="false"><button type="button" class="btn quiet" data-sync="openshare">' + (opening ? "Opening…" : "Open") + "</button></div>" +
         (shareMsg ? '<p class="warn">' + esc(shareMsg) + "</p>" : "") +

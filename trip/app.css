@@ -1700,7 +1700,7 @@ html.copy #tabSetup,html.copy [data-sync="new"],html.copy [data-sync="del"],html
 /* on its own (no Claude): what needs Claude or the shared database isn't offered */
 html.standalone [data-offcopy],html.standalone [data-gmail],html.standalone [data-live],html.standalone [data-cal],html.standalone [data-jadd]{display:none!important}
 /* not signed in: importing a plan and sharing need the account (and Claude) */
-html.standalone:not(.cloud) [data-sync="settings"],html.standalone:not(.cloud) .tm-sharebox,html.standalone:not(.cloud) .share{display:none!important}
+html.standalone:not(.cloud) .tm-sharebox,html.standalone:not(.cloud) .share{display:none!important}
 .sa-info{margin:10px 0;padding:10px 14px;border-radius:14px;background:var(--sunk);color:var(--muted);font-size:14px;line-height:1.45}
 
 /* the sign-in screen of the installable version (lib/cloud.js) */
