@@ -10,9 +10,10 @@ const { launch, settle } = require('../lib/page');
 exports.run = async t => {
   const b = await launch();
   /* cold start: no cached plan, the example trip, in a fresh page. On GitHub's machines the first paint now and then waits
-     until the bundle is in (about 1 run in 2 since v111, never here), most likely because the emulated network shares its
-     bandwidth evenly where a real one sends the stylesheet (high priority) before the bundle (low). So a cold start over
-     budget is measured once more, both are noted with when each file came in, and only a second slow start fails */
+     until the bundle has run (about 1 run in 2 since v111, never here), though the stylesheet came in on time (one such
+     run: stylesheet at 824 ms, bundle at 1664 ms, first paint at 1992 ms; measured again, 824 ms). Why isn't known yet.
+     So a cold start over budget is measured once more, both are noted with when each file came in, and only a second
+     slow start fails */
   const cold = async () => {
     const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, reducedMotion: 'no-preference' });
     const pg = await ctx.newPage(); const errors = []; pg.on('pageerror', e => errors.push(e.message));
