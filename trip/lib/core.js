@@ -376,32 +376,32 @@
         run("spots|" + ck, "List 10 MORE things to do in and around " + where + ". Mix famous sights, local favorites, parks, markets, neighborhoods, experiences and a day trip." + lean + focusAsk() +
           " Include at least 3 evening options (sunset spots, evening strolls, shows, night markets)." + EVE + nearStay + " " + who() +
           (ex.length ? " Do not repeat any of these: " + ex.join("; ") + "." : "") + "\nReply with JSON only: {\"spots\":[" + SPOT_EX + "]}\n" + spotRules(),
-          "default", function (r) { addSpots(ck, r); });
+          "default", function (r) { addSpots(ck, r, "more"); });
       if (nF < W.IDEA_CAP.food)
-        run("food|" + ck, foodAsk("List 8 MORE places to eat in " + where + ": breakfast cafés and bakeries, local classics, casual spots and markets, spread across the city or region." + focusAsk() + nearStay), "default", function (r) { addFood(ck, r); });
+        run("food|" + ck, foodAsk("List 8 MORE places to eat in " + where + ": breakfast cafés and bakeries, local classics, casual spots and markets, spread across the city or region." + focusAsk() + nearStay), "default", function (r) { addFood(ck, r, "more"); });
       return;
     }
     /* the first lists come in two halves asked at the same time, so the first days can be planned as soon as either arrives */
     run("spots|" + ck, "List the 14 best-known sights and must-do experiences in and around " + where + ": the headline places most visitors come for, most important first." +
       " Include at least 3 evening options (sunset spots, evening strolls, shows)." + EVE + who() +
       "\nReply with JSON only: {" + CITY + "\"spots\":[" + SPOT_EX + "]}\n" + spotRules(),
-      "default", function (r) { addSpots(ck, r, true); });
+      "default", function (r) { addSpots(ck, r, "head"); });
     var bAsk = W.focus() === "gems" ? "List 14 hidden gems and local favorites in and around " + where + " that locals love and most visitors miss, each still well reviewed: small museums, quiet viewpoints, neighborhood squares and markets, local experiences and a couple of day trips."
       : W.focus() === "icons" ? "List 14 more of the most popular, best-reviewed things to do in and around " + where + " beyond the very top sights: well-loved parks, markets, neighborhoods, experiences and a couple of classic day trips."
       : "List 14 things to do in and around " + where + " beyond the famous headline sights: well-loved local favorites and a few lesser-known gems that delight, parks, markets, neighborhoods, experiences and a couple of day trips.";
     run("spots|" + ck + "|b", bAsk + lean +
       " Include at least 4 evening options (evening strolls, shows, night markets)." + EVE + who() +
       "\nReply with JSON only: {\"spots\":[" + SPOT_EX + "]}\n" + spotRules(),
-      "default", function (r) { addSpots(ck, r); });
+      "default", function (r) { addSpots(ck, r, "b"); });
     run("food|" + ck, foodAsk("List 12 places to eat in " + where + ": the best-loved local classics and a couple of special dinners, plus at least 3 breakfast cafés or bakeries, spread across the city or region.", TRANSIT),
       "default", function (r) {
         var c0 = W.C.city[ck] || newPool();
         var tr = r && V.transit(r.transit); if (tr && !c0.transit) c0.transit = tr;
         if (r && Array.isArray(r.stay) && !c0.stay) c0.stay = V.list(r.stay, function (x) { return V.stayArea(x, centerOf(ck)); });
-        W.C.city[ck] = c0; addFood(ck, r, true);
+        W.C.city[ck] = c0; addFood(ck, r, "head");
       });
     run("food|" + ck + "|b", foodAsk("List 12 places to eat in " + where + " that are not the most famous ones: casual neighborhood spots, markets, street food and family-friendly places, plus at least 3 breakfast cafés or bakeries, spread across the city or region." + (W.focus() === "gems" ? " Favor the places locals go." : "")),
-      "default", function (r) { addFood(ck, r); });
+      "default", function (r) { addFood(ck, r, "b"); });
   };
   /* is anything still coming in for this city's first lists? */
   W.cityBusy = function (ck) { return ["spots|", "spots|", "food|", "food|"].some(function (p, i) { return W.status[p + ck + (i % 2 ? "|b" : "")] === "loading"; }); };
@@ -412,16 +412,25 @@
   }
   /* add places to eat; front = the best-loved half, which stays at the top of the list whichever half arrives first */
   function foodEx() { return W.eatSig() ? FOOD_EX.replace(/\}$/, ",\"fit\":\"good\",\"fitw\":\"\"}") : FOOD_EX; }
-  function addFood(ck, r, front) {
+  function addFood(ck, r, kind) {
     var c0 = W.C.city[ck] || newPool(), ctr = centerOf(ck);
     var add = V.list(r && r.food, function (x) { return V.food(x, ctr); });
     eatMark(add);
-    c0.food = merge(c0.food || [], add, front); W.C.city[ck] = c0;
+    c0.food = merge(c0.food || [], add, kind); W.C.city[ck] = c0;
   }
-  function merge(list, add, front) {
-    if (front) { var mine = {}; add.forEach(function (x) { mine[W.norm(x.n)] = 1; }); return add.concat(list.filter(function (x) { return !mine[W.norm(x.n)]; })); }
-    var have = {}; list.forEach(function (x) { have[W.norm(x.n)] = 1; });
-    return list.concat(add.filter(function (x) { return !have[W.norm(x.n)]; }));
+  /* A city's list is in a fixed order, whichever answer comes in first: the planner gives a list's first places a boost,
+     so an order that followed the answers' arrival would plan the same data differently from one time to the next. Each
+     batch has its kind's rank (RANK) and goes after everything of its rank or lower that came in this session (what was
+     kept from before stays first); the headline half also takes the place of a repeat already listed. */
+  var RANK = { head: 0, b: 1, more: 2, style: 3, gems: 4, indoor: 5, eatmore: 3, bfast: 4 };
+  var rankOf = typeof WeakMap === "function" ? new WeakMap() : null;
+  function merge(list, add, kind) {
+    var r = RANK[kind] || 0, rk = function (x) { var v = rankOf && rankOf.get(x); return v == null ? -1 : v; };
+    if (rankOf) add.forEach(function (x) { rankOf.set(x, r); });
+    if (kind === "head") { var mine = {}; add.forEach(function (x) { mine[W.norm(x.n)] = 1; }); list = list.filter(function (x) { return !mine[W.norm(x.n)]; }); }
+    else { var have = {}; list.forEach(function (x) { have[W.norm(x.n)] = 1; }); add = add.filter(function (x) { return !have[W.norm(x.n)]; }); }
+    var at = list.length; for (var i = 0; i < list.length; i++) if (rk(list[i]) > r) { at = i; break; }
+    return list.slice(0, at).concat(add, list.slice(at));
   }
 
   /* the shape of one thing to do, shared by every request for them */
@@ -429,14 +438,14 @@
   function spotRules() {
     return "place = the exact name of the real place, as on its sign or on a map (for an outing such as a stroll, a tasting or a cruise, the real place where it happens, e.g. 'Piazza Duomo' or 'Marina Grande'); never an invented or descriptive name. n may be descriptive, place may not. pic = the picture that fits best, one of: " + W.SPOT_PICS.join(", ") + ". s = best time: am, pm, eve, or any (a full-day outing). dur = the recommended time to spend there for these travelers (allow for children's ages), e.g. '45m', '1-2h', 'half day' or 'full day'. ticket = 'Free', or price and whether to book ahead, e.g. '€18, book ahead'. " + BOOKRULE + " Use accurate coordinates." + TAGRULE + FAMERULE;
   }
-  function addSpots(ck, r, front) {
+  function addSpots(ck, r, kind) {
     var c0 = W.C.city[ck] || newPool();
     if (r && r.d && !c0.d) c0.d = V.str(r.d, 240);
     /* the city's own pin: only when it agrees with the built-in one (when there is one) */
     var cp = r && V.pinNear(r.lat, r.lng, centerOf(ck), 120); if (cp && c0.lat == null) { c0.lat = cp.lat; c0.lng = cp.lng; }
     var ctr = centerOf(ck), add = V.list(r && r.spots, function (x) { return V.spot(x, ctr); });
     /* the headline half always leads the list (the planner gives the first few a boost), whichever half arrives first */
-    c0.spots = merge(c0.spots || [], add, front); W.C.city[ck] = c0; return c0;
+    c0.spots = merge(c0.spots || [], add, kind); W.C.city[ck] = c0; return c0;
   }
 
   /* ideas aimed at your trip style, for a city whose list is thin on them (asked once per city and style) */
@@ -452,7 +461,7 @@
       " Do not repeat any of these: " + cur.spots.map(function (x) { return x.n; }).join("; ") + "." +
       "\nReply with JSON only: {\"spots\":[" + SPOT_EX + "]}\n" + spotRules() + " Tag each one with every interest it fits.",
       "default", function (r) {
-        var c0 = addSpots(ck, r);
+        var c0 = addSpots(ck, r, "style");
         c0.styleAsked = c0.styleAsked || {}; want.forEach(function (st) { c0.styleAsked[st] = 1; });
         W.freshPicks(country, city);   /* replan this city's days with the new ideas (slots you chose stay) */
       });
@@ -469,7 +478,7 @@
       "\nReply with JSON only: {\"spots\":[" + SPOT_EX + "]}\n" + spotRules() + " Set fame to 0 for each.",
       "default", function (r) {
         (r && Array.isArray(r.spots) ? r.spots : []).forEach(function (x) { if (x && typeof x === "object" && x.fame == null) x.fame = 0; });
-        addSpots(ck, r); W.freshPicks(country, city);
+        addSpots(ck, r, "gems"); W.freshPicks(country, city);
       });
   };
   /* lists asked before every place was rated: how essential each one is and how well it is reviewed (once per city) */
@@ -496,7 +505,7 @@
     run("indoor|" + ck, "List 10 indoor things to do in " + city + ", " + country + " for a rainy or too-hot afternoon: aquariums, science and children's museums, covered markets, indoor play centres, swimming pools, planetariums, cinemas, big bookshops with a cafe, covered arcades. Real places only, each one open to walk-in visitors most days; never invent places. " + who() +
       " Do not repeat any of these: " + cur.spots.map(function (x) { return x.n; }).join("; ") + "." +
       "\nReply with JSON only: {\"spots\":[" + SPOT_EX + "]}\n" + spotRules() + " Set s to \"pm\" or \"any\". Tag each with the interests it fits and add \"indoor\" to t.",
-      "default", function (r) { addSpots(ck, r); });
+      "default", function (r) { addSpots(ck, r, "indoor"); });
   };
 
   /* ---------- how long to stay: enough to see the sights vs a relaxed pace, for this group ---------- */
@@ -740,7 +749,7 @@
     if (!asked[sig] && !W.cityBusy(ck)) run("eatmore|" + ck + "|" + sig, "List 8 places to eat in " + city + ", " + country + " that suit this group's food needs especially well, spread across the city or region, including at least 2 breakfast cafés or bakeries." + who() + eatAsk() +
       " Do not repeat any of these: " + cur.food.map(function (x) { return x.n; }).join("; ") + "." +
       "\nReply with JSON only: {\"food\":[" + foodEx() + "]}\n" + foodRules(), "default", function (r) {
-        addFood(ck, r); var c0 = W.C.city[ck]; if (c0) { c0.eatAsked = c0.eatAsked || {}; c0.eatAsked[sig] = 1; }
+        addFood(ck, r, "eatmore"); var c0 = W.C.city[ck]; if (c0) { c0.eatAsked = c0.eatAsked || {}; c0.eatAsked[sig] = 1; }
       });
   };
 
@@ -809,11 +818,9 @@
       "\nReply with JSON only: {\"food\":[{\"n\":\"name\",\"d\":\"what it is known for or what to order, one short sentence\",\"cuisine\":\"\",\"price\":\"€\",\"meal\":\"breakfast\",\"dur\":\"45m\",\"k\":0,\"menu\":\"\",\"pic\":\"cafe\",\"lat\":0,\"lng\":0}]}\n" +
       "meal = breakfast, or all if it also serves lunch and dinner. dur = the recommended time to allow there, e.g. '30m' or '1h'. " + MENURULE + " pic = cafe or bakery. Use real places and accurate coordinates. k: 1 = very family friendly, 0 = fine, -1 = adults-oriented.",
       "default", function (r) {
-        var c0 = W.C.city[ck] || newPool(), have = {};
-        c0.food.forEach(function (x) { have[W.norm(x.n)] = 1; });
-        V.list(r && r.food, function (x) { var f = V.food(x, centerOf(ck), { meal: "breakfast", pic: "cafe" }); if (f && f.meal !== "all") f.meal = "breakfast"; return f; })
-          .forEach(function (x) { if (!have[W.norm(x.n)]) { have[W.norm(x.n)] = 1; c0.food.push(x); } });
-        W.C.city[ck] = c0;
+        var c0 = W.C.city[ck] || newPool(), add = V.list(r && r.food, function (x) { var f = V.food(x, centerOf(ck), { meal: "breakfast", pic: "cafe" }); if (f && f.meal !== "all") f.meal = "breakfast"; return f; });
+        var once = {}; add = add.filter(function (x) { var k = W.norm(x.n); if (once[k]) return false; once[k] = 1; return true; });
+        c0.food = merge(c0.food || [], add, "bfast"); W.C.city[ck] = c0;
       });
   };
 
