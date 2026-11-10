@@ -78,6 +78,6 @@
   setInterval(function () {
     if (document.visibilityState !== "visible" || !W.P || !W.view || (W.view() !== "trip" && W.view() !== "go")) return;
     var day = W.P.days[(W.S.day || 1) - 1];
-    if (day && isToday(day) && !(document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))) W.render();
+    if (day && isToday(day) && !W.typingHeld()) W.render();
   }, 60000);
 })();

@@ -474,7 +474,9 @@
         '<span class="g-main">' + (hl ? esc(hl) : '<span class="muted">' + esc(d.city) + "</span>") + "</span></button>";
     }
     /* one card per place you stay, in order, its days inside */
-    return story + P.stops.map(function (s, si) {
+    /* "Check my plan" comes with the second script */
+    var rev = W.reviewBlock ? W.reviewBlock(P) : (W.needLater(), "");
+    return story + rev + P.stops.map(function (s, si) {
       var ds = P.days.filter(function (d) { return d.stop === si; }), r = rangeOf(P, si), n = s.days;
       var trips = (s.trips || []).filter(function (t) { return t.planned !== false; }).map(function (t) { return t.name; });
       return '<section class="g-sec" data-stop="' + si + '"><h3 class="g-stop"><span class="g-sn">' + esc(s.name) + '</span><span class="g-sm">' + esc([r, n + " night" + (n === 1 ? "" : "s"), trips.length ? "day trip" + (trips.length > 1 ? "s" : "") + " to " + trips.join(", ") : ""].filter(Boolean).join(" · ")) + "</span></h3>" +

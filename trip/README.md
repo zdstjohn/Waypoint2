@@ -20,6 +20,24 @@ first screen reads from Prepare (the book-by checklist, the budget, which bookin
 with W.money and "Prices in": each phone shows costs as listed or all in one currency (localStorage "waypoint-cur"),
 converted at the European Central Bank's rates in fx/latest (refreshed nightly) and marked "≈" (W.priceText converts
 prices written in text, like "€15, book ahead"; a currency with no rate stays as listed); Prepare and Settings offer it.
+v117: a screen is no longer thrown away and rebuilt on every change. lib/patch.js W.draw(el, html, sig): the same HTML
+as last time touches nothing; the same screen (the same day, All days, Today) with different HTML is edited in place,
+node by node, so pictures, the street map inside .vt-slot, the focus, a row's scroll position and what is being typed
+all stay; another day or view is drawn afresh as before. The page afterwards is exactly the new HTML (test/suites/draw.js
+compares it with a full rebuild after each change). A listener put on a drawn node must be put once (see _edges in
+screens/trip.js), since the node now outlives the redraw.
+Two things ask Claude about the plan, both in the second script and both only when you press the button.
+"Check my plan" (lib/review.js; All days and the trip menu): W.reviewFacts is the whole plan as Claude is shown it (each
+day's stops with times, indoor or not, effort, distance from the lodging, opening hours and closing days from the plan's
+own data, naps, tickets, travel days; ages, no names, nothing else personal); the answer is checked (a day outside the
+trip, an entry with no text, an unknown kind are dropped or defused; everything is shown as text) and kept on this phone
+with a fingerprint of the plan (localStorage "waypoint-review|<trip>"), so the card says when the plan has changed since.
+It only reads: nothing in the plan changes. "Replan from a sentence" (lib/replan.js; Today, under the one-tap rescues):
+Claude gets the sentence, the time, and the stops still to come, each with the same other options "Swap" would show, and
+answers keep, free or use per stop; W.rescueApply (lib/plan.js) checks every action again (nothing started or booked, only
+a place on that stop's own list, not one planned elsewhere) and shares the rescues' Undo.
+The storybook (screens/story.js) and the itinerary import (lib/import.js) moved to the second script: the first script
+went from 371 to 357 KB. The built-in destination data, the planner and Travel mode stay: the first screen needs them.
 v116: the blank boxes on the street map came from one shared empty buffer in vtmap.js (the engine hands every answer to
 its worker, which empties it on this side; the second "nothing here" then failed, and a tile whose names needed such a
 letter range failed with it): every "nothing here" is now a new buffer. Two of your devices changing one trip are joined

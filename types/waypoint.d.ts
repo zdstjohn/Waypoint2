@@ -465,6 +465,20 @@ interface Waypoint {
   stayTrack: any;
   stopAt: (s: Stop) => LatLng & { label?: string };
   stopDetails: any;
+  dayEntries: any;
+  patch: any;
+  draw: any;
+  drawn: any;
+  typingHeld: any;
+  rescueApply: any;
+  replanFacts: any;
+  replanBlock: any;
+  replanAsk: any;
+  reviewFacts: any;
+  reviewSig: any;
+  reviewStart: any;
+  reviewBlock: any;
+  storyPage: any;
   storyFit: any;
   storyHtml: any;
   storyMount: any;
@@ -549,3 +563,6 @@ interface Navigator { deviceMemory?: number }
 interface EventTarget { files?: FileList | null; closest?(sel: string): Element | null; matches?(sel: string): boolean; getAttribute?(name: string): string | null; dataset?: DOMStringMap; tagName?: string; value?: string; id?: string; classList?: DOMTokenList; open?: boolean }
 interface Element { value?: string; dataset?: DOMStringMap; click?(): void; focus(opts?: FocusOptions): void; blur?(): void; select?(): void; type?: string; checked?: boolean; files?: FileList | null;
   readOnly?: boolean; selectionStart?: number | null; selectionEnd?: number | null; setSelectionRange?(a: number, b: number): void; showPicker?(): void; offsetLeft?: number; offsetTop?: number; offsetWidth?: number; offsetHeight?: number; style?: CSSStyleDeclaration; hidden?: boolean; disabled?: boolean; __step?: any }
+
+/* marks lib/patch.js and the day screen leave on elements they draw into */
+interface HTMLElement { _sig?: string | null; _html?: string | null; _edges?: number }

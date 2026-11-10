@@ -37,6 +37,34 @@
           days: [{ n: 1, city: 'Lisbon', items: [{ name: 'Oceanário de Lisboa', food: false, slot: 'am', d: 'Huge aquarium', lat: 38.7635, lng: -9.0937 }, { name: 'Time Out Market', food: true, slot: 'lunch', d: 'Food hall', lat: 38.7069, lng: -9.1459 }] },
             { n: 2, city: 'Lisbon', items: [{ name: 'Belém Tower', food: false, slot: 'pm', d: 'Riverside fort', lat: 38.6916, lng: -9.216 }] },
             { n: 4, city: 'Porto', items: [{ name: 'Livraria Lello', food: false, slot: 'am', d: 'Famous bookshop', lat: 41.1469, lng: -8.6148 }] }] }; }
+      /* replan today from a sentence: swap the first outing for its first option, free the evening, and try two things
+         the app must refuse (a place that isn't on the list, a slot that isn't in the data) */
+      if (/^Replan the rest of today/.test(prompt)) {
+        window.__replanPrompt = prompt; await new Promise(r => setTimeout(r, 150));
+        if (window.__replanAnswer) return window.__replanAnswer;
+        const rest = JSON.parse(prompt.slice(prompt.indexOf('DATA:') + 5).split('\n')[0]), out = { say: 'Indoors and close by, with the evening left free.', slots: [] };
+        let swapped = false;
+        rest.forEach(r => {
+          if (!r.booked && !swapped && r.now && r.options.length && !/breakfast|lunch|dinner/.test(r.slot)) { swapped = true; out.slots.push({ slot: r.slot, do: 'use', name: r.options[0].name }); }
+          else if (r.slot === 'eve' && !r.booked) out.slots.push({ slot: 'eve', do: 'free', name: '' });
+          else out.slots.push({ slot: r.slot, do: 'keep', name: '' });
+        });
+        const meal = rest.find(r => /lunch|dinner/.test(r.slot) && !r.booked);
+        if (meal) out.slots.push({ slot: meal.slot, do: 'use', name: 'A place that is not on the list' });
+        out.slots.push({ slot: 'breakfast', do: 'free', name: '' }, { slot: 'nowhere', do: 'free', name: '' });
+        return out;
+      }
+      /* check my plan: two real findings, plus three the app must drop or defuse (a day that doesn't exist, no text, markup) */
+      if (/^Check this family trip plan/.test(prompt)) {
+        window.__reviewPrompt = prompt; window.__reviewAsked = (window.__reviewAsked || 0) + 1; await new Promise(r => setTimeout(r, 150));
+        const facts = JSON.parse(prompt.slice(prompt.indexOf('DATA:') + 5).split('\n')[0]), d2 = facts[1] || facts[0], st = (d2.stops || [])[0];
+        return { ok: 'Beach days and town days alternate nicely.', issues: [
+          { day: d2.day, slot: st ? st.slot : '', kind: 'walk', text: 'Day ' + d2.day + ' has ' + (d2.km_on_foot || 0) + ' km on foot, a lot for a two-year-old.', fix: 'Drop one stop or take the bus back.' },
+          { day: 1, slot: 'am', kind: 'book', text: 'Timed tickets here sell out in summer.', fix: 'Book it now.' },
+          { day: 999, slot: 'pm', kind: 'closed', text: 'A day that is not in the trip.', fix: '' },
+          { day: 1, slot: 'pm', kind: 'pace', text: '   ', fix: 'no text' },
+          { day: 3, slot: 'sometime', kind: 'made-up', text: '<img src=x onerror="window.__xss=1"> Looks busy.', fix: '<b>bold</b>' }] };
+      }
       if (/IANA time zone/.test(prompt)) return { tz: 'Europe/Rome' };
       if (/^Public holidays, festivals and big events in or near (.+?), (.+?) between (\d{4}-\d{2}-\d{2}) and (\d{4}-\d{2}-\d{2})/.test(prompt)) {
         window.__eventsPrompts = (window.__eventsPrompts || []).concat([prompt]);

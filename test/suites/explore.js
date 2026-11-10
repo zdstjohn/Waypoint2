@@ -59,7 +59,7 @@ exports.run = async t => {
     document.getElementById('placeQ').value = 'nothing here'; document.querySelector('[data-psearch="1"]').click(); await new Promise(r => setTimeout(r, 900));
     window.__mcpFail = null; return document.querySelector('.psearch').textContent;
   });
-  t.ok(/Connect Mapbox/.test(none) && /Search Google Maps/.test(none), 'without the map connection it says how to add it, and Google Maps is still a link away');
+  t.ok(/Connect Mapbox/.test(none) && /Search Google Maps/.test(none), 'without the map connection it says how to add it, and Google Maps is still a link away: ' + none.slice(0, 300));
   /* "Find more" asks for a few more at a time (10 things to do, 8 places to eat), and stops at the city's cap */
   const more = await pg.evaluate(async () => {
     /* an automatic top-up still on its way would make the button wait for it instead of asking: let it land first */

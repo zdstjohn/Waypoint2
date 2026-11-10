@@ -489,6 +489,8 @@
         W.simpleSwitch() +
         (W.P && W.P.stops && W.P.stops.length ? '<button type="button" class="tm-set" data-sync="kids"><svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L2.8 7.8l5-.7z"/></svg>' +
           '<span><b>For the kids</b><span class="small muted">Their day in big photos, a passport and treasure hunts</span></span></button>' : "") +
+        (W.P && W.P.stops && W.P.stops.length && !W.readOnly && !window.__WP_OFFLINE && W.sampleState === "on" ? '<button type="button" class="tm-set" data-sync="review"><svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3.5h9l3 3v10H4z"/><path d="M7 10.5l2 2 4-4.5"/></svg>' +
+          '<span><b>Check my plan</b><span class="small muted">Claude reads the whole trip and flags real problems</span></span></button>' : "") +
         (W.P && W.P.stops && W.P.stops.length ? '<button type="button" class="tm-set" data-sync="story"><svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5.5C8.2 4.2 5.7 3.8 3 4.2v11.3c2.7-.4 5.2 0 7 1.3 1.8-1.3 4.3-1.7 7-1.3V4.2c-2.7-.4-5.2 0-7 1.3zM10 5.5v11.3"/></svg>' +
           '<span><b>Storybook</b><span class="small muted">The whole trip, a page a day, with photos</span></span></button>' : "") +
         '<button type="button" class="tm-set" data-sync="settings"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>' +
@@ -552,6 +554,16 @@
     if (a === "close") { closeShared(); return; }
     if (a === "settings") { menuOpen = false; renaming = false; delAsk = null; if (W.goView) W.goView("settings"); return; }
     if (a === "kids") { menuOpen = false; renaming = false; delAsk = null; if (W.goView) W.goView("kids"); return; }
+    if (a === "review") {
+      /* All days, with the check asked for and its card in view (the card comes with the second script) */
+      menuOpen = false; renaming = false; delAsk = null; S.tview = "days"; S.glanceOpen = true; W.save(); if (W.goView) W.goView("trip");
+      var n = 0; (function go() {
+        if (!W.reviewStart) { if (n++ < 60) setTimeout(go, 100); return; }
+        W.reviewStart(W.P); W.render();
+        var c = document.querySelector("#viewTrip .rev, #viewTrip .rev-go"); if (c) c.scrollIntoView({ block: "center" });
+      })();
+      return;
+    }
     if (a === "story") { menuOpen = false; renaming = false; delAsk = null; S.tview = "story"; S.glanceOpen = false; W.save(); if (W.goView) W.goView("trip"); window.scrollTo(0, 0); return; }
     if (a === "open") { if (id !== S.tripId) W.fxFlip("page", 1, function () { openTrip(id); }); else { menuOpen = false; W.render(); } return; }
     if (a === "new") { if (W.quickStart) { menuOpen = false; W.renderBar(W.P); W.quickStart(); return; } W.fxFlip("page", -1, function () { newTrip(); }); return; }

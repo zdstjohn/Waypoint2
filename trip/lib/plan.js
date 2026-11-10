@@ -714,6 +714,37 @@
     S.rescued = S.rescued || {}; S.rescued[W.restKey(day) + "|" + W.isoDay(W.now())] = { mode: mode, n: changed.length, freed: freed, at: nm };
     return { mode: mode, changed: changed, freed: freed };
   };
+  /* The same, from a sentence ("it's raining, the little one is tired, we have three hours"): lib/replan.js asks Claude
+     which of the stops still to come to keep, drop or swap, choosing only among this day's own other options, and hands
+     the answer here. Every action is checked again: a slot that has started or is booked is left alone, a name that isn't
+     on the city's list or is already planned elsewhere is ignored. Same undo as the one-tap rescues. */
+  W.rescueApply = function (day, P, acts, say) {
+    CUR = P;
+    var S = W.S, nm = W.nowMin(), T = W.dayTimes(day, P); if (!T) return null;
+    var s = P.stops[day.stop], used = s.used || (s.used = {});
+    var undo = { picks: {}, mine: {}, free: {}, late: W.lateFor(day) }, changed = [], freed = 0;
+    day.slots.forEach(function (x) { undo.picks[x.key] = S.picks[x.key] || null; undo.mine[x.key] = mine()[x.key] || 0; undo.free[x.key] = (S.free || {})[x.key] || 0; });
+    (acts || []).forEach(function (a) {
+      var x = day.slots.filter(function (y) { return y.slot === a.slot; })[0], R = x && T.rows[x.slot];
+      if (!x || !R || R.skip || R.start == null || R.start <= nm + 5) return;
+      var e = x.item && W.bookEntryFor ? W.bookEntryFor(P, day, x.item) : null; if (e && e.done) return;
+      if (a["do"] === "free") {
+        if (!x.item && (S.free || {})[x.key]) return;
+        (S.free || (S.free = {}))[x.key] = 1; if (x.item) unmark(used, x.item, x.key); delete S.picks[x.key]; x.item = null; freed++; changed.push({ slot: x.slot, why: "ask" });
+      } else if (a["do"] === "use" && a.name) {
+        var pl = dayPool(day, x, s), list = W.isFood(x.slot) ? pl.pool.food || [] : pl.pool.spots || [], it = byName(list, a.name), was = x.item;
+        if (!it || (was && W.norm(was.n) === W.norm(it.n))) return;
+        var at = used[W.norm(it.n)]; if (at && at !== x.key) return;
+        if (was) unmark(used, was, x.key);
+        x.item = it; mark(used, it, x.key); S.picks[x.key] = it.n; mine()[x.key] = 1; if (S.free) delete S.free[x.key];
+        changed.push({ slot: x.slot, from: was ? was.n : "", to: it.n, why: "ask" });
+      }
+    });
+    if (!changed.length) return { mode: "ask", changed: changed, freed: 0 };
+    S.rescueUndo = S.rescueUndo || {}; S.rescueUndo[W.restKey(day)] = undo;
+    S.rescued = S.rescued || {}; S.rescued[W.restKey(day) + "|" + W.isoDay(W.now())] = { mode: "ask", n: changed.length, freed: freed, at: nm, say: String(say || "").slice(0, 160) };
+    return { mode: "ask", changed: changed, freed: freed };
+  };
   W.unrescue = function (day) {
     var S = W.S, u = S.rescueUndo && S.rescueUndo[W.restKey(day)]; if (!u) return false;
     Object.keys(u.picks).forEach(function (k) { if (u.picks[k]) S.picks[k] = u.picks[k]; else delete S.picks[k]; if (u.mine[k]) mine()[k] = 1; else delete mine()[k]; if (S.free) { if (u.free[k]) S.free[k] = 1; else delete S.free[k]; } });

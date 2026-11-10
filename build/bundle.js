@@ -8,11 +8,11 @@ const esbuild = require('esbuild'); const fs = require('fs'); const path = requi
 const TRIP = path.resolve(__dirname, '..', 'trip');
 const ORDER = [
   'data/data1.js', 'data/data2.js',
-  'lib/validate.js', 'lib/core.js', 'lib/eat.js', 'lib/links.js', 'lib/errlog.js', 'lib/later.js', 'lib/classify.js', 'lib/photos.js', 'lib/places.js', 'lib/nightfood.js', 'lib/fx.js', 'lib/vtindex.js', 'lib/vtmap.js', 'lib/offline.js', 'lib/times.js', 'lib/holidays.js', 'lib/shape.js', 'lib/plan.js', 'lib/packing.js', 'lib/warm.js',
-  'screens/setup.js', 'lib/sync.js', 'lib/bookcore.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/route.js', 'lib/import.js', 'lib/prices.js', 'lib/watch.js', 'lib/search.js',
-  'screens/today.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/travel.js', 'screens/flow.js', 'screens/settings.js', 'screens/trip.js'
+  'lib/validate.js', 'lib/core.js', 'lib/patch.js', 'lib/eat.js', 'lib/links.js', 'lib/errlog.js', 'lib/later.js', 'lib/classify.js', 'lib/photos.js', 'lib/places.js', 'lib/nightfood.js', 'lib/fx.js', 'lib/vtindex.js', 'lib/vtmap.js', 'lib/offline.js', 'lib/times.js', 'lib/holidays.js', 'lib/shape.js', 'lib/plan.js', 'lib/packing.js', 'lib/warm.js',
+  'screens/setup.js', 'lib/sync.js', 'lib/bookcore.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/route.js', 'lib/import.js', 'lib/prices.js', 'lib/watch.js', 'lib/search.js', 'lib/replan.js', 'lib/review.js',
+  'screens/today.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/travel.js', 'screens/story.js', 'screens/flow.js', 'screens/settings.js', 'screens/trip.js'
 ];
-const LATER = ['screens/setup.js', 'lib/vtmap.js', 'lib/packing.js', 'lib/prices.js', 'lib/watch.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/search.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/settings.js'];
+const LATER = ['screens/story.js', 'lib/import.js', 'screens/setup.js', 'lib/vtmap.js', 'lib/packing.js', 'lib/prices.js', 'lib/watch.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/search.js', 'lib/replan.js', 'lib/review.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/settings.js'];
 module.exports.ORDER = ORDER; module.exports.LATER = LATER;
 
 async function build() {
@@ -22,8 +22,11 @@ async function build() {
      rest of the app still starts, instead of everything after it silently missing */
   const guard = (f, code) => `try {\n${code}\n;} catch (e) { __wpFail(${JSON.stringify(f)}, e); }`;
   const FAIL = "function __wpFail(f, e) { (window.__wpBoot = window.__wpBoot || []).push(f); try { console.error('[boot] ' + f + ': ' + (e && e.message)); if (window.W && window.W.logError) window.W.logError(String(e && e.message || e), f + ' (start)', e && e.stack); } catch (x) {} }\n";
+  /* in an offline copy the second script is inline and runs right after the first one's first draw: draw again, so a
+     screen that was waiting for it (the storybook, the check of the plan) appears */
+  const AFTER = "\n;try { if (window.__WP_LATER && window.W && window.W.changed) window.W.changed(); } catch (e) {}\n";
   const join = list => list.map(f => `/* --- ${f} --- */\n` + guard(f, fs.readFileSync(path.join(TRIP, f), 'utf8').replace('"__BUILD__"', JSON.stringify(stamp)))).join('\n;\n');
-  const src = FAIL + join(ORDER.filter(f => !LATER.includes(f))), src2 = FAIL + join(LATER);
+  const src = FAIL + join(ORDER.filter(f => !LATER.includes(f))), src2 = FAIL + join(LATER) + AFTER;
   const js = await esbuild.transform(src, { minify: true, target: 'es2017', charset: 'utf8', sourcefile: 'app.src.js', sourcemap: 'external', legalComments: 'none' });
   const js2 = await esbuild.transform(src2, { minify: true, target: 'es2017', charset: 'utf8', sourcefile: 'app2.src.js', sourcemap: 'external', legalComments: 'none' });
   fs.writeFileSync(path.join(TRIP, 'app.js'), js.code + '\n//# sourceMappingURL=app.js.map\n');
@@ -45,7 +48,7 @@ async function build() {
    of its class names appears in the first script's code or index.html: whatever the first screen draws keeps its
    style in app.min.css. Rules keep their order; @media blocks are split rule by rule; @keyframes, @font-face and other
    at-rules stay. */
-const LATER_CSS = [/^Setup\b/, /^Bookings\b/, /^journal, recap/, /^Trip settings\b/, /^pack and prepare\b/, /^prepare: segments\b/, /^the kids' corner\b/, /^Settings: stored files\b/];
+const LATER_CSS = [/^Setup\b/, /^Bookings\b/, /^journal, recap/, /^Trip settings\b/, /^pack and prepare\b/, /^prepare: segments\b/, /^the kids' corner\b/, /^Settings: stored files\b/, /^Claude: check my plan\b/];
 function splitCss(text, firstSrc) {
   const used = new Set(firstSrc.match(/[A-Za-z][\w-]*/g));
   let first = '', later = '', moved = 0, section = '', i = 0;

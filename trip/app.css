@@ -1692,3 +1692,27 @@ html.simple #topline,html.simple .kids-chip,html.simple .slot .desc,html.simple 
 .mn-l b{font-weight:700;font-size:14.5px}
 .mn-p{font-weight:800;white-space:nowrap;font-size:14px}
 button.menu-btn{border:0;background:transparent;font:inherit;font-weight:800;color:var(--accent);cursor:pointer;padding:6px 8px;border-radius:9px}
+
+/* ==================== Claude: check my plan, replan today ==================== */
+.gr-ask{display:grid;gap:8px;margin-top:6px;padding-top:12px;border-top:var(--hair);text-align:left}
+.gr-l{font-weight:700;font-size:14px}
+.gr-ask .field{min-height:44px}
+.gr-busy{justify-content:flex-start}
+.gr-msg{margin:0;color:var(--muted)}
+.rev{display:grid;gap:10px;margin-top:12px;padding:14px}
+.rev-h{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px}
+.rev-h h3{display:flex;align-items:center;gap:8px;margin:0;font-size:16px}
+.rev-h svg{width:20px;height:20px;flex:none;color:var(--accent)}
+.rev-stale{margin:0;padding:8px 10px;border-radius:10px;background:var(--accent-soft);font-weight:700;font-size:14px}
+.rev-ok,.rev-none{margin:0}
+.rev-l{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.rev-i{display:grid;gap:4px;padding:10px 12px;border:var(--hair);border-radius:12px;justify-items:start}
+.rev-k{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
+.rev-w{font-weight:800;font-size:14.5px}
+.rev-t,.rev-f{margin:0;font-size:14.5px}
+.rev-f{color:var(--muted)}
+.rev-i .linkish{min-height:32px}
+.rev-n{margin:0}
+.rev-b{display:flex;align-items:center;gap:10px}
+.rev-err{margin:4px 0 0;color:var(--muted)}
+.all-days .rev-go{margin-top:10px}

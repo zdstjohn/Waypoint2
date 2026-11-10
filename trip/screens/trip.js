@@ -300,7 +300,7 @@
     var xp = target === "explore" || (S.tview === "map" && target !== "story"), el = $(target === "explore" ? "viewExplore" : "viewTrip");
     if (target !== "explore") el.classList.toggle("explore-v", xp);
     if (!P.stops.length) {
-      el.innerHTML = '<div class="empty sk">' + (S.countries.length ? (W.status["country|" + (S.countries[0] || {}).name] === "loading" ? '<div class="loading" style="justify-content:center">Finding destinations…</div>' : "Pick at least one city under Plan.") : "Where are you headed? Three quick questions and you'll have a plan.") +
+      el._sig = null; el.innerHTML = '<div class="empty sk">' + (S.countries.length ? (W.status["country|" + (S.countries[0] || {}).name] === "loading" ? '<div class="loading" style="justify-content:center">Finding destinations…</div>' : "Pick at least one city under Plan.") : "Where are you headed? Three quick questions and you'll have a plan.") +
         '<div style="margin-top:12px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">' + (S.countries.length ? "" : '<button type="button" class="btn" data-quick="1">Quick start</button>') + '<button type="button" class="btn' + (S.countries.length ? "" : " quiet") + '" data-view="setup">Go to Plan</button></div></div>';
       return;
     }
@@ -308,9 +308,11 @@
     S.day = Math.max(1, Math.min(P.N, S.day || 1));
     if (W.familyTick) W.familyTick();
     /* the whole trip as a storybook, one photo page per day */
-    if (!xp && S.tview === "story" && W.storyHtml) {
+    if (!xp && S.tview === "story") {
+      /* the storybook comes with the second script: a moment's "Loading…" on a cold start, then it draws itself */
+      if (!W.storyHtml) { W.needLater(); W.draw(el, '<p class="loading later-wait">Loading…</p>'); return; }
       P.stops.forEach(function (st) { W.wantPhotos(st.country, st.name, W.pool(st.country, st.name), P); });
-      el.innerHTML = W.tripTop(P) + W.storyHtml(P); W.storyMount(); return;
+      W.draw(el, W.tripTop(P) + W.storyHtml(P)); W.storyMount(); return;
     }
     var day = P.days[S.day - 1], ap = P.ap, h = "", stop = P.stops[day.stop], mode = "list", vtWant = null, xpCols = false;
 
@@ -319,7 +321,7 @@
     /* All days: the places in the order you stay in them (sized by nights), stuck to the top while you scroll the
        days below; the place you're looking at is lit, and a tap jumps to it */
     if (S.glanceOpen && target !== "explore" && W.glance) {
-      el.innerHTML = W.stayBar(P, tn) + W.viewSwitch() + '<div class="all-days">' + W.glance(P) + "</div>";
+      W.draw(el, W.stayBar(P, tn) + W.viewSwitch() + '<div class="all-days">' + W.glance(P) + "</div>", "all|" + S.tripId);
       W.stayTrack(true); return;
     }
     h += '<div class="daybar"><button type="button" class="icon-btn" data-step="-1" aria-label="Previous day"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 3L5 8l5 5"/></svg></button><div class="days" id="dayScroller">' +
@@ -565,7 +567,8 @@
         if (rows.length) h += '<details class="transit sk" data-fold="transit"' + (S.transitOpen ? " open" : "") + "><summary>Getting around " + esc(day.city) + "</summary>" + rows.map(function (x) { return '<div><span class="k">' + x[0] + "</span><span>" + esc(x[1]) + "</span></div>"; }).join("") + "</details>";
       }
     }
-    el.innerHTML = h + (xpCols ? "</div>" : "") + "</div>";
+    /* the same day on the same screen is edited in place (lib/patch.js); another day or view is drawn afresh */
+    W.draw(el, h + (xpCols ? "</div>" : "") + "</div>", "day|" + S.tripId + "|" + S.day + "|" + (xp ? "map" : "list") + "|" + (W.simple() ? 1 : 0));
     /* on a phone in list view the map is hidden: don't run it in the background */
     if (vtWant && (xp || window.innerWidth > 920)) {
       var slotEl = el.querySelector(".vt-slot");
@@ -576,7 +579,7 @@
     var pill = el.querySelector('.dpill[aria-current="true"]'), sc = $("dayScroller");
     if (pill && sc) { var pr = pill.getBoundingClientRect(), sr = sc.getBoundingClientRect(); sc.scrollLeft += pr.left - sr.left - sc.clientWidth / 2 + pr.width / 2; }
     /* the day pills fade out at an edge only where there are more to scroll to */
-    if (sc) { var edges = function () { sc.classList.toggle("more-l", sc.scrollLeft > 4); sc.classList.toggle("more-r", sc.scrollLeft + sc.clientWidth < sc.scrollWidth - 4); }; edges(); sc.addEventListener("scroll", edges, { passive: true }); }
+    if (sc) { var edges = function () { sc.classList.toggle("more-l", sc.scrollLeft > 4); sc.classList.toggle("more-r", sc.scrollLeft + sc.clientWidth < sc.scrollWidth - 4); }; edges(); if (!sc._edges) { sc._edges = 1; sc.addEventListener("scroll", edges, { passive: true }); } }
   };
 
   /* ---------- controller ---------- */
@@ -611,7 +614,7 @@
     if (W.afterRender) W.afterRender();
   };
   function slotEl(slot) { var b = document.querySelector('[data-reroll="' + slot + '"]'); return b && b.closest(".slot"); }
-  W.onData(function () { if (!document.activeElement || !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName) || view === "setup") W.render(); });
+  W.onData(function () { if (!W.typingHeld() || view === "setup") W.render(); });
 
   document.addEventListener("click", function (e) {
     var a = e.target.closest("[data-view]");
