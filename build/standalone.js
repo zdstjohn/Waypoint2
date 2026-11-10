@@ -5,15 +5,22 @@
    connection after the first visit, and the host's settings and headers (vercel.json, in the top folder). window.__WP_STANDALONE tells the app it is
    on its own (lib/pwa.js): no Claude, no shared database; trips live on the phone. */
 const fs = require('fs'); const path = require('path'); const crypto = require('crypto');
-const ROOT = path.resolve(__dirname, '..'), TRIP = path.join(ROOT, 'trip'), ICONS = path.join(__dirname, 'icon', 'out'), DIST = path.join(ROOT, 'dist');
+const ROOT = path.resolve(__dirname, '..'), TRIP = path.join(ROOT, 'trip'), ICONS = path.join(__dirname, 'icon', 'out');
+/* WP_DIST builds somewhere else (the tests' stand-in server build), with its hosting rules next to it, not in the top folder */
+const DIST = process.env.WP_DIST ? path.resolve(process.env.WP_DIST) : path.join(ROOT, 'dist'), HOSTING = process.env.WP_DIST ? DIST + '.vercel.json' : path.join(ROOT, 'vercel.json');
 const ASSETS = ['app.js', 'app2.js', 'app.min.css', 'app2.css'];
+/* Waypoint's own server (Supabase project "waypoint"): its address and its publishable key. Both are public by design
+   (every visitor's browser gets them); what a signed-in person may read or write is decided by the database's
+   row-level security, and Claude's API key stays in the server's secrets. WP_CLOUD_URL / WP_CLOUD_KEY override them
+   (the tests point them at a stand-in server). */
+const CLOUD = { url: process.env.WP_CLOUD_URL || 'https://fbgubkesrlvtcnbaxuef.supabase.co', key: process.env.WP_CLOUD_KEY || 'sb_publishable_oPm5lh5CA7zbkLH-xxlhMQ_k1ZSN-xj' };
 fs.rmSync(DIST, { recursive: true, force: true }); fs.mkdirSync(path.join(DIST, 'fonts'), { recursive: true }); fs.mkdirSync(path.join(DIST, 'vt'), { recursive: true });
 const copy = (from, to) => fs.copyFileSync(from, path.join(DIST, to));
 /* one version for everything, from the content: a new build is a new version, the same build the same one */
 const h = crypto.createHash('sha256');
 ASSETS.forEach(f => h.update(fs.readFileSync(path.join(TRIP, f))));
 fs.readdirSync(path.join(TRIP, 'fonts')).sort().forEach(f => h.update(f));
-h.update(fs.readFileSync(path.join(TRIP, 'index.html'))); h.update(fs.readFileSync(__filename));
+h.update(fs.readFileSync(path.join(TRIP, 'index.html'))); h.update(fs.readFileSync(__filename)); h.update(fs.readFileSync(path.join(TRIP, 'lib', 'cloud.js'))); h.update(JSON.stringify(CLOUD));
 const V = h.digest('hex').slice(0, 10);
 
 ASSETS.forEach(f => {
@@ -50,11 +57,13 @@ const head = `<!doctype html>
 <meta name="apple-mobile-web-app-title" content="Waypoint">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script src="standalone.js?v=${V}"></script>
+<script src="cloud.js?v=${V}"></script>
 </head>
 <body>
 `;
 fs.writeFileSync(path.join(DIST, 'index.html'), head + body.trim() + '\n</body>\n</html>\n');
-fs.writeFileSync(path.join(DIST, 'standalone.js'), '/* Waypoint, installable version ' + V + ': the app is on its own here (lib/pwa.js) */\nwindow.__WP_STANDALONE = ' + JSON.stringify({ v: V }) + ';\n');
+fs.writeFileSync(path.join(DIST, 'standalone.js'), '/* Waypoint, installable version ' + V + ': the app is on its own here (lib/pwa.js), with its own server (lib/cloud.js) */\nwindow.__WP_STANDALONE = ' + JSON.stringify({ v: V, cloud: CLOUD }) + ';\n');
+fs.copyFileSync(path.join(TRIP, 'lib', 'cloud.js'), path.join(DIST, 'cloud.js'));
 
 const manifest = {
   id: './', name: 'Waypoint', short_name: 'Waypoint', description: 'Family trip planner: each day planned around naps, meals and the kids, with what to book.',
@@ -66,7 +75,7 @@ fs.writeFileSync(path.join(DIST, 'manifest.webmanifest'), JSON.stringify(manifes
 
 /* the service worker: everything above, kept on the phone at install; the page itself is asked for fresh first (a
    new version shows on the next open) and comes from the phone when there is no connection or it is too slow */
-const PRE = ['./', 'index.html', `standalone.js?v=${V}`, 'manifest.webmanifest', 'vt/index.json'].concat(ASSETS.map(f => `${f}?v=${V}`), fonts.map(f => 'fonts/' + f), icons);
+const PRE = ['./', 'index.html', `standalone.js?v=${V}`, `cloud.js?v=${V}`, 'manifest.webmanifest', 'vt/index.json'].concat(ASSETS.map(f => `${f}?v=${V}`), fonts.map(f => 'fonts/' + f), icons);
 fs.writeFileSync(path.join(DIST, 'sw.js'), `/* Waypoint service worker, version ${V} (made by build/standalone.js) */
 const V = ${JSON.stringify(V)}, CACHE = "waypoint-" + V, PRE = ${JSON.stringify(PRE)};
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRE)).then(() => self.skipWaiting())); });
@@ -105,8 +114,8 @@ self.addEventListener("fetch", e => {
    Vercel reads vercel.json from the repository's top folder (not from dist/), so it is written there and committed;
    a build that changes it shows up in git. */
 const CSP = ["default-src 'self'", "script-src 'self' https://cdnjs.cloudflare.com", "style-src 'self' 'unsafe-inline'", "font-src 'self' data:",
-  "img-src 'self' data: blob: https:", "connect-src 'self' https: data: blob:", "worker-src 'self' blob:", "manifest-src 'self'", "frame-ancestors 'none'", "base-uri 'self'", "form-action 'none'"].join('; ');
-fs.writeFileSync(path.join(ROOT, 'vercel.json'), JSON.stringify({
+  "img-src 'self' data: blob: https:", "connect-src 'self' " + new URL(CLOUD.url).origin + " https: data: blob:", "worker-src 'self' blob:", "manifest-src 'self'", "frame-ancestors 'none'", "base-uri 'self'", "form-action 'none'"].join('; ');
+fs.writeFileSync(HOSTING, JSON.stringify({
   $schema: 'https://openapi.vercel.sh/vercel.json',
   installCommand: 'npm install --no-save --no-package-lock --ignore-scripts esbuild@0.24.2', buildCommand: 'node build/bundle.js && node build/standalone.js', outputDirectory: 'dist', framework: null,
   cleanUrls: false, trailingSlash: false,

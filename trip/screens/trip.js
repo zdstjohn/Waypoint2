@@ -371,7 +371,7 @@
     } else {
       var num = 0, pts = [], prevPt = home, list = "", T = W.dayTimes(day, P), wasOut = false;
       /* on its own, a city has only the handful of ideas built into the app: say so where they've run out */
-      if (W.standalone && day.slots.some(function (x) { return !x.item && !(S.free || {})[x.key]; }))
+      if (W.standalone && W.sampleState !== "on" && day.slots.some(function (x) { return !x.item && !(S.free || {})[x.key]; }))
         list += '<div class="sa-info sa-note">This version has only a few ideas built in for ' + esc(day.city) + " (" + ((pool.spots || []).length) + " things to do" + ((pool.food || []).length ? ", " + pool.food.length + " places to eat" : ", no restaurants") + "), so some parts of the day are open. The full Waypoint, in Claude, finds 40 or more.</div>";
       list += W.todayCard(day, P, T);
       if (day.moveFrom) list += legCard(P, day, T);

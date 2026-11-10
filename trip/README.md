@@ -20,6 +20,20 @@ first screen reads from Prepare (the book-by checklist, the budget, which bookin
 with W.money and "Prices in": each phone shows costs as listed or all in one currency (localStorage "waypoint-cur"),
 converted at the European Central Bank's rates in fx/latest (refreshed nightly) and marked "≈" (W.priceText converts
 prices written in text, like "€15, book ahead"; a currency with no rate stays as listed); Prepare and Settings offer it.
+v121: accounts for the installable version, on Supabase (project "waypoint", fbgubkesrlvtcnbaxuef). lib/cloud.js (copied
+into dist/ as cloud.js, not part of the app bundle) gives the same window.claude.use("db" | "user" | "sample") the app
+has inside Claude: documents in public.docs (path, parent, owner, data; data/users/<id>/ private, everything else shared
+among signed-in people, each person changes only what they wrote), Claude through the Edge Function "claude"
+(supabase/functions/claude: checks the sign-in and a daily limit per person, holds the Anthropic key as a secret) and a
+sign-in gate (email and password; only emails in public.allowed_emails can make an account; "Use without an account"
+keeps the phone-only version). Settings shows the account (W.accountCard). The database is in supabase/migrations.
+The nightly copy: the scheduled tasks fill the Claude version's database; a later task copies photos, places, menus,
+morefood, links and fx into public.docs with no owner (nobody can change them from the app). It has no secret: through
+the Supabase connector it opens a ten-minute window (select public.import_begin(10)), tools/copy_to_cloud.js sends the
+exported documents to public.import_staging with the public key (photos re-pointed from the Claude file store to the same
+picture on Wikimedia Commons) and prints a fingerprint, and select public.import_finish('<fingerprint>', <count>) copies
+them in only if what arrived matches, new or changed documents only. test/suites/cloud.js runs the app against a stand-in
+Supabase (test/lib/fake-supabase.js).
 v120: Waypoint on its own, as an installable web app (outside Claude). build/standalone.js turns the same build into
 dist/: a full HTML document, the manifest and icons (build/icon/make-icons.js: the wordmark's W with its night scene),
 a service worker (sw.js: every file kept at install, the page fresh when online, all of it with no connection) and the

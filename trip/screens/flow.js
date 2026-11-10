@@ -112,7 +112,7 @@
       '<div class="sh-top"><h2 id="qsT">' + (qs.first ? "Where are you headed?" : "Plan a new trip") + '</h2><button type="button" class="icon-btn" data-qs="close" aria-label="Close">' + XI + "</button></div>" +
       '<p class="small muted">' + (qs.first ? "Waypoint plans family trips around naps, little legs and grandparents\' pace. Three quick questions and you\'ll have a day-by-day plan; everything can be changed afterwards." : "Three quick questions. You can fine-tune everything afterwards.") + "</p>" +
       '<label class="fld"><span>Where to?</span><input class="field" id="qsWhere" list="countryList" placeholder="A country, e.g. Greece" value="' + esc(keep.qsWhere || "") + '"></label>' +
-      (W.standalone ? '<p class="small muted sa-note">This version plans trips to ' + esc(W.builtInCountries()) + ".</p>" : "") +
+      (W.standalone && !W.cloud ? '<p class="small muted sa-note">This version plans trips to ' + esc(W.builtInCountries()) + ".</p>" : "") +
       '<label class="fld"><span>Places <em>(optional)</em></span><input class="field" id="qsCities" placeholder="Leave empty and we\'ll pick, or e.g. Crete, Naxos" value="' + esc(keep.qsCities || "") + '"></label>' +
       '<div class="fld"><span>When?</span><div class="qs-when"><input class="field" id="qsStart" type="date" value="' + esc(start) + '" aria-label="Start date"><span class="muted">for</span>' +
       '<input class="field" id="qsDays" type="number" min="2" max="60" value="' + esc(days) + '" aria-label="Number of days"><span class="muted">days</span></div></div>' +

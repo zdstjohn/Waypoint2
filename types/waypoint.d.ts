@@ -472,6 +472,8 @@ interface Waypoint {
   builtInCountries: () => string;
   pwa: any;
   installCard: any;
+  cloud: boolean;
+  accountCard: any;
   iconLink: any;
   patch: any;
   draw: any;

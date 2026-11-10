@@ -157,7 +157,8 @@
     /* Google's own results for the same words, in Google Maps (they open there; add one here by searching its name) */
     h += '<p class="ps-google">' + W.extLink("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(st.q + " near " + day.city + ", " + day.country), "Search Google Maps for “" + esc(st.q) + "” near " + esc(day.city) + " ↗") + "</p>";
     if (M.aiErr) h += '<p class="small muted">' + esc(M.aiErr) + "</p>";
-    if (W.standalone) return h + '<p class="small muted ps-src-note">This version searches the ideas it has. Searching the map and asking Claude come with the full Waypoint, in Claude.</p></section>';
+    if (W.standalone && !W.cloud) return h + '<p class="small muted ps-src-note">This version searches the ideas it has. Searching the map and asking Claude come with the full Waypoint, in Claude.</p></section>';
+    if (W.standalone) return h + '<p class="small muted ps-src-note">Places marked "Suggested by Claude" haven\'t been checked against a map: look one up before you go.</p></section>';
     return h + '<p class="small muted ps-src-note">Map results © Mapbox · ideas marked "Suggested by Claude" are checked against the map overnight.</p></section>';
   };
 

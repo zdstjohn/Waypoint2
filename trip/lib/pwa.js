@@ -24,6 +24,16 @@
   };
   if (!SA) return;
   document.documentElement.classList.add("standalone");
+  /* signed in to Waypoint's own server (lib/cloud.js): Claude, saved trips and sharing work as they do inside Claude */
+  var CL = /** @type {any} */ (window).__WP_CLOUD || null;
+  W.cloud = !!(CL && CL.session);
+  if (W.cloud) document.documentElement.classList.add("cloud");
+  /** the account card in Settings @param {(title: string, sub: string, body: string, id?: string) => string} card */
+  W.accountCard = function (card) {
+    if (!CL) return "";
+    return W.cloud ? card("Account", "Your trips are saved to your account and open on any device you sign in on.", '<p class="small">Signed in as <b>' + W.esc(CL.email) + '</b></p><button type="button" class="btn quiet" data-acct="out">Sign out</button>', "set-acct")
+      : card("Account", "Sign in to save trips to your account, open them on any device, share them with family, and get fresh ideas for any city.", '<button type="button" class="btn" data-acct="in">Sign in</button>', "set-acct");
+  };
   var installed = false;
   try { installed = window.matchMedia("(display-mode: standalone)").matches || /** @type {any} */ (navigator).standalone === true; } catch (e) {}
   W.pwa = { prompt: null, installed: installed, sw: "", persisted: null };
@@ -50,7 +60,9 @@
     return card("Install on this phone", "Waypoint opens from your home screen like any app, and works with no connection once installed. Trips are saved on this phone.", body, "set-install");
   };
   document.addEventListener("click", function (e) {
-    var t = /** @type {HTMLElement} */ (e.target), b = t && t.closest ? /** @type {HTMLElement | null} */ (t.closest("[data-install]")) : null; if (!b) return;
+    var t = /** @type {HTMLElement} */ (e.target), a = t && t.closest ? /** @type {HTMLElement | null} */ (t.closest("[data-acct]")) : null;
+    if (a && CL) { if (a.dataset.acct === "out") CL.signOut(); else CL.showSignIn(); return; }
+    var b = t && t.closest ? /** @type {HTMLElement | null} */ (t.closest("[data-install]")) : null; if (!b) return;
     var pr = W.pwa.prompt; if (!pr) return;
     pr.prompt(); pr.userChoice.then(function (c) { if (c && c.outcome === "accepted") { W.pwa.installed = true; persist(); } W.pwa.prompt = null; W.changed(); });
   });

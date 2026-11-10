@@ -7,7 +7,7 @@
   var CODES = "AD AE AF AG AL AM AO AR AT AU AW AZ BA BB BD BE BF BG BH BI BJ BM BN BO BR BS BT BW BY BZ CA CD CF CG CH CI CK CL CM CN CO CR CU CV CW CY CZ DE DJ DK DM DO DZ EC EE EG ER ES ET FI FJ FM FO FR GA GB GD GE GF GH GI GL GM GN GP GQ GR GT GU GW GY HK HN HR HT HU ID IE IL IN IQ IR IS IT JM JO JP KE KG KH KI KM KN KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MG MH MK ML MM MN MO MQ MR MT MU MV MW MX MY MZ NA NC NE NG NI NL NO NP NR NZ OM PA PE PF PG PH PK PL PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SI SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TG TH TJ TL TM TN TO TR TT TV TW TZ UA UG US UY UZ VA VC VE VG VI VN VU WS XK YE ZA ZM ZW".split(" ");
   var names = [];
   /* on its own (no Claude), only the countries with ideas built in can be planned */
-  if (!W.standalone) try { var dn = new Intl.DisplayNames(["en"], { type: "region" }); names = CODES.map(function (c) { return dn.of(c); }); } catch (e) {}
+  if (!W.standalone || W.cloud) try { var dn = new Intl.DisplayNames(["en"], { type: "region" }); names = CODES.map(function (c) { return dn.of(c); }); } catch (e) {}
   Object.keys(window.TD).forEach(function (k) { if (names.indexOf(k) < 0) names.push(k); });
   names.sort();
   $("countryList").innerHTML = names.map(function (n) { return '<option value="' + esc(n) + '">'; }).join("");
@@ -231,7 +231,7 @@
     var starts = [], dn = 1; P.stops.forEach(function (s) { starts.push(dn); dn += s.days; });
     h += step("where", "05", "Where to?", P.stops.map(function (s) { return s.name; }).join(" → ") || "Add a country",
       S.countries.map(function (c, i) { return countryBlock(c, i, P, starts); }).join("") +
-      (W.standalone ? '<p class="small muted sa-note">This version plans trips to ' + esc(W.builtInCountries()) + ". Anywhere else comes with the full Waypoint, in Claude.</p>" : "") +
+      (W.standalone && !W.cloud ? '<p class="small muted sa-note">This version plans trips to ' + esc(W.builtInCountries()) + ". Anywhere else comes with the full Waypoint, in Claude.</p>" : "") +
       '<div class="row add-country"><input class="field" id="countryIn" list="countryList" placeholder="' + (S.countries.length ? "Add another country" : "Add a country") + '"><button type="button" class="btn' + (S.countries.length ? " quiet" : "") + '" id="addCountry">Add</button></div>');
 
     /* 5 · route check */

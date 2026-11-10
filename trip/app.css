@@ -1698,5 +1698,23 @@ html.copy #tabSetup,html.copy [data-sync="new"],html.copy [data-sync="del"],html
 .go-off.copy .small{margin:6px 0 0;color:var(--muted)}
 .sa-note{margin:4px 0 0}
 /* on its own (no Claude): what needs Claude or the shared database isn't offered */
-html.standalone [data-offcopy],html.standalone [data-gmail],html.standalone [data-sync="settings"],html.standalone .tm-sharebox,html.standalone .share,html.standalone [data-live],html.standalone [data-cal],html.standalone [data-jadd]{display:none!important}
+html.standalone [data-offcopy],html.standalone [data-gmail],html.standalone [data-live],html.standalone [data-cal],html.standalone [data-jadd]{display:none!important}
+/* not signed in: importing a plan and sharing need the account (and Claude) */
+html.standalone:not(.cloud) [data-sync="settings"],html.standalone:not(.cloud) .tm-sharebox,html.standalone:not(.cloud) .share{display:none!important}
 .sa-info{margin:10px 0;padding:10px 14px;border-radius:14px;background:var(--sunk);color:var(--muted);font-size:14px;line-height:1.45}
+
+/* the sign-in screen of the installable version (lib/cloud.js) */
+.auth-gate{position:fixed;inset:0;z-index:9000;display:grid;place-items:center;padding:16px;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);overflow:auto}
+.auth-card{width:min(420px,100%);display:grid;gap:12px;padding:22px 20px;border-radius:22px;background:var(--surface);border:var(--hair);box-shadow:0 18px 50px rgba(0,0,0,.18)}
+.auth-card h2{margin:0;font-family:var(--f-display,inherit);font-size:24px;line-height:1.15}
+.auth-sub{margin:0;color:var(--muted)}
+.auth-seg{display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:3px;border-radius:999px;background:var(--sunk)}
+.auth-seg button{min-height:40px;border:0;border-radius:999px;background:transparent;font:800 14px/1 var(--f-body);color:var(--muted);cursor:pointer}
+.auth-seg button[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.auth-f{display:grid;gap:5px;font-weight:700;font-size:14px}
+.auth-f .field{min-height:46px;font-size:16px}
+.auth-err{margin:0;min-height:1.2em;color:var(--danger);font-weight:700;font-size:14px}
+.auth-err:empty{display:none}
+.auth-go{min-height:48px;justify-content:center}
+.auth-skip{justify-self:center;min-height:40px}
+.auth-note{margin:0;color:var(--muted);font-size:13px;text-align:center}
