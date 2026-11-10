@@ -374,9 +374,14 @@
       S.creating = true;
       if (S.map) { try { S.map.remove(); } catch (e) {} S.map = null; }
       S.ready = false; S.slug = o.slug; S.theme = themeKey; S.sig = "";
+      /* only the latest request makes a map: switching city (or theme) twice while a pack is on its way used to let two
+         answers each make one in the same place, the first never removed */
+      var turn = S.turn = (S.turn || 0) + 1;
       pack(o.slug).then(function (p) {
+        if (turn !== S.turn) return;
         S.creating = false;
         if (S.slug !== o.slug) return;
+        if (S.map) { try { S.map.remove(); } catch (e) {} S.map = null; }
         try {
           S.map = new ML.Map({ container: S.el, style: style(o.slug, p.hdr), bounds: [[p.hdr.places[0], p.hdr.places[1]], [p.hdr.places[2], p.hdr.places[3]]],
             attributionControl: false, dragRotate: false, pitchWithRotate: false, touchPitch: false, cooperativeGestures: touchFirst(),
@@ -407,7 +412,7 @@
             if (!S.ready && /webgl|context/i.test(msg)) { S.engine = "off"; W.changed(); }
           });
         } catch (e) { S.engine = "off"; S.why = String(e && e.message || e); W.changed(); }
-      }, function () { S.creating = false; S.engine = "off"; W.changed(); });
+      }, function () { if (turn !== S.turn) return; S.creating = false; S.engine = "off"; W.changed(); });
     }
     S.pend = { slot: slot, o: o }; S.city = o.city || "";
     if (!S.map || !S.ready) return false;

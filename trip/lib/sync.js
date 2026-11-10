@@ -11,7 +11,7 @@
   /* can this view change the plan? your own trip, or a shared one whose owner lets you plan together (lib/together.js) */
   W.canEdit = function () { return !W.readOnly || !!W.readOnly.edit; };
   function lget(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
-  function lset(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function lset(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { if (W.storeFailed) W.storeFailed(e); } }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
   function rid(n, abc) { abc = abc || "abcdefghijkmnpqrstuvwxyz23456789"; var s = ""; for (var i = 0; i < n; i++) s += abc.charAt(Math.floor(Math.random() * abc.length)); return s; }
   function hash(s) { var h = 5381; for (var i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) | 0; return s.length + ":" + (h >>> 0).toString(36); }
@@ -74,7 +74,25 @@
   var db = null, uid = null, col = null, pcol = null, canWrite = true;
   var st = "local";   /* local | connecting | synced | saving | error | full */
   var remote = {}, firstSnap = false, lastSig = null;
-  function baseline() { lastSig = hash(JSON.stringify(syncable(S))); appliedAt = Date.now(); }
+  function baseline() { lastSig = hash(JSON.stringify(syncable(S))); appliedAt = Date.now(); jBase = JSON.stringify(S.journal || {}); }
+  /* The journal is the one thing that can't be made again, so another device's version never simply replaces it. When
+     this device has journal changes the account hasn't got (it differs from the last version both had, jBase), the two
+     are joined: photos from both (by id), and both notes when they differ. With no changes here, theirs is taken as it
+     is, so a photo or note removed on the other device goes here too. Returns true when the result differs from theirs. */
+  var jBase = JSON.stringify(S.journal || {});
+  function mergeJournal(mine, theirs) {
+    var out = clone(theirs || {}), changed = false;
+    Object.keys(mine || {}).forEach(function (k) {
+      var a = mine[k] || {}, b = out[k];
+      if (!b) { if ((a.photos || []).length || (a.note || "").trim()) { out[k] = clone(a); changed = true; } return; }
+      var have = {}; (b.photos || []).forEach(function (p) { have[p.id] = 1; });
+      (a.photos || []).forEach(function (p) { if (p && p.id && !have[p.id]) { (b.photos || (b.photos = [])).push(clone(p)); changed = true; } });
+      var an = (a.note || "").trim(), bn = (b.note || "").trim();
+      if (an && an !== bn && bn.indexOf(an) < 0) { b.note = (bn && an.indexOf(bn) < 0 ? bn + "\n" : "") + an; changed = true; }
+    });
+    return { journal: out, changed: changed };
+  }
+  W.mergeJournal = mergeJournal;   /* (for the tests) */
   /* only changes you make get sent: the planner filling in picks on its own is redone on every device anyway,
      and sending those would overwrite what you just changed somewhere else */
   var touched = 0;
@@ -156,9 +174,12 @@
       ro.S = clone(b.state); ro.S.tripId = id; idx[id] = { name: b.name, updated: b.updated }; saveIdx(); return;
     }
     if (id === S.tripId && !W.readOnly) {
+      var mineJ = S.journal || {}, unsent = JSON.stringify(mineJ) !== jBase, mj = unsent ? mergeJournal(mineJ, b.state.journal) : null;
       replaceState(b.state); S.tripId = id;
-      idx[id] = { name: b.name, updated: b.updated }; saveIdx();
+      if (mj) S.journal = mj.journal;
+      idx[id] = { name: b.name, updated: mj && mj.changed ? Date.now() : b.updated }; saveIdx();
       baseline(); fetched = {};
+      if (mj && mj.changed && firstSnap) pushTrip(id);   /* the joined journal goes back to the account */
       W.isExample = false; W.changed(); pullPools();
     } else { idx[id] = { name: b.name, updated: b.updated, state: clone(b.state) }; saveIdx(); }
   }
@@ -220,7 +241,13 @@
     if (W.readOnly) { if (W.readOnly.edit && W.coPush) W.coPush(); return; }
     clearTimeout(tickT); tickT = setTimeout(tick, 1500);
   };
+  /* leaving the page (another app, a closed tab) sends what's waiting now: the pause before a write is 1.5 s, and an
+     edit made just before leaving used to stay on this device only */
+  function flush() { if (tickT && !W.readOnly) { clearTimeout(tickT); tickT = null; tick(); } }
+  document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") flush(); });
+  window.addEventListener("pagehide", flush);
   function tick() {
+    tickT = null;
     if (W.readOnly) return;
     var sig = hash(JSON.stringify(syncable(S)));
     if (lastSig == null) lastSig = sig;
@@ -382,7 +409,8 @@
   var menuOpen = false, renaming = false, delAsk = null;
   /* the trips menu drops down over the page: a tap anywhere else closes it */
   W.closeTripMenu = function () { if (!menuOpen) return false; menuOpen = false; renaming = false; delAsk = null; W.renderBar(W.P); return true; };
-  var ST = { local: "Saved on this device", connecting: "Connecting…", synced: "Saved to your account", saving: "Saving…", error: "Can't reach your account right now; saved on this device", full: "Your account's storage for this app is full" };
+  var ST = { local: "Saved on this device", connecting: "Connecting…", synced: "Saved to your account", saving: "Saving…", error: "Can't reach your account right now; saved on this device", full: "Your account's storage for this app is full",
+    localfull: "This device's storage for the app is full: changes may not be kept on it. Your account still has them when you're online." };
   var ago = W.ago;
   function bar() { if (W.P) W.renderBar(W.P); }
   W.renderBar = function () {
@@ -416,7 +444,8 @@
     var ids = Object.keys(idx).sort(function (a, b) { return (idx[b].updated || 0) - (idx[a].updated || 0); });
     var h = '<div class="tripbar"><button type="button" class="trip-sw" data-sync="menu" aria-expanded="' + menuOpen + '" aria-label="Your trips: ' + esc(W.tripName() + (cd ? ". " + cd.line : "")) + '">' +
       '<span class="ts-n"><b>' + esc(W.tripName()) + "</b>" + '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>' + "</span>" + countHtml(cd) + "</button>" +
-      (st === "error" || st === "full" ? '<span class="sync-st small bad" role="status" title="' + esc(ST[st]) + '"><span class="st-l" aria-hidden="true">' + (st === "full" ? "Storage full" : "Not synced") + '</span><span class="vh">' + esc(ST[st]) + "</span></span>" : "") + "</div>";
+      (W.localFull ? '<span class="sync-st small bad" role="status" title="' + esc(ST.localfull) + '"><span class="st-l" aria-hidden="true">Phone storage full</span><span class="vh">' + esc(ST.localfull) + "</span></span>" :
+        st === "error" || st === "full" ? '<span class="sync-st small bad" role="status" title="' + esc(ST[st]) + '"><span class="st-l" aria-hidden="true">' + (st === "full" ? "Storage full" : "Not synced") + '</span><span class="vh">' + esc(ST[st]) + "</span></span>" : "") + "</div>";
     if (menuOpen) {
       h += '<div class="trip-menu sk"><h3>Your trips</h3><ul class="trips">' + ids.map(function (id) {
         var cur = id === S.tripId, t = idx[id], nm = cur ? W.tripName() : t.name || "Trip";

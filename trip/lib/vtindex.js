@@ -48,7 +48,9 @@
     if (S.idx[slug]) return slug;
     if (lat == null) return null;
     var hit = null;
-    Object.keys(S.idx).forEach(function (k) { var b = S.idx[k].places; if (!hit && b && lat >= b[1] && lat <= b[3] && lng >= b[0] && lng <= b[2]) hit = k; });
+    /* another city's pack serves this one only when it is framed on a town (older packs framed a whole region, with
+       street detail only around their own town, until the nightly helper rebuilds them) */
+    Object.keys(S.idx).forEach(function (k) { var b = S.idx[k].places; if (!hit && b && b[2] - b[0] <= 0.3 && b[3] - b[1] <= 0.25 && lat >= b[1] && lat <= b[3] && lng >= b[0] && lng <= b[2]) hit = k; });
     return hit;
   };
 

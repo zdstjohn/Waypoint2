@@ -164,7 +164,7 @@
     if (W.readOnly) return "";
     if (O.copy) {
       var at = window.__WP_OFFLINE.at ? new Date(window.__WP_OFFLINE.at) : null;
-      return '<section class="go-off sk copy"><span class="go-k">Offline copy</span><p>Saved ' + (at ? W.esc(at.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + " " + W.clock(at.getHours() * 60 + at.getMinutes())) : "") + ". Everything here works without a connection; open the live app when you're back online to pick up changes.</p></section>";
+      return '<section class="go-off sk copy"><span class="go-k">Offline copy</span><p>Saved ' + (at ? W.esc(at.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + " " + W.clock(at.getHours() * 60 + at.getMinutes())) : "") + ". Everything here works without a connection. It is a copy for reading: changes made in it stay in this file and don't reach your account, so write journal notes and make changes in the live app when you're back online.</p></section>";
     }
     var h = '<section class="go-off sk' + (O.off ? " is-off" : "") + '">';
     if (O.off) {

@@ -20,6 +20,12 @@ first screen reads from Prepare (the book-by checklist, the budget, which bookin
 with W.money and "Prices in": each phone shows costs as listed or all in one currency (localStorage "waypoint-cur"),
 converted at the European Central Bank's rates in fx/latest (refreshed nightly) and marked "≈" (W.priceText converts
 prices written in text, like "€15, book ahead"; a currency with no rate stays as listed); Prepare and Settings offer it.
+Keeping your changes (v115): leaving the page sends what's waiting (sync.js flush; the pause before a write is 1.5 s);
+another device's version never replaces journal changes this one hasn't sent (mergeJournal: photos from both, both
+notes); a save this device refuses (storage full) shows "Phone storage full" in the banner and goes to the error log,
+and nothing is cleared; an offline copy says it is for reading. Street maps: a pack is framed on its town (build.py
+NEAR_KM; day trips get a little detail but don't stretch it), packs framed wider than about 25 km are rebuilt by the
+nightly helper and don't serve other cities meanwhile (vtindex.js W.vtFor), and only the latest request makes a map.
 Simple view (core.js: W.simple, localStorage "waypoint-simple", so this phone only and in shared trips too; the switch is
 in the trip menu and Settings) draws no place photo (W.picture) and no street map, and html.simple hides descriptions,
 the greeting, the kids' banner and photo tips; times, places, walks, directions, what to book and warnings stay.

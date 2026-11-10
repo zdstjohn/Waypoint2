@@ -401,6 +401,12 @@ interface Waypoint {
   releaseLoads: any;
   render: () => void;
   renderBar: any;
+  /** this device refused a save (its storage for the app is full); shown in the banner until a save succeeds */
+  localFull?: boolean;
+  /** note a refused save: sets localFull and logs it once */
+  storeFailed: (e: any) => void;
+  /** join this device's unsent journal changes with another device's journal (photos by id, both notes) */
+  mergeJournal: (mine: any, theirs: any) => { journal: any; changed: boolean };
   renderBook: any;
   renderGo: any;
   renderKids: any;

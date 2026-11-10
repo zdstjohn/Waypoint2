@@ -31,6 +31,22 @@ exports.run = async t => {
   });
   const it0 = el && el.find(x => x.msg === 'Test boom');
   t.ok(it0 && it0.n === 2 && it0.at === 'app.js:1:99' && it0.build && it0.view && el.length === 1 && !/http/.test(it0.stack), `errors go to the viewer's private log, repeats counted (${it0 && JSON.stringify({ n: it0.n, at: it0.at, view: it0.view, build: it0.build, ua: it0.ua })})`);
+  /* the journal is joined, never replaced: with unsent changes here, both devices' photos and notes are kept */
+  const mj = await pg.evaluate(() => {
+    const mine = { 'Italy|Rome|1': { photos: [{ id: 'a1' }], note: 'Gelato by the fountain' }, 'Italy|Rome|2': { note: 'Rain all day' } };
+    const theirs = { 'Italy|Rome|1': { photos: [{ id: 'b1' }], note: 'Colosseum at opening' } };
+    const r = W.mergeJournal(mine, theirs), same = W.mergeJournal(theirs, theirs);
+    return { ids: r.journal['Italy|Rome|1'].photos.map(p => p.id).sort(), note: r.journal['Italy|Rome|1'].note, day2: r.journal['Italy|Rome|2'].note, changed: r.changed, same: same.changed };
+  });
+  t.ok(mj.ids.join() === 'a1,b1' && /Colosseum/.test(mj.note) && /Gelato/.test(mj.note) && mj.day2 === 'Rain all day' && mj.changed && !mj.same, 'two devices\' journals are joined (both photos, both notes, the extra day): ' + JSON.stringify(mj));
+  /* a device that can't save says so, and clears nothing */
+  const full = await pg.evaluate(() => {
+    const real = Storage.prototype.setItem; Storage.prototype.setItem = function () { const e = new Error('full'); e.name = 'QuotaExceededError'; throw e; };
+    W.S.tripName = 'Full test'; W.save(); const on = !!W.localFull, kept = !!localStorage.getItem('waypoint-cache-v2');
+    Storage.prototype.setItem = real; W.S.tripName = 'Full test 2'; W.save();
+    return { on, kept, off: !W.localFull };
+  });
+  t.ok(full.on && full.kept && full.off, 'a refused save is flagged (and nothing cleared), and the flag goes when saving works again: ' + JSON.stringify(full));
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

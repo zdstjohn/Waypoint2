@@ -23,20 +23,29 @@ def around(pts, z, km):
         out |= rect([ln - dln, la - dla, ln + dln, la + dla], z)
     return out
 
+NEAR_KM = 8.0
+
 def plan(d):
     pts = [tuple(p) for p in d.get('pts') or [] if isinstance(p, list) and len(p) == 2]
     home = tuple(d['home']) if d.get('home') else None
     if home: pts.append(home)
     centre_only = not pts
     if not pts and d.get('center'): pts = [tuple(d['center'])]
-    la = sorted(p[0] for p in pts); ln = sorted(p[1] for p in pts)
-    k = max(0, int(len(la) * 0.05))
-    bb = [ln[k], la[k], ln[-1 - k], la[-1 - k]]           # w, s, e, n of the main spread of places
+    # The pack is about the town: its frame ("places", where the map opens and which cities it serves) and its street
+    # detail come from the places within NEAR_KM of where you stay (or the centre). Places farther out (day trips) used
+    # to stretch the frame over a whole region, which spent the size limit on empty country and trimmed the town's streets.
+    anchor = home or (tuple(d['center']) if d.get('center') else None)
+    if not anchor: anchor = (sorted(p[0] for p in pts)[len(pts) // 2], sorted(p[1] for p in pts)[len(pts) // 2])
+    near = [p for p in pts if km(anchor, p) <= NEAR_KM] or [anchor]
+    far = [p for p in pts if km(anchor, p) > NEAR_KM]
+    la = sorted(p[0] for p in near); ln = sorted(p[1] for p in near)
+    k = max(0, int(len(la) * 0.05)) if len(la) > 20 else 0
+    bb = [ln[k], la[k], ln[-1 - k], la[-1 - k]]           # w, s, e, n of the town's places
     pad = lambda b, f: [b[0] - (b[2] - b[0]) * f - 0.02, b[1] - (b[3] - b[1]) * f - 0.015, b[2] + (b[2] - b[0]) * f + 0.02, b[3] + (b[3] - b[1]) * f + 0.015]
     T = {}
     # with no places yet (a built-in city, by its centre) the pack covers the whole centre: 3 km of streets, 6 km around
-    T[14] = around(pts, 14, 3.0 if centre_only else 1.0) | (around([home], 14, 2.0) if home else set())
-    T[13] = {(x // 2, y // 2) for x, y in T[14]} | around(pts, 13, 6.0 if centre_only else 2.0)
+    T[14] = around(near, 14, 3.0 if centre_only else 1.0) | (around([home], 14, 2.0) if home else set())
+    T[13] = {(x // 2, y // 2) for x, y in T[14]} | around(near, 13, 6.0 if centre_only else 2.0) | around(far, 13, 0.8)
     T[12] = {(x // 2, y // 2) for x, y in T[13]}
     r = rect(pad(bb, 0.1), 12)
     if len(r) <= 16: T[12] |= r

@@ -67,12 +67,22 @@
   var c = load("waypoint-cache-v2") || {};
   W.C = /** @type {Cache} */ ({ country: c.country || {}, city: c.city || {}, geo: c.geo || {}, area: c.area || {}, range: c.range || {}, legs: c.legs || {}, cost: c.cost || {}, tz: c.tz || {}, events: c.events || {} });
   var lastS = null, lastV = -1;
+  /* a write this device refused (its storage for the app is full): say so in the banner and the error log, once; nothing
+     is cleared to make room (the idea lists would only be asked for again) */
+  W.storeFailed = function (e) {
+    if (W.localFull) return;
+    W.localFull = true;
+    if (W.logError) W.logError("storage: this device refused a save (" + (e && e.name || "error") + ")", "save");
+    if (W.renderBar && W.P) try { W.renderBar(W.P); } catch (x) {}
+  };
   W.save = function () {
     /* someone else's shared trip: look, don't keep (planning together sends your changes to its owner instead) */
     if (W.readOnly) { if (W.readOnly.edit && W.coPush) W.coPush(); return; }
-    try { var js = JSON.stringify(W.S); if (js !== lastS) { localStorage.setItem("waypoint-v2", js); lastS = js; } } catch (e) {}
+    var wrote = false, failed = false;
+    try { var js = JSON.stringify(W.S); if (js !== lastS) { localStorage.setItem("waypoint-v2", js); lastS = js; wrote = true; } } catch (e) { failed = true; W.storeFailed(e); }
     /* the cache is big (city lists for every place); it is written only when data has arrived since the last save */
-    try { if (W.dataV !== lastV) { localStorage.setItem("waypoint-cache-v2", JSON.stringify(W.C)); lastV = W.dataV; } } catch (e) {}
+    try { if (W.dataV !== lastV) { localStorage.setItem("waypoint-cache-v2", JSON.stringify(W.C)); lastV = W.dataV; wrote = true; } } catch (e) { failed = true; W.storeFailed(e); }
+    if (wrote && !failed) W.localFull = false;   /* there is room again */
     if (W.afterSave) W.afterSave();
   };
 

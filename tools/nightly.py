@@ -128,6 +128,20 @@ def prepare(db_dir, vt_index_path, work, max_lookups=300, max_packs=3):
         for fn in os.listdir(maps_dir):
             if fn.endswith(".json"): index.setdefault(fn[:-5], {})
     missing = [s for s, w in wanted.items() if s not in index and (w.get("pts") or w.get("center"))]
+    # packs built when a pack's frame followed every place (day trips too): one framed wider than about 25 km is
+    # rebuilt around its town, after the cities that have no pack yet. The new record replaces the old one; the old
+    # parts stay in the asset store until the owner clears unused files (Settings > Storage).
+    wide = []
+    if os.path.isdir(maps_dir):
+        for fn in sorted(os.listdir(maps_dir)):
+            if not fn.endswith(".json"): continue
+            try:
+                m = json.load(open(os.path.join(maps_dir, fn))); m = m.get("data", m); pl = m.get("places") or []
+                sl = fn[:-5]
+                if len(pl) == 4 and (pl[2] - pl[0] > 0.3 or pl[3] - pl[1] > 0.25) and sl in wanted and (wanted[sl].get("pts") or wanted[sl].get("center")): wide.append(sl)
+            except Exception: pass
+    missing += [s for s in wide if s not in missing]
+    summary["rebuilt"] = [s for s in missing[:max_packs] if s in wide]
     # trips' cities first; when every one has a pack, the built-in cities (by their centre) get theirs too
     if len(missing) < max_packs:
         try:
