@@ -29,6 +29,19 @@ exports.run = async t => {
   t.eq(r.st, 'closed', 'a place the check found closed is marked closed');
   t.ok(!r.scheduled, 'and the planner does not schedule it');
   t.ok(r.rep, 'its replacement joins the list');
+  /* the replacement and the limit on ideas on show must not take turns (one adding it, the other setting it aside, the
+     page redrawing each time): a city holding more than it shows, whose replaced place is on nobody's day, settles */
+  const calm = await pg.evaluate(async () => {
+    const p = W.pool('Italy', 'Rome'), stay = W.stayDays('Italy', 'Rome'); delete p.showN;
+    Object.keys(W.S.picks).forEach(k => { if (W.S.picks[k] === 'Caffè Verifica') delete W.S.picks[k]; });
+    for (let i = 0; p.food.length < 60; i++) p.food.splice(1, 0, Object.assign({}, p.food[1], { n: 'Spare eatery ' + i }));
+    let moves = 0; for (let i = 0; i < 6; i++) { W.pool('Italy', 'Rome'); if (W.fitIdeas('Italy', 'Rome', stay, true)) moves++; }
+    const out = { moves, onShow: W.pool('Italy', 'Rome').food.some(x => x.n === 'Caffè Verifica'), aside: ((p.rest || {}).food || []).length };
+    W.replan(); W.changed(); W.render(); await new Promise(r => setTimeout(r, 1200));
+    const v0 = W.dataV; await new Promise(r => setTimeout(r, 1500)); out.still = W.dataV - v0;
+    return out;
+  });
+  t.ok(calm.moves <= 1 && calm.onShow && calm.aside > 20 && calm.still === 0, 'a city with more ideas than it shows settles in one pass, its replacement stays on show, and nothing keeps redrawing (' + JSON.stringify(calm) + ')');
   t.eq(r.pin, [41.95, 12.5], 'a verified pin moves the place');
   t.eq(r.menu, 'https://cafe1.example', 'the official site fills an empty menu link');
   t.eq(r.hours, 420, 'checked hours fill in');

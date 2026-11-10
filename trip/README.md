@@ -54,6 +54,11 @@ Small things: "Back to…" and "See my trip" use a drawn arrow (W.arrow) that si
 it took the booking timeline's styles and showed as a stray blob beside the logo); W.clock and W.sky keep their time
 formatters (making one was the slowest part of drawing a day); the phone tab bar is more solid, so the page no longer
 reads through it.
+v124 (a fix): the page redrew without end. For a place that has closed, the nightly check names a replacement, and
+lib/places.js adds it to the list whenever it is not there; v123's limit (W.fitIdeas) then set it aside, the list was
+one short again, and the two took turns, each turn a redraw. A replacement is now marked (rp) and never set aside, one
+already set aside comes back, and W.fitIdeas stops asking for a redraw after six in a minute for one city, whatever
+the cause.
 v122: what Claude is asked first. W.run's queue (lib/core.js) no longer goes in the order things were asked: the city on
 screen (the selected day, and today's on a trip) comes first, its main lists (sights, places to eat, breakfast) before
 its second lists, then other cities' main lists, then the extras (hidden gems, rainy-day ideas, links, events, costs);

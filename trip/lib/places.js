@@ -44,8 +44,12 @@
       if (r.place) it.place = r.place;
       /* a closed place names what to go to instead: added to the list once, with its own checked facts */
       if (r.replace && r.replace.n && !added[W.norm(r.replace.n)]) {
-        var exists = list.some(function (x) { return W.norm(x.n) === W.norm(r.replace.n); });
-        if (!exists) list.push(Object.assign(food ? { meal: it.meal || "both", cuisine: it.cuisine || "", price: it.price || "", reserve: false } : { t: it.t || [], s: it.s || "any", ticket: "" }, JSON.parse(JSON.stringify(r.replace))));
+        /* (marked "rp" so the limit on ideas on show never sets it aside: W.fitIdeas. Without the mark the two took
+           turns, one adding it and the other setting it aside, and the page redrew without end. One set aside by the
+           version that did that comes back) */
+        var exists = list.filter(function (x) { return W.norm(x.n) === W.norm(r.replace.n); })[0] || (W.fromRest && pool ? W.fromRest(pool, r.replace.n, food) : null);
+        if (exists) exists.rp = 1;
+        if (!exists) list.push(Object.assign(food ? { meal: it.meal || "both", cuisine: it.cuisine || "", price: it.price || "", reserve: false } : { t: it.t || [], s: it.s || "any", ticket: "" }, JSON.parse(JSON.stringify(r.replace)), { rp: 1 }));
         added[W.norm(r.replace.n)] = 1;
       }
     });

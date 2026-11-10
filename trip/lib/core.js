@@ -478,14 +478,16 @@
      not planned with, and brought out first, at once, when you ask for more or stay longer. Never set aside: a place
      on one of this trip's days, and a place you added yourself. Among the places to eat, breakfast keeps its share,
      and among the things to do, the evening. Run after every planning (lib/plan.js), so it also tidies what arrives
-     later; returns whether anything moved */
+     later; returns whether anything moved. Also never set aside: the replacement for a place that has closed */
   W.ideaLimit = function (c, list, stayDays) { return Math.max(W.firstIdeas(stayDays), (c && c.showN && c.showN[list]) || 0); };
-  var fitTold = false;
+  var fitTold = false, fitRuns = {};
   W.fitIdeas = function (country, city, stayDays, quiet) {
     var c = /** @type {any} */ (W.C.city[W.cityKey(country, city)]);   /* (both lists are handled the same way) */
     if (!c || c.fallback || W.readOnly || !c.spots || !c.spots.length) return false;
     var kept = {}, picks = W.S.picks || {}; Object.keys(picks).forEach(function (k) { if (picks[k]) kept[W.norm(picks[k])] = 1; });
-    var isKept = function (x) { return !!(x.imp || kept[W.norm(x.n)]); };
+    /* (rp: the replacement the nightly check gave for a place that has closed. lib/places.js adds it whenever it is not
+       on the list, so setting it aside would have the two take turns for ever) */
+    var isKept = function (x) { return !!(x.imp || x.rp || kept[W.norm(x.n)]); };
     var moved = false, rest = c.rest && typeof c.rest === "object" ? c.rest : { spots: [], food: [] };
     /** @type {Array<"spots" | "food">} */ (["spots", "food"]).forEach(function (L) {
       var n = W.ideaLimit(c, L, stayDays), list = c[L] || [], r = Array.isArray(rest[L]) ? rest[L] : [], on = {};
@@ -506,8 +508,15 @@
       rest[L] = r;
     });
     if (moved || c.rest) c.rest = rest;
-    /* the lists changed under a plan that was being made: save them and draw again, once, when it is done */
-    if (moved && !quiet && !fitTold) { fitTold = true; setTimeout(function () { fitTold = false; changed(); }, 0); }
+    /* the lists changed under a plan that was being made: save them and draw again, once, when it is done. A city's
+       lists settle in a pass or two; if something keeps putting back what this sets aside, stop redrawing for it
+       (at most six times a minute for one city) rather than redraw without end */
+    if (moved && !quiet) {
+      var ck = W.cityKey(country, city), now = Date.now(), run = fitRuns[ck] || (fitRuns[ck] = { at: now, n: 0 });
+      if (now - run.at > 60000) { run.at = now; run.n = 0; }
+      run.n++;
+      if (run.n <= 6 && !fitTold) { fitTold = true; setTimeout(function () { fitTold = false; changed(); }, 0); }
+    }
     return moved;
   };
   /* a place one of your trips has on a day, found among the ideas set aside: back on show */
