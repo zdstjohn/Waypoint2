@@ -19,6 +19,7 @@
   function loadIndex() {
     if (S.idxState !== "idle") return;
     S.idxState = "loading";
+    if (window.__WP_OFFLINE) { FILES = {}; merge(); return; }   /* a file on the phone has no map index to fetch */
     fetch("vt/index.json", { cache: "no-cache" }).then(function (r) { return r.ok ? r.json() : {}; })
       .then(function (j) { FILES = j || {}; merge(); }, function () { FILES = {}; merge(); });
     try {

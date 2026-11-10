@@ -4,6 +4,7 @@
   var W = window.W, $ = W.$, esc = W.esc, S = W.S;
   function hashView() { return location.hash === "#plan" ? "setup" : location.hash === "#bookings" || location.hash === "#prepare" ? "book" : location.hash === "#recap" ? "recap" : location.hash === "#today" ? "go" : location.hash === "#explore" ? "explore" : location.hash === "#settings" ? "settings" : location.hash === "#kids" ? "kids" : "trip"; }
   /** @type {View} */ var view = hashView(); var firstRender = true;
+  if (window.__WP_OFFLINE && (view === "setup" || view === "settings")) view = "trip";
   var VIEWS = { setup: 0, trip: 1, explore: 1, book: 2, go: 3, recap: 4, kids: 4, settings: 5 }, HASH = { go: "#today", setup: "#plan", trip: "#trip", explore: "#explore", book: "#prepare", recap: "#recap", kids: "#kids", settings: "#settings" }, prevView = "trip";
   W.view = function () { return view; };
   var ICON_CLOCK = '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.6V8l2.3 1.5"/></svg>';
@@ -585,7 +586,7 @@
 
   /* ---------- controller ---------- */
   W.render = function () {
-    if (W.readOnly && (view === "setup" || view === "settings")) view = "trip";   /* a shared trip is view only */
+    if ((W.readOnly || window.__WP_OFFLINE) && (view === "setup" || view === "settings")) view = "trip";   /* a shared trip is view only; an offline copy is for the trip itself */
     /* a shared trip: view only ("ro"), or planning together ("co": the plan's controls, not the trip's setup) */
     document.documentElement.classList.toggle("ro", !!W.readOnly && !W.readOnly.edit);
     document.documentElement.classList.toggle("co", !!(W.readOnly && W.readOnly.edit));
@@ -784,7 +785,8 @@
     if (to === "settings") prevView = view;
     W.fxFlip("page", VIEWS[to] > VIEWS[view] ? 1 : -1, function () { view = to; try { history.replaceState(null, "", HASH[view]); } catch (x) {} W.render(); land(); }, anchor ? land : null);
   };
-  W.setView = function (v) { view = v; try { history.replaceState(null, "", HASH[v]); } catch (x) {} };
+  W.setView = function (v) { if (window.__WP_OFFLINE && (v === "setup" || v === "settings")) v = "trip";   /* a copy is for the trip itself: planning needs the live app */
+    view = v; try { history.replaceState(null, "", HASH[v]); } catch (x) {} };
   W.currentView = function () { return view; };
 
   W.render();

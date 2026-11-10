@@ -63,7 +63,7 @@
     }, function (e) {
       if (seq !== st.seq) return;
       var code = e && e.code;
-      st.msgMb = code === "server_not_connected" || code === "not_granted" ? "Connect Mapbox in Claude to search the map too." : code === "blocked_by_policy" ? "" : "The map search didn't answer this time.";
+      st.msgMb = !navigator.onLine ? "You're offline: the map search needs a connection." : code === "server_not_connected" || code === "not_granted" ? "Connect Mapbox in Claude to search the map too." : code === "blocked_by_policy" ? "" : "The map search didn't answer this time.";
     }).then(function () { if (seq === st.seq) { st.busyMb = false; W.changed(); } });
   }
 
@@ -128,6 +128,7 @@
 
   /** the search box and its results, for one day @param {Day} day @param {Plan} P */
   W.searchBlock = function (day, P) {
+    if (window.__WP_OFFLINE) return '<section class="psearch sk" aria-label="Search for a place"><p class="small muted ps-hint">Searching for a new place needs the live app. Every idea below is in this copy.</p></section>';
     var ck = W.cityKey(day.country, day.city);
     if (st.ck !== ck && st.q) { st.q = ""; st.local = []; st.mb = []; st.pick = null; st.added = ""; }
     var h = '<section class="psearch sk" aria-label="Search for a place"><div class="ps-row"><input class="field" id="placeQ" type="search" enterkeyhint="search" autocomplete="off" placeholder="Search any place in ' + esc(day.city) + '…" aria-label="Search any place in ' + esc(day.city) + '" value="' + esc(st.q) + '">' +

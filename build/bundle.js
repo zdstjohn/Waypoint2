@@ -24,7 +24,7 @@ async function build() {
   const FAIL = "function __wpFail(f, e) { (window.__wpBoot = window.__wpBoot || []).push(f); try { console.error('[boot] ' + f + ': ' + (e && e.message)); if (window.W && window.W.logError) window.W.logError(String(e && e.message || e), f + ' (start)', e && e.stack); } catch (x) {} }\n";
   /* in an offline copy the second script is inline and runs right after the first one's first draw: draw again, so a
      screen that was waiting for it (the check of the plan) appears */
-  const AFTER = "\n;try { if (window.__WP_LATER && window.W && window.W.changed) window.W.changed(); } catch (e) {}\n";
+  const AFTER = "\n;try { if (window.__WP_LATER && window.W && window.W.changed) { window.W.laterReady = true; window.W.changed(); } } catch (e) {}\n";
   const join = list => list.map(f => `/* --- ${f} --- */\n` + guard(f, fs.readFileSync(path.join(TRIP, f), 'utf8').replace('"__BUILD__"', JSON.stringify(stamp)))).join('\n;\n');
   const src = FAIL + join(ORDER.filter(f => !LATER.includes(f))), src2 = FAIL + join(LATER) + AFTER;
   const js = await esbuild.transform(src, { minify: true, target: 'es2017', charset: 'utf8', sourcefile: 'app.src.js', sourcemap: 'external', legalComments: 'none' });

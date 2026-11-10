@@ -20,6 +20,13 @@ first screen reads from Prepare (the book-by checklist, the budget, which bookin
 with W.money and "Prices in": each phone shows costs as listed or all in one currency (localStorage "waypoint-cur"),
 converted at the European Central Bank's rates in fx/latest (refreshed nightly) and marked "≈" (W.priceText converts
 prices written in text, like "€15, book ahead"; a currency with no rate stays as listed); Prepare and Settings offer it.
+v119: the offline copy, walked through in airplane mode (test/suites/airplane.js). It keeps its own storage (a small
+shim at the top of the file: everything in memory under "waypoint-copy|<saved at>", written to the phone only if the
+phone allows), so it always opens on the trip inside it, even where a downloaded file gets no storage (it used to open
+on the example trip and say "storage full"), and two copies on one phone never mix. Its second script counts as ready
+only once it has run (a copy reopened on Prepare used to stop at start-up). In the copy, nothing that needs the network
+is offered: no Plan tab or Settings, no New trip or shared trips, no place search, calendar, PDF, live prices or new copy;
+Explore and Take along say what needs the live app; the notice says plainly whether changes are kept on this phone.
 v118: two tabs on the trip, Day and Explore; Day holds a One day / All days switch (.dsw, data-vsw "days"/"all"; the
 tab remembers All days across a visit to Explore in S.allPref). The storybook is gone (a trip saved on it opens on the
 day). Links and marks as pictures (lib/links.js): W.iconLink (photos, map: a plain map sign, not a company's logo);

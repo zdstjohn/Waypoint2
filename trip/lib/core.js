@@ -61,10 +61,13 @@
     try { localStorage.setItem("waypoint-v2", JSON.stringify(SEED.S)); localStorage.setItem("waypoint-cache-v2", JSON.stringify(SEED.C || {})); localStorage.setItem("waypoint-offline-seeded", JSON.stringify(SEED.at)); } catch (e) {}
   }
   var s = load("waypoint-v2");
+  /* a copy shows the trip inside it, whatever the phone's storage does (a downloaded file is often given none, and then
+     the copy used to open on the example trip) */
+  if (SEED && SEED.S && !(s && s.v === 2)) s = JSON.parse(JSON.stringify(SEED.S));
   W.S = s && s.v === 2 ? s : JSON.parse(JSON.stringify(DEFAULT));
   W.isExample = !s;
   if (!W.S.cityDays) W.S.cityDays = {};   /* days you set for each place */
-  var c = load("waypoint-cache-v2") || {};
+  var c = load("waypoint-cache-v2") || (SEED && SEED.C) || {};
   W.C = /** @type {Cache} */ ({ country: c.country || {}, city: c.city || {}, geo: c.geo || {}, area: c.area || {}, range: c.range || {}, legs: c.legs || {}, cost: c.cost || {}, tz: c.tz || {}, events: c.events || {} });
   var lastS = null, lastV = -1;
   /* a write this device refused (its storage for the app is full): say so in the banner and the error log, once; nothing

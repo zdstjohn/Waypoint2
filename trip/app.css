@@ -1692,3 +1692,7 @@ button.menu-btn{border:0;background:transparent;font:inherit;font-weight:800;col
   .bookview > .cur-none{display:block}
   .bookview > .prep-seg{grid-column:1/-1;grid-row:2;margin:0}
 }
+
+/* the offline copy: nothing that needs the live app is offered */
+html.copy #tabSetup,html.copy [data-sync="new"],html.copy [data-sync="del"],html.copy [data-sync="settings"],html.copy .tmenu .share,html.copy .share,html.copy [data-live],html.copy [data-cal],html.copy [data-pdf],html.copy [data-gostay]{display:none!important}
+.go-off.copy .small{margin:6px 0 0;color:var(--muted)}

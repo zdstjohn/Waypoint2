@@ -561,4 +561,5 @@ interface Element { value?: string; dataset?: DOMStringMap; click?(): void; focu
   readOnly?: boolean; selectionStart?: number | null; selectionEnd?: number | null; setSelectionRange?(a: number, b: number): void; showPicker?(): void; offsetLeft?: number; offsetTop?: number; offsetWidth?: number; offsetHeight?: number; style?: CSSStyleDeclaration; hidden?: boolean; disabled?: boolean; __step?: any }
 
 /* marks lib/patch.js and the day screen leave on elements they draw into */
+interface Window { __WP_COPY_KEPT?: boolean }
 interface HTMLElement { _sig?: string | null; _html?: string | null; _edges?: number }

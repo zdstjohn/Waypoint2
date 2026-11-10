@@ -151,6 +151,19 @@
     if (O.off && urls[u]) return urls[u];
     return u;
   };
+  /* The copy's own storage. A file opened from a phone's downloads shares its storage with every other file there, or is
+     given none at all. So the copy keeps everything in memory, under its own name, and writes that to the phone only if
+     the phone lets it (window.__WP_COPY_KEPT says whether it did): one copy never shows another copy's trip, and a
+     phone that refuses storage still shows this one. (Runs first, before the app, inside the copy.) */
+  var SHIM = "(function(){var at=(window.__WP_OFFLINE||{}).at,KEY='waypoint-copy|'+at,real=null,mem={},t=null;" +
+    "try{real=window.localStorage;var j=real.getItem(KEY);if(j)mem=JSON.parse(j)||{};}catch(e){real=null;mem={};}" +
+    "function flush(){t=null;if(!real){window.__WP_COPY_KEPT=false;return;}try{var o={};for(var k in mem)if(k!=='waypoint-cache-v2')o[k]=mem[k];real.setItem(KEY,JSON.stringify(o));window.__WP_COPY_KEPT=true;}catch(e){window.__WP_COPY_KEPT=false;}}" +
+    "function soon(){if(!t)t=setTimeout(flush,400);}" +
+    "var S={getItem:function(k){return Object.prototype.hasOwnProperty.call(mem,k)?mem[k]:null;},setItem:function(k,v){mem[k]=String(v);soon();},removeItem:function(k){delete mem[k];soon();},clear:function(){mem={};soon();},key:function(i){return Object.keys(mem)[i]||null;}};" +
+    "Object.defineProperty(S,'length',{get:function(){return Object.keys(mem).length;}});" +
+    "try{Object.defineProperty(window,'localStorage',{configurable:true,get:function(){return S;}});}catch(e){}" +
+    "window.__WP_COPY_KEPT=!!real;window.addEventListener('pagehide',flush);document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')flush();});})();";
+  if (O.copy) document.documentElement.classList.add("copy");
   function goOffline() { O.off = true; loadBlobs(); document.documentElement.classList.add("offline"); W.changed(); }
   function goOnline() { O.off = false; document.documentElement.classList.remove("offline"); W.changed(); if (W.pump) W.pump(); }
   window.addEventListener("offline", goOffline); window.addEventListener("online", goOnline);
@@ -164,7 +177,12 @@
     if (W.readOnly) return "";
     if (O.copy) {
       var at = window.__WP_OFFLINE.at ? new Date(window.__WP_OFFLINE.at) : null;
-      return '<section class="go-off sk copy"><span class="go-k">Offline copy</span><p>Saved ' + (at ? W.esc(at.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + " " + W.clock(at.getHours() * 60 + at.getMinutes())) : "") + ". Everything here works without a connection. It is a copy for reading: changes made in it stay in this file and don't reach your account, so write journal notes and make changes in the live app when you're back online.</p></section>";
+      var kept = window.__WP_COPY_KEPT !== false;
+      return '<section class="go-off sk copy"><span class="go-k">Offline copy</span><p>Saved ' + (at ? W.esc(at.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + " " + W.clock(at.getHours() * 60 + at.getMinutes())) : "") +
+        ". Your plan, times, bookings and photos are in this file and need no connection. Searching, new ideas, prices and street maps need the live app.</p>" +
+        '<p class="small">' + (kept ? "What you change here (a swap, a packed item, a note) stays in this copy on this phone; it doesn't reach your account, so repeat anything that matters in the live app." :
+          "This phone doesn't let a downloaded file keep changes: anything you change here lasts until you close it.") +
+        " Directions open your maps app: download the area there too if you'll have no signal.</p></section>";
     }
     var h = '<section class="go-off sk' + (O.off ? " is-off" : "") + '">';
     if (O.off) {
@@ -267,7 +285,7 @@
         var styleTag = "<style>" + css.replace(/<\/style/gi, "<\\/style") + "</style>";
         var safe = function (code) { return code.replace(/<\/script/gi, "<\\/script").replace(/<!--/g, "<\\!--"); };
         /* both scripts inline (the second one too: a file opened from the phone can't fetch it), in order */
-        var scriptTags = "<script>window.__WP_LATER=1;window.__WP_OFFLINE=" + safe(JSON.stringify(seed)) + "</script>\n<script>" + safe(js) + "</script>\n<script>" + safe(js2) + "</script>";
+        var scriptTags = "<script>window.__WP_LATER=1;window.__WP_OFFLINE=" + safe(JSON.stringify(seed)) + ";" + SHIM + "</script>\n<script>" + safe(js) + "</script>\n<script>" + safe(js2) + "</script>";
         var page = html
           .replace(/<link rel="preload"[^>]*>\s*/g, "")
           .replace(/<link rel="stylesheet" href="app.min.css"[^>]*>/, function () { return styleTag; })

@@ -418,7 +418,8 @@
     /* what to pack and sort out, read off the plan */
     if (seg === "pack") h += W.packBlock ? W.packBlock(P) : (W.needLater && W.needLater(), '<p class="loading later-wait">Loading…</p>');
     /* the plan in your calendar, as a PDF, or as an offline copy */
-    if (seg === "take") h += section("Take along", "The trip on this phone for no-signal days, each stop as a timed event in your own calendar, the whole plan as a PDF, or an offline copy of the app with this trip inside.", (W.offline && !ro ? W.offline.tripBlock(P) : "") + W.takeItBlock(P) + (W.offline && !ro ? W.offline.takeBlock(P) : ""), "bk-take");
+    if (seg === "take" && window.__WP_OFFLINE) h += section("Take along", "You're in the offline copy. To add the trip to your calendar, make a PDF or save a newer copy, open Waypoint when you're online.", "", "bk-take");
+    else if (seg === "take") h += section("Take along", "The trip on this phone for no-signal days, each stop as a timed event in your own calendar, the whole plan as a PDF, or an offline copy of the app with this trip inside.", (W.offline && !ro ? W.offline.tripBlock(P) : "") + W.takeItBlock(P) + (W.offline && !ro ? W.offline.takeBlock(P) : ""), "bk-take");
     W.keepInputs(el, function () { el.innerHTML = '<div class="bookview">' + h + "</div>"; });
     if (tickFx) { var j = el.querySelector(".chk.just"); tickFx = null; if (j) W.fxPulse(j); }
     /* time zones for the calendar */
