@@ -365,11 +365,14 @@
     if (pool && wasWaiting) W.fxAfter(function () { W.fxStagger(".slots > *", { step: 45 }); });
     if (!pool) {
       h += err ? '<div class="note sk">' + esc(err) + ' <button type="button" class="btn quiet" data-retry="1">Try again</button></div>'
-        : W.sampleState === "off" ? '<div class="note sk">Ideas for ' + esc(day.city) + " come from Claude. Open this page in the Claude app and allow it when asked.</div>"
+        : W.sampleState === "off" ? '<div class="note sk">' + (W.standalone ? "Ideas for " + esc(day.city) + " come with the full Waypoint, in Claude. This version has ideas built in for " + esc(W.builtInCities()) + "." : "Ideas for " + esc(day.city) + " come from Claude. Open this page in the Claude app and allow it when asked.") + "</div>"
         : '<div class="slots skel-list" aria-busy="true"><p class="loading skel-note">Gathering 40+ things to do and places to eat in ' + esc(day.city) + "…</p>" +
           ["", " food", "", " food"].map(function (f) { return '<div class="slot sk skel' + f + '" aria-hidden="true"><span class="thumb"></span><span class="sl-b"><i></i><i></i><i></i></span></div>'; }).join("") + "</div>";
     } else {
       var num = 0, pts = [], prevPt = home, list = "", T = W.dayTimes(day, P), wasOut = false;
+      /* on its own, a city has only the handful of ideas built into the app: say so where they've run out */
+      if (W.standalone && day.slots.some(function (x) { return !x.item && !(S.free || {})[x.key]; }))
+        list += '<div class="note sk sa-note">This version has only a few ideas built in for ' + esc(day.city) + " (" + ((pool.spots || []).length) + " things to do" + ((pool.food || []).length ? ", " + pool.food.length + " places to eat" : ", no restaurants") + "), so some parts of the day are open. The full Waypoint, in Claude, finds 40 or more.</div>";
       list += W.todayCard(day, P, T);
       if (day.moveFrom) list += legCard(P, day, T);
       else if (day.tripFirst) list += flightCard(P, day) + jetCard(P);

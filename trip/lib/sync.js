@@ -398,7 +398,7 @@
   }
   function openShared(code) {
     code = String(code || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-    if (!db) { shareMsg = "Shared trips need this page open in the Claude app."; bar(); return; }
+    if (!db) { shareMsg = W.needsClaude("Opening a shared trip", "Shared trips need this page open in the Claude app."); bar(); return; }
     if (code.length < 6) { shareMsg = "Codes are 6 letters and numbers."; bar(); return; }
     opening = true; shareMsg = ""; bar();
     db.doc("shared/" + code).get().then(function (snap) {
@@ -522,7 +522,7 @@
   /* Trip settings: sharing this trip, view-only, with family */
   W.shareBlock = function () {
     if (W.readOnly) return "";
-    if (!db || !uid) return '<p class="small muted">Sharing works when this page is open in the Claude app.</p>';
+    if (!db || !uid) return '<p class="small muted">' + W.esc(W.needsClaude("Sharing", "Sharing works when this page is open in the Claude app.")) + "</p>";
     if (!canWrite) return '<p class="small muted">You can view shared trips here, but your access to this page doesn\'t allow sharing.</p>';
     if (S.share) return '<p class="small">' + (S.shareEdit ? "They can open this trip and change the plan with the code" : "They can view this trip (not change it) with the code") + "</p>" + '<div class="row"><input class="field code" id="shareCode" readonly value="' + esc(S.share) + '" aria-label="Share code"><button type="button" class="btn quiet" data-sync="copy">Copy</button><button type="button" class="linkish" data-sync="unshare">Stop sharing</button></div>' +
       '<p class="small muted">Send them this page from the Share menu at the top. They tap the trip name ▸ Open a shared trip and enter the code. Your bookings and checklist stay private.</p>' + coShare();

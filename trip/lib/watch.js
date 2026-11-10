@@ -125,8 +125,8 @@
   };
   /* Trip settings: everything watched on this trip, with a way to stop */
   W.watchList = function () {
-    if (W.readOnly) return "";
-    if (!db || !uid) return '<p class="small muted">Price watching works when this page is open in the Claude app.</p>';
+    if (W.readOnly || W.standalone) return "";
+    if (!db || !uid) return '<p class="small muted">' + W.esc(W.needsClaude("Price watching", "Price watching works when this page is open in the Claude app.")) + "</p>";
     var t = W.S.tripId, L = Object.keys(docs).map(function (k) { return docs[k]; }).filter(function (w) { return w.trip === t; })
       .sort(function (a, b) { return String(a.end || "").localeCompare(String(b.end || "")); });
     if (!L.length) return '<p class="small muted">Nothing watched yet. Tap <b>Watch price</b> next to your hotel or flight under To book and it\'s re-checked every day.</p>';

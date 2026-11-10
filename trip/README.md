@@ -20,6 +20,15 @@ first screen reads from Prepare (the book-by checklist, the budget, which bookin
 with W.money and "Prices in": each phone shows costs as listed or all in one currency (localStorage "waypoint-cur"),
 converted at the European Central Bank's rates in fx/latest (refreshed nightly) and marked "≈" (W.priceText converts
 prices written in text, like "€15, book ahead"; a currency with no rate stays as listed); Prepare and Settings offer it.
+v120: Waypoint on its own, as an installable web app (outside Claude). build/standalone.js turns the same build into
+dist/: a full HTML document, the manifest and icons (build/icon/make-icons.js: the wordmark's W with its night scene),
+a service worker (sw.js: every file kept at install, the page fresh when online, all of it with no connection) and the
+host's headers (vercel.json: a strict content policy). window.__WP_STANDALONE switches lib/pwa.js on: the Install card
+in Settings, asking the phone to keep its data, and W.needsClaude for the wording of what only the Claude version does.
+On its own there is no Claude and no shared database: trips live on the phone, ideas are the ones built into the app
+(the country list and the Plan screen say which countries; a day says where they run out), and Gmail, live prices,
+sharing, imports, price watches, photo uploads, the plan check and replanning are not offered. test/suites/standalone.js
+serves dist/ like the host and checks it installs, works offline and never points to Claude.
 v119: the offline copy, walked through in airplane mode (test/suites/airplane.js). It keeps its own storage (a small
 shim at the top of the file: everything in memory under "waypoint-copy|<saved at>", written to the phone only if the
 phone allows), so it always opens on the trip inside it, even where a downloaded file gets no storage (it used to open

@@ -240,6 +240,8 @@
   /* the offline-copy button for the Prepare screen's Take along segment */
   O.takeBlock = function (P) {
     if (O.copy) return "";
+    /* installed on its own, the app itself opens with no connection: no copy needed */
+    if (W.standalone) return '<div class="take-off"><span class="k">Offline</span><p class="small">' + (W.pwa && W.pwa.installed ? "Waypoint is installed on this phone and opens with no connection." : "Install Waypoint on this phone (Settings, Install) and it opens with no connection.") + "</p></div>";
     return '<div class="take-off"><span class="k">Offline copy</span>' + O.copyNote(P) + '<div class="row"><button type="button" class="btn quiet" data-offcopy="1"' + (O.copyState === "making" ? " disabled" : "") + ">" + (O.copyState === "making" ? "Making the file…" : "Save an offline copy") + "</button>" +
       '<span class="small muted">' + (O.copyState === "making" && O.copyOf ? "Adding photos: " + (O.copyN || 0) + " of " + O.copyOf : O.copyState === "done" ? "Saved. Open it from your phone's files; it works with no connection." : O.copyState === "error" ? W.esc(O.copyErr || "Couldn't make the file.") : "One file with the app, this trip and the photos of every place in it (street maps need a connection).") + "</span></div></div>";
   };

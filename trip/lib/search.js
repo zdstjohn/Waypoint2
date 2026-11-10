@@ -42,7 +42,7 @@
 
   /* Mapbox: real places around the city (about 20 km), nearest matches first */
   function mapbox(q, country, city, seq) {
-    var c = centerFor(country, city); if (!c || !W.callTool) return;
+    var c = centerFor(country, city); if (!c || !W.callTool || W.standalone) return;
     st.busyMb = true; st.msgMb = "";
     var input = { q: q.slice(0, 200), proximity: { longitude: c.lng, latitude: c.lat }, language: "en",
       bbox: { minLongitude: c.lng - 0.25, minLatitude: c.lat - 0.2, maxLongitude: c.lng + 0.25, maxLatitude: c.lat + 0.2 } };
@@ -70,7 +70,7 @@
   /* Claude: up to six real, named places for the words you typed, checked like every other list */
   function claude(q, country, city) {
     var ck = W.cityKey(country, city), c = centerFor(country, city), key = "find|" + ck + "|" + W.norm(q);
-    if (!W.run || W.readOnly) return;
+    if (!W.run || W.readOnly || !W.SAMPLE) return;
     W.run(key, "Find places that match \"" + q.replace(/"/g, "'").slice(0, 120) + "\" in or near " + city + ", " + country + ", for this family trip. " + W.who() +
       " Give up to 6 real, specific, named places that exist and are open today, best match first: no generic suggestions (not \"local tavernas\" or \"a beach\"). " +
       "For each: n = its name, d = one short line on what it is and why it fits, food = true for a place to eat or drink, lat and lng = where it is, " +
@@ -157,6 +157,7 @@
     /* Google's own results for the same words, in Google Maps (they open there; add one here by searching its name) */
     h += '<p class="ps-google">' + W.extLink("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(st.q + " near " + day.city + ", " + day.country), "Search Google Maps for “" + esc(st.q) + "” near " + esc(day.city) + " ↗") + "</p>";
     if (M.aiErr) h += '<p class="small muted">' + esc(M.aiErr) + "</p>";
+    if (W.standalone) return h + '<p class="small muted ps-src-note">This version searches the ideas it has. Searching the map and asking Claude come with the full Waypoint, in Claude.</p></section>';
     return h + '<p class="small muted ps-src-note">Map results © Mapbox · ideas marked "Suggested by Claude" are checked against the map overnight.</p></section>';
   };
 

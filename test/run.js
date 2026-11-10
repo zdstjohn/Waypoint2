@@ -39,7 +39,7 @@
 const { spawn, spawnSync } = require('child_process'); const fs = require('fs'); const path = require('path');
 const ROOT = path.resolve(__dirname, '..'); const OUT = path.join(__dirname, 'out'); fs.mkdirSync(OUT, { recursive: true });
 const args = process.argv.slice(2); const flags = new Set(args.filter(a => a.startsWith('--'))); const pick = args.filter(a => !a.startsWith('--'));
-const ALL = ['smoke', 'layout', 'planner', 'shape', 'flow', 'bookings', 'travel', 'claude', 'draw', 'look', 'airplane', 'tickets', 'holidays', 'firstview', 'together', 'nope', 'eat', 'money', 'menus', 'storage', 'pdf', 'simple', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'fuzz', 'vitals', 'desktop', 'explore'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
+const ALL = ['smoke', 'layout', 'planner', 'shape', 'flow', 'bookings', 'travel', 'claude', 'draw', 'look', 'airplane', 'standalone', 'tickets', 'holidays', 'firstview', 'together', 'nope', 'eat', 'money', 'menus', 'storage', 'pdf', 'simple', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'fuzz', 'vitals', 'desktop', 'explore'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
 let suites = pick.length ? pick : ALL;
 /* --shard=k/n runs one of n groups, balanced by how long each suite takes (seconds, from the online runs; a suite not
    listed counts as 15): GitHub runs the three groups side by side. Every suite lands in exactly one group. */
@@ -65,6 +65,7 @@ async function serverUp() {
 
 (async () => {
   await require('../build/bundle.js').build();   /* the page loads app.js; build it from the sources first */
+  spawnSync('node', [path.join(ROOT, 'build', 'standalone.js')], { stdio: 'ignore' });   /* and the installable version (dist/) from that */
   const server = await serverUp();
   const report = []; let failed = 0;
   for (const name of suites) {

@@ -24,7 +24,7 @@
     if (W.readOnly) return h + (note ? '<p class="jnote">' + esc(note) + "</p>" : "") + "</section>";
     h += '<textarea class="field jn" id="jn-' + esc(k) + '" data-jnote="' + esc(k) + '" rows="2" placeholder="What was the best bit today?">' + esc(note) + "</textarea>";
     h += '<div class="lo-act">' + (assets ? (uploading[k] ? '<span class="loading">Adding photos…</span>' :
-      '<button type="button" class="btn quiet sm jadd" data-jadd="' + esc(k) + '">Add photos</button>') : '<span class="small muted">Photos can be added by the trip\'s owner in the Claude app.</span>') + "</div>";
+      '<button type="button" class="btn quiet sm jadd" data-jadd="' + esc(k) + '">Add photos</button>') : (W.standalone ? "" : '<span class="small muted">Photos can be added by the trip\'s owner in the Claude app.</span>')) + "</div>";
     if (err[k]) h += '<p class="warn">' + esc(err[k]) + "</p>";
     return h + "</section>";
   };

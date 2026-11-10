@@ -466,6 +466,12 @@ interface Waypoint {
   stopAt: (s: Stop) => LatLng & { label?: string };
   stopDetails: any;
   vtArea: any;
+  standalone: boolean;
+  needsClaude: (what: string, inClaude?: string) => string;
+  builtInCities: () => string;
+  builtInCountries: () => string;
+  pwa: any;
+  installCard: any;
   iconLink: any;
   patch: any;
   draw: any;

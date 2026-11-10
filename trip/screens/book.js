@@ -26,7 +26,7 @@
   }
   function findInGmail(P) {
     if (gm.state === "search" || gm.state === "read" || gm.state === "extract") return;
-    if (!W.SAMPLE) { gm = { state: "error", msg: "Reading the emails needs Claude. Open the trip in the Claude app." }; W.render(); return; }
+    if (!W.SAMPLE) { gm = { state: "error", msg: W.needsClaude("Reading the emails", "Reading the emails needs Claude. Open the trip in the Claude app.") }; W.render(); return; }
     gm = { state: "search" }; W.render();
     var mcp;
     getMcp().then(function (m) {
@@ -376,7 +376,7 @@
     /* your bookings */
     if (seg === "booked") {
     var bl = bookings().slice().sort(function (a, b) { return String(a.start).localeCompare(String(b.start)); });
-    var gmUI = ro ? "" : gm.state === "search" ? '<span class="loading">Searching Gmail…</span>'
+    var gmUI = ro || W.standalone ? "" : gm.state === "search" ? '<span class="loading">Searching Gmail…</span>'
       : gm.state === "read" ? '<span class="loading">Reading ' + (gm.done || 0) + " of " + gm.n + " emails…</span>"
       : gm.state === "extract" ? '<span class="loading">Picking out the bookings…</span>'
       : '<button type="button" class="btn" data-gmail="1">' + (bl.length ? "Check Gmail again" : "Find bookings in Gmail") + "</button>";

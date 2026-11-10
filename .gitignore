@@ -13,3 +13,4 @@ trip/maps/*.json
 __pycache__/
 *.pyc
 trip/src/
+dist/
