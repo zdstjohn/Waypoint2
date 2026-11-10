@@ -81,7 +81,7 @@
     });
     return true;
   };
-  var ICON = '<svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3.5h9l3 3v10H4z"/><path d="M7 10.5l2 2 4-4.5"/></svg>';
+  var ICON = W.icon("plancheck", 2.1);
   /** the card in All days @param {Plan} P */
   W.reviewBlock = function (P) {
     if (!P || !P.days || !P.days.length) return "";

@@ -65,9 +65,16 @@ Deno.serve(async (req) => {
     return reply({ error: "Claude didn't answer this time.", code: "unavailable" }, 503, origin);
   }
   if (!r.ok) {
-    const code = r.status === 429 || r.status === 529 ? "rate_limited" : r.status === 401 || r.status === 403 ? "not_configured" : "unavailable";
-    const msg = code === "not_configured" ? "The server's Claude key isn't working." : code === "rate_limited" ? "Claude is busy. Try again in a minute." : "Claude didn't answer this time.";
-    return reply({ error: msg, code }, r.status === 401 || r.status === 403 ? 503 : 502, origin);
+    // what Claude's API said (never the key): kept in the function's logs so a failure can be explained
+    let type = "", detail = "";
+    try { const e = await r.json(); type = String(e?.error?.type || ""); detail = String(e?.error?.message || "").slice(0, 300); } catch { /* not JSON */ }
+    console.error(`anthropic ${r.status} ${type} (${model}): ${detail}`);
+    const billing = /credit balance|billing|purchase credits/i.test(detail);
+    const code = billing || r.status === 401 || r.status === 403 ? "not_configured" : r.status === 429 || r.status === 529 ? "rate_limited" : "unavailable";
+    const msg = billing ? "The Claude account behind Waypoint is out of credit. Add credit in the Anthropic Console (Plans & Billing)."
+      : r.status === 401 || r.status === 403 ? "The server's Claude key isn't working."
+      : code === "rate_limited" ? "Claude is busy. Try again in a minute." : "Claude didn't answer this time.";
+    return reply({ error: msg, code, status: r.status, type }, code === "not_configured" ? 503 : 502, origin);
   }
   const j = await r.json();
   const text = (j.content || []).filter((c: { type: string }) => c.type === "text").map((c: { text: string }) => c.text).join("");

@@ -7,11 +7,11 @@ const px = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
 exports.run = async t => {
   const seed = {
     'places/italy-rome': { city: 'Rome', country: 'Italy', items: {
-      'rome cafe 0': { st: 'closed', note: 'Closed in 2025', replace: { n: 'Caffè Verifica', d: 'Family-run café by the piazza', cuisine: 'Cafe', price: '€', meal: 'breakfast', k: 1, lat: 41.9, lng: 12.48, site: 'https://caffeverifica.example' } },
-      'rome cafe 1': { lat: 41.95, lng: 12.5, site: 'https://cafe1.example', hours: { o: 420, c: 780, closed: [] } },
-      'rome cafe 2': { nopin: 1, checked: '2026-11-08' },
-      'rome cafe 3': { g: 'ChIJtest3', gpin: 1, gat: new Date().toISOString().slice(0, 10), lat: 41.9011, lng: 12.4722 },
-      'rome cafe 4': { g: 'ChIJtest4', gpin: 1, gat: new Date(Date.now() - 40 * 864e5).toISOString().slice(0, 10), lat: 41.7, lng: 12.7 },
+      'rome cafe 3 0': { st: 'closed', note: 'Closed in 2025', replace: { n: 'Caffè Verifica', d: 'Family-run café by the piazza', cuisine: 'Cafe', price: '€', meal: 'breakfast', k: 1, lat: 41.9, lng: 12.48, site: 'https://caffeverifica.example' } },
+      'rome cafe 3 1': { lat: 41.95, lng: 12.5, site: 'https://cafe1.example', hours: { o: 420, c: 780, closed: [] } },
+      'rome cafe 3 2': { nopin: 1, checked: '2026-11-08' },
+      'rome cafe 3 3': { g: 'ChIJtest3', gpin: 1, gat: new Date().toISOString().slice(0, 10), lat: 41.9011, lng: 12.4722 },
+      'rome cafe 3 4': { g: 'ChIJtest4', gpin: 1, gat: new Date(Date.now() - 40 * 864e5).toISOString().slice(0, 10), lat: 41.7, lng: 12.7 },
       'trastevere side streets': { lat: 41.8894, lng: 12.4698, approx: 1, stay: 1 },
     }, center: [41.8986, 12.4769] },
     'photos/italy-rome': { items: { 'piazza navona': { url: px + '#navona', credit: 'Test', page: 'x' } }, city: 'Rome', country: 'Italy' },
@@ -19,10 +19,10 @@ exports.run = async t => {
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, db: mkdb(seed) }); await exampleTrip(pg);
   await pg.waitForFunction(() => { const p = W.pool('Italy', 'Rome'); return p && p.food.some(x => x.n === 'Caffè Verifica'); }, null, { timeout: 10000 }).catch(() => {});
   const r = await pg.evaluate(() => {
-    const p = W.pool('Italy', 'Rome'); const c0 = p.food.find(x => x.n === 'Rome cafe 0'), c1 = p.food.find(x => x.n === 'Rome cafe 1'), rep = p.food.find(x => x.n === 'Caffè Verifica');
-    const scheduled = W.P.days.some(d => d.slots.some(s => s.item && s.item.n === 'Rome cafe 0'));
+    const p = W.pool('Italy', 'Rome'); const c0 = p.food.find(x => x.n === 'Rome cafe 3-0'), c1 = p.food.find(x => x.n === 'Rome cafe 3-1'), rep = p.food.find(x => x.n === 'Caffè Verifica');
+    const scheduled = W.P.days.some(d => d.slots.some(s => s.item && s.item.n === 'Rome cafe 3-0'));
     const ph = W.photoFor({ n: 'Evening stroll with gelato', place: 'Piazza Navona' }, false, 'Italy', 'Rome');
-    const c2 = p.food.find(x => x.n === 'Rome cafe 2'), hb = W.homebase('Italy', 'Rome');
+    const c2 = p.food.find(x => x.n === 'Rome cafe 3-2'), hb = W.homebase('Italy', 'Rome');
     return { st: c0 && c0.st, scheduled, rep: !!rep, repMenu: rep && rep.menu, pin: c1 && [c1.lat, c1.lng], menu: c1 && c1.menu, hours: c1 && c1.hours && c1.hours.o, photo: ph && ph.url.split('#')[1],
       c2: c2 && [c2.lat, c2.lng], home: W.S.stays['Italy|Rome'] && W.S.stays['Italy|Rome'].lat != null ? 'own' : [hb.lat, hb.lng] };
   });
@@ -66,9 +66,9 @@ exports.run = async t => {
   /* Google: a place the nightly check found there carries its place ID, so every "Google Maps" link (the stop, the whole
      day) opens the exact listing; a pin taken from Google is used for 30 days only, and never drawn on the free street map */
   const gg = await pg.evaluate(() => {
-    const p = W.pool('Italy', 'Rome'), c3 = p.food.find(x => x.n === 'Rome cafe 3'), c4 = p.food.find(x => x.n === 'Rome cafe 4');
+    const p = W.pool('Italy', 'Rome'), c3 = p.food.find(x => x.n === 'Rome cafe 3-3'), c4 = p.food.find(x => x.n === 'Rome cafe 3-4');
     const d = W.P.days.find(x => x.city === 'Rome'), url = c3 && W.dayRouteUrl(d, [{ n: 'Somewhere', lat: 41.9, lng: 12.5 }, c3], { label: 'Hotel', lat: 41.9, lng: 12.48 });
-    return { gid: c3 && c3.gid, link: c3 && W.gmapsPlace(c3, 'Rome'), plain: W.gmapsPlace('Rome cafe 9', 'Rome'), pin: c3 && [c3.lat, c3.lng], gpin: c3 && c3.gpin,
+    return { gid: c3 && c3.gid, link: c3 && W.gmapsPlace(c3, 'Rome'), plain: W.gmapsPlace('Rome eatery 3-9', 'Rome'), pin: c3 && [c3.lat, c3.lng], gpin: c3 && c3.gpin,
       stale: c4 && [c4.lat, c4.lng], staleG: c4 && c4.gpin, ids: url && decodeURIComponent((url.match(/waypoint_place_ids=([^&]*)/) || [])[1] || '') };
   });
   t.ok(gg.gid === 'ChIJtest3' && /query_place_id=ChIJtest3/.test(gg.link) && !/query_place_id/.test(gg.plain), `a place Google knows links to its exact listing (${gg.link && gg.link.split('?')[1]})`);

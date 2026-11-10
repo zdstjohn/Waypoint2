@@ -220,7 +220,7 @@
     /* one request per key: a failed one waits for an explicit "Try again" instead of retrying on every redraw */
     if (W.status[key] || !W.SAMPLE || W.readOnly) return;
     W.status[key] = "loading";
-    queue.push(function () {
+    queue.push({ key: key, go: function () {
       running++;
       W.SAMPLE.json(prompt, { modelTier: tier || "default" }).then(function (res) {
         delete W.status[key]; onOk(res);
@@ -229,13 +229,46 @@
         if (code === "not_granted") { W.sampleState = "off"; delete W.status[key]; }
         else W.status[key] = code === "rate_limited" ? "Busy right now. Try again in a minute." : "Couldn't load this. Try again.";
       }).then(function () { running--; arrived(); pump(); });
-    });
+    } });
     soon(); pump();
   }
   /* the "loading" marks: shown once the current frame has painted (a status is not data, the plan stands) */
   function soon() { redraw(); }
   /* nothing is asked of Claude while offline (or in an offline copy); the queue waits for the signal to come back */
-  function pump() { if (W.holdLoads || !navigator.onLine || window.__WP_OFFLINE) return; while (running < 3 && queue.length) queue.shift()(); }
+  /* what goes first: the city on screen before the others, its main lists (sights, places to eat, breakfast) before the
+     second lists and the extras (hidden gems, rainy-day ideas, links, events, costs). Anything you asked for yourself
+     (a search, a replan, the plan check, an address) and the small plan-shaping answers go straight to the front. */
+  var MAIN = { spots: 1, food: 1, bfast: 1 }, SOON = { pins: 1, fame: 1, lodge: 1, eatfit: 1, eatmore: 1, style: 1 },
+    LATE = { gems: 1, indoor: 1, links: 1, events: 1, cost: 1 };
+  function onScreen() {
+    var P = W.P, out = {}; if (!P || !P.days || !P.days.length) return out;
+    var add = function (d) { if (d && d.city) out[W.cityKey(d.country, d.city)] = 1; };
+    add(P.days[Math.max(0, Math.min(P.days.length, +W.S.day || 1) - 1)]);
+    if (W.isToday) P.days.forEach(function (d) { if (W.isToday(d)) add(d); });
+    if (!Object.keys(out).length) add(P.days[0]);
+    return out;
+  }
+  function prio(key, here) {
+    var p = String(key).split("|"), kind = p[0];
+    if (!MAIN[kind] && !SOON[kind] && !LATE[kind]) return 0;
+    var mine = !!here[p[1] + "|" + p[2]], second = p[3] === "b";
+    if (MAIN[kind]) return mine ? (second ? 2 : 1) : (second ? 5 : 4);
+    if (SOON[kind]) return mine ? 3 : 6;
+    return mine ? 5 : 7;
+  }
+  W.loadPrio = function (key) { return prio(key, onScreen()); };
+  /* how many at once: three inside Claude; six in the installable app, whose own server has room for more */
+  function maxRunning() { return W.cloud ? 6 : 3; }
+  function pump() {
+    if (W.holdLoads || !navigator.onLine || window.__WP_OFFLINE) return;
+    var here = null;
+    while (running < maxRunning() && queue.length) {
+      here = here || onScreen();
+      var best = 0, bp = prio(queue[0].key, here);
+      for (var i = 1; i < queue.length && bp > 0; i++) { var q = prio(queue[i].key, here); if (q < bp) { bp = q; best = i; } }
+      queue.splice(best, 1)[0].go();
+    }
+  }
   W.pump = pump;
   /* after waiting for saved ideas from your account: forget the requests made meanwhile, and ask again only for what's still missing */
   W.releaseLoads = function () {
@@ -350,8 +383,20 @@
   var tries = {};
   /* enough ideas for a city: past this, "Find more" stops asking (the lists stay as they are) */
   W.IDEA_CAP = { spots: 60, food: 40 };
+  /* how many of each a city starts with: 15, and more when this trip stays there longer (about four for each day of
+     the stay: a morning, an afternoon and three meals, with a few to choose between), up to 30. It goes by the days this
+     trip spends in the place, never by how long a visit is recommended. When you make a stay longer, the difference is
+     fetched (W.growIdeas). The rest comes only on "Find more" */
+  W.FIRST_IDEAS = 15;
+  /** @param {number} [stayDays] the days this trip spends in the place */
+  W.firstIdeas = function (stayDays) { return Math.max(W.FIRST_IDEAS, Math.min(30, 4 * (Math.round(+stayDays) || 0) + 3)); };
+  /* the days this trip spends in a place, as the plan stands (0 for a day trip or a place not in the trip) */
+  W.stayDays = function (country, city) {
+    var n = 0; ((W.P && W.P.stops) || []).forEach(function (s) { if (s.country === country && s.name === city) n += s.days || 0; });
+    return n;
+  };
   W.ideasFull = function (pool) { return !!pool && (pool.spots || []).length >= W.IDEA_CAP.spots && (pool.food || []).length >= W.IDEA_CAP.food; };
-  W.loadCity = function (country, city, more) {
+  W.loadCity = function (country, city, more, stayDays, nMore) {
     var ck = W.cityKey(country, city), cur = W.C.city[ck];
     if (!more && cur && cur.spots && cur.spots.length) return;
     /* never ask about the same city over and over if answers keep coming back empty */
@@ -377,38 +422,45 @@
          every one of them waits for a nightly check and a photo */
       var have = W.pool(country, city), nS = have ? (have.spots || []).length : 0, nF = have ? (have.food || []).length : 0;
       if (nS < W.IDEA_CAP.spots)
-        run("spots|" + ck, "List 10 MORE things to do in and around " + where + ". Mix famous sights, local favorites, parks, markets, neighborhoods, experiences and a day trip." + lean + focusAsk() +
-          " Include at least 3 evening options (sunset spots, evening strolls, shows, night markets)." + EVE + nearStay + " " + who() +
+        run("spots|" + ck, "List " + Math.min(nMore || 10, W.IDEA_CAP.spots - nS) + " MORE things to do in and around " + where + ". Mix famous sights, local favorites, parks, markets, neighborhoods, experiences and a day trip." + lean + focusAsk() +
+          " Include at least " + Math.max(1, Math.min(3, Math.round(Math.min(nMore || 10, W.IDEA_CAP.spots - nS) / 4))) + " evening options (sunset spots, evening strolls, shows, night markets)." + EVE + nearStay + " " + who() +
           (ex.length ? " Do not repeat any of these: " + ex.join("; ") + "." : "") + "\nReply with JSON only: {\"spots\":[" + SPOT_EX + "]}\n" + spotRules(),
           "default", function (r) { addSpots(ck, r, "more"); });
       if (nF < W.IDEA_CAP.food)
-        run("food|" + ck, foodAsk("List 8 MORE places to eat in " + where + ": breakfast cafés and bakeries, local classics, casual spots and markets, spread across the city or region." + focusAsk() + nearStay), "default", function (r) { addFood(ck, r, "more"); });
+        run("food|" + ck, foodAsk("List " + Math.min(nMore || 8, W.IDEA_CAP.food - nF) + " MORE places to eat in " + where + ": breakfast cafés and bakeries, local classics, casual spots and markets, spread across the city or region." + focusAsk() + nearStay), "default", function (r) { addFood(ck, r, "more"); });
       return;
     }
-    /* the first lists come in two halves asked at the same time, so the first days can be planned as soon as either arrives */
-    run("spots|" + ck, "List the 14 best-known sights and must-do experiences in and around " + where + ": the headline places most visitors come for, most important first." +
-      " Include at least 3 evening options (sunset spots, evening strolls, shows)." + EVE + who() +
+    /* the first lists: 15 things to do and 15 places to eat (more for a long stay: W.firstIdeas), one question each. More only when someone asks for them
+       ("Find more"): long lists take minutes to write, and their last ideas are the likeliest to be made up */
+    var focusSpots = W.focus() === "gems" ? " Lean toward places locals love and most visitors miss, each still well reviewed, alongside the few unmissable sights."
+      : W.focus() === "icons" ? " Lean toward the most popular, best-reviewed places."
+      : " Mostly the headline places most visitors come for, plus a few well-loved local favorites.";
+    var nFirst = W.firstIdeas(stayDays != null ? stayDays : W.stayDays(country, city));
+    run("spots|" + ck, "List the " + nFirst + " best things to do in and around " + where + ", most important first." + focusSpots + lean +
+      " Include at least 3 evening options (sunset spots, evening strolls, shows), at least 2 indoor options for a rainy or too-hot afternoon, and a day trip if there is a classic one." + EVE + who() +
       "\nReply with JSON only: {" + CITY + "\"spots\":[" + SPOT_EX + "]}\n" + spotRules(),
-      "default", function (r) { addSpots(ck, r, "head"); });
-    var bAsk = W.focus() === "gems" ? "List 14 hidden gems and local favorites in and around " + where + " that locals love and most visitors miss, each still well reviewed: small museums, quiet viewpoints, neighborhood squares and markets, local experiences and a couple of day trips."
-      : W.focus() === "icons" ? "List 14 more of the most popular, best-reviewed things to do in and around " + where + " beyond the very top sights: well-loved parks, markets, neighborhoods, experiences and a couple of classic day trips."
-      : "List 14 things to do in and around " + where + " beyond the famous headline sights: well-loved local favorites and a few lesser-known gems that delight, parks, markets, neighborhoods, experiences and a couple of day trips.";
-    run("spots|" + ck + "|b", bAsk + lean +
-      " Include at least 4 evening options (evening strolls, shows, night markets)." + EVE + who() +
-      "\nReply with JSON only: {\"spots\":[" + SPOT_EX + "]}\n" + spotRules(),
-      "default", function (r) { addSpots(ck, r, "b"); });
-    run("food|" + ck, foodAsk("List 12 places to eat in " + where + ": the best-loved local classics and a couple of special dinners, plus at least 3 breakfast cafés or bakeries, spread across the city or region.", TRANSIT),
+      "default", function (r) { addSpots(ck, r, "head"); asked(ck, nFirst); });
+    run("food|" + ck, foodAsk("List " + nFirst + " places to eat in " + where + ": the best-loved local classics, casual and family-friendly spots, a couple of special dinners, and at least " + Math.max(4, Math.round(nFirst / 4)) + " breakfast cafés or bakeries, spread across the city or region." + (W.focus() === "gems" ? " Favor the places locals go." : ""), TRANSIT),
       "default", function (r) {
         var c0 = W.C.city[ck] || newPool();
         var tr = r && V.transit(r.transit); if (tr && !c0.transit) c0.transit = tr;
         if (r && Array.isArray(r.stay) && !c0.stay) c0.stay = V.list(r.stay, function (x) { return V.stayArea(x, centerOf(ck)); });
-        W.C.city[ck] = c0; addFood(ck, r, "head");
+        W.C.city[ck] = c0; addFood(ck, r, "head"); asked(ck, nFirst);
       });
-    run("food|" + ck + "|b", foodAsk("List 12 places to eat in " + where + " that are not the most famous ones: casual neighborhood spots, markets, street food and family-friendly places, plus at least 3 breakfast cafés or bakeries, spread across the city or region." + (W.focus() === "gems" ? " Favor the places locals go." : "")),
-      "default", function (r) { addFood(ck, r, "b"); });
+  };
+  /* how many of each this city has been asked for (kept with its ideas): a longer stay later asks only for the difference */
+  function asked(ck, n) { var c = W.C.city[ck]; if (c) c.askedN = Math.max(c.askedN || 0, n); }
+  /* the stay got longer (you changed the days): the ideas grow with it, by the difference, once */
+  W.growIdeas = function (country, city, stayDays) {
+    var ck = W.cityKey(country, city), c = W.C.city[ck]; if (!c || !c.spots || !c.spots.length || W.readOnly || W.cityBusy(ck)) return;
+    var had = c.askedN || Math.max(W.FIRST_IDEAS, Math.min(c.spots.length, (c.food || []).length)), want = W.firstIdeas(stayDays);
+    if (want <= had) return;
+    c.askedN = want;
+    ["spots|", "food|"].forEach(function (p) { if (W.status[p + ck] !== "loading") delete W.status[p + ck]; });
+    W.loadCity(country, city, true, stayDays, want - had);
   };
   /* is anything still coming in for this city's first lists? */
-  W.cityBusy = function (ck) { return ["spots|", "spots|", "food|", "food|"].some(function (p, i) { return W.status[p + ck + (i % 2 ? "|b" : "")] === "loading"; }); };
+  W.cityBusy = function (ck) { return ["spots|", "food|"].some(function (p) { return W.status[p + ck] === "loading"; }); };
 
   var FOOD_EX = "{\"n\":\"name\",\"d\":\"what it is known for or what to order, one short sentence\",\"fame\":1,\"rating\":4.5,\"cuisine\":\"\",\"price\":\"€€\",\"meal\":\"both\",\"dur\":\"1h\",\"fav\":false,\"k\":0,\"reserve\":false,\"book\":\"\",\"menu\":\"\",\"pic\":\"taverna\",\"lat\":0,\"lng\":0}";
   function foodRules() {
@@ -749,12 +801,7 @@
         /* a place the answer left out counts as checked (not known either way), so it isn't asked about again */
         todo.forEach(function (x) { if (!x.eat || x.eat.sig !== sig) x.eat = { f: "", w: "", sig: sig }; });
       });
-    var asked = cur.eatAsked || {};
-    if (!asked[sig] && !W.cityBusy(ck)) run("eatmore|" + ck + "|" + sig, "List 8 places to eat in " + city + ", " + country + " that suit this group's food needs especially well, spread across the city or region, including at least 2 breakfast cafés or bakeries." + who() + W.eatAsk() +
-      " Do not repeat any of these: " + cur.food.map(function (x) { return x.n; }).join("; ") + "." +
-      "\nReply with JSON only: {\"food\":[" + foodEx() + "]}\n" + foodRules(), "default", function (r) {
-        addFood(ck, r, "eatmore"); var c0 = W.C.city[ck]; if (c0) { c0.eatAsked = c0.eatAsked || {}; c0.eatAsked[sig] = 1; }
-      });
+    /* no extra list of places that suit the food needs: the first list and every "Find more" are asked with them (foodAsk) */
   };
 
   /* regional holidays and festivals in a city for the days you're there (lib/holidays.js lays them on the days). The

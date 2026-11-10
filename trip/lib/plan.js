@@ -139,7 +139,6 @@
   }
 
   /* ---------- slots ---------- */
-  var autoMore = {};
   if (W.S.algo !== 2) { W.S.picks = {}; W.S.seen = {}; W.S.algo = 2; }
   var SLOT_NAME = { breakfast: "Breakfast", am: "Morning", lunch: "Lunch", pm: "Afternoon", dinner: "Dinner", eve: "Evening" };
   W.SLOT_NAME = SLOT_NAME;
@@ -422,10 +421,9 @@
     st.forEach(function (s, si) {
       var pool = W.pool(s.country, s.name);
       var cdays = days.filter(function (d) { return d.stop === si; });
-      if (!pool) { W.loadCity(s.country, s.name); cdays.forEach(function (d) { d.loading = true; d.slots = []; }); return; }
-      if (!pool.fallback) W.loadStyleIdeas(s.country, s.name);   /* more ideas for your trip style, if this city's list is thin on them */
+      if (!pool) { W.loadCity(s.country, s.name, false, s.days); cdays.forEach(function (d) { d.loading = true; d.slots = []; }); return; }
       if (!pool.fallback && W.loadEatFit) W.loadEatFit(s.country, s.name);   /* the group's food needs: check these places, and add a few that fit */
-      if (!pool.fallback && W.loadFame) { W.loadFame(s.country, s.name); W.loadGems(s.country, s.name); }
+      if (!pool.fallback && W.loadFame) W.loadFame(s.country, s.name);   /* ratings for the ideas already there (no new ones) */
       var home = W.homebase(s.country, s.name), used = {};
       cdays.forEach(function (d) {
         d.slots = slotsFor().map(function (sl) { var k = key(d, sl); return { slot: sl, key: k, rest: d.rest && (sl === "am" || sl === "eve"), free: !!(W.S.free || {})[k], trip: !!(d.trip && (sl === "am" || sl === "lunch" || sl === "pm")) }; });
@@ -477,15 +475,9 @@
       });
       s.used = used;
       before.push({ city: W.cityKey(s.country, s.name), home: home, used: used });
-      /* long stays use up ideas quickly: top up the pool up to three times in the background, once the city's first lists
-         are all in (half of them looked short, and whether a plan ran between the halves decided whether a city got a
-         top-up), and counted only when asked for, not while one is on its way (plans redrawn meanwhile used them up) */
-      var ck = W.cityKey(s.country, s.name), topping = W.cityBusy(ck);
-      var lowSpots = remaining(pool, "pm", used) < 10 || remaining(pool, "eve", used) < 3, lowFood = remaining(pool, "dinner", used) < 6;
-      if (!pool.fallback && (lowSpots || lowFood) && !topping && (autoMore[ck] || 0) < 3) { autoMore[ck] = (autoMore[ck] || 0) + 1; W.loadCity(s.country, s.name, true); }
-      /* too few breakfast places (ideas saved before breakfast existed, or a short list): fetch them once, judged on the
-         city's whole first lists, not on the half that came in first */
-      if (!pool.fallback && !topping && remaining(pool, "breakfast", used) < 3 && !autoMore[ck + "|bf"]) { autoMore[ck + "|bf"] = 1; W.loadBreakfast(s.country, s.name); }
+      /* no top-ups in the background: a city keeps its first ideas (15 of each, more for a longer stay) until someone
+         taps "Find more" (a day they don't fill says so: screens/trip.js). Only a stay made longer grows them */
+      if (!pool.fallback) W.growIdeas(s.country, s.name, s.days);
     });
     var P = { stops: st, days: days, N: N, p: p, ap: ap };
     fitDays(P);
@@ -635,7 +627,6 @@
       }
     }
     if (it) { W.S.picks[k] = it.n; mine()[k] = 1; }
-    if (remaining(pool, slot, u) - seen.length < 6) W.loadCity(day.country, day.city, true);
   };
   /* put a specific idea into a slot; if it's on another day, the two trade places */
   W.useIdea = function (day, slot, name, P) {

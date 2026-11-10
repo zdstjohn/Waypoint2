@@ -1,13 +1,6 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v117 + v118
-today-*         # Today: the replan box; the kids' banner centred
-menu-*          # the trip menu: "Check my plan" in, "Storybook" out
-trip-days-*     # Day and Explore tabs, with One day / All days inside Day
-trip-all-*      # (new) All days
-swap-*          # the same switch above the day
-stop-panel-*    # photos and map links as pictures; red bordered "Not for us"
-meal-panel-*    # the same for a place to eat
-explore-*       # idea rows: photos and map as pictures, nothing else; switch without the day toggle
-book-*          # Prepare: the tabs keep their place on a wide screen
-book-add-*      # the same
+# v122: every screen. The icon set (sunset-gradient lines), the gradient on buttons, tabs and switches, clean capital
+# labels in place of the handwritten font, city photos behind day and place names, the frosted tab bar with a tile on
+# the current tab, the To book list grouped by how far ahead, and 15 ideas a city (fewer rows in Explore and the swaps).
+*

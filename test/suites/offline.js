@@ -5,9 +5,11 @@ const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb
 const px = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
 const ph = id => ({ url: px + '#' + id, credit: 'Test, CC BY-SA 4.0', page: 'https://commons.wikimedia.org/wiki/File:' + id });
 exports.run = async t => {
-  /* the mock's Rome ideas are "Rome <style> pick <n>": a photo for each, plus one real name */
+  /* the mock's Rome ideas: "Rome <style> pick <n>" (style lists, when asked for) and "Rome sight 2-<n>": a photo for each, plus one real name */
   const items = { 'colosseum': ph('colosseum') };
   ['culture', 'food', 'relax', 'beach', 'nature', 'family', 'nightlife', 'adventure', 'shopping', 'history', 'art', 'outdoors', 'kids', 'local', 'markets'].forEach(k => { for (let i = 0; i < 16; i++) items['rome ' + k + ' pick ' + i] = ph(k + i); });
+  /* and the city's first list of things to do ("Rome sight 2-<n>"), more than a plan uses */
+  for (let i = 0; i < 20; i++) items['rome sight 2 ' + i] = ph('sight' + i);
   const seed = { 'photos/italy-rome': { items, city: 'Rome', country: 'Italy' } };
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, db: mkdb(seed) }); await exampleTrip(pg);
   await pg.waitForFunction(() => !!W.photoFor({ n: 'Colosseum' }, false, 'Italy', 'Rome'), null, { timeout: 8000 }).catch(() => {});
@@ -22,7 +24,7 @@ exports.run = async t => {
     return names;
   }, px);
   /* the index has taken them (it arrives as one document) */
-  await pg.waitForFunction(n => !!W.photoFor({ n }, false, 'Italy', 'Rome'), added[added.length - 1] || 'Colosseum', { timeout: 8000 }).catch(() => {});
+  await pg.waitForFunction(n => { const p = W.photoFor({ n }, false, 'Italy', 'Rome'); return !!p && (n === 'Colosseum' || p.url.endsWith('#' + W.slug(n))); }, added[added.length - 1] || 'Colosseum', { timeout: 8000 }).catch(() => {});
   /* and once the plan shows photos (a slow machine gets the city's lists later); an automatic save already running is let finish */
   await pg.waitForFunction(() => { const P = W.plan(); return W.offline.state !== 'saving' && P.days.some(d => d.slots.some(x => x.item && W.photoFor(x.item, W.isFood(x.slot), d.country, d.city))); }, null, { timeout: 20000 }).catch(() => {});
   const s = await pg.evaluate(async () => { await W.offline.save(W.P, 'test'); const O = W.offline; return { state: O.state, n: O.n, total: O.total, at: O.at > 0, rec: JSON.parse(localStorage.getItem('waypoint-offline-v1') || 'null') }; });

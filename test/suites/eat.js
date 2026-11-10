@@ -27,7 +27,7 @@ exports.run = async t => {
   const txt = await pg.evaluate(() => W.eatText());
   t.ok(/allergies: shellfish/.test(txt) && /diet: vegetarian/.test(txt) && /loves Pizza/.test(txt), 'the needs are kept with the trip: ' + txt);
   t.ok(await pg.evaluate(() => /Allergies: shellfish|shellfish/.test(document.querySelector('[data-fold="step-eat"] .sum').textContent)), 'and the step sums them up when folded');
-  /* the places already listed are checked, and a few that fit are asked for */
+  /* the places already listed are checked; more that fit come with "Find more" */
   await pg.evaluate(() => { W.goView('trip'); }); await settle(pg, 8000);
   await pg.waitForFunction(() => (window.__eatAsks || []).length > 0, null, { timeout: 15000 }).catch(() => {});
   const r = await pg.evaluate(() => {
@@ -35,11 +35,13 @@ exports.run = async t => {
     const pool = W.pool('Italy', 'Rome'), checked = pool.food.filter(x => W.eatFit(x)).length, poor = pool.food.filter(x => W.eatFit(x) === 'poor').length;
     const full = (window.__full || []).filter(p => /places to eat/i.test(p));
     return { asked: (window.__eatAsks || []).length, checked, poor, total: pool.food.length, planned: meals.map(x => x.item.n), poorPlanned: meals.filter(x => W.eatFit(x.item) === 'poor').map(x => x.item.n),
-      more: full.some(p => /suit this group's food needs/.test(p) && /allergies: shellfish/.test(p)) };
+      extra: full.filter(p => /suit this group's food needs/.test(p)).length };
   });
   t.ok(r.asked > 0 && r.checked > 0 && r.poor > 0, `Rome's places to eat are checked against the needs (${r.checked} of ${r.total}, ${r.poor} poor fits)`);
   t.eq(r.poorPlanned, [], 'no poor fit is planned (' + r.planned.length + ' meals in Rome)');
-  t.ok(r.more, 'and a few places that suit the needs are asked for, with the needs in the question');
+  const more = await pg.evaluate(async () => { W.loadCity('Italy', 'Rome', true); await new Promise(res => setTimeout(res, 1500));
+    return (window.__full || []).some(p => /MORE places to eat in Rome/.test(p) && /allergies: shellfish/.test(p)); });
+  t.ok(r.extra === 0 && more, 'no extra list is fetched on its own; "Find more" asks for places to eat with the needs in the question: ' + JSON.stringify({ extra: r.extra, more }));
   /* each meal says what you can have, and the allergy to mention */
   const row = await pg.evaluate(() => { const P = W.plan(), d = P.days.find(x => x.city === 'Rome' && x.slots.some(y => y.item && W.isFood(y.slot) && W.eatFit(y.item))); if (!d) return null; const x = d.slots.find(y => y.item && W.isFood(y.slot) && W.eatFit(y.item)); const R = W.dayTimes(d, P).rows[x.slot]; return R.info.concat(R.warn); });
   t.ok(row && row.some(l => /Plenty without shellfish/.test(l)) && row.some(l => /Tell the staff: shellfish allergy/.test(l)), 'a meal says what you can have and which allergy to mention: ' + JSON.stringify(row));

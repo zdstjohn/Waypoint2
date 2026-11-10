@@ -540,6 +540,26 @@ interface Waypoint {
   loadLater: () => void;
   needLater: () => boolean;
   ideasFull: (pool: Pool | null | undefined) => boolean;
+  /** how many things to do and places to eat a city starts with at least; more only on "Find more" */
+  FIRST_IDEAS: number;
+  /** how many of each for a stay of this many days in this trip (15 to 30) */
+  firstIdeas: (stayDays?: number) => number;
+  /** the days this trip spends in a place, as the plan stands */
+  stayDays: (country: string, city: string) => number;
+  /** a stay made longer: fetch the difference */
+  growIdeas: (country: string, city: string, stayDays: number) => void;
+  /** the icon set (lib/icons.js): name to its drawing on a 24 grid */
+  ICONS: Record<string, string>;
+  /** an icon as an svg; weight is the line's width on the 24 grid */
+  icon: (name: string, weight?: number, cls?: string) => string;
+  /** a city's own photo for its header: the city, else the first of these places with one, else its best-known sight */
+  cityPhoto: (country: string, city: string, prefer?: (Spot | Food)[]) => Photo | null;
+  /** the photo filling a header, with its credit */
+  heroImg: (ph: Photo, alt: string) => string;
+  /** a drawn face for a day's mood (3 great, 2 good, 1 tough) */
+  moodFace: (m: number) => string;
+  /** which Claude request goes next: 0 first (things you asked for), higher later */
+  loadPrio: (key: string) => number;
   warmTick: any;
   watchBanner: any;
   watchChip: any;

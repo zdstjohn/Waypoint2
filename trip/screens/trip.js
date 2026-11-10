@@ -7,7 +7,7 @@
   if (window.__WP_OFFLINE && (view === "setup" || view === "settings")) view = "trip";
   var VIEWS = { setup: 0, trip: 1, explore: 1, book: 2, go: 3, recap: 4, kids: 4, settings: 5 }, HASH = { go: "#today", setup: "#plan", trip: "#trip", explore: "#explore", book: "#prepare", recap: "#recap", kids: "#kids", settings: "#settings" }, prevView = "trip";
   W.view = function () { return view; };
-  var ICON_CLOCK = '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.2"/><path d="M8 4.6V8l2.3 1.5"/></svg>';
+  var ICON_CLOCK = W.icon("clock", 2.6);
   /* recommended time to spend at a stop */
   function stayChip(it, food, slot) {
     var t = W.stayText(it, food, slot); if (!t) return "";
@@ -21,7 +21,7 @@
     driving: legSvg('<path d="M3 11V8.2L4.4 5h7.2L13 8.2V11z"/><path d="M3 8.2h10"/><circle cx="5.3" cy="11.3" r="1.1"/><circle cx="10.7" cy="11.3" r="1.1"/>')
   };
   var ICON_MORE = '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.2" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="12.8" cy="8" r="1.5"/></svg>';
-  var ICON_REROLL = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.5 2.5v3h-3"/></svg>';
+  var ICON_REROLL = W.icon("reroll", 2.5);
 
   function fmtDate(n, opts) {
     if (!S.start) return "";
@@ -37,7 +37,7 @@
     map: '<circle cx="10" cy="10" r="7.5"/><path d="M12.8 7.2l-1.6 4-4 1.6 1.6-4z"/>',
     all: '<rect x="2.5" y="3" width="15" height="14" rx="2"/><path d="M2.5 7.5h15M7.5 7.5V17M12.5 7.5V17"/>'
   };
-  function ic(k) { return '<svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + VSW_IC[k] + "</svg>"; }
+  function ic(k) { return W.icon(k === "map" ? "explore" : k === "all" ? "alldays" : "day", 2.1); }
   W.viewSwitch = function () {
     var map = S.tview === "map", all = !map && !!S.glanceOpen;
     var h = '<div class="vsw" role="tablist" aria-label="How to see the trip">' + [["day", "days", "Day"], ["map", "map", "Explore"]].map(function (v) {
@@ -167,7 +167,7 @@
   /* the end of the day: where you sleep, and making it a rest day */
   function dayEnd(day, P, home, geoBusy) {
     var rk = W.restKey(day), canRest = !(!W.canEdit() || day.tripFirst || day.moveFrom || day.tripLast);
-    return '<div class="day-end sk"><span class="de-i" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 15.5v-9M2.5 12.5h15v3M17.5 12.5v-2a2.5 2.5 0 0 0-2.5-2.5H9v4.5"/><circle cx="5.8" cy="9.8" r="1.6"/></svg></span>' +
+    return '<div class="day-end sk"><span class="de-i" aria-hidden="true">' + W.icon("bed", 2.2) + "</span>" +
       '<div><span class="small muted">Staying at</span><b>' + esc(home.label) + "</b>" + (geoBusy ? '<span class="small muted">locating…</span>' : "") + "</div>" +
       '<div class="de-a">' + (W.readOnly ? "" : '<button type="button" class="chip-a' + (home.set ? "" : " pri") + '" data-gostay="' + day.stop + '">' + (home.set ? "Change" : "Pick a place") + "</button>") +
       (canRest ? '<button type="button" class="linkish" data-rest="' + esc(rk) + '">' + (day.rest ? "Undo rest day" : "Make it a rest day") + "</button>" : "") + "</div></div>";
@@ -180,7 +180,7 @@
     Flight: '<path d="M21 15.5v-2l-8-5V4a1.5 1.5 0 0 0-3 0v4.5l-8 5v2l8-2.5V18l-2.2 1.6V21l3.7-1 3.7 1v-1.4L13 18v-5z"/>',
     Car: '<path d="M5 16.5V12l2-5h10l2 5v4.5z"/><path d="M5 12h14"/><circle cx="8.5" cy="16.5" r="1.8"/><circle cx="15.5" cy="16.5" r="1.8"/>'
   };
-  function modeIcon(m) { var k = W.modeName(m); return '<svg class="lo-i" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + (ICON[k] || ICON.Car) + "</svg>"; }
+  function modeIcon(m) { var k = W.modeName(m).toLowerCase(); return W.icon(W.ICONS[k] ? k : "car", 1.9, "lo-i"); }
   /* jet lag: a few days of shifting sleep before you go, and an easy start */
   function jetCard(P) {
     var J = W.jetlag(P), g = Math.abs(J.gap || 0); if (g < 3) return "";
@@ -226,7 +226,7 @@
     });
     if (prev !== home) rows += legRow(prev, home, true);
     return '<aside class="explorer rcard sk"><div class="explorer-h"><h3>Today\'s route</h3>' + zoomBtns + "</div>" + mapBox +
-      '<ol class="rc-list"><li class="rc-home"><span class="rc-hi" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M2.5 7.5 8 3l5.5 4.5V13h-3.5V9.5h-4V13H2.5z" fill="currentColor"/></svg></span><span class="rc-b"><b>' + esc(home.label) + '</b><span class="small muted">where you\'re staying</span></span></li>' + rows + "</ol>" +
+      '<ol class="rc-list"><li class="rc-home"><span class="rc-hi" aria-hidden="true">' + W.icon("home", 2.4) + '</span><span class="rc-b"><b>' + esc(home.label) + '</b><span class="small muted">where you\'re staying</span></span></li>' + rows + "</ol>" +
       (gm ? '<a class="btn rc-gm" href="' + esc(gm) + '" target="_blank" rel="noopener">Open the whole day in Google Maps ↗</a>' : "") +
       (mapBox && mapBox.indexOf("vt-slot") > -1 ? '<p class="map-note">© OpenMapTiles © OpenStreetMap contributors</p>' : "") + "</aside>";
   }
@@ -256,10 +256,10 @@
 
   /* the three closest fits, as photo cards you can tap */
   /* no photo yet: a plain outline icon (fork and knife, or a pin), never a drawing of the place, and no words that repeat the line below */
-  var SC_FOOD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M16 21V3c-2 1-3 4-3 7 0 1.5 1 2.5 3 2.5"/></svg>';
-  var SC_PIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-5.5-6-11a6 6 0 0 1 12 0c0 5.5-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>';
+  var SC_FOOD = W.icon("food", 1.6);
+  var SC_PIN = W.icon("pin", 1.6);
   /* "Not for us": never plan or offer this place again in this city (lib/plan.js W.sayNo); a thumbs-down beside each idea */
-  var ICON_NO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 14V4M16 14l-3.6 6.2a1.9 1.9 0 0 1-2.4-1.8V15H5.6a2 2 0 0 1-2-2.3l1.1-6.8A2.2 2.2 0 0 1 6.9 4H16"/><path d="M16 4h3.4v10H16"/></svg>';
+  var ICON_NO = W.icon("no", 1.9);
   function noBtn(slot, name, cls) { return W.canEdit() ? '<button type="button" class="' + cls + '" data-nope="' + slot + '" data-name="' + esc(name) + '" aria-label="Not for us: ' + esc(name) + '" title="Not for us">' + ICON_NO + "</button>" : ""; }
   function swapCards(list, x, food, day, nm) {
     if (!list.length) return "";
@@ -340,13 +340,25 @@
     if (day.trip) sub.push("Day trip to " + esc(day.trip.name) + (day.trip.min ? " · about " + esc(W.fmtMin(Math.round(day.trip.min / 15) * 15)) + " each way" : ""));
     var geoBusy = Object.keys(W.status).some(function (k) { return k.indexOf("geo|" + W.cityKey(day.country, day.city)) === 0 && W.status[k] === "loading"; });
     if (xp) h += '<div class="day-h ex-h"><div class="grow"><h2>' + (target === "explore" ? "Explore " : "") + esc(day.city) + '</h2><div class="sub">' + sub.join(" · ") + "</div></div></div>";
-    else h += '<div class="day-h"><div class="grow"><h2>' + esc(day.city) + '</h2><div class="sub">' + sub.join(" · ") + dayLevel(day, P) + "</div>" +
-      (W.isExample ? '<div class="small muted">Example trip · change anything under <a href="#plan" data-view="setup">Plan</a></div>' : "") + "</div></div>";
+    else {
+      /* the city's photo behind the day's name, when there is one */
+      var hero = W.cityPhoto ? W.cityPhoto(day.country, day.city, (day.slots || []).filter(function (x) { return x.item && !W.isFood(x.slot); }).map(function (x) { return x.item; })) : null;
+      h += '<div class="day-h' + (hero ? " has-hero" : "") + '">' + (hero ? W.heroImg(hero, day.city) : "") + '<div class="grow"><h2>' + esc(day.city) + '</h2><div class="sub">' + sub.join(" · ") + dayLevel(day, P) + "</div>" +
+        (W.isExample ? '<div class="small ' + (hero ? "hero-note" : "muted") + '">Example trip · change anything under <a href="#plan" data-view="setup">Plan</a></div>' : "") + "</div></div>";
+    }
     /* a public holiday or a festival on this day */
     if (!xp && W.holidayLine) h += W.holidayLine(day);
     if (day.farthest > 40 && !day.loading && !day.trip) {
       var mins = Math.round(day.farthest / 60 * 60 + 10);
       h += '<p class="scribble">' + (day.fullDay ? "day trip: about " : "far from your lodging today: about ") + esc(W.fmtMin(mins)) + " each way by car. Staying closer to this area would cut the drive.</p>";
+    }
+
+    /* a part of the day the city's first ideas don't fill (a meal, the morning or the afternoon; not an evening left
+       open on purpose, a travel day's cut hours or time you freed): more ideas come only when you ask */
+    var dpool = W.pool(day.country, day.city);
+    if (!xp && !day.loading && dpool && !dpool.fallback && !W.ideasFull(dpool) && (day.slots || []).some(function (x) { return !x.item && x.slot !== "eve" && !x.cut && !x.free && !x.rest && !x.trip && !x.loading; })) {
+      var shortBusy = W.cityBusy(W.cityKey(day.country, day.city));
+      h += '<p class="small muted short-note">' + esc(day.city) + "'s first ideas don't fill this day. " + (shortBusy ? '<span class="loading">Finding more…</span>' : '<button type="button" class="linkish" data-more="1">Find more ideas</button>') + "</p>";
     }
 
     /* the day */
@@ -714,7 +726,7 @@
     else if ((d.live || d.livepick != null || d.site) && W.liveClick) W.liveClick(d, P);
     else if (d.rest) { var rs = S.rest || (S.rest = {}); if (rs[d.rest]) delete rs[d.rest]; else rs[d.rest] = 1; W.fxAfter(function () { W.fxStagger(".slots > .slot", { step: 30 }); }); }
     else if (d.more) { var mk = W.cityKey(day.country, day.city); ["spots|", "food|"].forEach(function (p) { if (W.status[p + mk] !== "loading") delete W.status[p + mk]; }); W.loadCity(day.country, day.city, true); }
-    else if (d.retry) { var rk = W.cityKey(day.country, day.city); ["spots|", "food|"].forEach(function (p) { delete W.status[p + rk]; delete W.status[p + rk + "|b"]; }); W.loadCity(day.country, day.city); }
+    else if (d.retry) { var rk = W.cityKey(day.country, day.city); ["spots|", "food|"].forEach(function (p) { delete W.status[p + rk]; }); W.loadCity(day.country, day.city); }
     else return;
     W.render();
   });

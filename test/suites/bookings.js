@@ -7,6 +7,16 @@ exports.run = async t => {
   const chk = await pg.evaluate(() => ({ items: document.querySelectorAll('.chk').length, by: document.querySelectorAll('.chk .by').length, stays: [...document.querySelectorAll('.chk')].filter(c => /stay|hotel|place to stay/i.test(c.innerText)).length }));
   t.ok(chk.items >= 5, 'the checklist has things to book: ' + JSON.stringify(chk));
   t.ok(chk.by >= 3, 'with "book by" dates');
+  /* the Day button sits at the start of its row (it was centred: ".go" is also the Today screen's class) */
+  const dayChip = await pg.evaluate(() => { const c = document.querySelector('.chk-a [data-goday]'); if (!c) return null; const row = c.parentElement.getBoundingClientRect(), r = c.getBoundingClientRect(), sib = c.previousElementSibling;
+    return { cls: c.className, left: Math.round(r.left - (sib ? sib.getBoundingClientRect().right + 6 : row.left)) }; });
+  t.ok(dayChip && !/\bgo\b/.test(dayChip.cls) && Math.abs(dayChip.left) <= 2, 'the "Day" button lines up with the other buttons in its row: ' + JSON.stringify(dayChip));
+  /* with no start date there are no deadlines: the rows go under how far ahead to book them, with no "3 mo ahead" tags */
+  const nd = await pg.evaluate(() => { const s0 = W.S.start; W.S.start = ''; W.changed(); W.render();
+    const r = { groups: [...document.querySelectorAll('.chk-group .gl')].map(e => e.textContent), tags: [...document.querySelectorAll('.chk .by')].map(e => e.textContent), rows: document.querySelectorAll('.chk').length };
+    W.S.start = s0; W.changed(); W.render(); return r; });
+  t.ok(nd.rows >= 5 && nd.groups[0] === 'Months ahead' && nd.groups.every(g => /^(Months ahead|Weeks ahead|A few days ahead|To book)$/.test(g)) && !nd.tags.some(x => /ahead/.test(x)),
+    'with no start date, rows are grouped by how far ahead to book (no cryptic tags): ' + JSON.stringify(nd));
   const key = await pg.evaluate(() => document.querySelector('[data-tick]').dataset.tick);
   await pg.click('[data-tick]'); await pg.waitForTimeout(500);
   t.ok(await pg.evaluate(k => !!(W.S.booked || {})[k] && W.checklist(W.P).find(c => c.key === k).done, key), 'ticking an item marks it booked');

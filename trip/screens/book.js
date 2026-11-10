@@ -291,7 +291,13 @@
   function section(title, sub, body, cls, side) { return '<section class="bk-card sk' + (cls ? " " + cls : "") + '"><div class="bk-h">' + (side ? '<div class="bk-hr"><h2>' + title + "</h2>" + side + "</div>" : "<h2>" + title + "</h2>") + (sub ? '<p class="small muted">' + sub + "</p>" : "") + "</div>" + body + "</section>"; }
   /* folded groups (remembered on this device), and the booked items you've opened */
   var doneOpen = {}, foldMem = null, laterAll = false;
-  function bucketOf(c, today) { if (c.done) return "done"; if (!c.by) return "later"; var dd = c.by - today; return dd < 14 * 864e5 ? "now" : dd < 31 * 864e5 ? "month" : "later"; }
+  /* with a start date: do now, this month, later. Without one there are no deadlines yet, so the rows go by how far ahead
+     each needs booking: months (flights, places to stay), weeks, or a few days (most tables and tickets) */
+  function bucketOf(c, today) {
+    if (c.done) return "done";
+    if (!c.by) return S.start ? "later" : c.lead >= 60 ? "lmo" : c.lead >= 14 ? "lwk" : "ldy";
+    var dd = c.by - today; return dd < 14 * 864e5 ? "now" : dd < 31 * 864e5 ? "month" : "later";
+  }
   /* a group you folded stays folded; Booked starts folded */
   function isShut(key) { var f = fold(); return f[key] === undefined ? key === "u-done" : !!f[key]; }
   function fold() { if (!foldMem) { try { foldMem = JSON.parse(localStorage.getItem("waypoint-bkfold") || "{}"); } catch (e) { foldMem = {}; } } return foldMem; }
@@ -305,7 +311,7 @@
     }
     if (!c.day || c.key.indexOf("flight|") === 0) return "";
     var d = P.days[c.day - 1], sl = c.slot && d && (d.slots || []).filter(function (x) { return x.slot === c.slot; })[0];
-    return '<button type="button" class="chip-a go" data-goday="' + c.day + '"' + (sl ? ' data-goopen="' + esc(sl.key) + '"' : "") + ">Day " + c.day + " ›</button>";
+    return '<button type="button" class="chip-a goto" data-goday="' + c.day + '"' + (sl ? ' data-goopen="' + esc(sl.key) + '"' : "") + ">Day " + c.day + " ›</button>";
   }
   /* open the group (and the booked list) a row is in, so a link can land on it */
   W.bookReveal = function (key) {
@@ -323,27 +329,30 @@
     var list = W.checklist(P), left = list.filter(function (c) { return !c.done; }).length;
     function row(c) {
       var late = c.by && !c.done && c.by < today, soon = c.by && !c.done && !late && (c.by.getTime() - today.getTime()) < 14 * 864e5;
-      var by = c.done ? "Booked" : c.by ? (late ? "Book now" : "by " + fmtDay(c.by, { month: "short", day: "numeric" }))
-        : c.lead >= 60 ? Math.round(c.lead / 30) + " mo ahead" : c.lead >= 14 ? Math.round(c.lead / 7) + " wk ahead" : c.lead + " d ahead";
+      var by = c.done ? "Booked" : c.by ? (late ? "Book now" : "by " + fmtDay(c.by, { month: "short", day: "numeric" })) : "";
       var sub = c.auto ? c.why : c.sub != null ? c.sub : c.group === "flight" ? "" : c.why;
       if ((c.key === "flight|out" || c.key === "flight|home") && !c.done && W.fareMin) { var fm = W.fareMin(c.key === "flight|out" ? "out" : "home", P); if (fm) sub = "from " + W.money(fm.total, fm.cur) + " on Expedia"; }
-      var meta = [c.kind || "", c.day ? "Day " + c.day + (c.date ? " · " + fmtDay(c.date) : "") : "", sub].filter(Boolean).join(" · ");
+      var go = goChip(c, P), dayChip = /data-goday/.test(go);
+      var meta = [c.kind || "", c.day && !dayChip ? "Day " + c.day + (c.date ? " · " + fmtDay(c.date) : "") : "", sub].filter(Boolean).join(" · ");
       var X = c.done ? { chips: [], fare: "", panel: "" } : rowExtras(c, P);
       var acts = (c.url ? link(c.url, esc(c.urlText || "Book") + (/google\./.test(c.url) ? "" : ' <span aria-label="official site">↗</span>'), "chip-a pri") : "") +
-        X.chips.map(function (u) { return link(u[1], esc(u[0]) + " ↗", "chip-a"); }).join("") + X.fare + goChip(c, P);
+        X.chips.map(function (u) { return link(u[1], esc(u[0]) + " ↗", "chip-a"); }).join("") + X.fare + go;
       return '<li class="chk' + (c.done ? " done" : "") + (tickFx === c.key ? " just" : "") + '">' +
         '<button type="button" class="box" data-tick="' + esc(c.key) + '" aria-pressed="' + c.done + '" aria-label="' + esc((c.done ? "Mark not booked: " : "Mark booked: ") + c.title) + '"' + (ro ? " disabled" : "") + "></button>" +
-        '<div class="chk-b"><div class="chk-t"><b>' + esc(c.short || c.title) + '</b><span class="by' + (late ? " late" : soon ? " soon" : "") + '">' + esc(by) + "</span></div>" +
+        '<div class="chk-b"><div class="chk-t"><b>' + esc(c.short || c.title) + "</b>" + (by ? '<span class="by' + (late ? " late" : soon ? " soon" : "") + '">' + esc(by) + "</span>" : "") + "</div>" +
         (meta ? '<div class="chk-m" title="' + esc(meta) + '">' + esc(meta) + (c.auto ? ' <span class="booked-tag">' + (c.autopilot ? "Found by autopilot" : "Found in Gmail") + "</span>" : "") + "</div>" : "") +
         (acts ? '<div class="chk-a">' + acts + "</div>" : "") + X.panel + "</div></li>";
     }
     /* sorted by when it has to be booked: do now, this month, later, and what's booked */
-    var BK = [["now", "Do now"], ["month", "This month"], ["later", S.start ? "Later" : "To book"], ["done", "Booked"]];
+    var BK = S.start ? [["now", "Do now"], ["month", "This month"], ["later", "Later"], ["done", "Booked"]]
+      : [["lmo", "Months ahead"], ["lwk", "Weeks ahead"], ["ldy", "A few days ahead"], ["later", "To book"], ["done", "Booked"]];
     var seg = S.prepTab || "tobook";
     var groupHtml = function (g) {
-      var items = list.filter(function (c) { return bucketOf(c, today) === g[0]; }).sort(function (a, b) { return (a.by ? +a.by : 9e15) - (b.by ? +b.by : 9e15) || (a.day || 0) - (b.day || 0); });
+      /* by deadline, then by day; on the same day the trip's order: getting there, where you sleep, then the day's tickets and tables */
+      var ORD = { flight: 0, transport: 1, stay: 2, activity: 3, food: 4 };
+      var items = list.filter(function (c) { return bucketOf(c, today) === g[0]; }).sort(function (a, b) { return (a.by ? +a.by : 9e15) - (b.by ? +b.by : 9e15) || (a.day || 0) - (b.day || 0) || (ORD[a.group] != null ? ORD[a.group] : 5) - (ORD[b.group] != null ? ORD[b.group] : 5); });
       if (!items.length) return "";
-      var key = "u-" + g[0], shut = isShut(key), more = g[0] === "later" && !laterAll && items.length > 6;
+      var key = "u-" + g[0], shut = isShut(key), more = g[0] !== "now" && g[0] !== "done" && !laterAll && items.length > 8;
       var shown = more ? items.slice(0, 6) : items;
       return '<div class="chk-group bk-' + g[0] + (shut ? " shut" : "") + '"><h3 class="chk-g"><button type="button" class="chk-gb" data-chkgroup="' + key + '" aria-expanded="' + !shut + '"><span class="gl">' + esc(g[1]) + "</span>" +
         '<span class="gn">' + items.length + (g[0] === "done" ? " booked" : " to book") + "</span>" + CHEV + "</button></h3>" +
@@ -351,7 +360,7 @@
           (more ? '<button type="button" class="chk-done" data-laterall="1">Show all ' + items.length + "</button>" : "")) + "</div>";
     };
     /* only the open segment's markup is built: a tap on Prepare paints one list, not five */
-    var groups = seg === "tobook" ? BK.slice(0, 3).map(groupHtml).join("") : "", doneGroup = seg === "booked" ? groupHtml(BK[3]) : "";
+    var groups = seg === "tobook" ? BK.slice(0, -1).map(groupHtml).join("") : "", doneGroup = seg === "booked" ? groupHtml(BK[BK.length - 1]) : "";
     /* one line on top: how many are left and the next deadline */
     var nextAll = list.filter(function (c) { return !c.done && c.by; }).sort(function (a, b) { return a.by - b.by; })[0];
     var top = (left ? left + " to book" : "All booked") + (nextAll ? " · next: " + esc(nextAll.short || nextAll.title) + " by " + fmtDay(nextAll.by, { month: "short", day: "numeric" }) : "") +

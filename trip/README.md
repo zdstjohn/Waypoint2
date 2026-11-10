@@ -20,6 +20,32 @@ first screen reads from Prepare (the book-by checklist, the budget, which bookin
 with W.money and "Prices in": each phone shows costs as listed or all in one currency (localStorage "waypoint-cur"),
 converted at the European Central Bank's rates in fx/latest (refreshed nightly) and marked "≈" (W.priceText converts
 prices written in text, like "€15, book ahead"; a currency with no rate stays as listed); Prepare and Settings offer it.
+v122: what Claude is asked first. W.run's queue (lib/core.js) no longer goes in the order things were asked: the city on
+screen (the selected day, and today's on a trip) comes first, its main lists (sights, places to eat, breakfast) before
+its second lists, then other cities' main lists, then the extras (hidden gems, rainy-day ideas, links, events, costs);
+anything you asked for yourself (a search, a replan, the plan check, an address) and the small plan-shaping answers
+(time zone, days per place, travel between places) go straight to the front (W.loadPrio). Three at a time inside
+Claude, six in the installable app (W.cloud). Each answer takes 20–75 seconds on the server, so a new city's first ideas
+now show after the first round instead of waiting behind another city's extras.
+Each city starts with 15 things to do and 15 places to eat (W.FIRST_IDEAS; more for a longer stay in this trip, about
+four for each day of it up to 30: W.firstIdeas, by the days the trip spends there, never a recommended length; a stay
+made longer later fetches only the difference, once: W.growIdeas, pool.askedN), one question each, asked with the group's
+interests and food needs; nothing more is fetched in the background (no second lists, hidden gems, style lists,
+breakfast or food-needs top-ups, no planner top-ups). More comes only from "Find more" (10 things to do and 8 places to
+eat a time, up to W.IDEA_CAP), from asking for another suggestion when none are left, or from "It's raining" (indoor
+ideas). A day with a meal, morning or afternoon the first ideas don't fill says so, with a "Find more ideas" button.
+Prepare's To book list: with no start date the rows go under how far ahead to book them (Months ahead, Weeks ahead, A few
+days ahead) instead of each carrying a "3 mo ahead" tag; same-day rows follow the trip (getting there, where you sleep,
+tickets, tables); the day isn't repeated in the line when the row has its "Day N" button, and that button sits with the
+others (its class was "go", the Today screen's container, which centred it; now "goto").
+The look (v122): the selected tab and day switch, and the main button, wear the header's gradient (--grad); small labels
+are the body font in spaced capitals (the handwritten label font is gone); a day and each place in All days open with
+the city's photo behind its name (W.cityPhoto: the city's own photo, else the day's first stop with one, else its
+best-known sight; W.heroImg); the phone's tab bar is frosted; the journal's moods are drawn faces; ticking, rating and
+switching give a light tap on phones that vibrate. The icons are one set, lib/icons.js (W.icon(name, weight, cls), 24
+grid): a line in the header's sunset gradient (#wpIg, defined in index.html, its colours --ig-1..3 per theme) with one
+small shape filled with it; on colour (the header's sun and moon, a selected tab or switch, a main button, a photo) they
+take the text colour and a moon-gold shape. On a phone the tab you are on wears a sunset tile, its icon in cream.
 v121: accounts for the installable version, on Supabase (project "waypoint", fbgubkesrlvtcnbaxuef). lib/cloud.js (copied
 into dist/ as cloud.js, not part of the app bundle) gives the same window.claude.use("db" | "user" | "sample") the app
 has inside Claude: documents in public.docs (path, parent, owner, data; data/users/<id>/ private, everything else shared

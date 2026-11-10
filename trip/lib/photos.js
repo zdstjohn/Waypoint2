@@ -125,6 +125,23 @@
     }, function () {}).then(function () { if (pending[id] === job) delete pending[id]; flushing = false; flushWanted(); });
   }
 
+  /* ---------- a city's own picture (the big photo at the top of a day and of each place in All days) ---------- */
+  /* the city itself when there's a photo of it, else the first of these places (the day's stops, in order) with a photo
+     of its own, else the city's best-known sight with one; never a "nearby" stand-in */
+  W.cityPhoto = function (country, city, prefer) {
+    if (W.simple && W.simple()) return null;
+    var c = PHOTOS[citySlug(country, city)] || BYCITY[W.norm(city)]; if (!c) return null;
+    var own = c[W.norm(city)]; if (own && own.url && !own.near) return own;
+    var list = (prefer || []).concat(((W.pool(country, city) || {}).spots || []).slice(0, 15));
+    for (var i = 0; i < list.length; i++) { var it = list[i]; if (!it || !it.n) continue; var p = W.photoFor(it, false, country, city); if (p && p.url && !p.near) return p; }
+    return null;
+  };
+  /* the photo filling a header, with the photographer's credit as plain text in its corner */
+  W.heroImg = function (ph, alt) {
+    return '<img class="hero-img" src="' + esc(W.offline ? W.offline.src(ph.url) : ph.url) + '" alt="' + esc(alt) + '" decoding="async">' +
+      '<span class="hero-credit">Photo: ' + esc(ph.credit || "Wikimedia Commons") + "</span>";
+  };
+
   /* ---------- the picture element ---------- */
   W.picture = function (it, food, country, city, opts) {
     opts = opts || {};

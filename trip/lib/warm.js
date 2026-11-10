@@ -58,8 +58,8 @@
     var phase = hh >= 5 && hh < 8 ? "dawn" : hh >= 8 && hh < 17 ? "day" : hh >= 17 && hh < 20 ? "dusk" : "night";
     return { phase: phase, city: pl.city, time: W.clock(hh * 60 + mm), hour: hh };
   };
-  var SUN = '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1"/></svg>';
-  var MOON = '<svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M10.8 1.6a6.4 6.4 0 1 0 3.6 10.9A5.4 5.4 0 0 1 10.8 1.6z"/></svg>';
+  var SUN = W.icon("sun", 2.4);
+  var MOON = W.icon("moon", 2.4);
   /* the line along the bottom of the banner */
   W.topLine = function (P) {
     if (!P || !P.stops || !P.stops.length) return "";
@@ -149,7 +149,17 @@
   };
 
   /* ======================= memories ======================= */
-  var MOODS = [[3, "😄", "Great"], [2, "🙂", "Good"], [1, "😩", "Tough"]];
+  /* a light tap you can feel when you tick something off, rate a day or switch views (phones that can vibrate) */
+  document.addEventListener("click", function (e) {
+    var t = e.target, b = t && t.closest ? t.closest("[data-tick],[data-pack],[data-mood],[data-vsw],[data-dsw]") : null;
+    if (!b || b.disabled) return;
+    try { if (navigator.vibrate && window.matchMedia("(pointer:coarse)").matches) navigator.vibrate(b.hasAttribute("data-tick") || b.hasAttribute("data-pack") ? 12 : 6); } catch (x) {}
+  }, true);
+  /* drawn faces in the app's line style (emoji looked different on every phone) */
+  function face(mouth) { return '<svg class="mface" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9 9.6v.6M15 9.6v.6"/><path d="' + mouth + '"/></svg>'; }
+  var FACE = { 3: face("M7.6 13.4c1 2.4 2.6 3.6 4.4 3.6s3.4-1.2 4.4-3.6Z"), 2: face("M8.6 14.6c.9 1.1 2 1.7 3.4 1.7s2.5-.6 3.4-1.7"), 1: face("M8.6 16.4c.9-1.2 2-1.8 3.4-1.8s2.5.6 3.4 1.8") };
+  W.moodFace = function (m) { return FACE[m] || ""; };
+  var MOODS = [[3, FACE[3], "Great"], [2, FACE[2], "Good"], [1, FACE[1], "Tough"]];
   W.moodRow = function (k, mood) {
     if (W.readOnly) return mood ? '<p class="mood-ro">' + MOODS.filter(function (m) { return m[0] === mood; }).map(function (m) { return m[1] + " " + m[2] + " day"; })[0] + "</p>" : "";
     return '<div class="mood" role="radiogroup" aria-label="How was today?"><span>How was today?</span>' + MOODS.map(function (m) {

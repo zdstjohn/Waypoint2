@@ -97,7 +97,7 @@
   }
 
   /* three places to stay per stop: budget, mid-range and a splurge, each with its own reroll */
-  var ICON_REROLL = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.5 2.5v3h-3"/></svg>';
+  var ICON_REROLL = W.icon("reroll", 2.5);
   var TYPE_NAME = { hotel: "Hotel", apartment: "Apartment", guesthouse: "Guesthouse", hostel: "Hostel", resort: "Resort", villa: "Villa" };
   function lodgeCards(s, i) {
     if (W.sampleState === "off") return "";

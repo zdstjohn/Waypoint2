@@ -8,14 +8,14 @@
   var CHEV = '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>';
   function svg(d) { return '<svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + d + "</svg>"; }
   var IC = {
-    swap: svg('<path d="M16.5 10a6.5 6.5 0 1 1-1.9-4.6"/><path d="M16.5 3.5v3.5H13"/>'),
-    move: svg('<rect x="3" y="4" width="14" height="13" rx="2"/><path d="M3 8h14M7 2.5v3M13 2.5v3M8 12.5h5M11 10.5l2 2-2 2"/>'),
-    dir: svg('<path d="M10 2.5l7.5 7.5-7.5 7.5L2.5 10z"/><path d="M8 12v-2.2c0-.7.5-1.3 1.3-1.3H12M11 7l1.5 1.5L11 10"/>'),
-    book: svg('<path d="M3 6.5a1.5 1.5 0 0 0 0 3v4A1.5 1.5 0 0 0 4.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-4a1.5 1.5 0 0 1 0-3v0A1.5 1.5 0 0 0 15.5 5h-11A1.5 1.5 0 0 0 3 6.5z"/><path d="M12 5v10" stroke-dasharray="1.5 2"/>'),
-    list: svg('<path d="M7 5.5h10M7 10h10M7 14.5h10"/><path d="M3 5.5h.01M3 10h.01M3 14.5h.01" stroke-width="2.6"/>'),
-    order: svg('<path d="M6 3.5v13M3 6.5l3-3 3 3M14 16.5v-13M11 13.5l3 3 3-3"/>'),
-    free: svg('<circle cx="10" cy="10" r="7"/><path d="M6.5 13.5l7-7"/>'),
-    no: svg('<path d="M13.5 11.5V3.5M13.5 11.5l-3 5.2a1.6 1.6 0 0 1-2-1.5v-2.7H4.6a1.7 1.7 0 0 1-1.7-1.9l.9-5.6a1.8 1.8 0 0 1 1.8-1.5h7.9"/><path d="M13.5 3.5h3v8h-3"/>')
+    swap: W.icon("swap", 2.2),
+    move: W.icon("move", 2.2),
+    dir: W.icon("dir", 2.2),
+    book: W.icon("ticket", 2.2),
+    list: W.icon("day", 2.2),
+    order: W.icon("order", 2.2),
+    free: W.icon("free", 2.2),
+    no: W.icon("no", 2.2)
   };
   var CHEVL = '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>';
   var XI = '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
@@ -476,7 +476,9 @@
     return rev + P.stops.map(function (s, si) {
       var ds = P.days.filter(function (d) { return d.stop === si; }), r = rangeOf(P, si), n = s.days;
       var trips = (s.trips || []).filter(function (t) { return t.planned !== false; }).map(function (t) { return t.name; });
-      return '<section class="g-sec" data-stop="' + si + '"><h3 class="g-stop"><span class="g-sn">' + esc(s.name) + '</span><span class="g-sm">' + esc([r, n + " night" + (n === 1 ? "" : "s"), trips.length ? "day trip" + (trips.length > 1 ? "s" : "") + " to " + trips.join(", ") : ""].filter(Boolean).join(" · ")) + "</span></h3>" +
+      /* each place you stay opens with its photo, its name over it */
+      var hero = W.cityPhoto ? W.cityPhoto(s.country, s.name, ds.reduce(function (a, d) { return a.concat((d.slots || []).filter(function (x) { return x.item && !W.isFood(x.slot); }).map(function (x) { return x.item; })); }, [])) : null;
+      return '<section class="g-sec" data-stop="' + si + '"><h3 class="g-stop' + (hero ? " has-hero" : "") + '">' + (hero ? W.heroImg(hero, s.name) : "") + '<span class="g-sn">' + esc(s.name) + '</span><span class="g-sm">' + esc([r, n + " night" + (n === 1 ? "" : "s"), trips.length ? "day trip" + (trips.length > 1 ? "s" : "") + " to " + trips.join(", ") : ""].filter(Boolean).join(" · ")) + "</span></h3>" +
         '<div class="glance sk" role="list">' + ds.map(row).join("") + "</div></section>";
     }).join("") + '<p class="g-end">' + esc("End of the trip" + (P.ap && P.days.length && W.dateOf(P.N) ? " · home from " + P.stops[P.stops.length - 1].name + " " + fmt(W.dateOf(P.N), { month: "short", day: "numeric" }) : "")) + "</p>";
   };

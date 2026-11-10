@@ -87,14 +87,14 @@
     var T = day.slots && day.slots.length ? W.dayTimes(day, P) : null;
     var cards = (day.slots || []).filter(function (x) { return x.item && !W.isFood(x.slot); }).map(function (x, i) {
       var it = x.item, pic = W.picture(it, false, day.country, x.trip ? day.trip.name : day.city), picks = W.kidPicks(it);
-      var love = kids.length ? kids.map(function (k) { var on = picks.indexOf(k) > -1; return '<button type="button" class="k-heart' + (on ? " on" : "") + '" data-kpick="' + esc(it.n) + '" data-kname="' + esc(k) + '" aria-pressed="' + on + '"><span aria-hidden="true">' + (on ? "♥" : "♡") + "</span> " + esc(k) + "</button>"; }).join("")
-        : '<button type="button" class="k-heart' + (picks.length ? " on" : "") + '" data-kpick="' + esc(it.n) + '" data-kname="kids" aria-pressed="' + !!picks.length + '"><span aria-hidden="true">' + (picks.length ? "♥" : "♡") + "</span> We want to go!</button>";
+      var love = kids.length ? kids.map(function (k) { var on = picks.indexOf(k) > -1; return '<button type="button" class="k-heart' + (on ? " on" : "") + '" data-kpick="' + esc(it.n) + '" data-kname="' + esc(k) + '" aria-pressed="' + on + '"><span aria-hidden="true">' + W.icon("heart", 2.1) + "</span> " + esc(k) + "</button>"; }).join("")
+        : '<button type="button" class="k-heart' + (picks.length ? " on" : "") + '" data-kpick="' + esc(it.n) + '" data-kname="kids" aria-pressed="' + !!picks.length + '"><span aria-hidden="true">' + W.icon("heart", 2.1) + "</span> We want to go!</button>";
       return '<article class="k-card c' + (i % 6) + '">' + (pic ? '<div class="k-pic">' + pic + "</div>" : '<div class="k-pic none"><span>' + esc(it.n.charAt(0)) + "</span></div>") +
         '<div class="k-b"><span class="k-when">' + esc(W.SLOT_NAME[x.slot] || "") + (T && T.rows && T.rows[x.slot] ? " · " + esc(W.clock(T.rows[x.slot].start)) : "") + "</span><h4>" + esc(it.n) + "</h4>" + (it.d ? "<p>" + esc(it.d) + "</p>" : "") +
         '<div class="k-love">' + love + "</div></div></article>";
     });
     h += cards.length ? '<div class="k-cards">' + cards.join("") + "</div>" : '<div class="k-move">A slow day: playground, pool and ice cream time!</div>';
-    if (T && T.nap && W.party().toddler) h += '<div class="k-nap"><span aria-hidden="true">😴</span> Nap time at ' + esc(W.clock(T.nap.start)) + "</div>";
+    if (T && T.nap && W.party().toddler) h += '<div class="k-nap"><span class="k-nap-i" aria-hidden="true">' + W.icon("nap", 2) + "</span> Nap time at " + esc(W.clock(T.nap.start)) + "</div>";
     var meals = (day.slots || []).filter(function (x) { return x.item && W.isFood(x.slot) && x.slot !== "breakfast"; }).map(function (x) { return "<li><b>" + esc(W.SLOT_NAME[x.slot]) + ":</b> " + esc(x.item.n) + "</li>"; });
     if (meals.length) h += '<ul class="k-meals">' + meals.join("") + "</ul>";
     return h;

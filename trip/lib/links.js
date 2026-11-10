@@ -49,13 +49,8 @@
   W.modeName = function (m) { m = String(m || "").toLowerCase(); for (var k in MODE) if (m.indexOf(k) > -1) return MODE[k]; return m ? m.charAt(0).toUpperCase() + m.slice(1) : "Travel"; };
 
   /* ---------- small pictures instead of words (v118) ---------- */
-  function svg(body, vb) { return '<svg viewBox="' + (vb || "0 0 24 24") + '" aria-hidden="true" focusable="false">' + body + "</svg>"; }
-  var PIC = {
-    /* a photo: a frame with a sun and two hills */
-    photos: svg('<rect x="3" y="4.5" width="18" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="2" fill="currentColor"/><path d="M4 18l5.5-5 3.5 3 3-2.5 4 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'),
-    /* a map: a folded map with a pin (a plain map sign, not any company's logo) */
-    map: svg('<path d="M3.5 6.5l5-2 7 2 5-2v13l-5 2-7-2-5 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8.5 4.5v13M15.5 6.5v6" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".55"/><path d="M15.5 21s-3.6-3.7-3.6-6.4a3.6 3.6 0 0 1 7.2 0c0 2.7-3.6 6.4-3.6 6.4z" fill="currentColor"/><circle cx="15.5" cy="14.6" r="1.3" fill="var(--surface, #fff)"/>')
-  };
+  var PIC = { photos: W.icon("photo", 2), map: W.icon("map", 2) };   /* a photo: a frame with a sun and hills; a map: a folded map with a pin (no company's logo) */
+
   /** an outside link drawn as a picture; the words go to screen readers and the tooltip @param {string} url @param {"photos"|"map"} kind @param {string} label */
   W.iconLink = function (url, kind, label) {
     return '<a class="ilink ilink-' + kind + '" href="' + W.esc(url) + '" target="_blank" rel="noopener" aria-label="' + W.esc(label) + '" title="' + W.esc(label) + '">' + PIC[kind] + "</a>";

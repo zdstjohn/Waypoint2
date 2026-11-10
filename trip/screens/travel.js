@@ -8,13 +8,13 @@
   function fmt(d, o) { return d ? d.toLocaleDateString(undefined, o || { weekday: "short", month: "short", day: "numeric" }) : ""; }
   function svg(d, vb) { return '<svg viewBox="' + (vb || "0 0 20 20") + '" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + d + "</svg>"; }
   var IC = {
-    dir: svg('<path d="M10 2.5l7.5 7.5-7.5 7.5L2.5 10z"/><path d="M8 12v-2.2c0-.7.5-1.3 1.3-1.3H12M11 7l1.5 1.5L11 10"/>'),
-    ticket: svg('<path d="M3 6.5a1.5 1.5 0 0 0 0 3v4A1.5 1.5 0 0 0 4.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-4a1.5 1.5 0 0 1 0-3A1.5 1.5 0 0 0 15.5 5h-11A1.5 1.5 0 0 0 3 6.5z"/>'),
-    more: '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.2" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="12.8" cy="8" r="1.5"/></svg>',
-    bed: svg('<path d="M2.5 15.5v-9M2.5 12.5h15v3M17.5 12.5v-2a2.5 2.5 0 0 0-2.5-2.5H9v4.5"/><circle cx="5.8" cy="9.8" r="1.6"/>'),
-    moon: svg('<path d="M15.5 12.5A6.5 6.5 0 0 1 7.5 4.5a6.5 6.5 0 1 0 8 8z"/>'),
+    dir: W.icon("dir", 2.2),
+    ticket: W.icon("ticket", 2.2),
+    more: W.icon("more", 2),
+    bed: W.icon("bed", 2.2),
+    moon: W.icon("moon", 2.2),
     check: svg('<path d="M4.5 10.5l3.5 3.5 7.5-8"/>'),
-    train: svg('<rect x="5" y="2.5" width="10" height="12" rx="2.5"/><path d="M5 10h10M7.5 17.5l1.5-3M12.5 17.5l-1.5-3"/><circle cx="7.8" cy="12.3" r=".5" fill="currentColor"/><circle cx="12.2" cy="12.3" r=".5" fill="currentColor"/>'),
+    train: W.icon("train", 2.2),
     chevL: svg('<path d="M12.5 4l-6 6 6 6"/>'),
     chevR: svg('<path d="M7.5 4l6 6-6 6"/>')
   };
@@ -85,7 +85,7 @@
 
     /* the top: which day, and moving between days */
     var a = P.days[n - 2], b = P.days[n];
-    if (W.kidNames && P.p.kid) h += '<button type="button" class="kids-chip" data-view="kids"><span aria-hidden="true">★</span> ' + esc(W.kidNames(13).length ? "For " + W.joinNames(W.kidNames(13)) : "For the kids") + ": their day, passport and treasure hunt ›</button>";
+    if (W.kidNames && P.p.kid) h += '<button type="button" class="kids-chip" data-view="kids"><span class="kc-i" aria-hidden="true">' + W.icon("star", 2.1) + "</span> " + esc(W.kidNames(13).length ? "For " + W.joinNames(W.kidNames(13)) : "For the kids") + ": their day, passport and treasure hunt ›</button>";
     h += '<div class="go-top"><button type="button" class="icon-btn" data-goprev="' + (a ? a.n : "") + '"' + (a ? "" : " disabled") + ' aria-label="Previous day">' + IC.chevL + "</button>" +
       '<div class="gt-m"><span class="gt-k' + (live ? " live" : "") + '">' + (live ? "Today" : tn ? (n > tn ? "Coming up" : "Earlier") : "Preview") + "</span><b>Day " + n + " · " + esc(day.city) + "</b>" +
       '<span class="muted">' + esc([fmt(W.dateOf(n), { weekday: "long", month: "short", day: "numeric" }), live ? W.clock(nm) : ""].filter(Boolean).join(" · ")) + "</span></div>" +

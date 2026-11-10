@@ -100,7 +100,7 @@
       var seen = (day.slots || []).filter(function (x) { return x.item && !W.isFood(x.slot); }).map(function (x) { return x.item.n; });
       if (!photos.length && !note && !started(day)) return;
       any = any || photos.length > 0 || !!note;
-      var mood = e.mood === 3 ? " 😄" : e.mood === 2 ? " 🙂" : e.mood === 1 ? " 😩" : "";
+      var mood = e.mood ? " " + W.moodFace(e.mood) : "";
       h += '<article class="rc-day sk"><div class="rc-h"><b>Day ' + day.n + " · " + esc(day.city) + mood + '</b><span class="muted">' + esc(fmt(W.dateOf(day.n), { weekday: "long", month: "short", day: "numeric" })) + "</span></div>" +
         (photos.length ? '<div class="jgrid rc">' + photos.map(function (p) { return '<img src="' + esc(src(p.id)) + '" alt="Photo from day ' + day.n + '" loading="lazy">'; }).join("") + "</div>" : "") +
         (note ? '<p class="jnote">' + esc(note) + "</p>" : "") +

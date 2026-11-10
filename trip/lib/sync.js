@@ -487,11 +487,11 @@
         (renaming ? '<input class="field" id="tripNameIn" value="' + esc(W.tripName()) + '" aria-label="Trip name" maxlength="60"><button type="button" class="btn quiet" data-sync="savename">Save</button>'
           : '<button type="button" class="linkish" data-sync="rename">Rename this trip</button>') + "</div>" +
         W.simpleSwitch() +
-        (W.P && W.P.stops && W.P.stops.length ? '<button type="button" class="tm-set" data-sync="kids"><svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5l2.2 4.6 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L2.8 7.8l5-.7z"/></svg>' +
+        (W.P && W.P.stops && W.P.stops.length ? '<button type="button" class="tm-set" data-sync="kids">' + W.icon("star", 2.1) + '' +
           '<span><b>For the kids</b><span class="small muted">Their day in big photos, a passport and treasure hunts</span></span></button>' : "") +
-        (W.P && W.P.stops && W.P.stops.length && !W.readOnly && !window.__WP_OFFLINE && W.sampleState === "on" ? '<button type="button" class="tm-set" data-sync="review"><svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3.5h9l3 3v10H4z"/><path d="M7 10.5l2 2 4-4.5"/></svg>' +
+        (W.P && W.P.stops && W.P.stops.length && !W.readOnly && !window.__WP_OFFLINE && W.sampleState === "on" ? '<button type="button" class="tm-set" data-sync="review">' + W.icon("plancheck", 2.1) + '' +
           '<span><b>Check my plan</b><span class="small muted">Claude reads the whole trip and flags real problems</span></span></button>' : "") +
-        '<button type="button" class="tm-set" data-sync="settings"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>' +
+        '<button type="button" class="tm-set" data-sync="settings">' + W.icon("settings", 1.9) + '' +
         /* the installable version reaches its account and the install card here too, signed in or not */
         (W.standalone ? '<span><b>Settings</b><span class="small muted">' + (W.cloud ? "Your account, importing a plan, installing on this phone" : "Sign in, install on this phone, prices") + "</span></span></button>"
           : '<span><b>Import a plan</b><span class="small muted">' + "From Wanderlog, a document or an email</span></span></button>") +

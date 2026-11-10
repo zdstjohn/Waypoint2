@@ -20,7 +20,7 @@ exports.run = async t => {
   /* a phone: the usual test answers stand in for Claude, behind the real request to the "claude" function */
   const phone = async (label, opts = {}) => {
     const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-    const pg = await ctx.newPage(), errs = [], asked = [];
+    const pg = await ctx.newPage(), errs = [], asked = [], flight = { now: 0, max: 0 };
     pg.on('pageerror', e => errs.push(e.message)); pg.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errs.push(m.text().slice(0, 160)); });
     await pg.exposeFunction('__dbOp', () => null);
     for (const m of ['test/mocks/mockdur.js', 'test/mocks/mock2.js']) await pg.addInitScript(fs.readFileSync(path.join(ROOT, m), 'utf8'));
@@ -29,11 +29,13 @@ exports.run = async t => {
       const rq = route.request(), auth = rq.headers().authorization || '', body = JSON.parse(rq.postData() || '{}');
       asked.push({ tier: body.tier, head: String(body.prompt).slice(0, 40), auth: /^Bearer [0-9a-f]{32}$/.test(auth) });
       if (opts.limitAfter != null && asked.length > opts.limitAfter) return route.fulfill({ status: 429, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ error: "That's today's 200 questions to Claude. More tomorrow.", code: 'rate_limited' }) });
+      flight.now++; flight.max = Math.max(flight.max, flight.now);
       const res = await pg.evaluate(([p, tier]) => window.__mockSample.then(s => s.json(p, { modelTier: tier })), [body.prompt, body.tier]).catch(() => ({}));
+      await new Promise(r => setTimeout(r, 150)); flight.now--;   /* a moment's thinking, so requests overlap as they do for real */
       route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ text: '```json\n' + JSON.stringify(res) + '\n```', model: 'test' }) });
     });
     await pg.goto(URL + '#trip'); await pg.waitForTimeout(1500);
-    return { ctx, pg, errs, asked };
+    return { ctx, pg, errs, asked, flight };
   };
   const signIn = async (pg, email, pw, newAcct) => {
     if (newAcct) await pg.click('.auth-gate [data-auth="up"]');
@@ -58,6 +60,21 @@ exports.run = async t => {
     await A.pg.waitForFunction(() => W.P && W.P.days.length === 5 && W.P.days[4].slots.filter(x => x.item).length >= 4, null, { timeout: 30000 }).catch(() => {});
     const a2 = await A.pg.evaluate(() => ({ malaga: W.P.days[4].city, filled: W.P.days[4].slots.filter(x => x.item).length, note: !!document.querySelector('.sa-info'), countries: document.querySelectorAll('#countryList option').length }));
     t.ok(a2.malaga === 'Málaga' && a2.filled >= 4 && !a2.note, `Málaga (no built-in ideas) is planned from Claude's answers (${a2.filled} stops), with no "few ideas" note: ` + JSON.stringify(a2) + ' ' + JSON.stringify(A.asked.map(x => x.head)).slice(0, 600));
+    /* what goes first, and how many at once */
+    const pr = await A.pg.evaluate(() => { const d1 = W.P.days[0], c = d1.country + '|' + d1.city, o = W.P.days.filter(d => d.city !== d1.city)[0], oc = o.country + '|' + o.city;
+      return { main: W.loadPrio('spots|' + c), second: W.loadPrio('spots|' + c + '|b'), extra: W.loadPrio('gems|' + c), other: W.loadPrio('spots|' + oc), otherExtra: W.loadPrio('gems|' + oc), mine: W.loadPrio('search|' + c + '|cafe') }; });
+    t.ok(pr.mine === 0 && pr.main < pr.second && pr.second < pr.other && pr.main < pr.extra && pr.extra < pr.otherExtra, "the city on screen is asked for first: its main lists, then its second lists, then the next city; extras last, and a search you typed goes straight to the front: " + JSON.stringify(pr));
+    const heads = A.asked.map(x => x.head), lists = heads.filter(h => /^List /.test(h));
+    t.ok(heads.some(h => /^List the 15 best things to do/.test(h)) && heads.some(h => /^List 15 places to eat/.test(h)) && !lists.some(h => /^List (14|10 MORE|8 MORE|\d+ hidden gems|\d+ things to do in and around .* for travelers who)/.test(h)),
+      'each city starts with 15 things to do and 15 places to eat, and nothing more is fetched unless asked: ' + JSON.stringify(lists));
+    /* a stay made longer grows its ideas by the difference (15 for three days, 27 for six: 12 more of each), once */
+    const grow = await A.pg.evaluate(async () => { const before = W.stayDays('Spain', 'Madrid'), a0 = (W.C.city['Spain|Madrid'] || {}).askedN;
+      W.S.days = before + 5; W.S.cityDays['Spain|Madrid'] = before + 3; W.changed(); W.render(); await new Promise(r => setTimeout(r, 2500)); W.render(); await new Promise(r => setTimeout(r, 1500));
+      return { before, a0, after: W.stayDays('Spain', 'Madrid'), asked: (W.C.city['Spain|Madrid'] || {}).askedN, want: W.firstIdeas(before + 3) }; });
+    const more = A.asked.map(x => x.head).filter(h => / MORE /.test(h));
+    t.ok(grow.after === grow.before + 3 && grow.asked === grow.want && grow.want > grow.a0 && more.length === 2 && more.every(h => new RegExp('^List ' + (grow.want - grow.a0) + ' MORE ').test(h)),
+      'making a stay longer fetches the difference, once: ' + JSON.stringify(grow) + ' ' + JSON.stringify(more));
+    t.ok(A.flight.max > 3 && A.flight.max <= 6, 'the installable app asks up to six things at once (three inside Claude): ' + A.flight.max);
     t.ok(A.asked.length > 5 && A.asked.every(x => x.auth) && A.asked.some(x => x.tier === 'quick') && A.asked.some(x => x.tier === 'default'), `each question goes to the function with her sign-in (${A.asked.length} questions)`);
     /* 3. saved to her account */
     await A.pg.waitForTimeout(3500);
