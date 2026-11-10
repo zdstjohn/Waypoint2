@@ -236,7 +236,7 @@
 
     /* 5 · route check */
     if (P.stops.length) { if (RC.body) h += step("check", "06", "Trip shape", RC.sum, RC.body).replace('class="step sk"', 'class="step sk rtcheck' + (RC.warn ? " has-warn" : "") + '"'); }
-    h += '<div class="cta"><button type="button" class="btn" data-view="trip">See my trip →</button></div>';
+    h += '<div class="cta"><button type="button" class="btn" data-view="trip">See my trip' + W.arrow("r") + "</button></div>";
     var el = $("viewSetup"), a = document.activeElement, id = a && a.id, val = a && a.value, sel = a && a.selectionStart;
     el.innerHTML = h;
     if (id && $(id)) { var n = $(id); if (n.value !== val && n.tagName === "INPUT" && n.type !== "number" && n.type !== "date") n.value = val; n.focus(); try { if (sel != null) n.setSelectionRange(sel, sel); } catch (e) {} }

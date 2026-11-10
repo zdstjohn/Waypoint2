@@ -90,7 +90,7 @@
       '<div class="gt-m"><span class="gt-k' + (live ? " live" : "") + '">' + (live ? "Today" : tn ? (n > tn ? "Coming up" : "Earlier") : "Preview") + "</span><b>Day " + n + " · " + esc(day.city) + "</b>" +
       '<span class="muted">' + esc([fmt(W.dateOf(n), { weekday: "long", month: "short", day: "numeric" }), live ? W.clock(nm) : ""].filter(Boolean).join(" · ")) + "</span></div>" +
       '<button type="button" class="icon-btn" data-goprev="' + (b ? b.n : "") + '"' + (b ? "" : " disabled") + ' aria-label="Next day">' + IC.chevR + "</button></div>";
-    if (tn && !live) h += '<button type="button" class="linkish go-back" data-gotoday="1">← Back to today</button>';
+    if (tn && !live) h += '<button type="button" class="linkish go-back" data-gotoday="1">' + W.arrow() + "Back to today</button>";
     if (W.holidayLine) h += W.holidayLine(day);
     if (!tn && !goN) h += '<p class="small muted go-pre">' + (W.S.start ? "Your trip hasn't started yet. This is how each day will look while you're there." : "Add your travel dates and this screen follows the clock while you travel.") + "</p>";
 

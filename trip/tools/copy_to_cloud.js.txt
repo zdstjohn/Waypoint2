@@ -22,7 +22,8 @@ function forTheWeb(kind, data) {
   for (const [k, it] of Object.entries(data.items)) {
     if (!it || typeof it !== "object") continue;
     if (typeof it.url === "string" && it.url.startsWith("/_blob/")) { const u = commonsSized(it); if (!u) continue; items[k] = Object.assign({}, it, { url: u }); }
-    else items[k] = it;
+    else items[k] = Object.assign({}, it);
+    delete items[k].big;   /* a large copy in the Claude file store: here the app asks Commons for the size it needs */
   }
   return Object.assign({}, data, { items });
 }

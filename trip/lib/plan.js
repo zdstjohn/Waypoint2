@@ -403,7 +403,7 @@
     /* the trip as a whole: enough nights per place for this group, day trips instead of extra hotel moves */
     if (W.shapeTrip) { st = W.shapeTrip(st, N, p); N = st.reduce(function (a, s) { return a + s.days; }, 0); }
     if (N !== +S.days) S.days = N;   /* the trip is as long as the days you gave each place */
-    var days = [], n = 0, jl = W.jetlag({ stops: st, ap: ap });
+    var days = [], n = 0, jl = W.jetlag({ stops: st, ap: ap }), fitted = {};
     CUR = { p: p, stops: st, days: days, ap: ap };
     st.forEach(function (s, si) {
       for (var d = 0; d < s.days; d++) {
@@ -442,7 +442,7 @@
           if (x.rest || x.free || x.loading) return;   /* a rest day keeps its morning and evening free (your picks come back if you undo it); a slot you cleared stays free */
           if (d.rest && x.slot === "pm" && !mine()[x.key]) return;   /* its one outing is chosen fresh: something easy nearby */
           var pl = dayPool(d, x, s), nm = S.picks[x.key], list = W.isFood(x.slot) ? pl.pool.food || [] : pl.pool.spots || [];
-          var it = nm && byName(list, nm);
+          var it = nm && (byName(list, nm) || (W.fromRest && !pl.pool.fallback ? W.fromRest(pl.pool, nm, W.isFood(x.slot)) : null));
           /* a pick the planner made (not you) that turns out to be shut that day, or a dinner that opens too late for the kids, is replanned */
           if (it && !mine()[x.key] && (W.badForDay(it, W.weekday(d.n), x.slot, W.kidDinner()) || (W.holidayShut && W.holidayShut(it, d)) || (W.isFood(x.slot) && W.eatFit && W.eatFit(it) === "poor"))) it = null;
           /* a place you chose yourself stays even if an earlier stop had it; one the planner chose doesn't */
@@ -477,8 +477,14 @@
       before.push({ city: W.cityKey(s.country, s.name), home: home, used: used });
       /* no top-ups in the background: a city keeps its first ideas (15 of each, more for a longer stay) until someone
          taps "Find more" (a day they don't fill says so: screens/trip.js). Only a stay made longer grows them */
-      if (!pool.fallback) W.growIdeas(s.country, s.name, s.days);
+      if (!pool.fallback) {
+        var stay = st.reduce(function (a, o) { return a + (o.country === s.country && o.name === s.name ? o.days || 0 : 0); }, 0);
+        if (!fitted[before[before.length - 1].city]) { fitted[before[before.length - 1].city] = 1; W.fitIdeas(s.country, s.name, stay); }
+        W.growIdeas(s.country, s.name, stay);
+      }
     });
+    /* a place visited only as a day trip shows a day's worth of ideas */
+    days.forEach(function (d) { var k = d.trip && W.cityKey(d.trip.country, d.trip.name); if (k && !fitted[k]) { fitted[k] = 1; W.fitIdeas(d.trip.country, d.trip.name, 1); } });
     var P = { stops: st, days: days, N: N, p: p, ap: ap };
     fitDays(P);
     return P;

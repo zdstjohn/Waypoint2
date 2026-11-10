@@ -20,6 +20,40 @@ first screen reads from Prepare (the book-by checklist, the budget, which bookin
 with W.money and "Prices in": each phone shows costs as listed or all in one currency (localStorage "waypoint-cur"),
 converted at the European Central Bank's rates in fx/latest (refreshed nightly) and marked "≈" (W.priceText converts
 prices written in text, like "€15, book ahead"; a currency with no rate stays as listed); Prepare and Settings offer it.
+v123: one scale, motion, and the kids' corner drawn. app.css has one scale for corners (--r-xs 6, --r-sm 10, --r-md 14,
+--r-lg 20, --r-pill), shadows (--sh-1 resting, --lift a card's own, --sh-3 raised, --sh-4 over the page, --sh-brand under
+the gradient) and text sizes (--t-micro 11 up to --t-h2 24); every rule uses them (the map library's own rules are left
+alone; spacing is not on a scale). Motion, all off under "reduce motion": page and day changes are a short slide (the
+3D page turn is gone; a modest phone gets a lighter slide instead of nothing: lib/fx.js fxFlip), controls settle under
+the finger, a ticked row glows once, and for a moment after a screen opens (W.fxEnter, class "view-enter" on the page)
+the readiness ring fills from empty and a day's photo eases into place; later redraws don't replay it. The kids'
+corner (screens/kids.js) is drawn: the logo's night sky behind the greeting, a passport page whose stamps are inked
+drawings (the place's name around the rim, the date below, a sign in the middle: a temple for Greece, a dome for Italy,
+a boat or the sea for the seaside; the words stay in the button for screen readers), and a treasure map where each
+find turns from a numbered spot into a gold coin and the chest opens when all six are found.
+Header photos at full size: the photo behind a day's name and each place in All days is shown large, so it needs a
+large picture. Stored photos are 720 px (right for lists). A photo record may carry "big", a 1920 px copy of the same
+Commons picture (tools/big_photos.py: only for the city itself and the places a trip has on its days, a record with a
+large copy is never fetched again, and Commons' "busy" answer means the rest waits for the next run); the installable
+app has no stored photos and asks Commons for the size the screen needs (srcset 960/1280/1920; tools/copy_to_cloud.js
+drops "big" from its copy). W.cityPhoto prefers a place whose photo can be shown large, and W.heroImg marks one that
+can't as "lowres": on a wide screen (761 px up) that photo sits at the right at its own size, fading into the
+header's night colours, and is never stretched (app.css). On a phone 720 px fills the header as it is.
+A phone is offered the small picture and a wide screen the large one ("sizes" on the header's srcset), and headers
+further down All days load as they come near.
+No more ideas on show than the stay calls for (W.fitIdeas, lib/core.js): v122 limited what a new city is asked for,
+but a city listed before that (60 things to do, 40 places to eat, plus up to 80 nightly restaurants) still showed all
+of it. After every planning, each city of the trip keeps W.firstIdeas(days there) of each on show (15, more for a
+longer stay), plus what you asked for (pool.showN: "Find more", hidden gems, rainy-day ideas); the rest is set aside in
+pool.rest, kept and synced with the list but not shown or planned with. Never set aside: a place on one of the
+trip's days (S.picks), a place you added yourself; breakfast keeps its share of the places to eat and the evening
+its share of the things to do. "Find more" and a longer stay bring the set-aside ones out first, at once, and ask
+Claude only for what is still missing; a pick of another trip found set aside comes back (W.fromRest).
+Small things: "Back to…" and "See my trip" use a drawn arrow (W.arrow) that sits on the middle of the capital letters
+(the font's own arrow sat low on phones); the dot between the greeting and the place's time is "tl-sep" (as "tl-dot"
+it took the booking timeline's styles and showed as a stray blob beside the logo); W.clock and W.sky keep their time
+formatters (making one was the slowest part of drawing a day); the phone tab bar is more solid, so the page no longer
+reads through it.
 v122: what Claude is asked first. W.run's queue (lib/core.js) no longer goes in the order things were asked: the city on
 screen (the selected day, and today's on a trip) comes first, its main lists (sights, places to eat, breakfast) before
 its second lists, then other cities' main lists, then the extras (hidden gems, rainy-day ideas, links, events, costs);

@@ -75,8 +75,17 @@
   W.fxFlipsOff = function () { return slowFlips >= 1; };
   /* after (optional) runs once the new page is in place and done moving: the place to scroll to a spot on it */
   W.fxFlip = function (kind, dir, update, after) {
-    if (off() || flipping || slowFlips >= 1) { update(); if (after) after(); return; }
+    if (off() || flipping) { update(); if (after) after(); return; }
+    if (kind === "page" && W.fxEnter) W.fxEnter();
     var root = document.documentElement;
+    /* a modest or slow phone skips the snapshot (below) but still gets a light slide of the new page: opacity and a few
+       pixels, which the phone's compositor does without redrawing anything */
+    if (slowFlips >= 1) {
+      update();
+      var el0 = kind === "day" ? document.querySelector(".dayflip") : document.querySelector("main:not([hidden])");
+      if (el0 && el0.animate) el0.animate([{ opacity: 0, transform: "translateX(" + (dir < 0 ? -14 : 14) + "px)" }, { opacity: 1, transform: "none" }], { duration: 220, easing: EASE });
+      if (after) after(); return;
+    }
     if (document.startViewTransition) {
       flipping = true;
       root.classList.add("vt-" + kind); root.setAttribute("data-flip", dir < 0 ? "back" : "fwd");
@@ -91,7 +100,7 @@
     /* browsers without page transitions: slide the new page in */
     update();
     var el = kind === "day" ? document.querySelector(".dayflip") : document.querySelector("main:not([hidden])");
-    var an = el ? el.animate([{ opacity: 0, transform: "translateX(" + (dir < 0 ? -28 : 28) + "px)" }, { opacity: 1, transform: "none" }], { duration: 340, easing: EASE }) : null;
+    var an = el ? el.animate([{ opacity: 0, transform: "translateX(" + (dir < 0 ? -22 : 22) + "px)" }, { opacity: 1, transform: "none" }], { duration: 300, easing: EASE }) : null;
     if (after) { if (an && an.finished) an.finished.then(after, after); else after(); }
   };
 
@@ -121,4 +130,15 @@
     }
     a.onfinish = fin; setTimeout(fin, (opening ? 340 : 260) + 150);
   }, true);
+})();
+
+/* a screen just opened (a tab, the first load): for a moment the page carries "view-enter", and what arrives then moves
+   in once (the readiness ring fills, a day's photo settles). Later redraws of the same screen don't replay it. */
+(function () {
+  var W = window.W, t = 0;
+  W.fxEnter = function () {
+    if (W.fxOff && W.fxOff()) return;
+    var r = document.documentElement; r.classList.add("view-enter"); clearTimeout(t);
+    t = setTimeout(function () { r.classList.remove("view-enter"); }, 1500);
+  };
 })();

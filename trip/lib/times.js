@@ -36,9 +36,12 @@
   };
   var WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   /* 9:30 AM or 09:30, as the device writes times */
+  /* a day's page writes dozens of times: one formatter for all of them, and each minute's text is worked out once */
+  var CLK = null, CLKS = {};
   W.clock = function (m) {
     m = ((Math.round(m) % 1440) + 1440) % 1440;
-    try { return new Date(2000, 0, 1, Math.floor(m / 60), m % 60).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); }
+    if (CLKS[m]) return CLKS[m];
+    try { CLK = CLK || new Intl.DateTimeFormat([], { hour: "numeric", minute: "2-digit" }); return (CLKS[m] = CLK.format(new Date(2000, 0, 1, Math.floor(m / 60), m % 60))); }
     catch (e) { return pad(Math.floor(m / 60)) + ":" + pad(m % 60); }
   };
   W.iso = function (d, m) { return W.isoDay(d) + "T" + pad(Math.floor(m / 60) % 24) + ":" + pad(m % 60) + ":00"; };

@@ -26,6 +26,7 @@ interface Lodging extends LatLng { n: string; tier: Tier; type: string; area: st
 interface Transit { system: string; pass: string; airport: string; tip: string }
 /** everything the app knows about one city: Claude's lists plus what the checks laid over them */
 interface Pool extends LatLng { d?: string; spots: Spot[]; food: Food[]; stay?: StayArea[]; lodging?: Lodging[]; lodgeFor?: string; lodgeAsked?: 1; transit?: Transit | null; fallback?: boolean;
+  rest?: { spots: Spot[]; food: Food[] }; showN?: { spots?: number; food?: number }; askedN?: number;
   styleAsked?: Record<string, 1>; indoorAsked?: 1; gemsAsked?: 0 | 1; fameAsked?: 0 | 1; cityLow?: string }
 /** a destination in a country list (built in, or from Claude) */
 interface BuiltCity extends LatLng { name: string; region?: string; w?: number; pop?: number; t?: string[]; d?: string; spots?: Spot[] }
@@ -73,7 +74,7 @@ interface Countdown { big: string; small: string; line: string }
 interface CheckItem { key: string; title?: string; short?: string; done: boolean; [k: string]: any }
 interface PackItem { key: string; text: string; who?: string; why?: string; own?: boolean; group?: string; [k: string]: any }
 interface PackLists { pack: PackItem[]; todo: PackItem[]; facts: Record<string, any>; hidden?: number }
-interface Photo { url: string; credit?: string; page?: string; near?: string | boolean }
+interface Photo { url: string; credit?: string; page?: string; near?: string | boolean; /** a large copy of the same picture (stored by the nightly helper), for wide headers */ big?: string }
 /** a checked place record (places/<city> in the database) */
 /** g: Google's place ID (kept for good); gpin/gat: the pin came from Google on that day (kept 30 days, never on the free map) */
 interface PlaceRecord { lat?: number | null; lng?: number | null; g?: string; gpin?: 1; gat?: string; [k: string]: any; checked?: string; osm?: string; name?: string; st?: Spot["st"]; site?: string; hours?: Hours; k?: Kid; note?: string; place?: string; replace?: Partial<Food & Spot> & { n: string }; approx?: 1; nopin?: 1; ashore?: 1; stay?: 1; pin_tried?: string; area?: 1; was?: [number, number] }
@@ -196,6 +197,8 @@ interface Waypoint {
   fxFlip: (kind: string, dir: number, update: () => void, after?: (() => void) | null) => void;
   fxFlipsOff: () => boolean;
   fxOff: any;
+  /** a screen just opened: for a moment the page carries "view-enter" so what arrives moves in once */
+  fxEnter: () => void;
   fxPulse: any;
   fxRunAfter: any;
   fxStagger: any;
@@ -548,14 +551,18 @@ interface Waypoint {
   stayDays: (country: string, city: string) => number;
   /** a stay made longer: fetch the difference */
   growIdeas: (country: string, city: string, stayDays: number) => void;
+  fitIdeas: (country: string, city: string, stayDays: number, quiet?: boolean) => boolean;
+  ideaLimit: (c: Pool | null | undefined, list: "spots" | "food", stayDays: number) => number;
+  fromRest: (pool: Pool, name: string, food: boolean) => Spot | Food | null;
   /** the icon set (lib/icons.js): name to its drawing on a 24 grid */
   ICONS: Record<string, string>;
   /** an icon as an svg; weight is the line's width on the 24 grid */
   icon: (name: string, weight?: number, cls?: string) => string;
+  arrow: (dir?: string) => string;
   /** a city's own photo for its header: the city, else the first of these places with one, else its best-known sight */
   cityPhoto: (country: string, city: string, prefer?: (Spot | Food)[]) => Photo | null;
   /** the photo filling a header, with its credit */
-  heroImg: (ph: Photo, alt: string) => string;
+  heroImg: (ph: Photo, alt: string, lazy?: boolean) => string;
   /** a drawn face for a day's mood (3 great, 2 good, 1 tough) */
   moodFace: (m: number) => string;
   /** which Claude request goes next: 0 first (things you asked for), higher later */

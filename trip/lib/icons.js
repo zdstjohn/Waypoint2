@@ -62,6 +62,7 @@
     chevD: '<path d="m4.5 9 7.5 7.500L19.5 9"/>',
     chevU: '<path d="m4.5 15 7.5-7.5 7.5 7.5"/>',
     arrowR: '<path d="M4.5 12h15M13.5 6l6 6-6 6"/>',
+    arrowL: '<path d="M19.5 12h-15M10.5 6l-6 6 6 6"/>',
     nap: '<path class="ia" d="M18 14.800A7 7 0 0 1 9.7 6.4 7 7 0 1 0 18 14.800z"/><path d="M18 14.800A7 7 0 0 1 9.7 6.4 7 7 0 1 0 18 14.800z"/><path d="M14.5 3.500h4l-4 4.500h4" stroke-width="1.6"/>'
   };
   W.ICONS = I;
@@ -70,4 +71,7 @@
     return '<svg' + (cls ? ' class="' + cls + '"' : "") + ' data-i="' + name + '" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="url(#wpIg)" stroke-width="' + (weight || 1.9) +
       '" stroke-linecap="round" stroke-linejoin="round">' + (I[name] || "").replace(/class="ia"/g, 'class="ia" fill="url(#wpIg)"').replace(/fill="currentColor"/g, 'fill="url(#wpIg)" class="if"') + "</svg>";
   };
+  /* the arrow before "Back" and after "See my trip": drawn, so it sits on the words' middle line in every font
+     (the font's own "←" sat low on phones) */
+  W.arrow = function (dir) { return W.icon(dir === "r" ? "arrowR" : "arrowL", 2.3, "arr" + (dir === "r" ? " arr-r" : "")); };
 })();

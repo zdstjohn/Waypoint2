@@ -6,7 +6,7 @@ const px = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
 const ph = (id, near) => Object.assign({ url: px + '#' + id, credit: 'Test, CC BY-SA 4.0', page: 'https://commons.wikimedia.org/wiki/File:' + id }, near ? { near: true } : {});
 exports.run = async t => {
   const seed = {
-    'photos/italy-rome': { items: { 'colosseum': ph('colosseum'), 'pantheon': ph('pantheon'), 'santa maria in trastevere': ph('smt'), 'trevi fountain': ph('trevi', true),
+    'photos/italy-rome': { items: { 'colosseum': Object.assign(ph('colosseum'), { big: '/_blob/large1' }), 'pantheon': ph('pantheon'), 'santa maria in trastevere': ph('smt'), 'trevi fountain': ph('trevi', true),
       'basilica and expiatory church of the holy family': ph('sf'), 'sagrada familia': ph('sf'), 'roscioli salumeria con cucina': ph('roscioli'), 'castel sant angelo': ph('csa') }, city: 'Rome', country: 'Italy' },
     'photos/united-states-new-york': { items: { 'statue of liberty': ph('liberty') }, city: 'New York', country: 'United States' },
   };
@@ -35,6 +35,17 @@ exports.run = async t => {
   t.eq(r.usaVariant, 'liberty', 'and a variant name works there too');
   const bare = await pg.evaluate(() => [W.picture({ n: 'Lemon Grove Tour and Limoncello Tasting' }, false, 'Italy', 'Rome'), W.picture({ n: 'Evening stroll' }, false, 'Italy', 'Rome', { credit: true }), !!W.sketch]);
   t.eq(bare, ['', '', false], 'a place with no photo shows no picture at all, never a drawing');
+  /* the photo that fills a header: the stored large copy when there is one, and a small photo is never stretched */
+  const hero = await pg.evaluate(() => {
+    const small = W.photoFor({ n: 'Pantheon' }, false, 'Italy', 'Rome'), big = W.photoFor({ n: 'Colosseum' }, false, 'Italy', 'Rome');
+    const pick = W.cityPhoto('Italy', 'Rome', [{ n: 'Pantheon' }, { n: 'Colosseum' }]);
+    const a = W.heroImg(big, 'Rome'), z = W.heroImg(small, 'Rome');
+    return { pick: pick && pick.big, bigSrc: /srcset="[^"]* 720w, \/_blob\/large1 1920w"/.test(a) && /sizes=/.test(a), bigPlain: !/lowres/.test(a), credit: /hero-credit/.test(a) && /Test, CC BY-SA 4\.0/.test(a),
+      smallSrc: z.indexOf(small.url.replace(/&/g, '&amp;')) > 0 || z.indexOf(small.url) > 0, smallSide: /class="hero-img lowres"/.test(z), noSet: !/srcset/.test(z) };
+  });
+  t.eq(hero.pick, '/_blob/large1', 'a header prefers a place whose photo has a large copy');
+  t.ok(hero.bigSrc && hero.bigPlain && hero.credit, 'a wide header is offered the large copy (a phone keeps the small one), with the photographer\'s credit');
+  t.ok(hero.smallSrc && hero.smallSide && hero.noSet, 'a photo with no large copy is marked to sit at its own size, not stretched');
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

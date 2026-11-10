@@ -11,7 +11,7 @@
     var el = W.$("viewSettings"); if (!el) return;
     var host = el;
     var back = W.prevView ? W.prevView() : "trip";
-    var h = '<div class="settings"><button type="button" class="linkish back" data-view="' + back + '">← ' + esc(BACK[back] || "Back") + "</button>" +
+    var h = '<div class="settings"><button type="button" class="linkish back" data-view="' + back + '">' + W.arrow() + esc(BACK[back] || "Back") + "</button>" +
       '<header class="set-h"><h2>Settings</h2><p class="muted">' + esc(W.tripName ? W.tripName() : "This trip") + "</p></header>";
     if (W.accountCard) h += W.accountCard(card);
     if (W.installCard) h += W.installCard(card);

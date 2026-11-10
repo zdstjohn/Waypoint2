@@ -90,7 +90,7 @@
   W.renderRecap = function (P) {
     var el = W.$("viewRecap"); if (!el) return;
     var d1 = W.dateOf(1), dn = W.dateOf(P.N), fmt = function (d, o) { return d ? d.toLocaleDateString(undefined, o) : ""; };
-    var h = '<div class="recap"><button type="button" class="linkish back" data-view="trip">← Back to the trip</button>' +
+    var h = '<div class="recap"><button type="button" class="linkish back" data-view="trip">' + W.arrow() + "Back to the trip</button>" +
       '<header class="rc-hero sk"><h2>' + esc(W.tripName ? W.tripName() : "Our trip") + "</h2>" +
       '<p class="muted">' + esc([d1 ? fmt(d1, { month: "long", day: "numeric" }) + " – " + fmt(dn, { month: "long", day: "numeric", year: "numeric" }) : P.N + " days", P.stops.map(function (s) { return s.name; }).join(" → ")].filter(Boolean).join(" · ")) + "</p></header>";
     if (W.highlights) h += W.highlights(P);

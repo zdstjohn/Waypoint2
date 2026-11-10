@@ -1,6 +1,5 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v122: every screen. The icon set (sunset-gradient lines), the gradient on buttons, tabs and switches, clean capital
-# labels in place of the handwritten font, city photos behind day and place names, the frosted tab bar with a tile on
-# the current tab, the To book list grouped by how far ahead, and 15 ideas a city (fewer rows in Explore and the swaps).
+# v123: every screen. Corners, shadows and text sizes moved onto one scale (half-pixel text sizes round up, 12-13 px
+# corners become 14), and the kids' corner is drawn (night-sky header, inked passport stamps, the treasure map).
 *

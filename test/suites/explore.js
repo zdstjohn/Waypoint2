@@ -68,7 +68,8 @@ exports.run = async t => {
     const p0 = W.pool('Italy', 'Rome'), orig = { s: p0.spots.slice(), f: p0.food.slice() };
     if (p0.spots.length > 40) p0.spots.length = 40; if (p0.food.length > 24) p0.food.length = 24;
     W.S.tview = 'map'; W.S.day = 2; W.render(); const n0 = (window.__full || []).length;
-    document.querySelector('[data-more="1"]').click(); await new Promise(r => setTimeout(r, 900));
+    const aside = () => [((p0.rest || {}).spots || []).length, ((p0.rest || {}).food || []).length], a0 = aside();
+    document.querySelector('[data-more="1"]').click(); const a1 = aside(); await new Promise(r => setTimeout(r, 900));
     orig.s.forEach(x => { if (!p0.spots.some(y => y.n === x.n)) p0.spots.push(x); }); orig.f.forEach(x => { if (!p0.food.some(y => y.n === x.n)) p0.food.push(x); });
     const asks = (window.__full || []).slice(n0).map(p => (p.match(/List (\d+) MORE (things to do|places to eat)/) || []).slice(1, 3).join(' ')).filter(Boolean);
     const pool = W.pool('Italy', 'Rome'), keep = { s: pool.spots.slice(), f: pool.food.slice() };
@@ -79,9 +80,10 @@ exports.run = async t => {
     const n1 = (window.__full || []).length; W.loadCity('Italy', 'Rome', true); await new Promise(r => setTimeout(r, 300));
     full.asked = (window.__full || []).slice(n1).filter(p => /MORE/.test(p)).length;
     pool.spots.length = 0; keep.s.forEach(x => pool.spots.push(x)); pool.food.length = 0; keep.f.forEach(x => pool.food.push(x)); W.render();
-    return { asks, full, had: [keep.s.length, keep.f.length] };
+    return { asks, full, had: [keep.s.length, keep.f.length], out: [a0[0] - a1[0], a0[1] - a1[1]] };
   });
-  t.ok(more.asks.includes('10 things to do') && more.asks.includes('8 places to eat'), '"Find more" asks for 10 more things to do and 8 more places to eat: ' + JSON.stringify(more.asks) + ' (Rome had ' + more.had.join(' / ') + ')');
+  const askedN = what => +((more.asks.find(a => a.endsWith(what)) || '0').split(' ')[0]);
+  t.ok(askedN('things to do') + more.out[0] === 10 && askedN('places to eat') + more.out[1] === 8, '"Find more" puts 10 more things to do and 8 more places to eat on show: the ones the city had set aside first, Claude for the rest: asked ' + JSON.stringify(more.asks) + ', brought out ' + JSON.stringify(more.out) + ' (Rome had ' + more.had.join(' / ') + ')');
   t.ok(!more.full.btn && more.full.note && more.full.asked === 0, 'a city at its cap (60 things to do, 40 places to eat) asks for no more and says there is plenty');
   /* what the nightly checks are told: this trip's stops first, with their dates, the soonest day as "when", the rest up to the cap */
   const want = await pg.evaluate(async () => {
@@ -94,6 +96,33 @@ exports.run = async t => {
       cap: doc.spots.length <= Math.max(W.IDEA_CAP.spots, onTrip.length) && doc.food.length <= Math.max(W.IDEA_CAP.food + 30, onTrip.length) && (doc.menus || []).length === doc.food.length };   /* (places to eat: the cap plus room for the nightly ones; each with its menu page, in step) */
   });
   t.ok(want && want.when === want.firstDay && want.used === want.onTrip && want.headOk && want.first && want.pairs && want.cap, 'the nightly lists put this trip\'s stops first with their dates (' + JSON.stringify(want) + ')');
+  /* a city that holds far more ideas than the stay calls for (lists from before the limit, the nightly restaurants):
+     only the stay's worth is on show; the rest is set aside, and comes out first when you ask for more */
+  const fit = await pg.evaluate(async () => {
+    for (let i = 0; i < 100 && Object.keys(W.status).some(k => /Rome/.test(k) && W.status[k] === 'loading'); i++) await new Promise(r => setTimeout(r, 100));
+    const pool = W.pool('Italy', 'Rome'); delete pool.showN; pool.rest = { spots: [], food: [] };
+    const stay = W.stayDays('Italy', 'Rome'), lim = W.firstIdeas(stay), used = Object.keys(W.S.picks).filter(k => k.indexOf('Italy|Rome|') === 0).map(k => W.S.picks[k]);
+    for (let i = 0; pool.spots.length < 60; i++) pool.spots.push(Object.assign({}, pool.spots[0], { n: 'Extra sight ' + i, s: 'am' }));
+    for (let i = 0; pool.food.length < 110; i++) pool.food.push(Object.assign({}, pool.food[0], { n: 'Extra eatery ' + i, meal: i % 9 ? 'both' : 'breakfast' }));
+    pool.spots.push(Object.assign({}, pool.spots[0], { n: 'A place I added', imp: true }));
+    const n0 = (window.__full || []).length;
+    W.replan(); W.plan(); await new Promise(r => setTimeout(r, 300)); W.render();
+    const names = l => l.map(x => W.norm(x.n)), on = names(pool.spots.concat(pool.food));
+    const first = { spots: pool.spots.length, food: pool.food.length, aside: [pool.rest.spots.length, pool.rest.food.length], lim,
+      keptUsed: used.every(n => on.includes(W.norm(n))), keptMine: on.includes('a place i added'), bfast: pool.food.filter(x => x.meal === 'breakfast' || x.meal === 'all').length,
+      shown: (document.querySelector('.ideas-t') || document.body).textContent.match(/(\d+) things to do/) };
+    W.S.tview = 'map'; W.S.day = 2; W.render(); const btn = document.querySelector('[data-more="1"]'); if (btn) btn.click(); await new Promise(r => setTimeout(r, 400));
+    const more = { spots: pool.spots.length, food: pool.food.length, asked: (window.__full || []).slice(n0).filter(p => /MORE/.test(p)).length };
+    W.replan(); W.plan(); await new Promise(r => setTimeout(r, 200));
+    const again = [pool.spots.length, pool.food.length];
+    return { first, more, again, used: used.length };
+  });
+  const over = Math.max(0, fit.used + 1 - fit.first.lim);   /* (a trip that uses more than the limit keeps all it uses) */
+  t.ok(fit.first.spots <= fit.first.lim + over && fit.first.spots >= fit.first.lim && fit.first.food <= fit.first.lim + over && fit.first.food >= fit.first.lim && fit.first.aside[0] > 30 && fit.first.aside[1] > 80,
+    'a city holding 60 things to do and 110 places to eat shows the stay\'s worth of each (' + fit.first.lim + ') and sets the rest aside: ' + JSON.stringify(fit.first));
+  t.ok(fit.first.keptUsed && fit.first.keptMine && fit.first.bfast >= 4, 'what is on the trip\'s days and what you added yourself stay on show, and breakfast keeps its share (' + fit.first.bfast + ')');
+  t.ok(fit.more.spots === fit.first.spots + 10 && fit.more.food === fit.first.food + 8 && fit.more.asked === 0 && fit.again[0] === fit.more.spots && fit.again[1] === fit.more.food,
+    '"Find more" brings out 10 and 8 of the ones set aside at once, without asking Claude, and they stay: ' + JSON.stringify([fit.more, fit.again]));
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

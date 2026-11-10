@@ -67,6 +67,15 @@
       });
       out[k] = list;
     });
+    /* how many are on show, and the ones set aside (W.fitIdeas): the larger number, and every one set aside on either device */
+    if (a.showN || b.showN) { out.showN = {}; ["spots", "food"].forEach(function (k) { var v = Math.max((a.showN && a.showN[k]) || 0, (b.showN && b.showN[k]) || 0); if (v) out.showN[k] = v; }); }
+    if (a.rest || b.rest) {
+      out.rest = { spots: [], food: [] };
+      ["spots", "food"].forEach(function (k) {
+        var seen = {}; (out[k] || []).forEach(function (x) { seen[W.norm(x.n)] = 1; });
+        ((a.rest && a.rest[k]) || []).concat((b.rest && b.rest[k]) || []).forEach(function (x) { var n = x && x.n && W.norm(x.n); if (n && !seen[n]) { seen[n] = 1; out.rest[k].push(clone(x)); } });
+      });
+    }
     return out;
   }
 

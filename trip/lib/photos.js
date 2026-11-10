@@ -127,20 +127,40 @@
 
   /* ---------- a city's own picture (the big photo at the top of a day and of each place in All days) ---------- */
   /* the city itself when there's a photo of it, else the first of these places (the day's stops, in order) with a photo
-     of its own, else the city's best-known sight with one; never a "nearby" stand-in */
+     of its own, else the city's best-known sight with one; never a "nearby" stand-in. A photo that has a large copy
+     (it fills a wide screen sharply) wins over one that doesn't */
   W.cityPhoto = function (country, city, prefer) {
     if (W.simple && W.simple()) return null;
     var c = PHOTOS[citySlug(country, city)] || BYCITY[W.norm(city)]; if (!c) return null;
-    var own = c[W.norm(city)]; if (own && own.url && !own.near) return own;
+    var found = [], own = c[W.norm(city)]; if (own && own.url && !own.near) found.push(own);
     var list = (prefer || []).concat(((W.pool(country, city) || {}).spots || []).slice(0, 15));
-    for (var i = 0; i < list.length; i++) { var it = list[i]; if (!it || !it.n) continue; var p = W.photoFor(it, false, country, city); if (p && p.url && !p.near) return p; }
-    return null;
+    for (var i = 0; i < list.length; i++) { var it = list[i]; if (!it || !it.n) continue; var p = W.photoFor(it, false, country, city); if (p && p.url && !p.near && found.indexOf(p) < 0) found.push(p); }
+    if (!found.length) return null;
+    if (canWide(found[0])) return found[0];
+    for (var j = 1; j < found.length; j++) if (canWide(found[j])) return found[j];
+    return found[0];
   };
-  /* the photo filling a header, with the photographer's credit as plain text in its corner */
-  W.heroImg = function (ph, alt) {
-    return '<img class="hero-img" src="' + esc(W.offline ? W.offline.src(ph.url) : ph.url) + '" alt="' + esc(alt) + '" decoding="async">' +
+  /* the same picture, large. Inside Claude the app may only show its own files, so a large copy is one the nightly
+     helper stored ("big"); on its own site the app asks Wikimedia Commons for the size the screen needs */
+  function commonsFile(ph) { var m = /^https:\/\/commons\.wikimedia\.org\/wiki\/(?:File:|Special:FilePath\/)([^?#]+)/.exec(ph.page || "") || /^https:\/\/commons\.wikimedia\.org\/wiki\/Special:FilePath\/([^?#]+)/.exec(ph.url || ""); return m ? m[1] : ""; }
+  function canWide(ph) { return !!(ph.big || (W.standalone && commonsFile(ph))); }
+  /* the photo filling a header, with the photographer's credit as plain text in its corner. A photo with no large copy
+     is never stretched across a wide screen: it sits at the side, at its own size (class "lowres", app.css) */
+  /* a phone gets the small picture (its header is narrow; the large copy is half a megabyte), a wide screen the large
+     one: "sizes" tells the browser how wide the header is drawn. Headers further down a long page (All days) load as
+     they come near (lazy) */
+  var HERO_SIZES = "(max-width:760px) 60vw, 1180px";
+  W.heroImg = function (ph, alt, lazy) {
+    var off = (W.offline && W.offline.off) || window.__WP_OFFLINE, file = !off && !ph.big && W.standalone ? commonsFile(ph) : "",
+      small = W.offline ? W.offline.src(ph.url) : ph.url, src = small, set = "";
+    if (file) {
+      var at = function (w) { return "https://commons.wikimedia.org/wiki/Special:FilePath/" + file + "?width=" + w; };
+      src = at(960); set = ' srcset="' + esc(at(960)) + " 960w, " + esc(at(1280)) + " 1280w, " + esc(at(1920)) + ' 1920w" sizes="' + HERO_SIZES + '"';
+    } else if (!off && ph.big) set = ' srcset="' + esc(small) + " 720w, " + esc(ph.big) + ' 1920w" sizes="' + HERO_SIZES + '"';
+    return '<img class="hero-img' + (off || !canWide(ph) ? " lowres" : "") + '" src="' + esc(src) + '"' + set + ' alt="' + esc(alt) + '" decoding="async"' + (lazy ? ' loading="lazy"' : "") + ">" +
       '<span class="hero-credit">Photo: ' + esc(ph.credit || "Wikimedia Commons") + "</span>";
   };
+
 
   /* ---------- the picture element ---------- */
   W.picture = function (it, food, country, city, opts) {

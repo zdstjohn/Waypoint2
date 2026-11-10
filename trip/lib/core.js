@@ -395,7 +395,10 @@
     var n = 0; ((W.P && W.P.stops) || []).forEach(function (s) { if (s.country === country && s.name === city) n += s.days || 0; });
     return n;
   };
-  W.ideasFull = function (pool) { return !!pool && (pool.spots || []).length >= W.IDEA_CAP.spots && (pool.food || []).length >= W.IDEA_CAP.food; };
+  function setAside(pool, list) { return (pool && pool.rest && pool.rest[list]) || []; }
+  W.ideasFull = function (pool) {
+    return !!pool && !setAside(pool, "spots").length && !setAside(pool, "food").length && (pool.spots || []).length >= W.IDEA_CAP.spots && (pool.food || []).length >= W.IDEA_CAP.food;
+  };
   W.loadCity = function (country, city, more, stayDays, nMore) {
     var ck = W.cityKey(country, city), cur = W.C.city[ck];
     if (!more && cur && cur.spots && cur.spots.length) return;
@@ -404,8 +407,8 @@
     if (!more && W.cityBusy(ck)) return;
     var tk = ck + (more ? "|more" : ""); tries[tk] = (tries[tk] || 0) + 1;
     if (!more && tries[tk] > 3) return;
-    var ex = cur && cur.spots ? cur.spots.map(function (x) { return x.n; }) : [];
-    var exF = cur && cur.food ? cur.food.map(function (x) { return x.n; }) : [];
+    var ex = cur && cur.spots ? cur.spots.concat(setAside(cur, "spots")).map(function (x) { return x.n; }) : [];
+    var exF = cur && cur.food ? cur.food.concat(setAside(cur, "food")).map(function (x) { return x.n; }) : [];
     var where = city + ", " + country, st = W.S.stays[ck];
     /* when you've set your lodging, extra ideas come from around it */
     var nearStay = more && st && st.label ? " Focus on places within an easy trip of " + st.label + "." : "";
@@ -421,13 +424,22 @@
       /* a few more at a time, up to the city's cap: the last ideas of a long list are the likeliest to be made up, and
          every one of them waits for a nightly check and a photo */
       var have = W.pool(country, city), nS = have ? (have.spots || []).length : 0, nF = have ? (have.food || []).length : 0;
-      if (nS < W.IDEA_CAP.spots)
-        run("spots|" + ck, "List " + Math.min(nMore || 10, W.IDEA_CAP.spots - nS) + " MORE things to do in and around " + where + ". Mix famous sights, local favorites, parks, markets, neighborhoods, experiences and a day trip." + lean + focusAsk() +
-          " Include at least " + Math.max(1, Math.min(3, Math.round(Math.min(nMore || 10, W.IDEA_CAP.spots - nS) / 4))) + " evening options (sunset spots, evening strolls, shows, night markets)." + EVE + nearStay + " " + who() +
+      var askS = Math.min(nMore || 10, W.IDEA_CAP.spots - nS - setAside(cur, "spots").length), askF = Math.min(nMore || 8, W.IDEA_CAP.food - nF - setAside(cur, "food").length);
+      /* "Find more" (you asked): ten more things to do and eight more places to eat go on show. A city that holds more
+         than it shows (ideas set aside by W.fitIdeas) brings those out at once; Claude is asked only for what is still missing */
+      if (nMore == null && cur && !cur.fallback) {
+        var stay = W.stayDays(country, city), sh = cur.showN || (cur.showN = {});
+        sh.spots = Math.max(W.ideaLimit(cur, "spots", stay), nS) + 10; sh.food = Math.max(W.ideaLimit(cur, "food", stay), nF) + 8;
+        if (W.fitIdeas(country, city, stay, true)) changed();
+        askS = Math.min(sh.spots, W.IDEA_CAP.spots) - cur.spots.length; askF = Math.min(sh.food, W.IDEA_CAP.food) - (cur.food || []).length;
+      }
+      if (askS > 0)
+        run("spots|" + ck, "List " + askS + " MORE things to do in and around " + where + ". Mix famous sights, local favorites, parks, markets, neighborhoods, experiences and a day trip." + lean + focusAsk() +
+          " Include at least " + Math.max(1, Math.min(3, Math.round(askS / 4))) + " evening options (sunset spots, evening strolls, shows, night markets)." + EVE + nearStay + " " + who() +
           (ex.length ? " Do not repeat any of these: " + ex.join("; ") + "." : "") + "\nReply with JSON only: {\"spots\":[" + SPOT_EX + "]}\n" + spotRules(),
           "default", function (r) { addSpots(ck, r, "more"); });
-      if (nF < W.IDEA_CAP.food)
-        run("food|" + ck, foodAsk("List " + Math.min(nMore || 8, W.IDEA_CAP.food - nF) + " MORE places to eat in " + where + ": breakfast cafés and bakeries, local classics, casual spots and markets, spread across the city or region." + focusAsk() + nearStay), "default", function (r) { addFood(ck, r, "more"); });
+      if (askF > 0)
+        run("food|" + ck, foodAsk("List " + askF + " MORE places to eat in " + where + ": breakfast cafés and bakeries, local classics, casual spots and markets, spread across the city or region." + focusAsk() + nearStay), "default", function (r) { addFood(ck, r, "more"); });
       return;
     }
     /* the first lists: 15 things to do and 15 places to eat (more for a long stay: W.firstIdeas), one question each. More only when someone asks for them
@@ -453,11 +465,56 @@
   /* the stay got longer (you changed the days): the ideas grow with it, by the difference, once */
   W.growIdeas = function (country, city, stayDays) {
     var ck = W.cityKey(country, city), c = W.C.city[ck]; if (!c || !c.spots || !c.spots.length || W.readOnly || W.cityBusy(ck)) return;
-    var had = c.askedN || Math.max(W.FIRST_IDEAS, Math.min(c.spots.length, (c.food || []).length)), want = W.firstIdeas(stayDays);
+    var had = Math.max(c.askedN || W.FIRST_IDEAS, Math.min(c.spots.length, (c.food || []).length)), want = W.firstIdeas(stayDays);
     if (want <= had) return;
     c.askedN = want;
     ["spots|", "food|"].forEach(function (p) { if (W.status[p + ck] !== "loading") delete W.status[p + ck]; });
     W.loadCity(country, city, true, stayDays, want - had);
+  };
+  /* ---------- no more ideas on show than the stay calls for ----------
+     A city shows 15 things to do and 15 places to eat (more for a longer stay: W.firstIdeas), plus what you asked for
+     ("Find more", a search, hidden gems: pool.showN). A city that holds more than that (lists from before the limit,
+     places from another of your devices, the nightly restaurants) keeps the extra set aside in pool.rest: not shown,
+     not planned with, and brought out first, at once, when you ask for more or stay longer. Never set aside: a place
+     on one of this trip's days, and a place you added yourself. Among the places to eat, breakfast keeps its share,
+     and among the things to do, the evening. Run after every planning (lib/plan.js), so it also tidies what arrives
+     later; returns whether anything moved */
+  W.ideaLimit = function (c, list, stayDays) { return Math.max(W.firstIdeas(stayDays), (c && c.showN && c.showN[list]) || 0); };
+  var fitTold = false;
+  W.fitIdeas = function (country, city, stayDays, quiet) {
+    var c = /** @type {any} */ (W.C.city[W.cityKey(country, city)]);   /* (both lists are handled the same way) */
+    if (!c || c.fallback || W.readOnly || !c.spots || !c.spots.length) return false;
+    var kept = {}, picks = W.S.picks || {}; Object.keys(picks).forEach(function (k) { if (picks[k]) kept[W.norm(picks[k])] = 1; });
+    var isKept = function (x) { return !!(x.imp || kept[W.norm(x.n)]); };
+    var moved = false, rest = c.rest && typeof c.rest === "object" ? c.rest : { spots: [], food: [] };
+    /** @type {Array<"spots" | "food">} */ (["spots", "food"]).forEach(function (L) {
+      var n = W.ideaLimit(c, L, stayDays), list = c[L] || [], r = Array.isArray(rest[L]) ? rest[L] : [], on = {};
+      list.forEach(function (x) { on[W.norm(x.n)] = 1; });
+      var r2 = r.filter(function (x) { return x && x.n && !on[W.norm(x.n)]; }); if (r2.length !== r.length) { r = r2; moved = true; }
+      if (list.length > n) {
+        /* a kind every day needs keeps its share: breakfast among the places to eat, the evening among the things to do */
+        var need = L === "food" ? function (x) { return x.meal === "breakfast" || x.meal === "all"; } : function (x) { return x.s === "eve"; };
+        var quota = L === "food" ? Math.max(4, Math.round(n / 4)) : 3, room = n, take = [];
+        list.forEach(function (x, i) { if (isKept(x)) { take[i] = 1; room--; if (need(x)) quota--; } });
+        list.forEach(function (x, i) { if (!take[i] && room > 0 && quota > 0 && need(x)) { take[i] = 1; room--; quota--; } });
+        list.forEach(function (x, i) { if (!take[i] && room > 0) { take[i] = 1; room--; } });
+        var out = list.filter(function (x, i) { return !take[i]; });
+        if (out.length) { c[L] = list.filter(function (x, i) { return take[i]; }); r = out.concat(r); moved = true; }
+      } else if (list.length < n && r.length) {
+        var up = r.slice(0, n - list.length); c[L] = list.concat(up); r = r.slice(up.length); moved = true;
+      }
+      rest[L] = r;
+    });
+    if (moved || c.rest) c.rest = rest;
+    /* the lists changed under a plan that was being made: save them and draw again, once, when it is done */
+    if (moved && !quiet && !fitTold) { fitTold = true; setTimeout(function () { fitTold = false; changed(); }, 0); }
+    return moved;
+  };
+  /* a place one of your trips has on a day, found among the ideas set aside: back on show */
+  W.fromRest = function (pool, name, food) {
+    var L = food ? "food" : "spots", r = setAside(pool, L), k = W.norm(name);
+    for (var i = 0; i < r.length; i++) if (W.norm(r[i].n) === k) { var it = r.splice(i, 1)[0]; (pool[L] || (pool[L] = [])).push(it); return it; }
+    return null;
   };
   /* is anything still coming in for this city's first lists? */
   W.cityBusy = function (ck) { return ["spots|", "food|"].some(function (p) { return W.status[p + ck] === "loading"; }); };
@@ -494,6 +551,12 @@
   function spotRules() {
     return "place = the exact name of the real place, as on its sign or on a map (for an outing such as a stroll, a tasting or a cruise, the real place where it happens, e.g. 'Piazza Duomo' or 'Marina Grande'); never an invented or descriptive name. n may be descriptive, place may not. pic = the picture that fits best, one of: " + W.SPOT_PICS.join(", ") + ". s = best time: am, pm, eve, or any (a full-day outing). dur = the recommended time to spend there for these travelers (allow for children's ages), e.g. '45m', '1-2h', 'half day' or 'full day'. ticket = 'Free', or price and whether to book ahead, e.g. '€18, book ahead'. " + BOOKRULE + " Use accurate coordinates." + TAGRULE + FAMERULE;
   }
+  /* extras you asked for by name (hidden gems, rainy-day ideas, ideas for your style) come on top of what is on show */
+  function bumpShown(ck, c0, list, added) {
+    if (added <= 0) return;
+    var p = ck.split("|"), sh = c0.showN || (c0.showN = {});
+    sh[list] = Math.min(c0[list].length, W.ideaLimit(c0, list, W.stayDays(p[0], p[1]))) + added;
+  }
   function addSpots(ck, r, kind) {
     var c0 = W.C.city[ck] || newPool();
     if (r && r.d && !c0.d) c0.d = V.str(r.d, 240);
@@ -501,7 +564,10 @@
     var cp = r && V.pinNear(r.lat, r.lng, centerOf(ck), 120); if (cp && c0.lat == null) { c0.lat = cp.lat; c0.lng = cp.lng; }
     var ctr = centerOf(ck), add = V.list(r && r.spots, function (x) { return V.spot(x, ctr); });
     /* the headline half always leads the list (the planner gives the first few a boost), whichever half arrives first */
-    c0.spots = merge(c0.spots || [], add, kind); W.C.city[ck] = c0; return c0;
+    var before = (c0.spots || []).length;
+    c0.spots = merge(c0.spots || [], add, kind); W.C.city[ck] = c0;
+    if (kind !== "head" && kind !== "more") bumpShown(ck, c0, "spots", c0.spots.length - before);
+    return c0;
   }
 
   /* ideas aimed at your trip style, for a city whose list is thin on them (asked once per city and style) */

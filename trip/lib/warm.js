@@ -48,12 +48,13 @@
     var tn = W.todayN && W.todayN(P), d = tn ? P.days[tn - 1] : null;
     return d ? { country: d.country, city: d.city } : { country: P.stops[0].country, city: P.stops[0].name };
   }
+  var SKYF = {};   /* one clock per time zone, kept: making one is the slow part */
   W.sky = function (P) {
     var pl = placeNow(P); if (!pl) return null;
     var tz = W.tzFor && W.tzFor(pl.country); if (!tz) return { phase: "night", city: pl.city, time: "" };
     var hh = 0, mm = 0;
     try {
-      new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(W.now()).forEach(function (x) { if (x.type === "hour") hh = +x.value % 24; if (x.type === "minute") mm = +x.value; });
+      (SKYF[tz] = SKYF[tz] || new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" })).formatToParts(W.now()).forEach(function (x) { if (x.type === "hour") hh = +x.value % 24; if (x.type === "minute") mm = +x.value; });
     } catch (e) { return { phase: "night", city: pl.city, time: "" }; }
     var phase = hh >= 5 && hh < 8 ? "dawn" : hh >= 8 && hh < 17 ? "day" : hh >= 17 && hh < 20 ? "dusk" : "night";
     return { phase: phase, city: pl.city, time: W.clock(hh * 60 + mm), hour: hh };
@@ -67,7 +68,7 @@
     if (top) top.setAttribute("data-sky", sk ? sk.phase : "night");
     var bits = ['<span class="tl-hi">' + esc(W.greeting()) + "</span>"];
     if (sk && sk.time) bits.push('<span class="tl-sky">' + (sk.phase === "day" || sk.phase === "dawn" ? SUN : MOON) + esc(sk.time + " in " + sk.city) + "</span>");
-    return bits.join('<span class="tl-dot" aria-hidden="true">·</span>');
+    return bits.join('<span class="tl-sep" aria-hidden="true">·</span>');
   };
 
   /* ======================= days until the trip ======================= */
@@ -144,7 +145,7 @@
     var r = W.readiness(P), C = 2 * Math.PI * 21, off = C * (1 - r.pct / 100);
     var parts = [r.book ? r.book + " to book" : "", r.pack ? r.pack + " to pack" : "", r.todo ? r.todo + " to do" : ""].filter(Boolean);
     var line = r.pct >= 100 ? "Ready to go. Have a wonderful trip!" : r.pct >= 75 ? "Nearly there!" : r.pct >= 40 ? "Coming along nicely." : r.pct > 0 ? "A good start." : "Let's get going.";
-    return '<div class="ready sk"><svg viewBox="0 0 50 50" class="ring" aria-hidden="true"><circle cx="25" cy="25" r="21" class="trk"/><circle cx="25" cy="25" r="21" class="bar" stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '"/></svg>' +
+    return '<div class="ready sk"><svg viewBox="0 0 50 50" class="ring" aria-hidden="true"><circle cx="25" cy="25" r="21" class="trk"/><circle cx="25" cy="25" r="21" class="bar" style="--ring-c:' + C.toFixed(1) + '" stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '"/></svg>' +
       '<div><b>' + r.pct + "% ready</b><span>" + esc(line) + (parts.length ? " " + parts.join(" · ") + "." : "") + "</span></div></div>";
   };
 

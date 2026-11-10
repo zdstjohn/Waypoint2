@@ -241,7 +241,7 @@
           return '<button type="button" class="sh-row" data-sheetmove="' + d.n + '"><b>Day ' + d.n + "</b><span>" + esc(fmt(W.dateOf(d.n), { weekday: "short", month: "short", day: "numeric" })) + "</span>" +
             '<span class="muted">' + (y && y.item ? "now: " + esc(y.item.n) : "free") + "</span></button>";
         }).join("") + "</div>" : '<p class="small">There are no other days in ' + esc(day.city) + " to move it to.</p>") +
-        '<button type="button" class="linkish" data-sheetback="1">← Back</button>';
+        '<button type="button" class="linkish" data-sheetback="1">' + W.arrow() + "Back</button>";
     } else {
       var dir = W.gmapsDir(prevPoint(day, x.slot), it, "walk");
       /* everything about the stop, then what you can do with it */
@@ -478,7 +478,7 @@
       var trips = (s.trips || []).filter(function (t) { return t.planned !== false; }).map(function (t) { return t.name; });
       /* each place you stay opens with its photo, its name over it */
       var hero = W.cityPhoto ? W.cityPhoto(s.country, s.name, ds.reduce(function (a, d) { return a.concat((d.slots || []).filter(function (x) { return x.item && !W.isFood(x.slot); }).map(function (x) { return x.item; })); }, [])) : null;
-      return '<section class="g-sec" data-stop="' + si + '"><h3 class="g-stop' + (hero ? " has-hero" : "") + '">' + (hero ? W.heroImg(hero, s.name) : "") + '<span class="g-sn">' + esc(s.name) + '</span><span class="g-sm">' + esc([r, n + " night" + (n === 1 ? "" : "s"), trips.length ? "day trip" + (trips.length > 1 ? "s" : "") + " to " + trips.join(", ") : ""].filter(Boolean).join(" · ")) + "</span></h3>" +
+      return '<section class="g-sec" data-stop="' + si + '"><h3 class="g-stop' + (hero ? " has-hero" : "") + '">' + (hero ? W.heroImg(hero, s.name, si > 0) : "") + '<span class="g-sn">' + esc(s.name) + '</span><span class="g-sm">' + esc([r, n + " night" + (n === 1 ? "" : "s"), trips.length ? "day trip" + (trips.length > 1 ? "s" : "") + " to " + trips.join(", ") : ""].filter(Boolean).join(" · ")) + "</span></h3>" +
         '<div class="glance sk" role="list">' + ds.map(row).join("") + "</div></section>";
     }).join("") + '<p class="g-end">' + esc("End of the trip" + (P.ap && P.days.length && W.dateOf(P.N) ? " · home from " + P.stops[P.stops.length - 1].name + " " + fmt(W.dateOf(P.N), { month: "short", day: "numeric" }) : "")) + "</p>";
   };

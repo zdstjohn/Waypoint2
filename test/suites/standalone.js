@@ -72,7 +72,7 @@ exports.run = async t => {
       return { name: W.tripName(), filled, note };
     });
     t.ok(plan.name === 'Spain trip' && plan.filled > 3, `a new Spain trip is planned from the built-in ideas (${plan.filled} stops)`);
-    t.ok(/only a few ideas built in for (Madrid|Barcelona)/.test(plan.note), 'where they run out, the day says why: ' + plan.note.slice(0, 120));
+    t.ok(/only a few ideas built in for (Madrid|Barcelona)/.test(plan.note) && /Sign in for fresh ideas/.test(plan.note), 'where they run out, the day says why and offers to sign in: ' + plan.note.slice(0, 200));
     /* offline: reload with no connection, then a new tab */
     await pg.reload(); await pg.waitForTimeout(1500);
     await ctx.setOffline(true);

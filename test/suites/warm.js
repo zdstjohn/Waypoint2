@@ -63,6 +63,20 @@ exports.run = async t => {
   });
   t.ok(kids.shown && kids.hi, 'the kids\' view says hello to the kids by name');
   t.ok(/Mila/.test(kids.picks) && kids.stamps === 1 && /"1"|"0"/.test(kids.hunt), `a pick, a passport stamp and a treasure-hunt find are saved (${kids.picks})`);
+  /* the kids' corner is drawn: the night sky, a stamp for every place (inked once stamped), a numbered spot or a coin for
+     every find, and the chest that opens when all six are found */
+  const drawn = await pg.evaluate(async () => {
+    const v = document.querySelector('#viewKids'), wait = ms => new Promise(r => setTimeout(r, ms));
+    v.querySelector('[data-ktab="pass"]').click(); await wait(150);
+    const pass = { sky: !!v.querySelector('.k-hero .k-sky'), stamps: v.querySelectorAll('.stamp .st-svg').length, places: v.querySelectorAll('.stamp').length, inked: v.querySelectorAll('.stamp.on .st-svg [transform="translate(40 40)"]').length, on: v.querySelectorAll('.stamp.on').length,
+      named: [...v.querySelectorAll('.stamp')].every(b => /stamped|not yet/.test(b.getAttribute('aria-label'))) };
+    v.querySelector('[data-ktab="hunt"]').click(); await wait(150);
+    const before = { spots: v.querySelectorAll('.k-hunt .hk-svg').length, open: !!v.querySelector('.k-treasure.open'), chest: !!v.querySelector('.k-treasure .k-chest') };
+    for (const b of [...v.querySelectorAll('.k-hunt button:not(.on)')]) { v.querySelector('[data-hi="' + b.dataset.hi + '"]').click(); await wait(60); }
+    return { pass, before, open: !!document.querySelector('#viewKids .k-treasure.open .k-chest.open'), all: document.querySelectorAll('#viewKids .k-hunt button.on').length };
+  });
+  t.ok(drawn.pass.sky && drawn.pass.stamps === drawn.pass.places && drawn.pass.places > 0 && drawn.pass.on > 0 && drawn.pass.inked === drawn.pass.on && drawn.pass.named, 'the passport is drawn: a stamp for every place, inked where stamped, each still named for screen readers: ' + JSON.stringify(drawn.pass));
+  t.ok(drawn.before.spots === 6 && drawn.before.chest && !drawn.before.open && drawn.open && drawn.all === 6, 'the treasure map has six spots and a chest that opens when all are found: ' + JSON.stringify(drawn));
   t.ok(kids.same, 'none of them re-plans the trip');
   const pick = await pg.evaluate(name => { W.goView('trip'); const card = [...document.querySelectorAll('#viewTrip .slot')].find(s => s.textContent.includes(name)); return { found: !!card || W.P.days.some(d => (d.slots || []).some(x => x.item && x.item.n === name)), tag: [...document.querySelectorAll('#viewTrip .gt.pick')].map(e => e.textContent) }; }, kids.place);
   await pg.evaluate(name => { const d = W.P.days.find(d => (d.slots || []).some(x => x.item && x.item.n === name)); if (d) { W.S.day = d.n; W.render(); } }, kids.place);

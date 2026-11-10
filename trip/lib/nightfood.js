@@ -30,7 +30,7 @@
     var doc = MORE[slug(country, city)]; if (!doc || !Array.isArray(doc.items) || !pool || pool.nightV === moreV) return;
     pool.nightV = moreV;
     var have = {}, ctr = pool.lat != null ? { lat: pool.lat, lng: pool.lng } : null, sig = W.eatSig ? W.eatSig() : "";
-    (pool.food || []).forEach(function (x) { have[W.placeKey(x)] = 1; have[W.norm(x.n)] = 1; });
+    (pool.food || []).concat((pool.rest && pool.rest.food) || []).forEach(function (x) { have[W.placeKey(x)] = 1; have[W.norm(x.n)] = 1; });   /* (and the ones set aside: W.fitIdeas) */
     doc.items.slice(0, 80).forEach(function (x0) {
       var x = V && V.food ? V.food(x0, ctr) : null; if (!x) return;
       if (have[W.placeKey(x)] || have[W.norm(x.n)]) return;
