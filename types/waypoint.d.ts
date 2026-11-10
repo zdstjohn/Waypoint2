@@ -467,8 +467,6 @@ interface Waypoint {
   stopDetails: any;
   vtArea: any;
   iconLink: any;
-  checkedBadge: any;
-  kidWarn: any;
   patch: any;
   draw: any;
   drawn: any;

@@ -1,5 +1,4 @@
-/* v118 look: the idea row as pictures (checked, not for little ones, photos, map) with a red bordered "Not for us" apart
-   from them; photo credits are plain text; the kids' banner is centred; Prepare's tabs stay put on a wide screen; the
+/* v118 look: an idea's row is its links as pictures (photos, map), nothing else; photo credits are plain text; the kids' banner is centred; Prepare's tabs stay put on a wide screen; the
    street map's outer limit hugs the town and the day's stops. */
 const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb = require('../lib/db');
 exports.run = async t => {
@@ -7,28 +6,21 @@ exports.run = async t => {
   { const { pg, errors } = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(pg);
     await pg.evaluate(() => { W.S.day = 2; W.S.tview = 'map'; W.S.glanceOpen = false; W.setView('trip'); W.render(); }); await settle(pg, 4000);
     const r = await pg.evaluate(() => {
-      const rows = [...document.querySelectorAll('#viewTrip .idea .idea-meta')];
-      const words = rows.map(m => m.textContent).join(' ');
-      const one = rows.find(m => m.querySelector('.id-no')), no = one && one.querySelector('.id-no'), cs = no && getComputedStyle(no);
-      const ilinks = [...document.querySelectorAll('#viewTrip .idea .ilink')];
-      const nr = no && no.getBoundingClientRect(), last = one && [...one.querySelectorAll('.im-l > *')].pop(), lr = last && last.getBoundingClientRect();
-      return { rows: rows.length, words: /Checked|Photos|Google Maps|Not ideal/.test(words), badges: document.querySelectorAll('#viewTrip .idea .ck-badge svg').length,
-        kid: document.querySelectorAll('#viewTrip .idea .kid-warn[aria-label^="Not ideal"] svg').length,
-        links: ilinks.length && ilinks.every(a => a.getAttribute('aria-label') && a.target === '_blank' && a.querySelector('svg') && !a.textContent.trim()),
+      const rows = [...document.querySelectorAll('#viewTrip .idea .idea-meta')], ilinks = [...document.querySelectorAll('#viewTrip .idea .ilink')];
+      return { rows: rows.length, words: /Checked|Photos|Google Maps|Not ideal|Not for us/.test(rows.map(m => m.textContent).join(' ')),
+        marks: document.querySelectorAll('#viewTrip .idea .ck-badge, #viewTrip .idea .kid-warn, #viewTrip .idea [data-nope]').length,
+        links: ilinks.length >= rows.length * 2 && ilinks.every(a => a.getAttribute('aria-label') && a.target === '_blank' && a.querySelector('svg') && !a.textContent.trim()),
         maps: ilinks.filter(a => a.classList.contains('ilink-map')).every(a => /google\.com\/maps/.test(a.href)),
-        tap: ilinks.every(a => { const q = a.getBoundingClientRect(); return q.width >= 40 && q.height >= 40; }),
-        border: cs && parseFloat(cs.borderTopWidth) >= 1 && cs.borderTopStyle === 'solid' && cs.borderTopColor === cs.color, red: cs && (() => { const m = cs.color.match(/\d+/g).map(Number); return m[0] > 180 && m[0] > m[1] * 1.6 && m[0] > m[2] * 1.6; })(),
-        apart: nr && lr ? Math.round(nr.left - lr.right) : null, sameLine: nr && lr ? Math.abs(nr.top - lr.top) < 30 : null, text: no && no.textContent };
+        tap: ilinks.every(a => { const q = a.getBoundingClientRect(); return q.width >= 40 && q.height >= 40; }) };
     });
-    t.ok(r.rows > 3 && !r.words, 'the idea rows say "Checked", "Photos", "Google Maps" and "Not ideal for kids" with pictures, not words');
-    t.ok(r.badges > 0, `a checked place shows a green check in a circle (${r.badges})`);
-    t.ok(r.kid > 0, `a place better for older kids shows the crossed-out child (${r.kid})`);
+    t.ok(r.rows > 3 && !r.words && r.marks === 0, 'an idea\'s row is just its links: no "checked" mark, no kids mark, no "Not for us" button');
     t.ok(r.links && r.maps && r.tap, 'photos and map are picture links, named for screen readers, open outside, and big enough to tap');
-    t.ok(r.border && r.red && r.text === 'Not for us', '"Not for us" is a red button with a red border');
-    t.ok(r.apart === null || !r.sameLine || r.apart >= 16, `and it keeps its distance from the links (${r.apart} px)`);
     /* photo credits: text, not links */
     const cr = await pg.evaluate(() => ({ links: document.querySelectorAll('a.credit').length, spans: document.querySelectorAll('span.credit').length, pe: [...document.querySelectorAll('span.credit')].every(s => getComputedStyle(s).pointerEvents === 'none') }));
     t.ok(cr.links === 0 && cr.pe, `photo credits are plain text a tap goes through (${cr.spans} shown)`);
+    /* the One day / All days switch sits in the middle */
+    const ds = await pg.evaluate(() => { W.S.tview = 'days'; W.S.glanceOpen = false; W.render(); const d = document.querySelector('#viewTrip .dsw').getBoundingClientRect(), v = document.querySelector('#viewTrip .vsw').getBoundingClientRect(); return { left: Math.round(d.left - v.left), right: Math.round(v.right - d.right), w: Math.round(d.width), vw: Math.round(v.width) }; });
+    t.ok(Math.abs(ds.left - ds.right) <= 2 && ds.w < ds.vw - 40, 'the One day / All days switch is centred under the tabs: ' + JSON.stringify(ds));
     /* the stop panel's links and "Not for us" too */
     await pg.evaluate(() => { W.S.tview = 'days'; W.render(); const x = W.P.days[1].slots.find(x => x.item && !W.isFood(x.slot)); W.openStop(x.key); }); await pg.waitForTimeout(700);
     const sh = await pg.evaluate(() => { const s = document.querySelector('#sheethost'); const o = s && s.querySelector('.sh-out-r.danger'); return { icons: s ? s.querySelectorAll('.links .ilink').length : 0, words: s ? /\bPhotos\b|Google Maps/.test(s.querySelector('.links') ? s.querySelector('.links').textContent : '') : true, red: o ? getComputedStyle(o).borderTopColor === getComputedStyle(o.querySelector('b')).color : false }; });

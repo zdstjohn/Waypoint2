@@ -537,7 +537,6 @@
       function ideaCard(row) {
         var it = row.it, on = row.on, info = [W.stayText(it, eat, it.meal === "breakfast" ? "breakfast" : it.meal === "dinner" ? "dinner" : ""), eat ? it.cuisine : W.priceText(it.ticket, W.curOf(day.country)), eat ? it.price : ""].filter(Boolean).join(" · ");
         var ph = W.picture(it, eat, day.country, day.city, { credit: true }), onTag = on ? '<span class="on">' + (on.n === day.n ? "Today" : "Day " + on.n) + " · " + W.SLOT_NAME[on.slot] + "</span>" : "";
-        var warn = P.p.kid && it.k === -1 ? W.kidWarn(P.p.toddler) : "";
         var bTag = !eat && P.p.kid && W.beachFit && W.beachFit(it) === "safe" ? '<span class="bc good">Calm and shallow</span>' : "";
         /* the group's food needs (Plan, step 3) */
         var ef = eat && W.eatFit ? W.eatFit(it) : "";
@@ -546,10 +545,10 @@
         return '<div class="idea' + (ph ? " has-photo" : "") + '">' + (ph ? '<div class="pic-wrap">' + ph + onTag + "</div>" : onTag) + "<h4>" + esc(it.n) + "</h4>" + bTag + '<p class="desc">' + esc(it.d) + "</p>" +
           (row.near ? '<p class="near">' + esc(row.near) + "</p>" : "") +
           (info ? '<p class="small muted">' + esc(info) + "</p>" : "") +
-          /* the row: what we know (checked, not for little ones), the links, and "Not for us" on its own at the far end */
-          '<div class="small idea-meta"><span class="im-l">' + (it.st === "open" ? W.checkedBadge() : "") + warn + (eat ? W.menuLink(it, day.city) : "") + W.bookLink(it, day.city, eat, day.country) +
-            W.iconLink(W.photosUrl(it.n, day.city), "photos", "Photos of " + it.n) + W.iconLink(W.gmapsPlace(it, day.city), "map", it.n + " in Google Maps") + "</span>" +
-            (W.canEdit() ? '<button type="button" class="id-no" data-nope="" data-name="' + esc(it.n) + '" aria-label="Not for us: ' + esc(it.n) + '">Not for us</button>' : "") + "</div>" +
+          /* the row: the links only (v118: no "checked" mark, no kids mark, and "Not for us" lives on a stop's own panel
+             and on the swap cards, where a place is already on the day) */
+          '<div class="small idea-meta">' + (eat ? W.menuLink(it, day.city) : "") + W.bookLink(it, day.city, eat, day.country) +
+            W.iconLink(W.photosUrl(it.n, day.city), "photos", "Photos of " + it.n) + W.iconLink(W.gmapsPlace(it, day.city), "map", it.n + " in Google Maps") + "</div>" +
           (on && on.n === day.n || !free.length ? "" : '<div class="use">' + free.map(function (x) { return '<button type="button" data-use="' + x.slot + '" data-name="' + esc(it.n) + '" aria-label="Put ' + esc(it.n) + " in " + W.SLOT_NAME[x.slot].toLowerCase() + '">' + W.SLOT_NAME[x.slot] + "</button>"; }).join("") + "</div>") + "</div>";
       }
       if (xp) h += '<section class="ideas sk"><div class="ideas-t"><h2>Ideas in ' + esc(day.city) + '</h2><span class="small muted">' + (pool.spots || []).length + " things to do · " + (pool.food || []).length + " places to eat</span></div>" +
@@ -738,7 +737,7 @@
     var food = W.isFood(x.slot), T = W.dayTimes(day, P), R = T && T.rows[x.slot], label = R && R.label || W.SLOT_NAME[x.slot];
     var ph = W.picture(it, food, day.country, day.city, { credit: true });
     var notes = R ? R.warn.map(function (w) { return '<span class="warn">' + esc(w) + "</span>"; }).join("") + R.info.map(function (w) { return "<span>" + esc(w) + "</span>"; }).join("") : "";
-    if (P.p.kid && it.k === -1) notes = W.kidWarn(P.p.toddler) + notes;
+    if (P.p.kid && it.k === -1) notes = '<span class="warn">' + (P.p.toddler ? "Not ideal for toddlers" : "Not ideal for kids") + "</span>" + notes;
     if (it.st === "closed") notes = '<span class="warn">May have closed for good. Check before you go</span>' + notes;
     if (it.st === "unfound") notes = '<span class="warn">Couldn\'t find a place by this name. It may not exist</span>' + notes;
     if (it.st === "unverified" && food) notes = '<span class="warn">Not checked yet. Look it up before you go</span>' + notes;

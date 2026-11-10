@@ -22,9 +22,9 @@ converted at the European Central Bank's rates in fx/latest (refreshed nightly) 
 prices written in text, like "€15, book ahead"; a currency with no rate stays as listed); Prepare and Settings offer it.
 v118: two tabs on the trip, Day and Explore; Day holds a One day / All days switch (.dsw, data-vsw "days"/"all"; the
 tab remembers All days across a visit to Explore in S.allPref). The storybook is gone (a trip saved on it opens on the
-day). Links and marks as pictures (lib/links.js): W.iconLink (photos, map: a plain map sign, not a company's logo),
-W.checkedBadge (checked by the nightly look), W.kidWarn (better for older kids); "Not for us" is a red bordered button at
-the far end of the idea row. Photo credits are plain text (the licences ask for the name; a tap never leaves the app).
+day). Links and marks as pictures (lib/links.js): W.iconLink (photos, map: a plain map sign, not a company's logo);
+an idea's row in Explore is just its links (no "checked" mark, no kids mark, no "Not for us": that lives on a stop's
+panel, with a red border, and on the swap cards). Photo credits are plain text (the licences ask for the name; a tap never leaves the app).
 The street map cannot zoom out past the town it was made for plus the day's stops (vtmap.js area, MapLibre maxBounds).
 Prepare on a wide screen keeps the tabs in one place on every tab (an empty .cur-none holds the currency picker's cell).
 v117: a screen is no longer thrown away and rebuilt on every change. lib/patch.js W.draw(el, html, sig): the same HTML

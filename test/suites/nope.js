@@ -55,9 +55,9 @@ exports.run = async t => {
   await pg.evaluate(() => { W.S.tview = 'map'; W.render(); }); await pg.waitForTimeout(600);
   const r4 = await pg.evaluate(name => {
     const names = [...document.querySelectorAll('#viewTrip .idea h4')].map(h => h.textContent), l = document.querySelector('#viewTrip .nope-l');
-    return { shown: names.includes(name), list: l ? [...l.querySelectorAll('li span')].map(s => s.textContent) : [], btn: !!document.querySelector('#viewTrip .idea .id-no') };
+    return { shown: names.includes(name), list: l ? [...l.querySelectorAll('li span')].map(s => s.textContent) : [], btn: !!document.querySelector('#viewTrip .idea [data-nope], #viewTrip .idea .id-no') };
   }, pm0);
-  t.ok(!r4.shown && r4.list.includes(pm0) && r4.btn, 'Explore leaves it out, lists it under "Not for us", and every idea has the button: ' + JSON.stringify(r4.list));
+  t.ok(!r4.shown && r4.list.includes(pm0) && !r4.btn, 'Explore leaves it out and lists it under "Not for us"; the idea cards themselves have no such button (v118): ' + JSON.stringify(r4.list));
   await pg.evaluate(() => { document.querySelector('#viewTrip .nope-l').open = true; });
   const back = await pg.evaluate(name => { const li = [...document.querySelectorAll('#viewTrip .nope-l li')].find(l => l.textContent.includes(name)); li.querySelector('[data-unnope]').click(); return true; }, pm0);
   await pg.waitForTimeout(500);

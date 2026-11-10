@@ -1666,32 +1666,22 @@ button.menu-btn{border:0;background:transparent;font:inherit;font-weight:800;col
 :root{--danger:#C2362B}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--danger:#FF6F61}}
 :root[data-theme="dark"]{--danger:#FF6F61}
-.idea-meta{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;margin-top:10px}
-.idea-meta .im-l{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;min-width:0}
+.idea-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;margin-top:10px}
 .ilink{display:inline-grid;place-items:center;width:40px;height:40px;margin:-4px -6px;border-radius:12px;color:var(--accent)}
 .ilink svg{width:24px;height:24px}
 .ilink:hover{background:var(--accent-soft)}
 .ilink:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.ck-badge,.kid-warn{display:inline-grid;place-items:center;flex:none}
-.ck-badge svg{width:26px;height:26px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.18))}
-.kid-warn{color:var(--danger)}
-.kid-warn svg{width:24px;height:24px}
-.slot-notes .kid-warn,.sd-notes .kid-warn{margin-right:2px}
-.slot-notes > .kid-warn + span::before{content:none}
-.idea-meta .id-no,button.id-no{flex:none;margin-left:auto;min-height:38px;padding:6px 14px;border:1.5px solid var(--danger);border-radius:999px;background:transparent;color:var(--danger);font:inherit;font-size:13.5px;font-weight:800;cursor:pointer}
-button.id-no:hover{background:color-mix(in srgb,var(--danger) 12%,transparent)}
-button.id-no:active{background:color-mix(in srgb,var(--danger) 22%,transparent)}
 .links{align-items:center}
 .sh-out-r.danger{border-color:var(--danger)}
 .sh-out-r.danger b,.sh-out-r.danger .ic{color:var(--danger)}
 .credit{pointer-events:none;user-select:none}
 
 /* Day holds one day or all days: a small switch under the tabs */
-.dsw{display:inline-flex;gap:2px;margin:6px 0 2px;padding:3px;border:var(--hair);border-radius:999px;background:var(--surface)}
+.dsw{display:flex;width:fit-content;gap:2px;margin:6px auto 2px;padding:3px;border:var(--hair);border-radius:999px;background:var(--surface)}
 .dsw button{display:inline-flex;align-items:center;gap:5px;min-height:34px;padding:4px 14px;border:0;border-radius:999px;background:transparent;font:800 13.5px/1.1 var(--f-body);color:var(--muted);cursor:pointer;white-space:nowrap}
 .dsw button svg{width:15px;height:15px;flex:none}
 .dsw button[aria-checked="true"]{background:var(--accent-soft);color:var(--fg)}
-.vsw + .dsw{margin-top:2px}
+.vsw + .dsw{margin-top:6px}
 
 /* Prepare on a wide screen: the readiness card and "Prices in" on top, the tabs across the full width below them, then
    the sections; the same places on every tab */
