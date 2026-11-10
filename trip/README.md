@@ -20,6 +20,13 @@ first screen reads from Prepare (the book-by checklist, the budget, which bookin
 with W.money and "Prices in": each phone shows costs as listed or all in one currency (localStorage "waypoint-cur"),
 converted at the European Central Bank's rates in fx/latest (refreshed nightly) and marked "≈" (W.priceText converts
 prices written in text, like "€15, book ahead"; a currency with no rate stays as listed); Prepare and Settings offer it.
+v116: the blank boxes on the street map came from one shared empty buffer in vtmap.js (the engine hands every answer to
+its worker, which empties it on this side; the second "nothing here" then failed, and a tile whose names needed such a
+letter range failed with it): every "nothing here" is now a new buffer. Two of your devices changing one trip are joined
+setting by setting and slot by slot (sync.js merge3, against the state the two last agreed on); the same one changed on
+both goes to the later save. In the week before a trip the app says to save an offline copy until one of this plan exists
+(offline.js copyNote; the app itself cannot open without a connection, it lives inside Claude). lib/eat.js (food needs)
+and lib/links.js (menu, ticket, flight and ferry links) were split out of core.js and trip.js; both are null-safe.
 Keeping your changes (v115): leaving the page sends what's waiting (sync.js flush; the pause before a write is 1.5 s);
 another device's version never replaces journal changes this one hasn't sent (mergeJournal: photos from both, both
 notes); a save this device refuses (storage full) shows "Phone storage full" in the banner and goes to the error log,

@@ -2,6 +2,6 @@
   "extends": "./tsconfig.json",
   "compilerOptions": { "strictNullChecks": true },
   "include": ["types/waypoint.d.ts", "trip/data/**/*.js",
-    "trip/lib/validate.js", "trip/lib/places.js", "trip/lib/autopilot.js", "trip/lib/shape.js", "trip/lib/classify.js", "trip/lib/photos.js", "trip/lib/prices.js", "trip/lib/route.js", "trip/lib/watch.js", "trip/lib/offline.js", "trip/lib/import.js", "trip/lib/map.js",
+    "trip/lib/validate.js", "trip/lib/places.js", "trip/lib/autopilot.js", "trip/lib/shape.js", "trip/lib/classify.js", "trip/lib/photos.js", "trip/lib/prices.js", "trip/lib/route.js", "trip/lib/watch.js", "trip/lib/offline.js", "trip/lib/import.js", "trip/lib/map.js", "trip/lib/eat.js", "trip/lib/links.js",
     "trip/screens/family.js", "trip/screens/today.js", "trip/screens/journal.js", "trip/screens/settings.js"]
 }

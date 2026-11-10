@@ -179,6 +179,7 @@
       h += '<span class="go-k">Ready for offline</span><p>' + O.n + " photo" + (O.n === 1 ? "" : "s") + (O.maps.length ? " and " + O.maps.length + " street map" + (O.maps.length === 1 ? "" : "s") : "") + " on this phone · saved " + W.esc(d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })) + " " + W.clock(d.getHours() * 60 + d.getMinutes()) +
         '</p><div class="gr-b"><button type="button" class="chip" data-offsave="1">Save again</button><button type="button" class="chip" data-offcopy="1"' + (O.copyState === "making" ? " disabled" : "") + ">" + (O.copyState === "making" ? "Making the file…" : "Save an offline copy") + "</button></div>";
     } else h += '<span class="go-k">Offline</span><p>Save this trip\'s photos and maps on the phone, for ferries, museums and no-signal days. It happens by itself the week before you leave.</p><div class="gr-b"><button type="button" class="chip" data-offsave="1">Save now</button><button type="button" class="chip" data-offcopy="1"' + (O.copyState === "making" ? " disabled" : "") + ">" + (O.copyState === "making" ? "Making the file…" : "Save an offline copy") + "</button></div>";
+    if (!O.off) h += O.copyNote(P);
     if (O.copyState === "error") h += '<p class="small muted">' + W.esc(O.copyErr || "Couldn't make the file.") + "</p>";
     if (O.copyState === "done") h += '<p class="small muted">Offline copy saved. Open it from your phone\'s files; it works with no connection.</p>';
     return h + "</section>";
@@ -204,10 +205,24 @@
     return '<div class="dl-trip"><span class="k">Before you leave</span><p class="small">' + (all ? "Everything for this trip is on this phone." : "Save each city's street map and the trip's photos on this phone, for ferries, museums and no-signal days.") +
       " Photos for " + cov.pct + "% of stops (" + cov.withPhoto + " of " + cov.stops + ").</p><ul class=\"dl-list\">" + rows + '</ul><div class="row">' + btn + "</div></div>";
   };
+  /* The app lives inside Claude, so it cannot open with no connection at all; the offline copy (one file on the phone)
+     can. In the week before the trip and during it, say so when there is no copy of this trip yet, or when the plan
+     has changed since the copy was made. */
+  function planSig(P) { var s = (P && P.days || []).map(function (d) { return d.city + ":" + (d.slots || []).map(function (x) { return x.item ? x.item.n : ""; }).join(","); }).join("|"), h = 5381; for (var i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) | 0; return String(h >>> 0); }
+  O.copyNote = function (P) {
+    if (O.copy || W.readOnly || W.isExample || !P || !P.stops.length || !W.S.start || O.copyState === "making") return "";
+    var d = W.daysUntil ? W.daysUntil() : null; if (d == null || d > 7 || d <= -P.N) return "";
+    var c = null; try { c = JSON.parse(localStorage.getItem("waypoint-copy") || "null"); } catch (e) {}
+    var mine = c && c.trip === (W.S.tripId || "") ? c : null;
+    if (mine && mine.sig === planSig(P)) return "";
+    var when = d > 1 ? "You leave in " + d + " days. " : d === 1 ? "You leave tomorrow. " : d === 0 ? "You leave today. " : "";
+    return '<p class="copy-note" role="status"><b>' + (mine ? "Your plan changed since your offline copy." : when + "The app can't open without a connection.") + "</b> " +
+      (mine ? "Save a fresh one so the file on your phone matches." : "Save an offline copy: one file that opens with no signal.") + "</p>";
+  };
   /* the offline-copy button for the Prepare screen's Take along segment */
   O.takeBlock = function (P) {
     if (O.copy) return "";
-    return '<div class="take-off"><span class="k">Offline copy</span><div class="row"><button type="button" class="btn quiet" data-offcopy="1"' + (O.copyState === "making" ? " disabled" : "") + ">" + (O.copyState === "making" ? "Making the file…" : "Save an offline copy") + "</button>" +
+    return '<div class="take-off"><span class="k">Offline copy</span>' + O.copyNote(P) + '<div class="row"><button type="button" class="btn quiet" data-offcopy="1"' + (O.copyState === "making" ? " disabled" : "") + ">" + (O.copyState === "making" ? "Making the file…" : "Save an offline copy") + "</button>" +
       '<span class="small muted">' + (O.copyState === "making" && O.copyOf ? "Adding photos: " + (O.copyN || 0) + " of " + O.copyOf : O.copyState === "done" ? "Saved. Open it from your phone's files; it works with no connection." : O.copyState === "error" ? W.esc(O.copyErr || "Couldn't make the file.") : "One file with the app, this trip and the photos of every place in it (street maps need a connection).") + "</span></div></div>";
   };
   O.click = function (d, P) {
@@ -267,7 +282,7 @@
           return dl.save({ filename: file, data: blob });
         });
       });
-    }).then(function () { O.copyState = "done"; W.changed(); }, function (e) {
+    }).then(function () { O.copyState = "done"; try { localStorage.setItem("waypoint-copy", JSON.stringify({ trip: W.S.tripId || "", at: Date.now(), sig: planSig(P) })); } catch (x) {} W.changed(); }, function (e) {
       O.copyState = e && e.code === "declined" ? "idle" : "error"; O.copyErr = e && e.code === "unavailable" ? "Downloads aren't available in this view." : "Couldn't make the file: " + String(e && e.message || e); W.changed();
     });
   };

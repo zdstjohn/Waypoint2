@@ -77,7 +77,7 @@ interface Photo { url: string; credit?: string; page?: string; near?: string | b
 /** a checked place record (places/<city> in the database) */
 /** g: Google's place ID (kept for good); gpin/gat: the pin came from Google on that day (kept 30 days, never on the free map) */
 interface PlaceRecord { lat?: number | null; lng?: number | null; g?: string; gpin?: 1; gat?: string; [k: string]: any; checked?: string; osm?: string; name?: string; st?: Spot["st"]; site?: string; hours?: Hours; k?: Kid; note?: string; place?: string; replace?: Partial<Food & Spot> & { n: string }; approx?: 1; nopin?: 1; ashore?: 1; stay?: 1; pin_tried?: string; area?: 1; was?: [number, number] }
-interface OfflineState { cities?: Record<string, { photos: number; of: number; map: boolean }>; tripBlock(P: Plan): string; state: string; n: number; total: number; at: number; maps: any[]; err: string; off: boolean; copy: boolean; trip: any; copyState: string; copyErr: string; why: string; save(P: Plan, why?: string): void; tick(P: Plan): void; src(url: string): string; block(P: Plan): string; takeBlock(P: Plan): string; exportCopy(P: Plan): Promise<void>; click(d: DOMStringMap, P: Plan): boolean; [k: string]: any }
+interface OfflineState { copyNote(P: Plan): string; cities?: Record<string, { photos: number; of: number; map: boolean }>; tripBlock(P: Plan): string; state: string; n: number; total: number; at: number; maps: any[]; err: string; off: boolean; copy: boolean; trip: any; copyState: string; copyErr: string; why: string; save(P: Plan, why?: string): void; tick(P: Plan): void; src(url: string): string; block(P: Plan): string; takeBlock(P: Plan): string; exportCopy(P: Plan): Promise<void>; click(d: DOMStringMap, P: Plan): boolean; [k: string]: any }
 interface ReadOnly { code: string; [k: string]: any }
 interface Milestone { key: string; title: string; text: string; also?: string[]; go?: View }
 interface Readiness { pct: number; [k: string]: any }
@@ -401,6 +401,18 @@ interface Waypoint {
   releaseLoads: any;
   render: () => void;
   renderBar: any;
+  /** join this device's changes since the two last agreed (base) with another device's version of the trip */
+  merge3: (base: any, mine: any, theirs: any) => { state: any; changed: boolean };
+  /** how restaurant requests state the group's food needs ("" when there are none) */
+  eatAsk: () => string;
+  /** mark a list of places with how each fits the food needs (from the answer's fit / fitw) */
+  eatMark: (list: any[]) => void;
+  /** a planned meal's "Menu" button: opens its panel at the menu */
+  menuBtn: (key: string) => string;
+  /** a link to a place's own menu page, or a search for it */
+  menuLink: (it: any, city: string) => string;
+  /** the "Tickets" / "Reserve" link to a place's official site ("" when there is none) */
+  bookLink: (it: any, city: string, food: boolean, country: string) => string;
   /** this device refused a save (its storage for the app is full); shown in the banner until a save succeeds */
   localFull?: boolean;
   /** note a refused save: sets localFull and logs it once */

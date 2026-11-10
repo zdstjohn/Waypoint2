@@ -74,7 +74,34 @@
   var db = null, uid = null, col = null, pcol = null, canWrite = true;
   var st = "local";   /* local | connecting | synced | saving | error | full */
   var remote = {}, firstSnap = false, lastSig = null;
-  function baseline() { lastSig = hash(JSON.stringify(syncable(S))); appliedAt = Date.now(); jBase = JSON.stringify(S.journal || {}); }
+  function baseline() { var cur = syncable(S); lastSig = hash(JSON.stringify(cur)); appliedAt = Date.now(); jBase = JSON.stringify(S.journal || {}); base = cur; }
+  /* Two of your own devices changing the same trip: another device's version no longer replaces what you changed here
+     since the two last agreed (base). Each setting, and each entry of the per-slot and per-place lists (picks, stays,
+     free time, "not for us", days per place, packing ticks...), is taken from whichever side changed it; when both
+     changed the same one, theirs wins (it was saved later). Returns the joined state and whether it differs from theirs. */
+  var base = syncable(S);
+  function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+  function isMap(o) { return !!o && typeof o === "object" && !Array.isArray(o); }
+  function merge3(b0, mine, theirs) {
+    var out = clone(theirs), changed = false;
+    Object.keys(mine).concat(Object.keys(b0)).forEach(function (k) {
+      if (k === "journal" || k === "tripId" || same(mine[k], b0[k])) return;          /* not changed here (the journal has its own joining) */
+      if (isMap(mine[k]) && (isMap(theirs[k]) || theirs[k] === undefined) && (isMap(b0[k]) || b0[k] === undefined)) {
+        var m = mine[k], t = out[k] || (out[k] = {}), o = b0[k] || {}, th = theirs[k] || {};
+        Object.keys(m).concat(Object.keys(o)).forEach(function (j) {
+          if (same(m[j], o[j]) || !same(th[j], o[j]) || same(m[j], th[j])) return;      /* same here, or changed there too, or already equal */
+          if (m[j] === undefined) delete t[j]; else t[j] = clone(m[j]);
+          changed = true;
+        });
+        return;
+      }
+      if (!same(theirs[k], b0[k]) || same(mine[k], theirs[k])) return;                  /* changed there too: theirs */
+      if (mine[k] === undefined) delete out[k]; else out[k] = clone(mine[k]);
+      changed = true;
+    });
+    return { state: out, changed: changed };
+  }
+  W.merge3 = merge3;   /* (for the tests) */
   /* The journal is the one thing that can't be made again, so another device's version never simply replaces it. When
      this device has journal changes the account hasn't got (it differs from the last version both had, jBase), the two
      are joined: photos from both (by id), and both notes when they differ. With no changes here, theirs is taken as it
@@ -175,11 +202,13 @@
     }
     if (id === S.tripId && !W.readOnly) {
       var mineJ = S.journal || {}, unsent = JSON.stringify(mineJ) !== jBase, mj = unsent ? mergeJournal(mineJ, b.state.journal) : null;
-      replaceState(b.state); S.tripId = id;
+      /* changes you made here since the two last agreed (only yours: the planner filling a day by itself is redone anyway) */
+      var mp = touched > appliedAt ? merge3(base, syncable(S), b.state) : null, back = (mj && mj.changed) || (mp && mp.changed);
+      replaceState(mp ? mp.state : b.state); S.tripId = id;
       if (mj) S.journal = mj.journal;
-      idx[id] = { name: b.name, updated: mj && mj.changed ? Date.now() : b.updated }; saveIdx();
+      idx[id] = { name: b.name, updated: back ? Date.now() : b.updated }; saveIdx();
       baseline(); fetched = {};
-      if (mj && mj.changed && firstSnap) pushTrip(id);   /* the joined journal goes back to the account */
+      if (back && firstSnap) pushTrip(id);   /* what was joined goes back to the account */
       W.isExample = false; W.changed(); pullPools();
     } else { idx[id] = { name: b.name, updated: b.updated, state: clone(b.state) }; saveIdx(); }
   }

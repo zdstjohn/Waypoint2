@@ -47,6 +47,17 @@ exports.run = async t => {
     return { on, kept, off: !W.localFull };
   });
   t.ok(full.on && full.kept && full.off, 'a refused save is flagged (and nothing cleared), and the flag goes when saving works again: ' + JSON.stringify(full));
+  /* two of your devices: each side's own changes survive; the same slot changed on both goes to the other (later) one */
+  const m3 = await pg.evaluate(() => {
+    const base = { days: 10, start: '2027-06-07', picks: { a: 'Cafe 1', b: 'Museum', c: 'Park' }, free: {}, stays: { 'Italy|Rome': { label: 'Hotel A' } }, journal: { x: { note: 'base' } } };
+    const mine = JSON.parse(JSON.stringify(base)); mine.picks.a = 'Cafe 9'; mine.picks.c = 'Zoo'; mine.free.d = 1; mine.start = '2027-06-08'; delete mine.picks.b; mine.journal.x.note = 'mine';
+    const theirs = JSON.parse(JSON.stringify(base)); theirs.picks.c = 'Garden'; theirs.days = 12; theirs.stays['Italy|Rome'] = { label: 'Hotel B' }; theirs.picks.e = 'Market';
+    const r = W.merge3(base, mine, theirs), none = W.merge3(base, base, theirs);
+    return { s: r.state, changed: r.changed, none: none.changed, noneSame: JSON.stringify(none.state) === JSON.stringify(theirs) };
+  });
+  t.ok(m3.s.picks.a === 'Cafe 9' && m3.s.picks.c === 'Garden' && !('b' in m3.s.picks) && m3.s.picks.e === 'Market' && m3.s.free.d === 1 && m3.s.start === '2027-06-08' && m3.s.days === 12 && m3.s.stays['Italy|Rome'].label === 'Hotel B' && m3.s.journal.x.note === 'base' && m3.changed,
+    'your changes here and theirs there are joined (the same slot changed on both: theirs): ' + JSON.stringify(m3.s.picks));
+  t.ok(!m3.none && m3.noneSame, 'with nothing changed here, theirs is taken as it is');
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

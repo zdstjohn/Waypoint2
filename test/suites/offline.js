@@ -98,6 +98,15 @@ exports.run = async t => {
   t.eq(ferr.filter(e => !/forEach/.test(e)), [], 'no errors in the copy');
   await c2.close();
 
+  /* the reminder to save an offline copy: in the week before the trip, until a copy of this plan exists */
+  const note = await pg.evaluate(() => {
+    const iso = d => d.toISOString().slice(0, 10), far = new Date(Date.now() + 40 * 864e5), near = new Date(Date.now() + 3 * 864e5), was = W.isExample;
+    W.isExample = false; localStorage.removeItem('waypoint-copy');
+    W.S.start = iso(far); W.changed(); const a = W.offline.copyNote(W.plan());
+    W.S.start = iso(near); W.changed(); const P = W.plan(), b = W.offline.copyNote(P);
+    return { a, b, was };
+  });
+  t.ok(note.a === '' && /offline copy/.test(note.b) && /can't open without a connection/.test(note.b), 'within a week of leaving, with no offline copy yet, the app says to save one (not before): ' + note.b.replace(/<[^>]+>/g, '').slice(0, 90));
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

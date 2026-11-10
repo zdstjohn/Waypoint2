@@ -94,10 +94,14 @@
   }
   /* for offline saving: fetch a city's pack and the everyday glyphs now, so the worker's cache has them */
   W.vtWarm = function (slug) { return Promise.all([pack(slug), glyphs(0)]).then(function () { return true; }); };
-  var EMPTY = new ArrayBuffer(0);
+  /* "nothing here" (a tile or a letter range the pack doesn't hold) is a NEW empty buffer every time: the engine hands
+     each answer over to its worker, which empties the buffer on this side, so one shared buffer worked once and then made
+     every later "nothing here" fail ("ArrayBuffer is already detached"), and a tile whose names needed such a letter
+     range failed with it: the blank boxes on the map. */
+  function none() { return new ArrayBuffer(0); }
   function piece(p, key) {
     var e = p.hdr.t[key];
-    return e ? gunzip(p.body.subarray(e[0], e[0] + e[1])) : Promise.resolve(EMPTY);
+    return e ? gunzip(p.body.subarray(e[0], e[0] + e[1])) : Promise.resolve(none());
   }
 
   /* ---------- the engine: loaded on first use, with a worker this page is allowed to start ---------- */
@@ -132,7 +136,7 @@
           ML.setWorkerUrl(workerUrl);
           ML.addProtocol("wpvt", function (params) {
             var m = /^wpvt:\/\/([^/]+)\/(\d+)\/(\d+)\/(\d+)/.exec(params.url);
-            if (!m) return Promise.resolve({ data: EMPTY });
+            if (!m) return Promise.resolve({ data: none() });
             var key = m[2] + "/" + m[3] + "/" + m[4];
             /* a tile that fails to come out of its pack is tried twice more before the map is told */
             function once() { return pack(m[1]).then(function (p) { return piece(p, key); }); }
@@ -142,7 +146,7 @@
           });
           ML.addProtocol("wpgl", function (params) {
             var m = /^wpgl:\/\/([^/]+)\/([0-9]+-[0-9]+)/.exec(params.url), stack = m ? decodeURIComponent(m[1]).split(",")[0] : "";
-            if (!m) return Promise.resolve({ data: EMPTY });
+            if (!m) return Promise.resolve({ data: none() });
             return glyphs(parseInt(m[2], 10)).then(function (g) { return piece(g, stack + "/" + m[2]).then(function (d) { return d.byteLength ? d : piece(g, "Noto Sans Regular/" + m[2]); }); }).then(function (d) { return { data: d }; });
           });
         });

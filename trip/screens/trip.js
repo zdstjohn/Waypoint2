@@ -28,48 +28,6 @@
     d.setDate(d.getDate() + n - 1);
     return d.toLocaleDateString(undefined, opts || { weekday: "short", month: "short", day: "numeric" });
   }
-  /* menu: the restaurant's own menu page when Claude knows it, otherwise a search for that restaurant's menu */
-  /* a planned meal's "Menu": its panel, opened at the menu (read from the restaurant's own site overnight) */
-  function menuBtn(key) { return '<button type="button" class="menu-btn" data-open="' + esc(key) + '" data-menu="1" aria-haspopup="dialog">Menu</button>'; }
-  function menuLink(it, city) {
-    var url = it.menu || "https://www.google.com/search?q=" + encodeURIComponent(it.n + " " + city + " menu"), host = "";
-    if (it.menu) { try { host = new URL(it.menu).hostname.replace(/^www\./, ""); } catch (e) {} }
-    return '<a class="menu-btn" href="' + esc(url) + '" target="_blank" rel="noopener" title="' + esc(host ? "Menu on " + host : "Search for the menu") + '">Menu</a>';
-  }
-  /* tickets: straight to the place's own official site, never a reseller or a search page.
-     Verified links (checked against Wikidata) win; otherwise Claude's official link if it passes the reseller filter; otherwise nothing. */
-  W.reviewsUrl = function (name, city) { return "https://www.google.com/search?q=" + encodeURIComponent(name + " " + city + " reviews"); };
-  W.officialUrl = function (it, food, country, city) {
-    var off = !food && W.officialLink && W.officialLink(it, country, city), url = it.book || "", verified = false;
-    if (off) {
-      var offHost = hostOf(off.url), bookHost = hostOf(url);
-      /* keep Claude's deeper ticket page when it is on the same official site; otherwise use the verified site */
-      if (!(url && bookHost && regOf(bookHost) === regOf(offHost))) url = off.url;
-      verified = true;
-    }
-    var host = hostOf(url);
-    if (!url || !host) return null;
-    if (food && !W.needsBooking(it)) return null;
-    if (!food && !W.isPaid(it) && !W.needsBooking(it)) return null;
-    return { url: url, host: host, verified: verified };
-  };
-  W.hostOf = hostOf;
-  function bookLink(it, city, food, country) {
-    var o = W.officialUrl(it, food, country, city); if (!o) return "";
-    return '<a class="book" href="' + esc(o.url) + '" target="_blank" rel="noopener" title="' + (o.verified ? "Official site, checked" : "Official site") + '">' + (food ? "Reserve" : "Tickets") + " · " + esc(o.host) + (o.verified ? ' <span class="ok" aria-label="checked official site">✓</span>' : "") + "</a>";
-  }
-  /* flights: a Google Flights search (airlines and fares change too often to pick one) */
-  W.flightsUrl = function (from, to, d) {
-    return "https://www.google.com/travel/flights?q=" + encodeURIComponent("Flights from " + from + " to " + to + (d ? " on " + W.isoDay(d) : "") + " one way");
-  };
-  var MODE = { train: "Train", bus: "Bus", ferry: "Ferry", catamaran: "Ferry", hydrofoil: "Ferry", vaporetto: "Ferry", ship: "Ferry", flight: "Flight", plane: "Flight", car: "Car", drive: "Car", boat: "Ferry", coach: "Bus" };
-  /* a ferry whose own site Claude wasn't sure of: a search that finds the company's site (never a reseller we picked) */
-  W.ferrySearch = function (o, a, b) {
-    return { url: "https://www.google.com/search?q=" + encodeURIComponent((o.op ? o.op + " " : "") + "ferry " + (o.from || a.name) + " to " + (o.to || b.name) + " official site"),
-      text: o.op ? "Find " + o.op + " online" : "Find the ferry company online" };
-  };
-  W.isFerry = function (m) { return /ferry|boat|catamaran|hydrofoil|vaporetto|ship/i.test(m || ""); };
-  W.modeName = function (m) { m = String(m || "").toLowerCase(); for (var k in MODE) if (m.indexOf(k) > -1) return MODE[k]; return m ? m.charAt(0).toUpperCase() + m.slice(1) : "Travel"; };
   /* travel day: how to get from the last place to this one, with the operators' own sites */
   /* how to look at the trip: one day, that day on the map, or every day at a glance. Labelled, so it's clear what each
      one does. (The storybook, the whole trip a page a day, opens from the trip menu and from All days.) */
@@ -99,7 +57,7 @@
     if (L.opts && L.opts.length) {
       /* one row per way to go; the one you're taking opens up with where to book it */
       h += '<div class="legopts" role="radiogroup" aria-label="How you\'ll get here">' + L.opts.map(function (o, i) {
-        var sel = i === L.pick, fy = W.isFerry(o.mode), fl = /flight|plane/.test(o.mode), host = o.url && hostOf(o.url);
+        var sel = i === L.pick, fy = W.isFerry(o.mode), fl = /flight|plane/.test(o.mode), host = o.url && W.hostOf(o.url);
         var ro = !W.canEdit(), head = '<button type="button" class="lo-h" role="radio" aria-checked="' + sel + '"' + (sel || ro ? ' tabindex="' + (sel ? 0 : -1) + '"' : "") +
           (ro ? " disabled" : ' data-legpick="' + i + '" data-legkey="' + esc(L.key) + '"') + ">" +
           '<span class="lo-dot" aria-hidden="true"></span>' + modeIcon(o.mode) +
@@ -239,8 +197,6 @@
       '<div class="lo-act">' + '<a class="lo-book quiet" href="' + esc(url) + '" target="_blank" rel="noopener">Find flights <span aria-hidden="true">↗</span></a>' + "</div>" +
       '<p class="small muted">' + (out ? "Times today assume you land early or the night before. If you land later, keep the first stops for tomorrow." : "Leave for the airport about 3 hours before an international flight.") + "</p></section>";
   }
-  function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return ""; } }
-  function regOf(h) { var p = h.split("."), r = p.slice(-2).join("."); return /^(co|com|org|gov|ac|net)\.[a-z]{2}$/.test(r) && p.length > 2 ? p.slice(-3).join(".") : r; }
 
   /* ---------- Explore: today's route ---------- */
   /** today's stops as a route from where you stay and back: the way between each (walk, transit, drive) with its
@@ -433,7 +389,7 @@
           if (it.lat != null) prevPt = it;
           var open = false;
           /* closed: what, when, how long, and the one link you need (tickets or menu). Open: everything else. */
-          var main = food ? menuBtn(x.key) + bookLink(it, day.city, true, day.country) : bookLink(it, day.city, false, day.country);
+          var main = food ? W.menuBtn(x.key) + W.bookLink(it, day.city, true, day.country) : W.bookLink(it, day.city, false, day.country);
           if (P.p.kid && it.k === -1) notes = '<span class="warn">' + esc(W.notForLine ? W.notForLine(P.p) : P.p.toddler ? "Not for toddlers" : "Not for kids") + "</span>" + notes;
           var meta = food ? [it.cuisine, it.price] : [W.priceText(it.ticket, W.curOf(day.country))];
           var metaHtml = meta.filter(Boolean).map(function (m) { return "<span>" + esc(m) + "</span>"; }).join("");
@@ -464,7 +420,7 @@
               '<span class="sl-l">' + tm + '<b class="nm">' + esc(it.n) + "</b></span>" +
               '<span class="when">' + label + (legTag ? " · " + legTag : "") + "</span></button>" +
               (notes ? '<div class="slot-notes">' + notes + "</div>" : "") + "</div>" +
-              '<div class="slim-a">' + booked + menuBtn(x.key) + (W.canEdit() ? rr : "") + "</div></article>";
+              '<div class="slim-a">' + booked + W.menuBtn(x.key) + (W.canEdit() ? rr : "") + "</div></article>";
           } else {
             list += '<article class="slot sk' + (R && R.skip ? " skipped" : "") + '" data-slotkey="' + esc(x.key) + '">' + (ph ? '<div class="thumb">' + ph + '<span class="num">' + num + "</span></div>" : '<span class="num">' + num + "</span>") +
               '<div class="slot-body"><button type="button" class="slot-toggle" data-open="' + esc(x.key) + '" aria-haspopup="dialog">' +
@@ -588,7 +544,7 @@
         return '<div class="idea' + (ph ? " has-photo" : "") + '">' + (ph ? '<div class="pic-wrap">' + ph + onTag + "</div>" : onTag) + "<h4>" + esc(it.n) + "</h4>" + bTag + '<p class="desc">' + esc(it.d) + "</p>" +
           (row.near ? '<p class="near">' + esc(row.near) + "</p>" : "") +
           (info ? '<p class="small muted">' + esc(info) + "</p>" : "") +
-          '<p class="small idea-meta">' + warn + (it.st === "open" ? '<span class="chk-ok" title="Confirmed by the nightly check">✓ Checked</span>' : "") + (eat ? menuLink(it, day.city) : "") + bookLink(it, day.city, eat, day.country) + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it, day.city), "Google Maps") +
+          '<p class="small idea-meta">' + warn + (it.st === "open" ? '<span class="chk-ok" title="Confirmed by the nightly check">✓ Checked</span>' : "") + (eat ? W.menuLink(it, day.city) : "") + W.bookLink(it, day.city, eat, day.country) + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it, day.city), "Google Maps") +
             (W.canEdit() ? '<button type="button" class="linkish id-no" data-nope="" data-name="' + esc(it.n) + '" aria-label="Not for us: ' + esc(it.n) + '">Not for us</button>' : "") + "</p>" +
           (on && on.n === day.n || !free.length ? "" : '<div class="use">' + free.map(function (x) { return '<button type="button" data-use="' + x.slot + '" data-name="' + esc(it.n) + '" aria-label="Put ' + esc(it.n) + " in " + W.SLOT_NAME[x.slot].toLowerCase() + '">' + W.SLOT_NAME[x.slot] + "</button>"; }).join("") + "</div>") + "</div>";
       }
@@ -787,7 +743,7 @@
     var meta = (food ? [it.cuisine, it.price] : [W.priceText(it.ticket, W.curOf(day.country))]).filter(Boolean).map(function (m) { return "<span>" + esc(m) + "</span>"; }).join("");
     var bk = W.bookingFor ? W.bookingFor(it, day) : null, bkE = W.bookEntryFor ? W.bookEntryFor(P, day, it) : null;
     var booked = bk ? '<span class="booked-tag" title="' + esc(bk.title || "") + '">✓ Booked' + (bk.ref ? " · " + esc(bk.ref) : "") + "</span>" : "";
-    var main = food ? bookLink(it, day.city, true, day.country) : bookLink(it, day.city, false, day.country);   /* the menu itself is below */
+    var main = food ? W.bookLink(it, day.city, true, day.country) : W.bookLink(it, day.city, false, day.country);   /* the menu itself is below */
     var rev = it.love || it.gripe ? '<div class="rev">' + (it.love ? '<span><b>Loved for</b> ' + esc(it.love) + "</span>" : "") + (it.gripe ? '<span><b>Watch for</b> ' + esc(it.gripe) + "</span>" : "") + "</div>" : "";
     var when = [R && R.start != null && !R.skip ? W.clock(R.start) : "", label, W.stayText(it, food, x.slot)].filter(Boolean).join(" · ");
     return '<div class="sd">' + (ph ? '<div class="sd-pic">' + ph + "</div>" : "") +

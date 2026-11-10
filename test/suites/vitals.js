@@ -24,6 +24,7 @@ exports.run = async t => {
     /* observers in place before the page's first byte */
     await pg.addInitScript(() => {
       window.__v = { fcp: 0, lcp: 0, cls: 0, shifts: [] };
+      try { window.__v.long = []; new PerformanceObserver(l => { for (const e of l.getEntries()) window.__v.long.push([Math.round(e.startTime), Math.round(e.duration)]); }).observe({ type: 'longtask', buffered: true }); } catch (e) {}
       try {
         new PerformanceObserver(l => { for (const e of l.getEntries()) if (e.name === 'first-contentful-paint') window.__v.fcp = e.startTime; }).observe({ type: 'paint', buffered: true });
         new PerformanceObserver(l => { for (const e of l.getEntries()) window.__v.lcp = e.startTime; }).observe({ type: 'largest-contentful-paint', buffered: true });
@@ -40,7 +41,7 @@ exports.run = async t => {
     await pg.waitForTimeout(1500);
     const load = await pg.evaluate(() => { const v = window.__v, nav = performance.getEntriesByType('navigation')[0];
       /* when the stylesheet and the bundle came in (the first paint needs the one, the app the other) */
-      const got = performance.getEntriesByType('resource').filter(e => /app\.min\.css|app\.js/.test(e.name)).map(e => e.name.split('/').pop() + ' ' + Math.round(e.responseEnd) + ' ms').join(', ');
+      const got = performance.getEntriesByType('resource').filter(e => /app\.min\.css|app\.js/.test(e.name)).map(e => e.name.split('/').pop() + ' ' + Math.round(e.responseEnd) + ' ms').join(', ') + '; fonts ' + performance.getEntriesByType('resource').filter(e => /woff2/.test(e.name)).map(e => Math.round(e.responseEnd)).join('/') + ' ms; first paint (any) ' + Math.round((performance.getEntriesByType('paint').find(e => e.name === 'first-paint') || {}).startTime || 0) + ' ms; long tasks [start, ms] ' + JSON.stringify((v.long || []).slice(0, 8));
       return { fcp: Math.round(v.fcp), lcp: Math.round(v.lcp), cls: +v.cls.toFixed(3), shifts: v.shifts, dcl: Math.round(nav.domContentLoadedEventEnd), loadEv: Math.round(nav.loadEventEnd), slots: document.querySelectorAll('#viewTrip .slot').length, got }; });
     return { ctx, pg, cdp, errors, load, wall: Date.now() - t0 };
   };
