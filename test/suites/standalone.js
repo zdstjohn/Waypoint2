@@ -6,7 +6,9 @@ const { chromium } = require('playwright'); const { spawn } = require('child_pro
 const PORT = 8774, URL = `http://127.0.0.1:${PORT}/`;
 exports.run = async t => {
   const dist = path.join(__dirname, '..', '..', 'dist');
-  t.ok(fs.existsSync(path.join(dist, 'index.html')) && fs.existsSync(path.join(dist, 'sw.js')), 'dist/ is built');
+  t.ok(fs.existsSync(path.join(dist, 'index.html')) && fs.existsSync(path.join(dist, 'sw.js')) && !fs.existsSync(path.join(dist, 'vercel.json')), 'dist/ is built (and the host\'s settings stay out of it)');
+  const vj = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'vercel.json'), 'utf8'));
+  t.ok(vj.outputDirectory === 'dist' && /standalone\.js/.test(vj.buildCommand) && vj.headers.some(h => h.headers.some(x => x.key === 'Content-Security-Policy')), 'vercel.json in the top folder builds dist/ and sends the content policy');
   const srv = spawn('node', [path.join(__dirname, '..', 'lib', 'sa-server.js'), String(PORT), dist], { stdio: 'ignore' });
   for (let i = 0; i < 40; i++) { await new Promise(r => setTimeout(r, 150)); if (await new Promise(r => http.get(URL, res => r(res.statusCode === 200)).on('error', () => r(false)))) break; }
   const b = await chromium.launch();

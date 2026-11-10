@@ -2,7 +2,7 @@
      node build/bundle.js && node build/standalone.js   ->  dist/ (a static site: deploy the folder as it is)
    What it adds around the app: a full HTML document (the Claude page is a fragment its host wraps), the web app
    manifest and icons (build/icon/out, made by build/icon/make-icons.js), a service worker so the app opens with no
-   connection after the first visit, and the hosting headers (vercel.json). window.__WP_STANDALONE tells the app it is
+   connection after the first visit, and the host's settings and headers (vercel.json, in the top folder). window.__WP_STANDALONE tells the app it is
    on its own (lib/pwa.js): no Claude, no shared database; trips live on the phone. */
 const fs = require('fs'); const path = require('path'); const crypto = require('crypto');
 const ROOT = path.resolve(__dirname, '..'), TRIP = path.join(ROOT, 'trip'), ICONS = path.join(__dirname, 'icon', 'out'), DIST = path.join(ROOT, 'dist');
@@ -101,10 +101,14 @@ self.addEventListener("fetch", e => {
 });
 `);
 
-/* hosting: who may load what (the same rules the Claude page runs under, plus this site's own), and no stale worker */
+/* hosting: who may load what (the same rules the Claude page runs under, plus this site's own), and no stale worker.
+   Vercel reads vercel.json from the repository's top folder (not from dist/), so it is written there and committed;
+   a build that changes it shows up in git. */
 const CSP = ["default-src 'self'", "script-src 'self' https://cdnjs.cloudflare.com", "style-src 'self' 'unsafe-inline'", "font-src 'self' data:",
   "img-src 'self' data: blob: https:", "connect-src 'self' https: data: blob:", "worker-src 'self' blob:", "manifest-src 'self'", "frame-ancestors 'none'", "base-uri 'self'", "form-action 'none'"].join('; ');
-fs.writeFileSync(path.join(DIST, 'vercel.json'), JSON.stringify({
+fs.writeFileSync(path.join(ROOT, 'vercel.json'), JSON.stringify({
+  $schema: 'https://openapi.vercel.sh/vercel.json',
+  installCommand: 'npm install --no-save --no-package-lock --ignore-scripts esbuild@0.24.2', buildCommand: 'node build/bundle.js && node build/standalone.js', outputDirectory: 'dist', framework: null,
   cleanUrls: false, trailingSlash: false,
   headers: [
     { source: '/(.*)', headers: [{ key: 'Content-Security-Policy', value: CSP }, { key: 'X-Content-Type-Options', value: 'nosniff' }, { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' }, { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self)' }] },
