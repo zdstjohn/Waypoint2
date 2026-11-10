@@ -94,7 +94,7 @@ exports.run = async t => {
     const h = [...document.querySelectorAll('.idea-list .idea-group.near-g')].find(x => x.textContent === title);
     const first = h && h.nextElementSibling;
     W.S.tview = 'days'; W.S.day = 2; W.render();
-    return { before: rows, after: h ? rowsOf(h) : [], tag: !!(first && /✓ Checked/.test(first.textContent)), last };
+    return { before: rows, after: h ? rowsOf(h) : [], tag: !!(first && first.querySelector(".ck-badge[aria-label^=\"Checked\"] svg")), last };
   });
   if (!ck) t.note('every ideas group in Rome already starts with a confirmed place'); else t.ok(ck.after[0] === ck.last && ck.tag, `a confirmed idea comes first in its group and says it was checked (${ck.before.join(', ')} → ${ck.after.join(', ')})`);
   /* A record that lost a wrong pin (it carries "was"): a stop whose saved list still holds that wrong pin has no own pin

@@ -137,6 +137,7 @@
     /* when the place itself has no photo, a photo of what's nearby says so ("Nearby: Piazza IX Aprile") */
     var near = ph.near ? (typeof ph.near === "string" ? "Nearby: " + ph.near : "Taken nearby") : "";
     return '<img class="pic photo" src="' + esc(W.offline ? W.offline.src(ph.url) : ph.url) + '" alt="' + esc(!ph.near ? it.n : typeof ph.near === "string" ? ph.near + ", near " + it.n : "Taken near " + it.n) + '" loading="lazy" decoding="async">' +
-      (opts.credit ? '<a class="credit" href="' + esc(ph.page || "https://commons.wikimedia.org") + '" target="_blank" rel="noopener">' + (near ? esc(near) + " · " : "") + "Photo: " + esc(ph.credit || "Wikimedia Commons") + "</a>" : "");
+      /* the photographer's name stays (the photos' licences ask for it), but as plain text: a tap on the photo never leaves the app */
+      (opts.credit ? '<span class="credit">' + (near ? esc(near) + " · " : "") + "Photo: " + esc(ph.credit || "Wikimedia Commons") + "</span>" : "");
   };
 })();

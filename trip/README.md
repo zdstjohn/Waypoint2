@@ -20,6 +20,13 @@ first screen reads from Prepare (the book-by checklist, the budget, which bookin
 with W.money and "Prices in": each phone shows costs as listed or all in one currency (localStorage "waypoint-cur"),
 converted at the European Central Bank's rates in fx/latest (refreshed nightly) and marked "≈" (W.priceText converts
 prices written in text, like "€15, book ahead"; a currency with no rate stays as listed); Prepare and Settings offer it.
+v118: two tabs on the trip, Day and Explore; Day holds a One day / All days switch (.dsw, data-vsw "days"/"all"; the
+tab remembers All days across a visit to Explore in S.allPref). The storybook is gone (a trip saved on it opens on the
+day). Links and marks as pictures (lib/links.js): W.iconLink (photos, map: a plain map sign, not a company's logo),
+W.checkedBadge (checked by the nightly look), W.kidWarn (better for older kids); "Not for us" is a red bordered button at
+the far end of the idea row. Photo credits are plain text (the licences ask for the name; a tap never leaves the app).
+The street map cannot zoom out past the town it was made for plus the day's stops (vtmap.js area, MapLibre maxBounds).
+Prepare on a wide screen keeps the tabs in one place on every tab (an empty .cur-none holds the currency picker's cell).
 v117: a screen is no longer thrown away and rebuilt on every change. lib/patch.js W.draw(el, html, sig): the same HTML
 as last time touches nothing; the same screen (the same day, All days, Today) with different HTML is edited in place,
 node by node, so pictures, the street map inside .vt-slot, the focus, a row's scroll position and what is being typed
@@ -36,7 +43,7 @@ It only reads: nothing in the plan changes. "Replan from a sentence" (lib/replan
 Claude gets the sentence, the time, and the stops still to come, each with the same other options "Swap" would show, and
 answers keep, free or use per stop; W.rescueApply (lib/plan.js) checks every action again (nothing started or booked, only
 a place on that stop's own list, not one planned elsewhere) and shares the rescues' Undo.
-The storybook (screens/story.js) and the itinerary import (lib/import.js) moved to the second script: the first script
+The itinerary import (lib/import.js) moved to the second script: the first script
 went from 371 to 357 KB. The built-in destination data, the planner and Travel mode stay: the first screen needs them.
 v116: the blank boxes on the street map came from one shared empty buffer in vtmap.js (the engine hands every answer to
 its worker, which empties it on this side; the second "nothing here" then failed, and a tile whose names needed such a

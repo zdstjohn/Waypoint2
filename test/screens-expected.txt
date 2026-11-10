@@ -1,5 +1,13 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v117
-today-*         # Today: "say what's going on" box under the one-tap rescues (only during the trip)
-menu-*          # the trip menu: "Check my plan"
+# v117 + v118
+today-*         # Today: the replan box; the kids' banner centred
+menu-*          # the trip menu: "Check my plan" in, "Storybook" out
+trip-days-*     # Day and Explore tabs, with One day / All days inside Day
+trip-all-*      # (new) All days
+swap-*          # the same switch above the day
+stop-panel-*    # photos and map links as pictures; "Not ideal for kids" as a picture; red "Not for us"
+meal-panel-*    # the same for a place to eat
+explore-*       # idea rows: checked, photos, map as pictures; red bordered "Not for us" apart; switch without the day toggle
+book-*          # Prepare: the tabs keep their place on a wide screen
+book-add-*      # the same

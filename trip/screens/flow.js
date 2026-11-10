@@ -252,11 +252,7 @@
     host.innerHTML = h + "</div>";
     document.documentElement.classList.add("modal-open");
   }
-  /* swapping and reordering happen in the day's list: from the storybook, go there first */
-  function dayList(then) {
-    if (W.S.tview !== "story" || W.view() !== "trip") return then();
-    W.S.tview = "days"; W.render(); setTimeout(then, 60);
-  }
+  function dayList(then) { then(); }
   function sheetAct(a) {
     var P = W.P, day = P.days[W.S.day - 1], x = slotsOf(day).filter(function (y) { return y.key === sheet.key; })[0], S = W.S;
     if (!x) { sheet = null; return drawSheet(); }
@@ -376,7 +372,7 @@
     sw = null;
     if (W.view() !== "trip" || e.touches.length !== 1 || drag) return;
     var t = e.target;
-    if (t.closest(".explorer, .daybar, .idea-list, .swapcards, .opts, input, textarea, select, .live-list, .jgrid, .glance, .sheet, .legopts, .vtwrap, .map, canvas, .thumb, .story")) return;
+    if (t.closest(".explorer, .daybar, .idea-list, .swapcards, .opts, input, textarea, select, .live-list, .jgrid, .glance, .sheet, .legopts, .vtwrap, .map, canvas, .thumb")) return;
     sw = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };
   }, { passive: true });
   document.addEventListener("touchend", function (e) {
@@ -457,8 +453,6 @@
   }
   W.glance = function (P) {
     if (!W.S.glanceOpen) return "";
-    var story = '<button type="button" class="story-link" data-story="1"><svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 5.5C8.2 4.2 5.7 3.8 3 4.2v11.3c2.7-.4 5.2 0 7 1.3 1.8-1.3 4.3-1.7 7-1.3V4.2c-2.7-.4-5.2 0-7 1.3zM10 5.5v11.3"/></svg>' +
-      "<span><b>See it as a storybook</b><span class=\"small muted\">The whole trip, a page a day, with photos</span></span></button>";
     var tn = W.todayN(P);
     function row(d) {
       var T = d.slots && d.slots.length ? W.dayTimes(d, P) : null, E = T && W.dayEnergy ? W.dayEnergy(d, P, T) : null;
@@ -476,7 +470,7 @@
     /* one card per place you stay, in order, its days inside */
     /* "Check my plan" comes with the second script */
     var rev = W.reviewBlock ? W.reviewBlock(P) : (W.needLater(), "");
-    return story + rev + P.stops.map(function (s, si) {
+    return rev + P.stops.map(function (s, si) {
       var ds = P.days.filter(function (d) { return d.stop === si; }), r = rangeOf(P, si), n = s.days;
       var trips = (s.trips || []).filter(function (t) { return t.planned !== false; }).map(function (t) { return t.name; });
       return '<section class="g-sec" data-stop="' + si + '"><h3 class="g-stop"><span class="g-sn">' + esc(s.name) + '</span><span class="g-sm">' + esc([r, n + " night" + (n === 1 ? "" : "s"), trips.length ? "day trip" + (trips.length > 1 ? "s" : "") + " to " + trips.join(", ") : ""].filter(Boolean).join(" · ")) + "</span></h3>" +
@@ -533,6 +527,6 @@
   });
   /* the side-by-side map appears above 920px wide: redraw when the window crosses that */
   var wide = window.innerWidth > 920, rT = null;
-  window.addEventListener("resize", function () { clearTimeout(rT); rT = setTimeout(function () { var w = window.innerWidth > 920; if (w !== wide) { wide = w; if (W.view() === "trip") W.render(); } else if (W.storyFit) W.storyFit(); }, 200); });
+  window.addEventListener("resize", function () { clearTimeout(rT); rT = setTimeout(function () { var w = window.innerWidth > 920; if (w !== wide) { wide = w; if (W.view() === "trip") W.render(); } }, 200); });
   document.addEventListener("input", function (e) { if (e.target && e.target.dataset && e.target.dataset.qskid != null) qsKids(); });
 })();

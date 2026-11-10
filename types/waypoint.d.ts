@@ -34,7 +34,7 @@ interface Stay { label: string; lat?: number | null; lng?: number | null; live?:
 /** the trip, as saved (localStorage "waypoint-v2" and the account) */
 interface TripState { v: 2; algo?: number; tripId?: string; tripName?: string; styles: string[]; focus?: Focus; countries: Country[]; days: number; start: string; depart: string; travelers: (number | "")[]; names?: string[];
   stays: Record<string, Stay>; picks: Record<string, string>; seen: Record<string, string[]>; mine?: Record<string, 1>; free?: Record<string, 1>; rest?: Record<string, 1>; fold?: Record<string, unknown>; legPick?: Record<string, unknown>; nope?: Record<string, string>; eat?: { al?: string[]; di?: string[]; love?: string; avoid?: string; note?: string }; eatNone?: 1; eatOpen?: { al?: boolean; di?: boolean }; bag?: Record<string, Record<string, 1>>;
-  cityDays: Record<string, number>; day: number; tview?: "days" | "map" | "story"; glanceOpen?: boolean; stepClosed?: Record<string, boolean>; prepTab?: string; transitOpen?: unknown; jetOpen?: unknown; nextHide?: unknown; tripFolded?: any; mapZoom?: number; late?: any;
+  cityDays: Record<string, number>; day: number; tview?: "days" | "map"; glanceOpen?: boolean; allPref?: boolean; stepClosed?: Record<string, boolean>; prepTab?: string; transitOpen?: unknown; jetOpen?: unknown; nextHide?: unknown; tripFolded?: any; mapZoom?: number; late?: any;
   appMode?: string; appModeAt?: string; exF?: unknown; exSort?: unknown; pack?: Record<string, unknown>; packHide?: Record<string, 1>; packOwn?: PackItem[]; journal?: Record<string, { mood?: number; note?: string; photos?: { id: string; [k: string]: any }[] }>;
   kidPicks?: Record<string, string[]>; hunt?: Record<string, Record<string, 1>>; stamps?: Record<string, string>; celebrated?: Record<string, string>; warmSeen?: string; lodge?: Record<string, string>; lodgeSeen?: Record<string, string[]>;
   share?: any; imported?: any; bookings?: Booking[]; booked?: Record<string, any>; [k: string]: any }
@@ -465,7 +465,10 @@ interface Waypoint {
   stayTrack: any;
   stopAt: (s: Stop) => LatLng & { label?: string };
   stopDetails: any;
-  dayEntries: any;
+  vtArea: any;
+  iconLink: any;
+  checkedBadge: any;
+  kidWarn: any;
   patch: any;
   draw: any;
   drawn: any;
@@ -478,10 +481,6 @@ interface Waypoint {
   reviewSig: any;
   reviewStart: any;
   reviewBlock: any;
-  storyPage: any;
-  storyFit: any;
-  storyHtml: any;
-  storyMount: any;
   sumText: any;
   suppressClick: any;
   syncable: any;
@@ -495,7 +494,6 @@ interface Waypoint {
   travelOn: any;
   tripName: () => string;
   tripStats: any;
-  tripTop: any;
   tzFor: (country: string) => string;
   undoPoint: any;
   unrescue: any;

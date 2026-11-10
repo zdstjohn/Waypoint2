@@ -47,4 +47,39 @@
   };
   W.isFerry = function (m) { return /ferry|boat|catamaran|hydrofoil|vaporetto|ship/i.test(m || ""); };
   W.modeName = function (m) { m = String(m || "").toLowerCase(); for (var k in MODE) if (m.indexOf(k) > -1) return MODE[k]; return m ? m.charAt(0).toUpperCase() + m.slice(1) : "Travel"; };
+
+  /* ---------- small pictures instead of words (v118) ---------- */
+  function svg(body, vb) { return '<svg viewBox="' + (vb || "0 0 24 24") + '" aria-hidden="true" focusable="false">' + body + "</svg>"; }
+  var PIC = {
+    /* a photo: a frame with a sun and two hills */
+    photos: svg('<rect x="3" y="4.5" width="18" height="15" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="2" fill="currentColor"/><path d="M4 18l5.5-5 3.5 3 3-2.5 4 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'),
+    /* a map: a folded map with a pin (a plain map sign, not any company's logo) */
+    map: svg('<path d="M3.5 6.5l5-2 7 2 5-2v13l-5 2-7-2-5 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8.5 4.5v13M15.5 6.5v6" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".55"/><path d="M15.5 21s-3.6-3.7-3.6-6.4a3.6 3.6 0 0 1 7.2 0c0 2.7-3.6 6.4-3.6 6.4z" fill="currentColor"/><circle cx="15.5" cy="14.6" r="1.3" fill="var(--surface, #fff)"/>')
+  };
+  /** an outside link drawn as a picture; the words go to screen readers and the tooltip @param {string} url @param {"photos"|"map"} kind @param {string} label */
+  W.iconLink = function (url, kind, label) {
+    return '<a class="ilink ilink-' + kind + '" href="' + W.esc(url) + '" target="_blank" rel="noopener" aria-label="' + W.esc(label) + '" title="' + W.esc(label) + '">' + PIC[kind] + "</a>";
+  };
+  /* checked by the nightly look: a green disc with a cream tick, painted like the Waypoint letters (a meadow gradient,
+     a darker rim, a chunky rounded stroke) */
+  /* the gradient lives once in the page (a hidden drawing), so every badge is the same markup and a redraw with
+     nothing new changes nothing */
+  function defs() {
+    if (document.getElementById("wpCkG")) return;
+    var d = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    d.setAttribute("width", "0"); d.setAttribute("height", "0"); d.setAttribute("aria-hidden", "true"); d.setAttribute("style", "position:absolute");
+    d.innerHTML = '<defs><linearGradient id="wpCkG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7CC77A"/><stop offset="1" stop-color="#2F8A4C"/></linearGradient></defs>';
+    (document.body || document.documentElement).appendChild(d);
+  }
+  W.checkedBadge = function () {
+    defs();
+    return '<span class="ck-badge" role="img" aria-label="Checked: open, confirmed by the nightly check" title="Checked: open, confirmed by the nightly check">' +
+      svg('<circle cx="12" cy="12" r="10.2" fill="url(#wpCkG)" stroke="#1F6A39" stroke-width="1.6"/><path d="M7.2 12.4l3.2 3.2 6.4-7" fill="none" stroke="#FFFCF6" stroke-width="2.9" stroke-linecap="round" stroke-linejoin="round"/>') + "</span>";
+  };
+  /* better for older kids or grown-ups: a small child in a circle, crossed through (the words are the tooltip) */
+  W.kidWarn = function (toddler) {
+    var t = toddler ? "Not ideal for toddlers" : "Not ideal for kids";
+    return '<span class="kid-warn" role="img" aria-label="' + t + '" title="' + t + '">' +
+      svg('<circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="7.6" r="2.1" fill="currentColor"/><path d="M12 10.4v5.2M9 12.4h6M12 15.6l-2.2 3M12 15.6l2.2 3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><path d="M5.2 5.2l13.6 13.6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>') + "</span>";
+  };
 })();

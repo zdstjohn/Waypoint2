@@ -1,5 +1,5 @@
 /* Travel mode: during the trip the app opens on Today with a timeline, running late shifts the times, the day before and after
-   are a tap away, and the storybook has a page per day. */
+   are a tap away. */
 const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb = require('../lib/db');
 exports.run = async t => {
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(pg);
@@ -34,13 +34,6 @@ exports.run = async t => {
   if (await pg.$('.go-eve [data-goprev]')) { await pg.click('.go-eve [data-goprev]'); await pg.waitForTimeout(800); t.ok(await pg.evaluate(() => !!document.querySelector('[data-gotoday]')), 'another day shows a way back to today'); await pg.click('[data-gotoday]'); await pg.waitForTimeout(400); }
   await pg.click('.go-foot [data-appmode="plan"]'); await pg.waitForTimeout(900);
   t.ok(await pg.evaluate(() => !document.documentElement.classList.contains('travel')), 'the Today footer can turn Travel mode off');
-  /* the storybook */
-  await pg.evaluate(() => { localStorage.removeItem('waypoint-now'); W.S.tview = 'story'; W.goView('trip'); }); await pg.waitForTimeout(1200); await settle(pg);
-  const sb = await pg.evaluate(() => ({ pages: document.querySelectorAll('.sp').length, N: W.P.N, heroes: document.querySelectorAll('.sp .sp-hero').length, drawings: document.querySelectorAll('.sp svg.pic, .sp .sk-cap').length, rows: document.querySelectorAll('.sp .sp-row').length, meals: document.querySelectorAll('.sp .sp-row.bare .ml').length }));
-  t.ok(sb.pages === sb.N, 'a storybook page for every day: ' + JSON.stringify(sb));
-  /* the test trip has no photos, so no page shows a picture: no drawing stands in for a missing photo */
-  t.ok(sb.heroes === 0 && sb.drawings === 0, 'no drawings stand in for missing photos: ' + JSON.stringify(sb));
-  t.ok(sb.meals >= sb.N, 'meals have their coloured label');
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

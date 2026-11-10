@@ -360,7 +360,10 @@
     var nPack = packL ? packL.pack.concat(packL.todo).filter(function (i) { return !(S.pack || {})[i.key]; }).length : 0;
     var SEGS = [["tobook", "To book", nBook], ["booked", "Booked", 0], ["budget", "Budget", 0], ["pack", "Pack", nPack], ["take", "Take along", 0]];
     if (W.readyRing) h += W.readyRing(P);
+    /* the currency picker sits beside the readiness card on a wide screen; on Pack and Take along an empty stand-in holds
+       its place, so the tabs never jump to the other column */
     if (W.curPicker && (seg === "tobook" || seg === "booked" || seg === "budget")) h += W.curPicker(P);
+    else h += '<div class="cur-pick cur-none" aria-hidden="true"></div>';
     h += '<div class="prep-seg" role="tablist" aria-label="Prepare">' + SEGS.map(function (g) { return '<button type="button" role="tab" aria-selected="' + (seg === g[0]) + '" data-prep="' + g[0] + '">' + g[1] + (g[2] ? '<span class="gn">' + g[2] + "</span>" : "") + "</button>"; }).join("") + "</div>";
     if (seg === "tobook") {
       h += section("To book", top,

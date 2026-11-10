@@ -87,23 +87,23 @@
     if (!P || !P.days || !P.days.length) return "";
     var v = saved(), s = W.status["review|" + (W.S.tripId || "t")], busy = s === "loading", can = !W.readOnly && !window.__WP_OFFLINE && W.sampleState === "on";
     if (!v && !can) return "";
-    if (busy) return '<section class="rev sk" aria-label="Check my plan"><p class="loading" role="status">Claude is reading your ' + P.N + " days…</p></section>";
-    if (!v) return '<button type="button" class="story-link rev-go" data-review="1">' + ICON + "<span><b>Check my plan</b><span class=\"small muted\">Claude reads the whole trip and flags real problems: too much walking, closed days, naps, tickets to book</span></span></button>" +
-      (s ? '<p class="small rev-err" role="status">' + esc(s) + "</p>" : "");
+    if (busy) return '<section class="pcheck sk" aria-label="Check my plan"><p class="loading" role="status">Claude is reading your ' + P.N + " days…</p></section>";
+    if (!v) return '<button type="button" class="glance-link pcheck-go" data-review="1">' + ICON + "<span><b>Check my plan</b><span class=\"small muted\">Claude reads the whole trip and flags real problems: too much walking, closed days, naps, tickets to book</span></span></button>" +
+      (s ? '<p class="small pcheck-err" role="status">' + esc(s) + "</p>" : "");
     var stale = v.sig !== W.reviewSig(P), when = new Date(v.at), same = W.isoDay(when) === W.isoDay(new Date());
     var at = (same ? "today" : when.toLocaleDateString(undefined, { month: "short", day: "numeric" })) + " at " + when.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-    var h = '<section class="rev sk" aria-label="Check my plan"><div class="rev-h"><h3>' + ICON + "Claude's check of your plan</h3><span class=\"small muted\">" + esc(at) + "</span></div>";
-    if (stale) h += '<p class="rev-stale" role="status">The plan has changed since this check.</p>';
-    if (v.ok) h += '<p class="rev-ok">' + esc(v.ok) + "</p>";
-    if (!v.issues.length) h += '<p class="rev-none">Nothing stands out. The plan reads well as it is.</p>';
-    else h += '<ol class="rev-l">' + v.issues.map(function (/** @type {any} */ i) {
+    var h = '<section class="pcheck sk" aria-label="Check my plan"><div class="pcheck-h"><h3>' + ICON + "Claude's check of your plan</h3><span class=\"small muted\">" + esc(at) + "</span></div>";
+    if (stale) h += '<p class="pcheck-stale" role="status">The plan has changed since this check.</p>';
+    if (v.ok) h += '<p class="pcheck-ok">' + esc(v.ok) + "</p>";
+    if (!v.issues.length) h += '<p class="pcheck-none">Nothing stands out. The plan reads well as it is.</p>';
+    else h += '<ol class="pcheck-l">' + v.issues.map(function (/** @type {any} */ i) {
       var d = P.days[i.day - 1];
-      return '<li class="rev-i k-' + esc(i.kind) + '"><span class="rev-k">' + esc(KINDS[i.kind] || KINDS.other) + '</span><span class="rev-w">' + esc("Day " + i.day + (d ? " · " + d.city : "") + (i.slot ? " · " + W.SLOT_NAME[i.slot] : "")) + "</span>" +
-        '<p class="rev-t">' + esc(i.text) + "</p>" + (i.fix ? '<p class="rev-f"><b>Try:</b> ' + esc(i.fix) + "</p>" : "") +
+      return '<li class="pcheck-i k-' + esc(i.kind) + '"><span class="pcheck-k">' + esc(KINDS[i.kind] || KINDS.other) + '</span><span class="pcheck-w">' + esc("Day " + i.day + (d ? " · " + d.city : "") + (i.slot ? " · " + W.SLOT_NAME[i.slot] : "")) + "</span>" +
+        '<p class="pcheck-t">' + esc(i.text) + "</p>" + (i.fix ? '<p class="pcheck-f"><b>Try:</b> ' + esc(i.fix) + "</p>" : "") +
         (d ? '<button type="button" class="linkish" data-day="' + i.day + '">Open Day ' + i.day + " →</button>" : "") + "</li>";
     }).join("") + "</ol>";
-    h += '<p class="small muted rev-n">Claude read the plan as it is written here. It can be wrong, and opening hours change: check before you rely on one. Nothing in your plan was changed.</p>';
-    if (can) h += '<div class="rev-b"><button type="button" class="btn quiet sm" data-review="1">Check again</button>' + (s ? '<span class="small rev-err" role="status">' + esc(s) + "</span>" : "") + "</div>";
+    h += '<p class="small muted pcheck-n">Claude read the plan as it is written here. It can be wrong, and opening hours change: check before you rely on one. Nothing in your plan was changed.</p>';
+    if (can) h += '<div class="pcheck-b"><button type="button" class="btn quiet sm" data-review="1">Check again</button>' + (s ? '<span class="small pcheck-err" role="status">' + esc(s) + "</span>" : "") + "</div>";
     return h + "</section>";
   };
   document.addEventListener("click", function (e) {

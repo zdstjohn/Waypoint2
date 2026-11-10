@@ -18,7 +18,7 @@ const SCREENS = [
   ['Prepare · Take along', () => { W.S.prepTab = 'take'; W.render(); }],
   ['Today', () => { W.setView('go'); W.render(); }],
   ['For the kids', () => { W.setView('kids'); W.render(); }],
-  ['Storybook', () => { W.S.tview = 'story'; W.setView('trip'); W.render(); }],
+  ['Trip · All days', () => { W.S.tview = 'days'; W.S.glanceOpen = true; W.setView('trip'); W.render(); }],
   ['Recap', () => { W.S.tview = 'days'; W.setView('recap'); W.render(); }],
   ['Import', () => { W.setView('settings'); W.render(); }],
 ];

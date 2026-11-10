@@ -3,7 +3,7 @@ module.exports = [
   { id: 'setup', go: () => W.goView('setup') },
   { id: 'setup-open', go: () => { W.goView('setup'); setTimeout(() => document.querySelectorAll('#viewSetup details').forEach(d => d.open = true), 100); } },
   { id: 'trip-days', go: () => { W.S.tview = 'days'; W.goView('trip'); } },
-  { id: 'trip-story', go: () => { W.S.tview = 'story'; W.goView('trip'); } },
+  { id: 'trip-all', go: () => { W.S.tview = 'days'; W.S.glanceOpen = true; W.goView('trip'); } },
   { id: 'stop-panel', go: () => { W.S.tview = 'days'; W.goView('trip'); setTimeout(() => { const x = W.P.days[1].slots.find(x => x.item && !W.isFood(x.slot)); if (x) W.openStop(x.key); }, 300); } },
   { id: 'meal-panel', go: () => { W.S.tview = 'days'; W.goView('trip'); setTimeout(() => { const x = W.P.days[1].slots.find(x => x.item && W.isFood(x.slot)); if (x) W.openStop(x.key); }, 300); } },
   { id: 'swap', go: () => { W.S.tview = 'days'; W.goView('trip'); setTimeout(() => { const b = document.querySelector('#viewTrip .slot:not(.food) [data-swap], #viewTrip .slot:not(.food) button[aria-label^="Swap"]'); if (b) b.click(); }, 300); } },

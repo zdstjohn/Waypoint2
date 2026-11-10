@@ -1,7 +1,6 @@
 /* Waypoint Travel mode.
    Travel mode swaps Setup for Today: one calm screen with now, next, when to leave, naps, tickets and running late.
-   It turns on by itself while the trip is on, and the switch in the header changes it any time.
-   The storybook (one photo page per day) lives in screens/story.js, in the second script. */
+   It turns on by itself while the trip is on, and the switch in the header changes it any time. */
 (function () {
   "use strict";
   var W = window.W, esc = W.esc, $ = W.$;
@@ -71,7 +70,6 @@
     return from || home;
   }
   function slotName(e) { return e.k === "stop" ? (e.R.label || W.SLOT_NAME[e.x.slot]) : ""; }
-  W.dayEntries = entries;   /* the storybook (second script) lists a day the same way */
 
   /* ======================= travel mode: one screen ======================= */
   var goN = null;   /* a day you're previewing; null = today */
@@ -235,16 +233,15 @@
     if (d.goprev != null && d.goprev !== "") { stop(); var n = +d.goprev; goN = n === W.todayN(W.P) ? null : n; W.fxFlip("day", n > W.S.day ? 1 : -1, function () { W.render(); window.scrollTo(0, 0); }); return; }
     if (d.gotoday) { stop(); goN = null; W.render(); window.scrollTo(0, 0); return; }
     if (d.tview) { stop(); if (W.S.tview === d.tview) return; W.S.tview = /** @type {TripState["tview"]} */ (d.tview); W.save(); W.render(); return; }
+    /* two tabs, Day and Explore; inside Day, one day or all days (the tab remembers which, coming back from Explore) */
     if (d.vsw) {
-      stop(); var to = d.vsw, S = W.S, wasStory = S.tview === "story", toStory = to === "story";
-      S.glanceOpen = to === "all"; S.tview = toStory ? "story" : to === "map" ? "map" : "days"; W.save();
-      if (wasStory !== toStory) W.fxFlip("page", toStory ? 1 : -1, function () { W.render(); window.scrollTo(0, 0); }); else W.render();
+      stop(); var to = d.vsw, S = W.S;
+      if (to === "map") { if (S.tview !== "map") S.allPref = !!S.glanceOpen; S.glanceOpen = false; S.tview = "map"; }
+      else if (to === "day") { if (S.tview !== "map") return; S.tview = "days"; S.glanceOpen = !!S.allPref; }
+      else { S.tview = "days"; S.glanceOpen = to === "all"; }
+      W.save(); W.render();
       return;
     }
-    if (d.story != null) { stop(); var on = d.story === "1"; W.S.glanceOpen = false; if ((W.S.tview === "story") === on) return; W.S.tview = on ? "story" : "days"; W.fxFlip("page", on ? 1 : -1, function () { W.render(); }); return; }
-    if (d.spg) { stop(); if (W.storyPage) W.storyPage(+d.spg); return; }
-    /* a stop on a storybook page opens its panel right there: closing it leaves you in the storybook */
-    if (d.goday && b.closest(".story")) { stop(); e.stopImmediatePropagation(); if (W.S.day !== +d.goday) { W.S.day = +d.goday; W.save(); } if (d.goopen) W.openStop(d.goopen); return; }
   }, true);
 
   /* the "next step" during the trip when Travel mode is off: suggest turning it on */

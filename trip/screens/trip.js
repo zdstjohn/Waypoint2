@@ -29,19 +29,25 @@
     return d.toLocaleDateString(undefined, opts || { weekday: "short", month: "short", day: "numeric" });
   }
   /* travel day: how to get from the last place to this one, with the operators' own sites */
-  /* how to look at the trip: one day, that day on the map, or every day at a glance. Labelled, so it's clear what each
-     one does. (The storybook, the whole trip a page a day, opens from the trip menu and from All days.) */
+  /* how to look at the trip: two tabs, Day and Explore. Day holds a small switch between one day and every day at a
+     glance (All days); Explore is that day on the map with ideas around it. Labelled, so it's clear what each does. */
   var VSW_IC = {
     days: '<path d="M6.5 5h10M6.5 10h10M6.5 15h10"/><circle cx="3.3" cy="5" r=".9" fill="currentColor" stroke="none"/><circle cx="3.3" cy="10" r=".9" fill="currentColor" stroke="none"/><circle cx="3.3" cy="15" r=".9" fill="currentColor" stroke="none"/>',
     map: '<circle cx="10" cy="10" r="7.5"/><path d="M12.8 7.2l-1.6 4-4 1.6 1.6-4z"/>',
-    all: '<rect x="2.5" y="3" width="15" height="14" rx="2"/><path d="M2.5 7.5h15M7.5 7.5V17M12.5 7.5V17"/>',
-    story: '<path d="M10 5.5C8.2 4.2 5.7 3.8 3 4.2v11.3c2.7-.4 5.2 0 7 1.3 1.8-1.3 4.3-1.7 7-1.3V4.2c-2.7-.4-5.2 0-7 1.3zM10 5.5v11.3"/>'
+    all: '<rect x="2.5" y="3" width="15" height="14" rx="2"/><path d="M2.5 7.5h15M7.5 7.5V17M12.5 7.5V17"/>'
   };
+  function ic(k) { return '<svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + VSW_IC[k] + "</svg>"; }
   W.viewSwitch = function () {
-    var cur = S.glanceOpen ? "all" : S.tview === "map" ? "map" : "days";
-    return '<div class="vsw" role="radiogroup" aria-label="How to see the trip">' + [["days", "Day"], ["map", "Explore"], ["all", "All days"]].map(function (v) {
-      return '<button type="button" role="radio" aria-checked="' + (cur === v[0]) + '" data-vsw="' + v[0] + '"><svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + VSW_IC[v[0]] + "</svg><span>" + v[1] + "</span></button>";
+    var map = S.tview === "map", all = !map && !!S.glanceOpen;
+    var h = '<div class="vsw" role="tablist" aria-label="How to see the trip">' + [["day", "days", "Day"], ["map", "map", "Explore"]].map(function (v) {
+      var on = (v[0] === "map") === map;
+      return '<button type="button" role="tab" aria-selected="' + on + '" data-vsw="' + v[0] + '">' + ic(v[1]) + "<span>" + v[2] + "</span></button>";
     }).join("") + "</div>";
+    if (!map) h += '<div class="dsw" role="radiogroup" aria-label="One day or every day">' + [["days", "One day"], ["all", "All days"]].map(function (v) {
+      var on = (v[0] === "all") === all;
+      return '<button type="button" role="radio" aria-checked="' + on + '" data-vsw="' + v[0] + '">' + ic(v[0]) + "<span>" + v[1] + "</span></button>";
+    }).join("") + "</div>";
+    return h;
   };
   function legCard(P, day, T) {
     var L = W.legFor(P, day.stop); if (!L) return "";
@@ -296,8 +302,9 @@
     return it ? { it: it, c: c } : null;
   }
   W.renderTrip = function (P, target) {
-    /* the map is a way of looking at the trip (list · map · storybook); the old Explore view draws the same thing */
-    var xp = target === "explore" || (S.tview === "map" && target !== "story"), el = $(target === "explore" ? "viewExplore" : "viewTrip");
+    /* the map is a way of looking at the trip (Day · Explore); the old Explore view draws the same thing */
+    if (S.tview === /** @type {any} */ ("story")) S.tview = "days";   /* the storybook was removed in v118 */
+    var xp = target === "explore" || S.tview === "map", el = $(target === "explore" ? "viewExplore" : "viewTrip");
     if (target !== "explore") el.classList.toggle("explore-v", xp);
     if (!P.stops.length) {
       el._sig = null; el.innerHTML = '<div class="empty sk">' + (S.countries.length ? (W.status["country|" + (S.countries[0] || {}).name] === "loading" ? '<div class="loading" style="justify-content:center">Finding destinations…</div>' : "Pick at least one city under Plan.") : "Where are you headed? Three quick questions and you'll have a plan.") +
@@ -307,13 +314,6 @@
     W.jumpToToday(P);   /* during the trip, open on today */
     S.day = Math.max(1, Math.min(P.N, S.day || 1));
     if (W.familyTick) W.familyTick();
-    /* the whole trip as a storybook, one photo page per day */
-    if (!xp && S.tview === "story") {
-      /* the storybook comes with the second script: a moment's "Loading…" on a cold start, then it draws itself */
-      if (!W.storyHtml) { W.needLater(); W.draw(el, '<p class="loading later-wait">Loading…</p>'); return; }
-      P.stops.forEach(function (st) { W.wantPhotos(st.country, st.name, W.pool(st.country, st.name), P); });
-      W.draw(el, W.tripTop(P) + W.storyHtml(P)); W.storyMount(); return;
-    }
     var day = P.days[S.day - 1], ap = P.ap, h = "", stop = P.stops[day.stop], mode = "list", vtWant = null, xpCols = false;
 
     /* day picker (during the trip, today's pill says so) */
@@ -401,7 +401,7 @@
           if (!food) notes = beachNote(it, P) + notes;
           var rev = it.love || it.gripe ? '<div class="rev">' + (it.love ? '<span><b>Loved for</b> ' + esc(it.love) + "</span>" : "") + (it.gripe ? '<span><b>Watch for</b> ' + esc(it.gripe) + "</span>" : "") + "</div>" : "";
           var more = open ? '<div class="slot-more">' + (metaHtml ? '<div class="meta">' + metaHtml + "</div>" : "") + (food ? "" : beachCheck(it)) + rev + (it.st === "unsure" ? '<p class="small muted">Couldn\'t confirm it\'s still open. Worth a quick check.</p>' : "") + (W.altLinksFor ? W.altLinksFor("activity", { it: it, food: food, day: day }) : "") + '<div class="links">' +
-            link(W.reviewsUrl(it.n, day.city), "Reviews") + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it, day.city), "Google Maps") + (lg ? link(W.gmapsDir(from, it, lg.mode), "Directions") : "") + "</div>" + (W.familyActs ? W.familyActs(it, day, x) : "") + "</div>" : "";
+            link(W.reviewsUrl(it.n, day.city), "Reviews") + W.iconLink(W.photosUrl(it.n, day.city), "photos", "Photos of " + it.n) + W.iconLink(W.gmapsPlace(it, day.city), "map", it.n + " in Google Maps") + (lg ? link(W.gmapsDir(from, it, lg.mode), "Directions") : "") + "</div>" + (W.familyActs ? W.familyActs(it, day, x) : "") + "</div>" : "";
           var ph = W.picture(it, food, day.country, day.city);   /* restaurants show only their own photo (never a nearby one) */
           /* at a glance: what it costs, whether it's booked or due, whether it's indoors */
           var cls = W.classify(it, food), bkG = !food && W.bookEntryFor ? W.bookEntryFor(P, day, it) : null, bkd = W.bookingFor ? W.bookingFor(it, day) : null;
@@ -537,7 +537,7 @@
       function ideaCard(row) {
         var it = row.it, on = row.on, info = [W.stayText(it, eat, it.meal === "breakfast" ? "breakfast" : it.meal === "dinner" ? "dinner" : ""), eat ? it.cuisine : W.priceText(it.ticket, W.curOf(day.country)), eat ? it.price : ""].filter(Boolean).join(" · ");
         var ph = W.picture(it, eat, day.country, day.city, { credit: true }), onTag = on ? '<span class="on">' + (on.n === day.n ? "Today" : "Day " + on.n) + " · " + W.SLOT_NAME[on.slot] + "</span>" : "";
-        var warn = P.p.kid && it.k === -1 ? '<span class="warn">' + (P.p.toddler ? "Not ideal for toddlers" : "Not ideal for kids") + "</span>" : "";
+        var warn = P.p.kid && it.k === -1 ? W.kidWarn(P.p.toddler) : "";
         var bTag = !eat && P.p.kid && W.beachFit && W.beachFit(it) === "safe" ? '<span class="bc good">Calm and shallow</span>' : "";
         /* the group's food needs (Plan, step 3) */
         var ef = eat && W.eatFit ? W.eatFit(it) : "";
@@ -546,8 +546,10 @@
         return '<div class="idea' + (ph ? " has-photo" : "") + '">' + (ph ? '<div class="pic-wrap">' + ph + onTag + "</div>" : onTag) + "<h4>" + esc(it.n) + "</h4>" + bTag + '<p class="desc">' + esc(it.d) + "</p>" +
           (row.near ? '<p class="near">' + esc(row.near) + "</p>" : "") +
           (info ? '<p class="small muted">' + esc(info) + "</p>" : "") +
-          '<p class="small idea-meta">' + warn + (it.st === "open" ? '<span class="chk-ok" title="Confirmed by the nightly check">✓ Checked</span>' : "") + (eat ? W.menuLink(it, day.city) : "") + W.bookLink(it, day.city, eat, day.country) + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it, day.city), "Google Maps") +
-            (W.canEdit() ? '<button type="button" class="linkish id-no" data-nope="" data-name="' + esc(it.n) + '" aria-label="Not for us: ' + esc(it.n) + '">Not for us</button>' : "") + "</p>" +
+          /* the row: what we know (checked, not for little ones), the links, and "Not for us" on its own at the far end */
+          '<div class="small idea-meta"><span class="im-l">' + (it.st === "open" ? W.checkedBadge() : "") + warn + (eat ? W.menuLink(it, day.city) : "") + W.bookLink(it, day.city, eat, day.country) +
+            W.iconLink(W.photosUrl(it.n, day.city), "photos", "Photos of " + it.n) + W.iconLink(W.gmapsPlace(it, day.city), "map", it.n + " in Google Maps") + "</span>" +
+            (W.canEdit() ? '<button type="button" class="id-no" data-nope="" data-name="' + esc(it.n) + '" aria-label="Not for us: ' + esc(it.n) + '">Not for us</button>' : "") + "</div>" +
           (on && on.n === day.n || !free.length ? "" : '<div class="use">' + free.map(function (x) { return '<button type="button" data-use="' + x.slot + '" data-name="' + esc(it.n) + '" aria-label="Put ' + esc(it.n) + " in " + W.SLOT_NAME[x.slot].toLowerCase() + '">' + W.SLOT_NAME[x.slot] + "</button>"; }).join("") + "</div>") + "</div>";
       }
       if (xp) h += '<section class="ideas sk"><div class="ideas-t"><h2>Ideas in ' + esc(day.city) + '</h2><span class="small muted">' + (pool.spots || []).length + " things to do · " + (pool.food || []).length + " places to eat</span></div>" +
@@ -736,7 +738,7 @@
     var food = W.isFood(x.slot), T = W.dayTimes(day, P), R = T && T.rows[x.slot], label = R && R.label || W.SLOT_NAME[x.slot];
     var ph = W.picture(it, food, day.country, day.city, { credit: true });
     var notes = R ? R.warn.map(function (w) { return '<span class="warn">' + esc(w) + "</span>"; }).join("") + R.info.map(function (w) { return "<span>" + esc(w) + "</span>"; }).join("") : "";
-    if (P.p.kid && it.k === -1) notes = '<span class="warn">' + (P.p.toddler ? "Not ideal for toddlers" : "Not ideal for kids") + "</span>" + notes;
+    if (P.p.kid && it.k === -1) notes = W.kidWarn(P.p.toddler) + notes;
     if (it.st === "closed") notes = '<span class="warn">May have closed for good. Check before you go</span>' + notes;
     if (it.st === "unfound") notes = '<span class="warn">Couldn\'t find a place by this name. It may not exist</span>' + notes;
     if (it.st === "unverified" && food) notes = '<span class="warn">Not checked yet. Look it up before you go</span>' + notes;
@@ -757,7 +759,7 @@
       (it.st === "unsure" ? '<p class="small muted">Couldn\'t confirm it\'s still open. Worth a quick check.</p>' : "") +
       (W.altLinksFor ? W.altLinksFor("activity", { it: it, food: food, day: day }) : "") +
       '<div class="links">' + (bkE ? '<button type="button" class="linkish" data-gobook="' + esc(bkE.key) + '">' + (bkE.done ? "Booked · see Prepare" : "On your To book list") + "</button>" : "") +
-      link(W.reviewsUrl(it.n, day.city), "Reviews") + link(W.photosUrl(it.n, day.city), "Photos") + link(W.gmapsPlace(it, day.city), "Google Maps") + "</div>" +
+      link(W.reviewsUrl(it.n, day.city), "Reviews") + W.iconLink(W.photosUrl(it.n, day.city), "photos", "Photos of " + it.n) + W.iconLink(W.gmapsPlace(it, day.city), "map", it.n + " in Google Maps") + "</div>" +
       (W.familyActs ? W.familyActs(it, day, x) : "") + "</div>";
   };
   W.prevView = function () { return prevView === "settings" ? "trip" : prevView; };

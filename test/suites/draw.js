@@ -53,10 +53,12 @@ exports.run = async t => {
         () => { const r = W.S.rest || {}; delete r[W.restKey(day)]; W.S.free = {}; },
         () => { W.setSimple(true); }, () => { W.setSimple(false); },
       ];
+      /* the same page, whatever order an element's attributes were set in */
+      const norm = html => { const tp = document.createElement('template'); tp.innerHTML = html; tp.content.querySelectorAll('*').forEach(n => { const a = [...n.attributes].map(x => [x.name, x.value]).sort((p, q) => p[0] < q[0] ? -1 : 1); a.forEach(x => n.removeAttribute(x[0])); a.forEach(x => n.setAttribute(x[0], x[1])); }); return tp.innerHTML; };
       let patched = 0;
       for (let i = 0; i < steps.length; i++) {
-        const p0 = W.drawn.patched; steps[i](); W.render(); patched += W.drawn.patched - p0; const a = el.innerHTML;
-        el._sig = null; W.render(); const bb = el.innerHTML;
+        const p0 = W.drawn.patched; steps[i](); W.render(); patched += W.drawn.patched - p0; const a = norm(el.innerHTML);
+        el._sig = null; W.render(); const bb = norm(el.innerHTML);
         if (a !== bb) { let j = 0; while (j < a.length && a[j] === bb[j]) j++; diffs.push(i + ': …' + a.slice(Math.max(0, j - 60), j + 80) + '… vs …' + bb.slice(Math.max(0, j - 60), j + 80) + '…'); }
       }
       mo.disconnect();

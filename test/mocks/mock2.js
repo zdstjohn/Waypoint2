@@ -56,7 +56,7 @@
       }
       /* check my plan: two real findings, plus three the app must drop or defuse (a day that doesn't exist, no text, markup) */
       if (/^Check this family trip plan/.test(prompt)) {
-        window.__reviewPrompt = prompt; window.__reviewAsked = (window.__reviewAsked || 0) + 1; await new Promise(r => setTimeout(r, 150));
+        window.__reviewPrompt = prompt; window.__reviewAsked = (window.__reviewAsked || 0) + 1; await new Promise(r => setTimeout(r, 700));
         const facts = JSON.parse(prompt.slice(prompt.indexOf('DATA:') + 5).split('\n')[0]), d2 = facts[1] || facts[0], st = (d2.stops || [])[0];
         return { ok: 'Beach days and town days alternate nicely.', issues: [
           { day: d2.day, slot: st ? st.slot : '', kind: 'walk', text: 'Day ' + d2.day + ' has ' + (d2.km_on_foot || 0) + ' km on foot, a lot for a two-year-old.', fix: 'Drop one stop or take the bus back.' },

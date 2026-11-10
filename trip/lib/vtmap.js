@@ -349,10 +349,21 @@
     var src = S.map.getSource("route");
     if (src) src.setData({ type: "FeatureCollection", features: line.length > 1 ? [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: line } }] : [] });
   }
+  /* how far out the map goes: the town the pack is made for (its "places" frame) with a margin, stretched to take in
+     the day's own stops, and no further. Zooming out stops there (MapLibre keeps the view inside these bounds), so the
+     map never shows the sea and the next island where it has nothing to draw. */
+  function area(places, c) {
+    var w = places[0], s = places[1], e = places[2], n = places[3];
+    c.forEach(function (q) { w = Math.min(w, q[0]); e = Math.max(e, q[0]); s = Math.min(s, q[1]); n = Math.max(n, q[1]); });
+    var mx = Math.max((e - w) * 0.3, 0.035), my = Math.max((n - s) * 0.3, 0.025);
+    return [[w - mx, s - my], [e + mx, n + my]];
+  }
+  W.vtArea = area;   /* (for the tests) */
   function fit(pts, home, animate) {
     var c = pts.filter(function (p) { return p.lat != null && !p.gpin; }).map(function (p) { return [p.lng, p.lat]; });
     if (home && home.lat != null) c.push([home.lng, home.lat]);
     if (!c.length) return;
+    if (S.places) { try { S.map.setMaxBounds(area(S.places, c)); } catch (e) {} }
     var b = new ML.LngLatBounds(c[0], c[0]); c.forEach(function (q) { b.extend(q); });
     var w = S.el.clientWidth || 340;
     S.map.fitBounds(b, { padding: { top: 36, bottom: 30, left: 26, right: Math.min(110, w * 0.3) }, maxZoom: 16.2, duration: animate ? 600 : 0 });
@@ -387,7 +398,8 @@
         if (S.slug !== o.slug) return;
         if (S.map) { try { S.map.remove(); } catch (e) {} S.map = null; }
         try {
-          S.map = new ML.Map({ container: S.el, style: style(o.slug, p.hdr), bounds: [[p.hdr.places[0], p.hdr.places[1]], [p.hdr.places[2], p.hdr.places[3]]],
+          S.places = p.hdr.places;
+          S.map = new ML.Map({ container: S.el, style: style(o.slug, p.hdr), bounds: [[p.hdr.places[0], p.hdr.places[1]], [p.hdr.places[2], p.hdr.places[3]]], maxBounds: area(p.hdr.places, []),
             attributionControl: false, dragRotate: false, pitchWithRotate: false, touchPitch: false, cooperativeGestures: touchFirst(),
             maxZoom: 18, minZoom: 8, fadeDuration: 180, localIdeographFontFamily: "sans-serif" });
           S.map.touchZoomRotate.disableRotation();

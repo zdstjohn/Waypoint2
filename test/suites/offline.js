@@ -95,9 +95,9 @@ exports.run = async t => {
   const xp = await fp.evaluate(() => [...document.querySelectorAll('main:not([hidden]) .idea img')].map(i => i.getAttribute('src').slice(0, 5)));
   t.ok(xp.length > 0 && xp.every(s => s === 'data:'), `Explore's ideas in the copy show their photos from the file too (${xp.length})`);
   t.ok(/Offline copy/.test(fc.block), 'and it says it is the offline copy');
-  /* the storybook comes with the second script (v117): in the copy it is there too */
-  const fst = await fp.evaluate(() => { W.S.tview = 'story'; W.S.glanceOpen = false; W.setView('trip'); W.render(); const n = document.querySelectorAll('#story .sp').length; W.S.tview = 'days'; W.render(); return n; });
-  t.ok(fst >= 3, `the storybook opens in the copy (${fst} pages)`);
+  /* the second script is inside the copy too, and the screen is drawn again once it has run */
+  const f2 = await fp.evaluate(() => ({ later: W.laterReady === true, pack: typeof W.packBlock === 'function', review: typeof W.reviewBlock === 'function' }));
+  t.eq(f2, { later: true, pack: true, review: true }, 'the copy carries the second script (packing, the plan check)');
   t.eq(ferr.filter(e => !/forEach/.test(e)), [], 'no errors in the copy');
   await c2.close();
 
