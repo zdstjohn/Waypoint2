@@ -1875,3 +1875,13 @@ svg.arr.arr-r{margin:0 0 0 .35em}
 .go-route .ok{color:var(--accent);font-weight:800}
 .go-route .warn-t{color:var(--note-text);font-weight:800}
 @media (min-width:921px){.explore-v .xp-cols.solo{display:block}}
+
+/* Today: the street map, opened from the Map button in the route's header; it sits above the stops */
+.go-rh{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.go-rh h3{min-width:0}
+.go-mapbtn{display:inline-flex;align-items:center;gap:6px;flex:none}
+.go-mapbtn svg{width:16px;height:16px}
+.go-map{display:grid;gap:8px;margin:0 -6px}
+.go-map .zoom{justify-self:end}
+.go-map .map-wrap{margin:0}
+.go-map .map-note{padding:0 6px}

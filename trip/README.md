@@ -66,6 +66,10 @@ timeline (screens/travel.js, class go-route): the nap and the day's travel sit i
 dimmed and now and next are marked, a stop opens its sheet, and one with no pin links to Google Maps by name. Explore
 keeps the search, the street map where the city has one, the free time and the ideas. In the tab bar Today comes
 before Prepare.
+v126: today's map moves to Today too. Where the city has a street map, the route's header on Today has a Map button
+(screens/travel.js, data-gomap): closed at first, it opens the map in place above the stops, with the zoom buttons,
+and stays open or closed while the app is open. Explore no longer shows a map. On a big screen the Day view still
+has it beside the day.
 v122: what Claude is asked first. W.run's queue (lib/core.js) no longer goes in the order things were asked: the city on
 screen (the selected day, and today's on a trip) comes first, its main lists (sights, places to eat, breakfast) before
 its second lists, then other cities' main lists, then the extras (hidden gems, rainy-day ideas, links, events, costs);

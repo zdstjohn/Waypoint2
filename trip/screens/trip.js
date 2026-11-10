@@ -470,7 +470,7 @@
       var gm = pts.length ? W.dayRouteUrl(day, pts, home) : "";
       /* a real street map (street names, buildings, landmarks) only for cities that have a map pack; never a sketch */
       var vtSlug = W.vtFor ? W.vtFor(day.country, day.city, home.lat, home.lng) : null, mapBox = "";
-      if (vtSlug && !W.simple() && W.vtState() !== "off" && (xp || window.innerWidth > 920)) {   /* Simple view: the stops and walks, no map */
+      if (vtSlug && !W.simple() && W.vtState() !== "off" && !xp && window.innerWidth > 920) {   /* (beside the day on a big screen; on a phone the map is on Today) */   /* Simple view: the stops and walks, no map */
         var vtOn = !!W.vtActive();
         mapBox = '<div class="map-wrap' + (vtOn ? " vt-on" : " vt-want") + '"><div class="vt-slot"></div>' + (vtOn ? "" : '<p class="loading map-wait">Loading the street map…</p>') + "</div>";
         vtWant = { slug: vtSlug, key: day.n + "|" + day.city, pts: pts, home: home, animate: true, city: day.city };
@@ -498,9 +498,9 @@
         /* (the search comes with the second script: until then, the box it will be) */
         h += W.searchBlock ? W.searchBlock(day, P) : (W.needLater(), '<section class="psearch sk" aria-label="Search for a place"><div class="ps-row"><input class="field" type="search" disabled placeholder="Search any place in ' + esc(day.city) + '…" aria-label="Search for a place"><button type="button" class="btn" disabled>Search</button></div></section>');
         /* below the search, on a big screen: the route (and street map) on the right, the rest on the left */
-        /* (today's route, stop by stop, is on the Today tab: screens/travel.js) */
-        h += '<div class="xp-cols' + (mapBox ? "" : " solo") + '">'; xpCols = true;
-        if (mapBox) h += '<aside class="explorer sk"><div class="explorer-h"><h3>Today\'s map</h3>' + zoomBtns + "</div>" + mapBox + '<p class="map-note">© OpenMapTiles © OpenStreetMap contributors</p></aside>';
+        /* (today's route, stop by stop, and today's map are on the Today tab: screens/travel.js) */
+        h += '<div class="xp-cols solo">'; xpCols = true;
+
         h += freeTime(day, P, T);
       }
 
@@ -592,7 +592,7 @@
     /* the same day on the same screen is edited in place (lib/patch.js); another day or view is drawn afresh */
     W.draw(el, h.replace("<!--day-gm-->", "") + (xpCols ? "</div>" : "") + "</div>", "day|" + S.tripId + "|" + S.day + "|" + (xp ? "map" : "list") + "|" + (W.simple() ? 1 : 0));
     /* on a phone in list view the map is hidden: don't run it in the background */
-    if (vtWant && (xp || window.innerWidth > 920)) {
+    if (vtWant) {
       var slotEl = el.querySelector(".vt-slot");
       /* the drawing code comes with the second script: until then the place stays held, saying the map is loading */
       if (!W.vtMount) W.needLater();

@@ -73,6 +73,7 @@
 
   /* ======================= travel mode: one screen ======================= */
   var goN = null;   /* a day you're previewing; null = today */
+  var goMapOpen = false;   /* the map on Today, when it is folded behind its button */
   /* open Today on a given day (the journal button on Trip) */
   W.goToDay = function (n) { var tn = W.todayN(W.P); goN = n === tn ? null : n; W.S.day = n; };
   W.renderGo = function (P) {
@@ -97,6 +98,21 @@
     if (!T) {
       h += '<div class="empty sk"><div class="loading" style="justify-content:center">Gathering ideas for ' + esc(day.city) + "…</div></div>";
       W.draw(el, '<div class="go">' + h + "</div>"); return;
+    }
+
+    /* today's map: the street map with the day's stops on it, where the city has one (never in Simple view). It is
+       folded away behind the Map button in the route's header and opens in place, above the stops; open or closed is
+       remembered while the app is open */
+    var mapPts = /** @type {any[]} */ ([]); list.forEach(function (e) { if (e.k === "stop") { var it0 = e.x.item; mapPts.push({ n: it0.n, lat: it0.lat, lng: it0.lng, gid: it0.gid, gpin: it0.gpin, num: mapPts.length + 1, i: mapPts.length + 1, food: !!e.food, slot: e.x.slot }); } });
+    var vtSlug = W.vtFor && mapPts.length && !(W.simple && W.simple()) && W.vtState() !== "off" ? W.vtFor(day.country, day.city, home.lat, home.lng) : null, mapIn = "", vtWant = null;
+    var mapBtn = vtSlug ? '<button type="button" class="chip go-mapbtn" data-gomap="1" aria-expanded="' + goMapOpen + '">' + W.icon("map", 2.1) + (goMapOpen ? "Hide map" : "Map") + "</button>" : "";
+    if (vtSlug && goMapOpen) {
+      var vtOn = !!W.vtActive();
+      mapIn = '<div class="go-map"><div class="zoom" role="group" aria-label="Map zoom"><button type="button" class="icon-btn" data-zoom="out" aria-label="Zoom out">−</button><button type="button" class="icon-btn" data-zoom="in" aria-label="Zoom in">+</button>' +
+        '<button type="button" class="icon-btn fit" data-zoom="fit" aria-label="Fit today\'s stops"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg></button></div>' +
+        '<div class="map-wrap' + (vtOn ? " vt-on" : " vt-want") + '"><div class="vt-slot"></div>' + (vtOn ? "" : '<p class="loading map-wait">Loading the street map…</p>') + "</div>" +
+        '<p class="map-note">© OpenMapTiles © OpenStreetMap contributors</p></div>';
+      vtWant = { slug: vtSlug, key: day.n + "|" + day.city, pts: mapPts, home: home, animate: true, city: day.city };
     }
 
     /* now, and what's next */
@@ -162,7 +178,7 @@
     });
     if (prev !== home && !list.some(function (e) { return e.k === "back"; })) rows += legRow(prev, homePt, true);
     var gm = pts.length ? W.dayRouteUrl(day, pts, home) : "";
-    h += '<section class="go-day go-route sk"><h3>' + "Today's route" + "</h3>" +
+    h += '<section class="go-day go-route sk"><div class="go-rh"><h3>' + "Today's route" + "</h3>" + mapBtn + "</div>" + mapIn +
       (pts.length || rows ? '<ol class="rc-list go-rt"><li class="rc-home"><span class="rc-hi" aria-hidden="true">' + W.icon("home", 2.4) + '</span><span class="rc-b"><b>' + esc(home.label) + '</b><span class="small muted">where you\'re staying</span></span></li>' + rows + "</ol>"
         : '<p class="small muted">Nothing planned for this day yet.</p>') +
       (gm ? '<a class="btn rc-gm" href="' + esc(gm) + '" target="_blank" rel="noopener">Open the whole route in Google Maps ↗</a>' : "") + "</section>";
@@ -197,6 +213,12 @@
     if (W.offline && !W.offline.off) h += W.offline.block(P);
     h += '<p class="small muted go-foot">' + (tn ? 'While the trip is on, the app opens here. <button type="button" class="linkish" data-appmode="plan">Open on Trip instead</button>' : "") + "</p>";
     W.draw(el, '<div class="go">' + h + "</div>", "go|" + W.S.tripId + "|" + day.n);
+    /* the map itself comes with the second script: until then its place is held, saying it is loading */
+    if (vtWant) {
+      var slotEl = el.querySelector(".vt-slot");
+      if (!W.vtMount) W.needLater();
+      else if (slotEl && W.vtMount(slotEl, vtWant)) { slotEl.parentNode.classList.add("vt-on"); slotEl.parentNode.classList.remove("vt-want"); }
+    }
     if (W.awakeTick) W.awakeTick(live);
   };
   /* the journey in a line: your ticket when one is booked with a time, else the way you chose */
@@ -254,6 +276,8 @@
     if (d.appmode) { stop(); W.setAppMode(d.appmode); return; }
     if (d.goprev != null && d.goprev !== "") { stop(); var n = +d.goprev; goN = n === W.todayN(W.P) ? null : n; W.fxFlip("day", n > W.S.day ? 1 : -1, function () { W.render(); window.scrollTo(0, 0); }); return; }
     if (d.gotoday) { stop(); goN = null; W.render(); window.scrollTo(0, 0); return; }
+    if (d.gomap) { stop(); goMapOpen = !goMapOpen; W.render(); return; }
+    if (d.zoom && b.closest("#viewGo")) { stop(); if (W.vtActive && W.vtActive()) W.vtZoom(d.zoom); return; }
     if (d.tview) { stop(); if (W.S.tview === d.tview) return; W.S.tview = /** @type {TripState["tview"]} */ (d.tview); W.save(); W.render(); return; }
     /* two tabs, Day and Explore; inside Day, one day or all days (the tab remembers which, coming back from Explore) */
     if (d.vsw) {

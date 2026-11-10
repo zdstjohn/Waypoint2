@@ -1,5 +1,5 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v125: every screen (Today comes before Prepare in the tab bar); the Day tab gains the Google Maps button under its
-# header, Explore loses the route, and Today shows the day as a route.
-*
+# v126: Today (the route's header gains a Map button) and Explore (no street map).
+today-*
+explore-*

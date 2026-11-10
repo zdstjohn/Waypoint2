@@ -8,6 +8,22 @@ exports.run = async t => {
   const s = await pg.evaluate(() => ({ view: W.view(), travel: document.documentElement.classList.contains('travel'), tl: document.querySelectorAll('.go-rt li').length, hero: !!document.querySelector('.go-hero') }));
   t.ok(s.view === 'go' && s.travel, 'during the trip the app opens on Today in Travel mode: ' + JSON.stringify(s));
   t.ok(s.tl >= 3, 'with the day laid out as a route');
+  /* today's map: folded behind a Map button in the route's header (where the city has a street map), opened in place */
+  const mp = await pg.evaluate(async () => {
+    const none = !document.querySelector('#viewGo [data-gomap]');
+    const f = W.vtFor, m = W.vtMount, st = W.vtState; W.vtFor = () => 'test-city'; W.vtState = () => 'idle'; W.vtMount = () => false; W.render();
+    const btn = document.querySelector('#viewGo .go-route [data-gomap]'), closed = !!btn && btn.getAttribute('aria-expanded') === 'false' && !document.querySelector('#viewGo .map-wrap');
+    if (btn) btn.click(); await new Promise(r => setTimeout(r, 300));
+    const b2 = document.querySelector('#viewGo .go-route [data-gomap]'), wrap = document.querySelector('#viewGo .go-route .map-wrap'), list = document.querySelector('#viewGo .go-rt');
+    const open = !!wrap && !!b2 && b2.getAttribute('aria-expanded') === 'true' && /Hide map/.test(b2.textContent) && !!list && wrap.getBoundingClientRect().bottom <= list.getBoundingClientRect().top + 1 && !!document.querySelector('#viewGo [data-zoom="fit"]');
+    W.goView('trip'); W.S.tview = 'map'; W.render(); await new Promise(r => setTimeout(r, 300));
+    const explore = !document.querySelector('#viewTrip .map-wrap');
+    W.goView('go'); await new Promise(r => setTimeout(r, 300)); if (document.querySelector('#viewGo [data-gomap]')) document.querySelector('#viewGo [data-gomap]').click(); await new Promise(r => setTimeout(r, 200));
+    const shut = !document.querySelector('#viewGo .map-wrap');
+    W.vtFor = f; W.vtMount = m; W.vtState = st; W.render();
+    return { none, closed, open, explore, shut };
+  });
+  t.ok(mp.none && mp.closed && mp.open && mp.shut && mp.explore, 'Today has a Map button where the city has a street map: closed at first, it opens the map above the stops and hides it again; Explore has no map: ' + JSON.stringify(mp));
   const t0 = await pg.evaluate(() => (document.querySelector('.go-rt li.next .t') || document.querySelector('.go-rt li:not(.done) .t') || {}).textContent);
   if (await pg.$('[data-late="15"]')) {
     await pg.click('[data-late="15"]'); await pg.waitForTimeout(700);
