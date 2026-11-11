@@ -1215,6 +1215,7 @@
     var cd = W.countdown(W.P),
       tl = $("topline");
     if (tl) tl.innerHTML = W.topLine ? W.topLine(W.P) : "";
+    if (W.pinBar) W.pinBar(W.P);
     if (W.readOnly) {
       el.innerHTML =
         '<div class="tripbar ro-bar"><div class="trip-sw ro-sw"><span class="ts-n"><b>' +

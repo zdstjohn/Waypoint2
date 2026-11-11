@@ -1,3 +1,10 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v142: no screen is meant to change (the trip's clock equals the pinned clock the pictures are taken at).
+# v143: one row of switches (Day, All days, Explore) on every Trip screen at every size; on a phone the banner's last
+# line is the day and the day's title block is gone. Screens that open over the Day view show it behind them.
+trip-*
+explore-*
+swap-*
+stop-panel-*
+meal-panel-*
+menu-*

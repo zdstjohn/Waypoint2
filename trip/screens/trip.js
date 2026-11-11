@@ -78,65 +78,42 @@
     return d.toLocaleDateString(undefined, opts || { weekday: "short", month: "short", day: "numeric" });
   }
   /* travel day: how to get from the last place to this one, with the operators' own sites */
-  /* how to look at the trip: two tabs, Day and Explore. Day holds a small switch between one day and every day at a
-     glance (All days); Explore is that day on the map with ideas around it. Labelled, so it's clear what each does. */
-  var VSW_IC = {
-    days: '<path d="M6.5 5h10M6.5 10h10M6.5 15h10"/><circle cx="3.3" cy="5" r=".9" fill="currentColor" stroke="none"/><circle cx="3.3" cy="10" r=".9" fill="currentColor" stroke="none"/><circle cx="3.3" cy="15" r=".9" fill="currentColor" stroke="none"/>',
-    map: '<circle cx="10" cy="10" r="7.5"/><path d="M12.8 7.2l-1.6 4-4 1.6 1.6-4z"/>',
-    all: '<rect x="2.5" y="3" width="15" height="14" rx="2"/><path d="M2.5 7.5h15M7.5 7.5V17M12.5 7.5V17"/>'
-  };
+  /* how to look at the trip: one row of three, Day (one day), All days (every day at a glance) and Explore (that day's
+     place, with ideas around it). Labelled, so it's clear what each does */
   function ic(k) {
     return W.icon(k === "map" ? "explore" : k === "all" ? "alldays" : "day", 2.1);
   }
   W.viewSwitch = function () {
-    var map = S.tview === "map",
-      all = !map && !!S.glanceOpen;
-    var h =
+    var now = S.tview === "map" ? "map" : S.glanceOpen ? "all" : "days";
+    return (
       '<div class="vsw" role="tablist" aria-label="How to see the trip">' +
       [
-        ["day", "days", "Day"],
-        ["map", "map", "Explore"]
+        ["days", "Day"],
+        ["all", "All days"],
+        ["map", "Explore"]
       ]
         .map(function (v) {
-          var on = (v[0] === "map") === map;
           return (
             '<button type="button" role="tab" aria-selected="' +
-            on +
+            (v[0] === now) +
             '" data-vsw="' +
             v[0] +
             '">' +
-            ic(v[1]) +
+            ic(v[0]) +
             "<span>" +
-            v[2] +
+            v[1] +
             "</span></button>"
           );
         })
         .join("") +
-      "</div>";
-    if (!map)
-      h +=
-        '<div class="dsw" role="radiogroup" aria-label="One day or every day">' +
-        [
-          ["days", "One day"],
-          ["all", "All days"]
-        ]
-          .map(function (v) {
-            var on = (v[0] === "all") === all;
-            return (
-              '<button type="button" role="radio" aria-checked="' +
-              on +
-              '" data-vsw="' +
-              v[0] +
-              '">' +
-              ic(v[0]) +
-              "<span>" +
-              v[1] +
-              "</span></button>"
-            );
-          })
-          .join("") +
-        "</div>";
-    return h;
+      "</div>"
+    );
+  };
+  /* the day the banner shows on a phone (lib/warm.js W.topLine): the Day view's own day, or none on any other screen */
+  W.bannerDay = function (P) {
+    if (view !== "trip" || S.tview === "map" || S.glanceOpen || !P || !P.days) return null;
+    var day = P.days[S.day - 1];
+    return day ? { city: day.city, date: fmtDate(day.n), level: dayLevel(day, P).replace(/^ · /, "") } : null;
   };
   function legCard(P, day, T) {
     var L = W.legFor(P, day.stop);
@@ -1652,6 +1629,7 @@
         );
       /* the whole day in Google Maps: every stop in order, by its pin or else by its name */
       var gm = pts.length ? W.dayRouteUrl(day, pts, home) : "";
+      if (!xp && W.bannerRoute) W.bannerRoute(gm); /* (on a phone the banner carries the route link) */
       /* a real street map (street names, buildings, landmarks) only for cities that have a map pack; never a sketch */
       var vtSlug = W.vtFor ? W.vtFor(day.country, day.city, home.lat, home.lng) : null,
         mapBox = "";

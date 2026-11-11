@@ -391,6 +391,10 @@ interface Waypoint {
   tripShift: () => number;
   tripZone: (country: string, lng?: number | null, lat?: number | null) => { tz: string | null; rough: boolean };
   tripTimeNote: (city: string) => string;
+  /** the day the banner shows on a phone: the Day view's own, or null on any other screen (screens/trip.js) */
+  bannerDay: (P: Plan) => { city: string; date: string; level: string } | null;
+  bannerRoute: (url: string) => void;
+  pinBar: (P: Plan) => void;
   nowMin: () => number;
   officialLink: any;
   officialUrl: (it: any, food?: any, country?: string, city?: string) => any;

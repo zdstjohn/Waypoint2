@@ -1283,8 +1283,8 @@ html.offline .brand::after{content:"Offline";position:absolute;right:-6px;top:-8
 .vsw button{flex:1 1 0;min-width:0;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:38px;border:0;background:transparent;border-radius:var(--r-sm);padding:6px 8px;font:800 var(--t-ui)/1.1 var(--f-body);color:var(--muted);cursor:pointer;white-space:nowrap}
 .vsw button svg{width:17px;height:17px;flex:none}
 /* the selected tab and day switch wear the header's gradient (.top) */
-.vsw button[aria-selected="true"],.dsw button[aria-checked="true"]{background:var(--grad);color:var(--on-color);box-shadow:var(--sh-brand)}
-@media (hover:hover){.vsw button[aria-selected="false"]:hover{color:var(--fg)}.dsw button[aria-checked="false"]:hover{color:var(--fg)}}
+.vsw button[aria-selected="true"]{background:var(--grad);color:var(--on-color);box-shadow:var(--sh-brand)}
+@media (hover:hover){.vsw button[aria-selected="false"]:hover{color:var(--fg)}}
 @media (max-width:370px){.vsw button svg{display:none}.vsw button{padding:6px 4px;font-size:var(--t-sm)}}
 
 /* a wide button in All days (Check my plan) */
@@ -1684,10 +1684,6 @@ button.menu-btn{border:0;background:transparent;font:inherit;font-weight:800;col
 .credit{pointer-events:none;user-select:none}
 
 /* Day holds one day or all days: a small switch under the tabs */
-.dsw{display:flex;width:fit-content;gap:2px;margin:6px auto 2px;padding:3px;border:var(--hair);border-radius:var(--r-pill);background:var(--surface)}
-.dsw button{display:inline-flex;align-items:center;gap:5px;min-height:34px;padding:4px 14px;border:0;border-radius:var(--r-pill);background:transparent;font:800 var(--t-ui)/1.1 var(--f-body);color:var(--muted);cursor:pointer;white-space:nowrap}
-.dsw button svg{width:15px;height:15px;flex:none}
-.vsw + .dsw{margin-top:6px}
 
 /* Prepare on a wide screen: the readiness card on top, the tabs across the full width below it, then the sections;
    the same places on every tab */
@@ -1776,10 +1772,10 @@ html.standalone:not(.cloud) .tm-sharebox,html.standalone:not(.cloud) .share{disp
 /* ---------- motion (v123): short, soft, once. Everything here is off under "reduce motion" (the rule above). ---------- */
 @media (prefers-reduced-motion:no-preference){
   /* controls answer the finger: a quick settle instead of a snap */
-  .btn,.chip,.chip-a,.icon-btn,.dpill,.opt,.vsw button,.dsw button,.tabs button,.seg button,.k-heart,.stamp{transition:transform .14s cubic-bezier(.2,.8,.2,1),background-color .2s ease,color .2s ease,box-shadow .2s ease,border-color .2s ease}
-  .chip-a:active,.vsw button:active,.dsw button:active,.tabs button:active,.k-heart:active{transform:scale(.96)}
+  .btn,.chip,.chip-a,.icon-btn,.dpill,.opt,.vsw button,.tabs button,.seg button,.k-heart,.stamp{transition:transform .14s cubic-bezier(.2,.8,.2,1),background-color .2s ease,color .2s ease,box-shadow .2s ease,border-color .2s ease}
+  .chip-a:active,.vsw button:active,.tabs button:active,.k-heart:active{transform:scale(.96)}
   /* the selected tab or switch: its gradient breathes in */
-  .vsw button[aria-selected="true"],.dsw button[aria-checked="true"]{animation:pillIn .24s cubic-bezier(.2,.8,.2,1)}
+  .vsw button[aria-selected="true"]{animation:pillIn .24s cubic-bezier(.2,.8,.2,1)}
   .tabs button[aria-current="page"] .ti{animation:tilePop .34s cubic-bezier(.2,1.5,.4,1)}
   /* ticking something off: the row glows once and the box lands (stampIn, above) */
   .chk.just{animation:tickRow .7s ease-out;border-radius:var(--r-sm)}
@@ -1898,3 +1894,31 @@ svg.arr.arr-r{margin:0 0 0 .35em}
 .rc-leg{margin-left:15px}
 .vt-pin.home{position:relative}
 .vt-pin.home i{position:absolute;right:-7px;bottom:-6px;min-width:15px;height:15px;border-radius:8px;background:var(--on-color);color:#2E2A27;font:800 9px/15px var(--f-body);text-align:center;font-style:normal;box-shadow:var(--sh-1)}
+
+/* ---------- the banner carries the day, and shrinks to one row (phones, the Trip tab's Day view) ----------
+   The last line of the banner is the day (city, date, how full, the route), so the day's own title is not a second
+   block under it; once the banner has scrolled away one slim row stays (logo, city, where in the trip), with the day
+   strip under it. The day's heading stays in the page for a screen reader. A day with a photo keeps its photo title */
+.topline .tl-day{display:none}
+.pin{display:none}
+@media (max-width:560px){
+  .top[data-day] .tl-hi,.top[data-day] .tl-sep,.top[data-day] .tl-sky{display:none}
+  .top[data-day] .tl-day{display:flex;align-items:center;gap:10px;flex:1 1 100%;min-width:0}
+  .tl-day .tl-dt{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:1px 8px;font-size:var(--t-sm);font-weight:600;color:rgba(255,255,255,.92)}
+  .tl-day .tl-dt b{font:800 17px/1.2 var(--f-body);color:var(--on-color)}
+  .tl-day .energy{display:inline-flex;align-items:center;gap:5px;font-weight:700;color:var(--on-color)}
+  .tl-day .tl-go{flex:none;display:grid;place-items:center;width:40px;height:40px;margin:-6px -2px -6px 0;border-radius:var(--r-md);background:rgba(255,255,255,.18);color:var(--on-color)}
+  .tl-day .tl-go svg{width:19px;height:19px;color:currentColor}
+  .tl-day .tl-go[hidden]{display:none}
+  html:has(.top[data-day]) #viewTrip .day-h:not(.has-hero):not(.ex-h){position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;margin:0}
+  html:has(.top[data-day] .tl-go:not([hidden])) #viewTrip .day-gm > .btn{display:none}
+  html:has(.top[data-day]) #viewTrip .day-gm{margin:0 0 6px}
+  .pin:not([hidden]){display:flex;align-items:center;gap:10px;position:fixed;z-index:30;top:0;left:0;right:0;border:0;margin:0;width:100%;min-height:44px;padding:calc(6px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 6px max(16px,env(safe-area-inset-left,0px));background:linear-gradient(100deg,#2c2f63,#8a4f7d 55%,#d27e5c);color:var(--on-color);font:800 var(--t-ui)/1.2 var(--f-body);text-align:left;box-shadow:var(--sh-2);cursor:pointer;animation:pinIn .18s ease-out}
+  .pin .pin-logo{width:88px;height:auto;flex:none}
+  .pin b{font-weight:800;font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pin span{margin-left:auto;font-weight:700;font-size:var(--t-sm);color:#f6c46b;white-space:nowrap}
+  html:has(.top[data-day]) #viewTrip .daybar{position:sticky;top:calc(44px + env(safe-area-inset-top,0px));z-index:19;margin:0 -8px;padding:6px 8px 4px;background:var(--bg) var(--grain)}
+}
+@keyframes pinIn{from{transform:translateY(-100%)}to{transform:none}}
+@media (prefers-reduced-motion:reduce){.pin:not([hidden]){animation:none}}
+@media (max-width:560px){.tl-day .tl-go svg,.tl-day .tl-go svg *{stroke:#fff}.tl-day .tl-go svg .ia{fill:#fff}}

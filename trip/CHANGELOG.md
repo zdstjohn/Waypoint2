@@ -2,6 +2,31 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v143
+
+Less above the plan on a phone: the banner carries the day, and shrinks to one row as you scroll.
+- Before, on a 390 × 844 phone, the banner, the day strip, two rows of switches, the city's title and the Google Maps
+  button all came before the first stop, which began 738 px down: under the tab bar's edge, none in view. It now
+  begins about 576 px down, with one to two stops in view, and the logo is where it was, the size it was.
+- The banner's last line is the day (phones, the Trip tab's Day view): the city, the date, how full a day, and the
+  whole route in Google Maps as a 40 px button. The greeting and the time give way to it there and stay on every
+  other screen (All days, Explore, Plan, Today, Prepare) and on a big screen. The day's title block and the wide
+  "Open the whole route in Google Maps" button under it are gone from a phone; the heading stays in the page for
+  a screen reader, and a day with a photo keeps its photo title.
+- One row of switches, on every screen size: Day, All days, Explore. It was two tabs with a second switch (One day /
+  All days) under the first; each view is now one tap from any other.
+- Scroll, and one slim row stays at the top (44 px): the logo, the city and where in the trip you are ("Rome · Day 2
+  of 10"), with the day strip pinned under it. A tap on it goes back to the top. Nothing in the page moves when it
+  comes or goes: the banner scrolls away as it always did, and the row is drawn over the page once it has. The
+  small logo is the same drawing as the big one (the stylesheet's <use>, not a second copy).
+- Where: lib/warm.js (W.topLine writes both lines, the stylesheet shows one; W.pinBar), screens/trip.js
+  (W.viewSwitch, W.bannerDay), screens/travel.js (the switch's handler lost its "remember All days" state, which
+  one row has no need of).
+- Tests: look (the banner's day, the route button, the heading kept for a screen reader, the pinned row, its logo,
+  the tap back to the top, the other views), flow (one row of three, each one tap away), desktop (a big screen keeps
+  the title and the greeting; nothing pinned). The layout check now treats text hidden for a screen reader by a
+  stylesheet rule (a clipped 1 px box) as off screen, as it already did for the .vh class.
+
 ## v142
 
 One clock: everything live goes by the time where the trip is.

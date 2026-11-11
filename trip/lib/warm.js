@@ -142,18 +142,87 @@
   };
   var SUN = W.icon("sun", 2.4);
   var MOON = W.icon("moon", 2.4);
-  /* the line along the bottom of the banner */
+  /* The line along the bottom of the banner. Everywhere: the greeting and the time. On a phone, on the Trip tab's Day
+     view, it is the day instead (the city, the date, how full a day, and the whole route in Google Maps), so the day's
+     title is not a block of its own under the banner and the plan starts higher up. Both are written; the stylesheet
+     shows one (.top[data-day], narrow screens). The text of the day is hidden from a screen reader, which reads the
+     day's own heading in the page; the route link is not */
+  var DIR = W.icon("dir", 2.2);
   W.topLine = function (P) {
     if (!P || !P.stops || !P.stops.length) return "";
     var sk = W.sky(P),
-      top = document.querySelector(".top");
-    if (top) top.setAttribute("data-sky", sk ? sk.phase : "night");
+      top = document.querySelector(".top"),
+      day = W.bannerDay ? W.bannerDay(P) : null;
+    if (top) {
+      top.setAttribute("data-sky", sk ? sk.phase : "night");
+      if (day) top.setAttribute("data-day", "1");
+      else top.removeAttribute("data-day");
+    }
     var bits = ['<span class="tl-hi">' + esc(W.greeting()) + "</span>"];
     if (sk && sk.time)
       bits.push(
         '<span class="tl-sky">' + (sk.phase === "day" || sk.phase === "dawn" ? SUN : MOON) + esc(sk.time + " in " + sk.city) + "</span>"
       );
-    return bits.join('<span class="tl-sep" aria-hidden="true">·</span>');
+    return (
+      bits.join('<span class="tl-sep" aria-hidden="true">·</span>') +
+      (day
+        ? '<span class="tl-day"><span class="tl-dt" aria-hidden="true"><b>' +
+          esc(day.city) +
+          "</b>" +
+          (day.date ? "<span>" + esc(day.date) + "</span>" : "") +
+          (day.level ? "<span>" + day.level + "</span>" : "") +
+          '</span><a class="tl-go" hidden target="_blank" rel="noopener" aria-label="Open the whole route in Google Maps">' +
+          DIR +
+          "</a></span>"
+        : "")
+    );
+  };
+  /* the Day view knows the day's route once its stops are placed (screens/trip.js): it hands the link over */
+  W.bannerRoute = function (url) {
+    var a = /** @type {HTMLAnchorElement | null} */ (document.querySelector("#topline .tl-go"));
+    if (!a) return;
+    a.hidden = !url;
+    if (url) a.href = url;
+    else a.removeAttribute("href");
+  };
+  /* When the banner has scrolled away (a phone, the Day view): one slim row stays, with the logo, the city and where
+     in the trip you are, and the day strip stays under it (the stylesheet pins that). A tap goes back to the top */
+  var pinWatch = null;
+  W.pinBar = function (P) {
+    var el = document.getElementById("pin"),
+      top = document.querySelector(".top");
+    if (!el || !top) return;
+    var day = W.bannerDay ? W.bannerDay(P) : null,
+      cd = day && W.countdown ? W.countdown(P) : null;
+    if (!day) {
+      el.hidden = true;
+      el.removeAttribute("data-on");
+      return;
+    }
+    var where = cd && /^Day /.test(cd.line) ? cd.line : day.date;
+    el.setAttribute("data-on", "1");
+    el.setAttribute("aria-label", day.city + (where ? ", " + where : "") + ". Back to the top");
+    var html =
+      '<svg class="pin-logo" viewBox="0 0 676 140" aria-hidden="true"><use href="#wpMark"/></svg><b>' +
+      esc(day.city) +
+      "</b>" +
+      (where ? "<span>" + esc(where) + "</span>" : "");
+    if (el.innerHTML !== html) el.innerHTML = html;
+    if (!pinWatch && "IntersectionObserver" in window) {
+      pinWatch = new IntersectionObserver(function (es) {
+        var gone = !es[es.length - 1].isIntersecting;
+        el.hidden = !(gone && el.hasAttribute("data-on"));
+      });
+      pinWatch.observe(top);
+      el.addEventListener("click", function () {
+        window.scrollTo({
+          top: 0,
+          behavior: window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"
+        });
+      });
+    } else if (pinWatch) {
+      el.hidden = !(top.getBoundingClientRect().bottom <= 0);
+    }
   };
 
   /* ======================= days until the trip ======================= */

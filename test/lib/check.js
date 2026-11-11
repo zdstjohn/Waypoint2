@@ -2,7 +2,9 @@
    other text. Hidden-for-screen-readers text, the fixed tab bar, closed <details>, clamped lines and wrapped inline text are not faults. */
 module.exports = () => {
   const vw = innerWidth, out = [], seen = new Set();
-  const vis = el => { if (el.closest('.vh, .sr-only, .tabs, nav.tabs, [hidden]')) return null; for (let d = el.parentElement; d; d = d.parentElement) if (d.tagName === 'DETAILS' && !d.open && !(el.closest('summary') && el.closest('summary').parentElement === d)) return null; const r = el.getBoundingClientRect(); if (!r.width || !r.height) return null; const cs = getComputedStyle(el); if (cs.visibility === 'hidden' || cs.opacity === '0' || cs.display === 'none') return null; return r; };
+  /* text kept for a screen reader only (the .vh pattern, by class or by a stylesheet rule: a clipped 1 px box) is not on screen */
+  const srOnly = el => { for (let d = el; d && d !== document.body; d = d.parentElement) { const c = getComputedStyle(d); if (c.position === 'absolute' && /rect\(0(px)?,? 0(px)?,? 0(px)?,? 0(px)?\)/.test(c.clip) && d.offsetWidth <= 2) return true; } return false; };
+  const vis = el => { if (el.closest('.vh, .sr-only, .tabs, nav.tabs, [hidden]') || srOnly(el)) return null; for (let d = el.parentElement; d; d = d.parentElement) if (d.tagName === 'DETAILS' && !d.open && !(el.closest('summary') && el.closest('summary').parentElement === d)) return null; const r = el.getBoundingClientRect(); if (!r.width || !r.height) return null; const cs = getComputedStyle(el); if (cs.visibility === 'hidden' || cs.opacity === '0' || cs.display === 'none') return null; return r; };
   const label = el => (el.id ? '#' + el.id : el.tagName.toLowerCase() + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\s+/).slice(0, 2).join('.') : '')) + ' "' + (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40) + '"';
   const push = (kind, el, extra) => { const k = kind + '|' + label(el); if (seen.has(k)) return; seen.add(k); out.push({ kind, el: label(el), extra }); };
   // 1. anything poking out of the viewport sideways

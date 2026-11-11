@@ -859,23 +859,11 @@
         W.render();
         return;
       }
-      /* two tabs, Day and Explore; inside Day, one day or all days (the tab remembers which, coming back from Explore) */
+      /* Day, All days or Explore */
       if (d.vsw) {
         stop();
-        var to = d.vsw,
-          S = W.S;
-        if (to === "map") {
-          if (S.tview !== "map") S.allPref = !!S.glanceOpen;
-          S.glanceOpen = false;
-          S.tview = "map";
-        } else if (to === "day") {
-          if (S.tview !== "map") return;
-          S.tview = "days";
-          S.glanceOpen = !!S.allPref;
-        } else {
-          S.tview = "days";
-          S.glanceOpen = to === "all";
-        }
+        W.S.tview = d.vsw === "map" ? "map" : "days";
+        W.S.glanceOpen = d.vsw === "all";
         W.save();
         W.render();
         return;

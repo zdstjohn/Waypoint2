@@ -28,9 +28,30 @@ exports.run = async t => {
     /* photo credits: text, not links */
     const cr = await pg.evaluate(() => ({ links: document.querySelectorAll('a.credit').length, spans: document.querySelectorAll('span.credit').length, pe: [...document.querySelectorAll('span.credit')].every(s => getComputedStyle(s).pointerEvents === 'none') }));
     t.ok(cr.links === 0 && cr.pe, `photo credits are plain text a tap goes through (${cr.spans} shown)`);
-    /* the One day / All days switch sits in the middle */
-    const ds = await pg.evaluate(() => { W.S.tview = 'days'; W.S.glanceOpen = false; W.render(); const d = document.querySelector('#viewTrip .dsw').getBoundingClientRect(), v = document.querySelector('#viewTrip .vsw').getBoundingClientRect(); return { left: Math.round(d.left - v.left), right: Math.round(v.right - d.right), w: Math.round(d.width), vw: Math.round(v.width) }; });
-    t.ok(Math.abs(ds.left - ds.right) <= 2 && ds.w < ds.vw - 40, 'the One day / All days switch is centred under the tabs: ' + JSON.stringify(ds));
+    /* On a phone the banner's last line is the day (city, date, how full, the route), so the day's title is not a block
+       of its own under it, and the first stop starts higher up; the heading stays in the page for a screen reader */
+    const bd = await pg.evaluate(() => { W.S.tview = 'days'; W.S.glanceOpen = false; W.render(); scrollTo(0, 0); const top = document.querySelector('.top'), tl = document.querySelector('#topline .tl-day'), go = tl && tl.querySelector('.tl-go'), h = document.querySelector('#viewTrip .day-h'), gm = document.querySelector('#viewTrip .day-gm a');
+      const vis = e => !!e && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().width > 2; const d = W.P.days[W.S.day - 1];
+      return { on: top.hasAttribute('data-day'), text: tl ? tl.innerText.replace(/\s+/g, ' ').trim() : '', city: d.city, greet: vis(document.querySelector('#topline .tl-hi')), go: vis(go) && go.getAttribute('href'), goBox: go ? Math.round(go.getBoundingClientRect().width) + 'x' + Math.round(go.getBoundingClientRect().height) : '', goName: go && go.getAttribute('aria-label'),
+        hidden: tl && tl.querySelector('.tl-dt').getAttribute('aria-hidden'), h2: h && h.querySelector('h2').textContent, hBox: h ? Math.round(h.getBoundingClientRect().height) : -1, old: vis(gm), want: W.dayRouteUrl ? 1 : 0, first: Math.round(document.querySelector('#viewTrip .slot').getBoundingClientRect().top), logo: Math.round(document.querySelector('.top .brand svg').getBoundingClientRect().width), pin: document.querySelector('#pin').hidden }; });
+    t.ok(bd.on && bd.text.indexOf(bd.city) === 0 && /\w{3}, \w{3} \d+/.test(bd.text) && /day$/i.test(bd.text) && !bd.greet, 'on a phone the banner\'s last line is the day: "' + bd.text + '" (the greeting gives way to it)');
+    t.ok(bd.logo >= 120, 'the logo keeps its place and size in the banner (' + bd.logo + ' px wide)');
+    t.ok(/^https:\/\/www\.google\.com\/maps\/dir\//.test(bd.go || '') && bd.goBox === '40x40' && /whole route in Google Maps/.test(bd.goName || '') && !bd.old, 'with the whole route in Google Maps as a 40 px button there, in place of the wide one under the title');
+    t.ok(bd.h2 === bd.city && bd.hBox <= 1 && bd.hidden === 'true', 'the day\'s heading is still in the page for a screen reader (and the banner\'s copy of it is not read twice), but takes no room');
+    t.ok(bd.first < 620 && bd.pin, 'so the first stop starts ' + bd.first + ' px down (it was 738), and nothing is pinned while the banner is in view');
+    /* scrolled: one slim row stays, logo and city and where in the trip, with the day strip under it */
+    await pg.evaluate(() => scrollTo(0, 460)); await pg.waitForTimeout(450);
+    const pn = await pg.evaluate(() => { const p = document.querySelector('#pin'), r = p.getBoundingClientRect(), d = document.querySelector('#viewTrip .daybar').getBoundingClientRect(), l = p.querySelector('.pin-logo');
+      return { shown: !p.hidden && getComputedStyle(p).display !== 'none', top: Math.round(r.top), h: Math.round(r.height), logo: l ? Math.round(l.getBoundingClientRect().width) : 0, use: !!p.querySelector('use[href="#wpMark"]') && !!document.querySelector('#wpMark'), text: p.innerText.replace(/\s+/g, ' ').trim(), name: p.getAttribute('aria-label'), day: [Math.round(d.top), Math.round(d.bottom)], ids: document.querySelectorAll('#wpLetters').length }; });
+    t.ok(pn.shown && pn.top === 0 && pn.h >= 44 && pn.h <= 52, 'once the banner has scrolled away one slim row stays at the top (' + pn.h + ' px)');
+    t.ok(pn.logo >= 80 && pn.use && pn.ids === 1, 'with the logo in it (' + pn.logo + ' px, the same drawing, not a second copy)');
+    t.ok(pn.text.indexOf(bd.city) === 0 && /Back to the top/.test(pn.name || ''), 'and the city and where in the trip: "' + pn.text + '"');
+    t.ok(pn.day[0] === pn.h && pn.day[1] > pn.day[0] + 40, 'the day strip stays right under it (' + pn.day.join('–') + ' px)');
+    await pg.click('#pin'); await pg.waitForFunction(() => scrollY < 5, null, { timeout: 4000 }).catch(() => {}); await pg.waitForTimeout(300);
+    t.ok(await pg.evaluate(() => scrollY < 5 && document.querySelector('#pin').hidden), 'a tap on it goes back to the top, and it leaves');
+    /* other screens keep the greeting */
+    const oth = await pg.evaluate(() => { const out = {}; W.S.glanceOpen = true; W.render(); out.all = document.querySelector('.top').hasAttribute('data-day'); W.S.glanceOpen = false; W.S.tview = 'map'; W.render(); out.map = document.querySelector('.top').hasAttribute('data-day'); out.greet = getComputedStyle(document.querySelector('#topline .tl-hi')).display !== 'none'; W.S.tview = 'days'; W.render(); return out; });
+    t.ok(!oth.all && !oth.map && oth.greet, 'All days and Explore keep the greeting and the time in the banner');
     /* the stop panel's links and "Not for us" too */
     await pg.evaluate(() => { W.S.tview = 'days'; W.render(); const x = W.P.days[1].slots.find(x => x.item && !W.isFood(x.slot)); W.openStop(x.key); }); await pg.waitForTimeout(700);
     const sh = await pg.evaluate(() => { const s = document.querySelector('#sheethost'); const o = s && s.querySelector('.sh-out-r.danger'); return { icons: s ? s.querySelectorAll('.links .ilink').length : 0, words: s ? /\bPhotos\b|Google Maps/.test(s.querySelector('.links') ? s.querySelector('.links').textContent : '') : true, red: o ? getComputedStyle(o).borderTopColor === getComputedStyle(o.querySelector('b')).color : false }; });

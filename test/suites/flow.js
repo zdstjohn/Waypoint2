@@ -62,48 +62,24 @@ exports.run = async t => {
   });
   t.eq([cdn.months, cdn.weeks, cdn.days, cdn.tomorrow, cdn.day3, cdn.after], ['5 months to go', '4 weeks to go', '9 days to go', '1 day to go', 'Day 3 of ' + (await pg.evaluate(() => W.P.N)), 'Back home'], 'the header counts down to the trip and follows it: ' + JSON.stringify(cdn));
   t.ok(/^Your trips: .+\. /.test(cdn.label || ''), 'the trip button says the trip and the countdown to a screen reader');
-  /* the view switch: two tabs, Day and Explore; inside Day, One day or All days */
+  /* the view switch: one row of three, Day, All days and Explore */
   await pg.evaluate(() => scrollTo(0, 0));
-  const vs = await pg.evaluate(() => ({ tabs: [...document.querySelectorAll('#viewTrip .vsw [data-vsw]')].map(b => b.textContent.trim() + (b.getAttribute('aria-selected') === 'true' ? '*' : '')),
-    inner: [...document.querySelectorAll('#viewTrip .dsw [data-vsw]')].map(b => b.textContent.trim() + (b.getAttribute('aria-checked') === 'true' ? '*' : '')) }));
-  t.eq(vs, { tabs: ['Day*', 'Explore'], inner: ['One day*', 'All days'] }, 'two tabs, Day and Explore, and inside Day a switch between one day and all days');
-  await pg.click('#viewTrip [data-vsw="all"]'); await pg.waitForTimeout(500);
-  const g = await pg.evaluate(() => ({ rows: document.querySelectorAll('.g-day').length, N: W.P.N, slots: document.querySelectorAll('#viewTrip .slot').length, secs: document.querySelectorAll('.g-sec').length, stops: W.P.stops.length, pills: document.querySelectorAll('#viewTrip .dpill').length }));
-  t.ok(g.rows === g.N && g.slots === 0 && g.secs === g.stops, 'All days lists every day, grouped by place, in place of the day: ' + JSON.stringify(g));
-  /* the stay bar: the places in order instead of day numbers; it follows the scroll, and a tap jumps to a place */
-  const sb = await pg.evaluate(() => ({ segs: [...document.querySelectorAll('.staybar .sb-seg b')].map(b => b.textContent), names: W.P.stops.map(s => s.name), lit: document.querySelector('.sb-seg.on b').textContent }));
-  t.ok(g.pills === 0 && sb.segs.join() === sb.names.join() && sb.lit === sb.names[0], 'a stay bar in trip order replaces the day numbers: ' + JSON.stringify(sb));
-  const last = sb.names.length - 1;
-  await pg.click('.sb-seg[data-staygo="' + last + '"]'); await pg.waitForTimeout(900);
-  const jump = await pg.evaluate(n => { const sec = document.querySelector('.g-sec[data-stop="' + n + '"]').getBoundingClientRect().top, bar = document.querySelector('.staybar').getBoundingClientRect(); return { gap: Math.round(sec - bar.bottom), stuck: Math.round(bar.top), lit: document.querySelector('.sb-seg.on').dataset.staygo }; }, last);
-  t.ok(jump.gap >= 0 && jump.gap < 30 && jump.stuck === 0 && +jump.lit === last, 'tapping the last place brings it under the stuck bar and lights it: ' + JSON.stringify(jump));
-  await pg.evaluate(() => { const s = document.querySelector('.g-sec[data-stop="1"]'), bar = document.querySelector('.staybar'); scrollTo(0, s.getBoundingClientRect().top + scrollY - bar.getBoundingClientRect().height - 4); }); await pg.waitForTimeout(400);
-  t.eq(await pg.evaluate(() => document.querySelector('.sb-seg.on').dataset.staygo), '1', 'scrolling to the second place lights it');
-  /* a day picked far down the list opens at its start, not mid-page */
-  await pg.evaluate(() => { const r = document.querySelector('.g-day[data-day="' + W.P.N + '"]'); r.scrollIntoView({ block: 'center' }); }); await pg.waitForTimeout(300);
-  const before = await pg.evaluate(() => Math.round(scrollY));
-  await pg.click('.g-day[data-day="' + await pg.evaluate(() => W.P.N) + '"]'); await pg.waitForTimeout(900);
-  const opened = await pg.evaluate(() => ({ day: W.S.day, N: W.P.N, y: Math.round(scrollY), head: Math.round(document.querySelector('#viewTrip .day-h').getBoundingClientRect().top), vh: innerHeight }));
-  t.ok(before > 200 && opened.day === opened.N && opened.head >= 0 && opened.head < opened.vh / 2, 'a day picked far down All days opens at its start: ' + JSON.stringify([before, opened]));
-  /* the day that's already selected opens too */
-  await pg.click('#viewTrip [data-vsw="all"]'); await pg.waitForTimeout(500);
-  await pg.click('.g-day[data-day="' + await pg.evaluate(() => W.S.day) + '"]'); await pg.waitForTimeout(700);
-  t.ok(await pg.evaluate(() => !W.S.glanceOpen && document.querySelectorAll('#viewTrip .g-day').length === 0 && !!document.querySelector('#viewTrip .day-h')), 'tapping the selected day in All days opens it');
+  const vs = await pg.evaluate(() => ({ tabs: [...document.querySelectorAll('#viewTrip .vsw [data-vsw]')].map(b => b.textContent.trim() + (b.getAttribute('aria-selected') === 'true' ? '*' : '')), rows: document.querySelectorAll('#viewTrip .vsw, #viewTrip .dsw').length }));
+  t.eq(vs, { tabs: ['Day*', 'All days', 'Explore'], rows: 1 }, 'one row of three: Day, All days and Explore (no second switch under it)');
   await pg.click('#viewTrip [data-vsw="all"]'); await pg.waitForTimeout(500);
   await pg.evaluate(() => scrollTo(0, 0)); await pg.waitForTimeout(300);
   await pg.click('.g-day[data-day="3"]'); await pg.waitForTimeout(900);
-  t.eq(await pg.evaluate(() => [W.S.day, document.querySelector('#viewTrip [data-vsw][aria-checked="true"]').dataset.vsw]), [3, 'days'], 'picking a day there opens it');
+  t.eq(await pg.evaluate(() => [W.S.day, document.querySelector('#viewTrip [data-vsw][aria-selected="true"]').dataset.vsw]), [3, 'days'], 'picking a day there opens it');
   await pg.click('#viewTrip [data-vsw="map"]'); await pg.waitForTimeout(700);
   t.ok(await pg.evaluate(() => W.S.tview === 'map' && !document.querySelector('#viewTrip .rcard') && !!document.querySelector('#placeQ') && !document.querySelector('#viewTrip svg.map')), 'Explore shows the search, and neither the route (it is on Today) nor a sketch map');
-  /* Day remembers All days across a visit to Explore */
-  await pg.click('#viewTrip [data-vsw="day"]'); await pg.waitForTimeout(500);
+  /* each of the three goes straight to its view */
   await pg.click('#viewTrip [data-vsw="all"]'); await pg.waitForTimeout(500);
+  t.ok(await pg.evaluate(() => W.S.glanceOpen && W.S.tview === 'days' && document.querySelectorAll('#viewTrip .g-day').length === W.P.N && document.querySelector('#viewTrip [data-vsw="all"]').getAttribute('aria-selected') === 'true'), 'All days from Explore, in one tap');
   await pg.click('#viewTrip [data-vsw="map"]'); await pg.waitForTimeout(600);
-  t.ok(await pg.evaluate(() => !document.querySelector('#viewTrip .dsw') && document.querySelector('#viewTrip [data-vsw="map"]').getAttribute('aria-selected') === 'true'), 'Explore has no day switch');
-  await pg.click('#viewTrip [data-vsw="day"]'); await pg.waitForTimeout(600);
-  t.ok(await pg.evaluate(() => W.S.glanceOpen && document.querySelectorAll('#viewTrip .g-day').length === W.P.N), 'back on Day, All days is still open');
+  t.ok(await pg.evaluate(() => W.S.tview === 'map' && !W.S.glanceOpen && document.querySelector('#viewTrip [data-vsw="map"]').getAttribute('aria-selected') === 'true'), 'Explore from All days, in one tap');
+  await pg.click('#viewTrip [data-vsw="all"]'); await pg.waitForTimeout(500);
   await pg.click('#viewTrip [data-vsw="days"]'); await pg.waitForTimeout(500);
-  t.ok(await pg.evaluate(() => !W.S.glanceOpen && !!document.querySelector('#viewTrip .day-h')), 'and One day goes back to the day');
+  t.ok(await pg.evaluate(() => !W.S.glanceOpen && !!document.querySelector('#viewTrip .day-h')), 'and Day goes back to the day');
   /* the storybook is gone: no way in, and a trip saved on it opens on the day */
   t.ok(await pg.evaluate(() => { W.S.tview = 'story'; W.render(); return W.S.tview === 'days' && !document.querySelector('[data-story], [data-sync="story"], .story') && !!document.querySelector('#viewTrip .day-h'); }), 'there is no storybook, and a trip left on it opens on the day');
   /* a travel day with long car-rental text stays inside its card on a phone */
