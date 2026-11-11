@@ -866,7 +866,9 @@
       id = a && a.id,
       val = a && a.value,
       sel = a && a.selectionStart;
-    el.innerHTML = h;
+    /* edited in place, like the trip's screens (lib/patch.js): a redraw that comes while a finger is down no longer
+       replaces what is under it. Thrown away and rebuilt, a tick on Plan could be lost when data arrived mid-tap. */
+    W.draw(el, h, "setup|" + (S.tripId || ""));
     if (id && $(id)) {
       var n = $(id);
       if (n.value !== val && n.tagName === "INPUT" && n.type !== "number" && n.type !== "date") n.value = val;
@@ -1041,7 +1043,7 @@
       else S.styles.push(d.style);
       W.resetPicks();
     } else if (d.focus && W.FOCUS[d.focus]) {
-    /* the overall feel: re-plan the days around it (any choice, even the default, once tapped) */
+      /* the overall feel: re-plan the days around it (any choice, even the default, once tapped) */
       if (S.focus !== d.focus) {
         S.focus = d.focus;
         W.freshAll();

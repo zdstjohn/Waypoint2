@@ -2,6 +2,28 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v138
+
+A tap that a redraw lands on is no longer lost, more types, shorter test waits, three named colours (the audit's T3,
+Q3, T2, Q5). No screen looks different.
+The test runner named a suite that had passed only on its second run (eat: a tick on Plan went missing when the
+machine was busy). Two causes, both real for a person too, if rare. Plan and Prepare were thrown away and rebuilt on
+every redraw (innerHTML), so when data arrived between finger down and finger up the chip under the finger was a new
+one and the tap went nowhere: screens/setup.js and screens/book.js now draw in place with W.draw (lib/patch.js), as
+the trip's screens have since v117. And with motion reduced, a folding section's open or closed state was remembered
+only when the browser reported it a moment later, so a redraw in between put the section back as it was: lib/fx.js
+now remembers it at the tap, as it already did when sliding. test/suites/eat.js presses a chip, redraws, and
+releases (it fails on the old drawing).
+Types: 55 more of W's members have real types (329 of 467). The checker compares each with the function it
+describes, and turned down four of the first guesses.
+Tests: the cloud suite's long fixed waits wait for the thing itself (44 seconds to 22). Fixed waits in all suites
+are down from 254 seconds to about 135; what is left is short pauses after a tap.
+Colours: the three hand-written colours used most are palette names now, with the same values in both themes
+(--on-color for text on a coloured surface, --ok-ink and --ok-bg for the "good / booked / free" pair): 51 uses. 62
+other hand-written colours remain (109 uses), most used once or twice.
+W.dayTimes was looked at again and left whole: its core is one routine over shared state (the clock moving through
+the day), and splitting it would mean passing that state around.
+
 ## v137
 
 jsPDF brought up to date, Nunito as one file, and a search card that keeps to its card (the audit's T5 follow-up and P5).

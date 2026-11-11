@@ -1306,7 +1306,8 @@
         "bk-take"
       );
     W.keepInputs(el, function () {
-      el.innerHTML = '<div class="bookview">' + h + "</div>";
+      /* edited in place (lib/patch.js), so a tap is not lost to a redraw that comes while the finger is down */
+      W.draw(el, '<div class="bookview">' + h + "</div>", "book|" + seg + "|" + (S.tripId || ""));
     });
     if (tickFx) {
       var j = el.querySelector(".chk.just");

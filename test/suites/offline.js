@@ -47,9 +47,13 @@ exports.run = async t => {
 
   /* the signal goes */
   await ctx.setOffline(true); await pg.waitForTimeout(600);
-  const off = await pg.evaluate(() => {
+  const off = await pg.evaluate(async () => {
     W.setView('go'); W.render();
-    const go = document.querySelector('#viewGo'); const srcs = [...document.querySelectorAll('#viewTrip img.photo, #viewGo img.photo')].map(i => i.getAttribute('src'));
+    /* the stored photos are read from the phone a moment after the signal goes: wait for them, not for a fixed time
+       (under load 600 ms was not always enough, and the runner named this suite as passing only on a second run) */
+    const read = () => [...document.querySelectorAll('#viewTrip img.photo, #viewGo img.photo')].map(i => i.getAttribute('src'));
+    for (let i = 0; i < 60 && read().some(u => !/^blob:/.test(u)); i++) { await new Promise(r => setTimeout(r, 100)); W.render(); }
+    const go = document.querySelector('#viewGo'); const srcs = read();
     return { cls: document.documentElement.classList.contains('offline'), banner: !!(go && go.querySelector('.go-off.is-off')), text: go && go.querySelector('.go-off') ? go.querySelector('.go-off').textContent : '', blob: srcs.length ? srcs.every(s => /^blob:/.test(s)) : null, n: srcs.length, pill: getComputedStyle(document.querySelector('.brand'), '::after').content };
   });
   t.ok(off.cls, 'the page knows it is offline');

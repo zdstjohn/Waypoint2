@@ -41,14 +41,16 @@ exports.run = async t => {
       }
       route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ text, model: 'test' }) });
     });
-    await pg.goto(URL + '#trip'); await pg.waitForTimeout(1500);
+    await pg.goto(URL + '#trip');
+    await pg.waitForFunction(() => window.W && (document.querySelector('.auth-gate') || (W.P && W.P.days)), null, { timeout: 10000 }).catch(() => {}); await pg.waitForTimeout(400);
     return { ctx, pg, errs, asked, flight };
   };
   const signIn = async (pg, email, pw, newAcct) => {
     if (newAcct) await pg.click('.auth-gate [data-auth="up"]');
     await pg.fill('#authEmail', email); await pg.fill('#authPw', pw);
     await Promise.all([pg.waitForNavigation({ timeout: 8000 }).catch(() => null), pg.click('.auth-go')]);
-    await pg.waitForTimeout(1500);
+    /* signed in (the gate is gone and the app has its plan) or told why not */
+    await pg.waitForFunction(() => window.W && ((!document.querySelector('.auth-gate') && W.P && W.P.days) || ((document.querySelector('.auth-err') || {}).textContent || '').length > 3), null, { timeout: 10000 }).catch(() => {}); await pg.waitForTimeout(500);
   };
   try {
     /* 1. the gate; an email that wasn't invited; then Ann makes her account */
@@ -77,7 +79,9 @@ exports.run = async t => {
       'each city starts with 15 things to do and 15 places to eat, and nothing more is fetched unless asked: ' + JSON.stringify(lists));
     /* a stay made longer grows its ideas by the difference (15 for three days, 27 for six: 12 more of each), once */
     const grow = await A.pg.evaluate(async () => { const before = W.stayDays('Spain', 'Madrid'), a0 = (W.C.city['Spain|Madrid'] || {}).askedN;
-      W.S.days = before + 5; W.S.cityDays['Spain|Madrid'] = before + 3; W.changed(); W.render(); await new Promise(r => setTimeout(r, 2500)); W.render(); await new Promise(r => setTimeout(r, 1500));
+      W.S.days = before + 5; W.S.cityDays['Spain|Madrid'] = before + 3; W.changed(); W.render();
+      for (let i = 0; i < 80 && (W.C.city['Spain|Madrid'] || {}).askedN !== W.firstIdeas(before + 3); i++) { await new Promise(r => setTimeout(r, 100)); if (i % 10 === 9) W.render(); }
+      W.render(); await new Promise(r => setTimeout(r, 700));
       return { before, a0, after: W.stayDays('Spain', 'Madrid'), asked: (W.C.city['Spain|Madrid'] || {}).askedN, want: W.firstIdeas(before + 3) }; });
     const more = A.asked.map(x => x.head).filter(h => / MORE /.test(h));
     t.ok(grow.after === grow.before + 3 && grow.asked === grow.want && grow.want > grow.a0 && more.length === 2 && more.every(h => new RegExp('^List ' + (grow.want - grow.a0) + ' MORE ').test(h)),
@@ -89,8 +93,8 @@ exports.run = async t => {
     t.ok(A.flight.max > 3 && A.flight.max <= 6, 'the installable app asks up to six things at once (three inside Claude): ' + A.flight.max);
     t.ok(A.asked.length > 5 && A.asked.every(x => x.auth) && A.asked.some(x => x.tier === 'quick') && A.asked.some(x => x.tier === 'default'), `each question goes to the function with her sign-in (${A.asked.length} questions)`);
     /* 3. saved to her account */
-    await A.pg.waitForTimeout(3500);
-    let s = await state();
+    let s = null; for (let i = 0; i < 60; i++) { s = await state(); if (s.docs.some(p => /\/trips\/t\//.test(p))) break; await new Promise(r => setTimeout(r, 150)); }
+    await A.pg.waitForTimeout(800); s = await state();
     const tripDocs = s.docs.filter(p => /\/trips\/t\//.test(p));
     t.ok(tripDocs.length >= 1 && tripDocs.every(p => s.owners[p] === 'ann@example.com'), 'her trip is saved to her account: ' + tripDocs.length);
     /* 4. the menu offers sharing and importing again, and Settings shows the account */
@@ -144,7 +148,7 @@ exports.run = async t => {
     /* 9. Claude's daily limit says so plainly */
     const L = await phone('L', { limitAfter: 0 }); await signIn(L.pg, 'bob@example.com', 'bob-pass-123');
     await L.pg.evaluate(() => { W.newTripFrom({ v: 2, algo: 2, styles: ['food'], countries: [{ mode: 'manual', name: 'Spain', picked: ['Málaga'] }], days: 2, start: '2027-06-14', depart: 'Seattle (SEA)', travelers: [40], stays: {}, picks: {}, seen: {}, cityDays: {}, tripName: 'Limit' }); });
-    await L.pg.waitForTimeout(3000);
+    await L.pg.waitForFunction(() => Object.values(W.status).some(v => /Busy right now/.test(String(v))), null, { timeout: 10000 }).catch(() => {});
     t.ok(await L.pg.evaluate(() => Object.values(W.status).some(v => /Busy right now/.test(String(v)))), 'over the daily limit, a request says to try later instead of failing silently');
     /* 10. signing out leaves the phone-only app; going without an account too */
     await A.pg.evaluate(() => { W.goView('settings'); }); await A.pg.waitForTimeout(800);

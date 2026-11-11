@@ -225,7 +225,13 @@
     function (e) {
       var s = e.target.closest && e.target.closest("summary"),
         d = s && s.parentElement;
-      if (!d || d.tagName !== "DETAILS" || off()) return;
+      if (!d || d.tagName !== "DETAILS") return;
+      if (off()) {
+        /* no sliding (reduced motion): the browser folds it. The choice is remembered now all the same: it used to wait
+           for the browser's own notice a moment later, and a redraw in between put the section back as it was */
+        if (W.saveFold) W.saveFold(d, !d.open);
+        return;
+      }
       e.preventDefault();
       if (d.getAttribute("data-moving")) return;
       var start = d.offsetHeight,

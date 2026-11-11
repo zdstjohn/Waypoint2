@@ -21,6 +21,17 @@ exports.run = async t => {
   await pg.click('[data-fold="eat-al"] > summary'); await pg.click('[data-fold="eat-di"] > summary');
   const f2 = await vis();
   t.ok(!f2[0].open && !f2[0].shown && /Peanuts/.test(f2[0].sum) && /Shellfish/.test(f2[0].sum) && f2[1].sum === 'Vegetarian', 'folded again, each line shows what\'s picked: ' + f2.map(f => f.sum).join(' / '));
+  /* a tap that a redraw lands in the middle of still counts. Plan used to be thrown away and rebuilt on every redraw
+     (also one that changed nothing on it, when data arrived for somewhere else), so between finger down and finger up
+     the chip under the finger had become a new one and the tick was lost. It is now edited in place (lib/patch.js). */
+  await pg.click('[data-fold="eat-al"] > summary');
+  const chip = await pg.evaluate(() => { const c = [...document.querySelectorAll('[data-eatal]')].find(x => !(W.S.eat.al || []).includes(x.dataset.eatal)); const r = c.getBoundingClientRect(); return { v: c.dataset.eatal, x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+  await pg.mouse.move(chip.x, chip.y); await pg.mouse.down();
+  await pg.evaluate(() => { W.arrived(); W.render(); });   /* data arrives and the screen is drawn again, finger still down */
+  await pg.mouse.up(); await pg.waitForTimeout(200);
+  t.ok(await pg.evaluate(v => (W.S.eat.al || []).includes(v), chip.v), `a tick still counts when the screen is redrawn while the finger is down (${chip.v})`);
+  await pg.evaluate(v => { const a = W.S.eat.al, k = a.indexOf(v); if (k > -1) a.splice(k, 1); W.render(); }, chip.v);   /* (as it was, for the checks below) */
+  await pg.click('[data-fold="eat-al"] > summary'); await pg.waitForFunction(() => W.S.eatOpen && W.S.eatOpen.al === false, null, { timeout: 5000 }).catch(() => {});
   t.ok(await pg.evaluate(() => { W.render(); return !document.querySelector('[data-fold="eat-al"]').open && W.S.eatOpen && W.S.eatOpen.al === false; }), 'and stays folded after a redraw');
   await pg.click('[data-fold="eat-al"] > summary'); await pg.click('[data-eatal="peanuts"]'); await pg.click('[data-fold="eat-al"] > summary');
   await pg.fill('#eatLove', 'Pizza, grilled vegetables'); await pg.dispatchEvent('#eatLove', 'change');
