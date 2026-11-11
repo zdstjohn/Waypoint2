@@ -98,6 +98,13 @@ the styles of the old Today timeline. The check of the trip's shape (lib/route.j
 lib/shape.js. The first script is 381 KB (was 402). The tests run three suites at a time (test/run.js --jobs; the
 ones that time things run alone afterwards): a full run takes under 7 minutes instead of 17. The readable sources
 published with the app are one file, src/waypoint-source.txt (tools/src_pack.py packs and unpacks it), instead of 108.
+v129: data someone else wrote is checked before it is used (the audit's S3, R2, S6, S8). Every link drawn from data
+goes through W.safeUrl (lib/validate.js V.web: http or https, nothing else), whoever wrote the data. A shared trip's
+plan and ideas, and the nightly links and place lists in the shared database, pass V.shared (plain data only, links
+web links or empty, long text and deep nesting cut) and V.pool (lists of named places, pins on Earth or none) before
+the app uses them. Share codes are 10 characters from the browser's secure random source (codes of 6 still open). The
+PDF library is loaded with an integrity hash, so only the expected file can run. tools/release.sh does a release's
+mechanical steps; package.json's version follows the release (0.<N>.0).
 v122: what Claude is asked first. W.run's queue (lib/core.js) no longer goes in the order things were asked: the city on
 screen (the selected day, and today's on a trip) comes first, its main lists (sights, places to eat, breakfast) before
 its second lists, then other cities' main lists, then the extras (hidden gems, rainy-day ideas, links, events, costs);

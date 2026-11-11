@@ -9,15 +9,16 @@
   /* a planned meal's "Menu": its panel, opened at the menu (read from the restaurant's own site overnight) */
   W.menuBtn = function (key) { return '<button type="button" class="menu-btn" data-open="' + esc(key) + '" data-menu="1" aria-haspopup="dialog" aria-label="Menu" title="Menu">' + W.icon("menu", 2) + "</button>"; };
   W.menuLink = function (it, city) {
-    var url = it.menu || "https://www.google.com/search?q=" + encodeURIComponent(it.n + " " + city + " menu"), host = "";
-    if (it.menu) { try { host = new URL(it.menu).hostname.replace(/^www\./, ""); } catch (e) {} }
+    var own = W.safeUrl(it.menu), url = own || "https://www.google.com/search?q=" + encodeURIComponent(it.n + " " + city + " menu"), host = "";
+    if (own) { try { host = new URL(own).hostname.replace(/^www\./, ""); } catch (e) {} }
     return '<a class="menu-btn" href="' + esc(url) + '" target="_blank" rel="noopener" title="' + esc(host ? "Menu on " + host : "Search for the menu") + '">Menu</a>';
   };
   /* tickets: straight to the place's own official site, never a reseller or a search page.
      Verified links (checked against Wikidata) win; otherwise Claude's official link if it passes the reseller filter; otherwise nothing. */
   W.reviewsUrl = function (name, city) { return "https://www.google.com/search?q=" + encodeURIComponent(name + " " + city + " reviews"); };
   W.officialUrl = function (it, food, country, city) {
-    var off = !food && W.officialLink && W.officialLink(it, country, city), url = it.book || "", verified = false;
+    var off = !food && W.officialLink && W.officialLink(it, country, city), url = W.safeUrl(it.book), verified = false;
+    if (off && !W.safeUrl(off.url)) off = null;
     if (off) {
       var offHost = hostOf(off.url), bookHost = hostOf(url);
       /* keep Claude's deeper ticket page when it is on the same official site; otherwise use the verified site */

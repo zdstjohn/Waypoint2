@@ -85,6 +85,7 @@ interface Milestone { key: string; title: string; text: string; also?: string[];
 interface Readiness { pct: number; [k: string]: any }
 /** the one door for Claude's answers (lib/validate.js) */
 interface Validators { stats: { dropped: number; cleared: number; farPins: number }; str(x: unknown, max?: number): string; name(x: unknown): string | null; num(x: unknown): number | null; clamp(x: unknown, lo: number, hi: number, dflt: number): number;
+  web(x: unknown): string; shared(x: unknown, depth?: number): any; pool(p: unknown): Pool | null;
   oneOf<T extends string>(x: unknown, list: readonly T[], dflt: T): T; intOf<T extends number>(x: unknown, set: readonly T[], dflt: T | undefined): T | undefined; fame(x: unknown): Fame | undefined; rating(x: unknown): number | undefined; tags(t: unknown): string[]; url(x: unknown): string;
   pin(lat: unknown, lng: unknown): { lat: number; lng: number } | null; pinNear(lat: unknown, lng: unknown, center: LatLng | null | undefined, km?: number): { lat: number; lng: number } | null;
   spot(x: unknown, center: LatLng | null): Spot | null; food(x: unknown, center: LatLng | null, dflt?: { meal?: Meal; pic?: string }): Food | null; city(c: unknown): BuiltCity | null; stayArea(x: unknown, center: LatLng | null): StayArea | null;
@@ -337,7 +338,8 @@ interface Waypoint {
   loadIndoor: any;
   loadLeg: any;
   loadLodging: any;
-  loadScript: any;
+  loadScript: (src: string, integrity?: string) => Promise<any>;
+  safeUrl: (x: unknown) => string;
   loadStayRanges: any;
   loadTz: any;
   lodgeList: any;

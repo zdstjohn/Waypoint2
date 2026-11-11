@@ -131,7 +131,7 @@
         '<a class="price" href="' + esc(W.priceUrl(it, s.name)) + '" target="_blank" rel="noopener">Compare prices</a>' +
         '<a href="' + esc(W.photosUrl(it.n, s.name)) + '" target="_blank" rel="noopener">Photos</a>' +
         '<a href="' + esc(W.gmapsPlace(it, s.name)) + '" target="_blank" rel="noopener">Map</a>' +
-        (it.site ? '<a href="' + esc(it.site) + '" target="_blank" rel="noopener">Website</a>' : "") + "</div></div>";
+        (W.safeUrl(it.site) ? '<a href="' + esc(W.safeUrl(it.site)) + '" target="_blank" rel="noopener">Website</a>' : "") + "</div></div>";
     });
     return '<div class="lodges-h">Or pick one of these</div><div class="lodges">' + cards.join("") + "</div>" +
       (err ? '<p class="small muted">' + esc(err) + ' <button type="button" class="linkish" data-lretry="' + i + '">Try again</button></p>' : "");

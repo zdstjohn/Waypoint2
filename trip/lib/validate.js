@@ -29,6 +29,48 @@
   V.tags = function (t) { var ok = W.TAGS || []; return (Array.isArray(t) ? t : []).filter(function (x) { return ok.indexOf(x) > -1; }); };
   /** a link: only through W.bookUrl (own sites only, https) */
   V.url = function (x) { return W.bookUrl ? W.bookUrl(x) : ""; };
+  /** a web link and nothing else: http or https, no spaces or quotes. Anything else (javascript:, data:, a bare word)
+      gives "". Every link drawn from data goes through this (W.safeUrl), whoever wrote the data. */
+  V.web = function (x) { var u = typeof x === "string" ? x.trim() : ""; return /^https?:\/\/[^\s"'<>`]+$/i.test(u) && u.length < 2000 ? u : ""; };
+  W.safeUrl = V.web;
+  /* Data someone else wrote (a shared trip's plan and ideas, the nightly lists in the shared database) is not
+     Claude's answer and has not been through the checks above. V.shared makes it safe to use as it is: plain data
+     only, nothing deeper than 8 levels, lists no longer than 2000, text no longer than 4000 letters, and every link
+     (book, menu, site, url, link, src, href, web) a web link or empty (src may also be a short label). */
+  var LINK_KEYS = { book: 1, menu: 1, site: 1, url: 1, link: 1, src: 1, href: 1, web: 1 };
+  /* src is a link in some records and a short label in others ("map", "Booking.com"): either, never anything else */
+  function linkOr(k, v) { var u = V.web(v); return u || (k === "src" && typeof v === "string" && /^[\w .&+'-]{1,40}$/.test(v) ? v : ""); }
+  V.shared = function (x, depth) {
+    depth = depth || 0;
+    if (x == null || typeof x === "boolean") return x;
+    if (typeof x === "number") return isFinite(x) ? x : null;
+    if (typeof x === "string") return x.length > 4000 ? x.slice(0, 4000) : x;
+    if (depth > 8 || typeof x !== "object") return null;
+    if (Array.isArray(x)) return x.slice(0, 2000).map(function (y) { return V.shared(y, depth + 1); });
+    var o = {};
+    Object.keys(x).forEach(function (k) {
+      if (k === "__proto__" || k === "constructor" || k === "prototype") return;
+      o[k] = LINK_KEYS[k] && typeof x[k] !== "object" ? linkOr(k, x[k]) : V.shared(x[k], depth + 1);
+    });
+    return o;
+  };
+  /** a city's ideas as someone else wrote them: V.shared, and each list a list of named places with a pin or none
+      @returns {Pool | null} */
+  V.pool = function (p) {
+    var o = /** @type {any} */ (V.shared(p)); if (!o || typeof o !== "object" || Array.isArray(o)) return null;
+    ["spots", "food"].forEach(function (k) {
+      o[k] = (Array.isArray(o[k]) ? o[k] : []).filter(function (it) { return it && typeof it === "object" && !Array.isArray(it) && typeof it.n === "string" && it.n.trim(); });
+      o[k].forEach(function (it) {
+        it.n = it.n.trim().slice(0, 120);
+        var pin = V.pin(it.lat, it.lng); it.lat = pin ? pin.lat : null; it.lng = pin ? pin.lng : null;
+        if (it.t !== undefined) it.t = (Array.isArray(it.t) ? it.t : []).filter(function (t) { return typeof t === "string"; });
+        ["d", "dur", "ticket", "price", "cuisine", "place", "pic", "s", "meal"].forEach(function (f) { if (it[f] != null && typeof it[f] !== "string") delete it[f]; });
+      });
+    });
+    if (o.rest) { if (typeof o.rest !== "object" || Array.isArray(o.rest)) delete o.rest; else ["spots", "food"].forEach(function (k) { if (!Array.isArray(o.rest[k])) o.rest[k] = []; o.rest[k] = o.rest[k].filter(function (it) { return it && typeof it === "object" && typeof it.n === "string"; }); }); }
+    var c = V.pin(o.lat, o.lng); o.lat = c ? c.lat : null; o.lng = c ? c.lng : null;
+    return o;
+  };
 
   /* ---- coordinates ---- */
   /** a pin: both numbers, on Earth, not the 0,0 placeholder; {lat,lng} or null */

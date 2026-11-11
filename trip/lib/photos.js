@@ -65,7 +65,7 @@
     if (window.claude && window.claude.use) window.claude.use("db").then(function (db) {
       if (!db) return; DB = db;
       db.collection("links").onSnapshot(function (snap) {
-        fromDb = true; LINKS = {}; snap.docs.forEach(function (d) { LINKS[d.id] = (d.data() || {}).items || {}; }); W.changed();
+        fromDb = true; LINKS = {}; snap.docs.forEach(function (d) { LINKS[d.id] = W.V.shared((d.data() || {}).items) || {}; }); W.changed();
       }, function () {});
       db.collection("photos").onSnapshot(function (snap) {
         fromDb = true; PHOTOS = {}; BYCITY = {}; IDX = {};

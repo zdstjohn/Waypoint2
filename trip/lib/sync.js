@@ -13,7 +13,13 @@
   function lget(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
   function lset(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { if (W.storeFailed) W.storeFailed(e); } }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
-  function rid(n, abc) { abc = abc || "abcdefghijkmnpqrstuvwxyz23456789"; var s = ""; for (var i = 0; i < n; i++) s += abc.charAt(Math.floor(Math.random() * abc.length)); return s; }
+  /* ids and share codes come from the browser's secure random source (Math.random only where there is none) */
+  function rid(n, abc) {
+    abc = abc || "abcdefghijkmnpqrstuvwxyz23456789"; var s = "", r = null;
+    try { r = crypto.getRandomValues(new Uint8Array(n)); } catch (e) {}
+    for (var i = 0; i < n; i++) s += abc.charAt((r ? r[i] : Math.floor(Math.random() * 256)) % abc.length);
+    return s;
+  }
   function hash(s) { var h = 5381; for (var i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) | 0; return s.length + ":" + (h >>> 0).toString(36); }
   function syncable(st) { var o = clone(st); VIEW_KEYS.forEach(function (k) { delete o[k]; }); return o; }
   W.syncable = syncable; W.VIEW_KEYS = VIEW_KEYS;
@@ -41,6 +47,9 @@
     S.v = 2; S.algo = 2;
     ["stays", "picks", "seen", "cityDays"].forEach(function (k) { if (!S[k] || typeof S[k] !== "object") S[k] = {}; });
     if (!Array.isArray(S.countries)) S.countries = [];
+    /* every country a name, every list of places a list of names (a trip from elsewhere may hold anything) */
+    S.countries = S.countries.filter(function (c) { return c && typeof c === "object" && typeof c.name === "string" && c.name; });
+    S.countries.forEach(function (c) { c.picked = (Array.isArray(c.picked) ? c.picked : []).filter(function (n) { return typeof n === "string" && n; }); });
     if (!Array.isArray(S.travelers)) S.travelers = [];
     if (!Array.isArray(S.styles)) S.styles = [];
   }
@@ -378,7 +387,7 @@
   }
   function startShare() {
     if (!db) return;
-    S.share = rid(6, "abcdefghjkmnpqrstuvwxyz23456789"); shareMsg = "";
+    S.share = rid(10, "abcdefghjkmnpqrstuvwxyz23456789"); shareMsg = "";
     W.save(); pushShare(); pushSharePools();
   }
   function stopShare() {
@@ -399,14 +408,15 @@
     (cities || []).forEach(function (sl) {
       db.doc("shared/" + code + "/pools/" + sl).get().then(function (snap) {
         if (!snap.exists || !W.readOnly || W.readOnly.code !== code) return;
-        var b = snap.data() || {}; if (b.k && b.pool) { W.C.city[b.k] = clone(b.pool); W.changed(); }
+        /* someone else's ideas: checked before they are used (lib/validate.js) */
+        var b = snap.data() || {}, pool = typeof b.k === "string" && b.pool ? W.V.pool(b.pool) : null; if (pool) { W.C.city[b.k] = pool; W.changed(); }
       }, function () {});
     });
   }
   function openShared(code) {
     code = String(code || "").toLowerCase().replace(/[^a-z0-9]/g, "");
     if (!db) { shareMsg = W.needsClaude("Opening a shared trip", "Shared trips need this page open in the Claude app."); bar(); return; }
-    if (code.length < 6) { shareMsg = "Codes are 6 letters and numbers."; bar(); return; }
+    if (code.length < 6) { shareMsg = "Codes are 6 to 10 letters and numbers."; bar(); return; }
     opening = true; shareMsg = ""; bar();
     db.doc("shared/" + code).get().then(function (snap) {
       opening = false;
@@ -415,7 +425,7 @@
       if (!W.readOnly) ro = { S: clone(S), city: W.C.city, example: W.isExample };
       W.readOnly = { code: code, name: b.name || "Shared trip", edit: !!b.edit && canWrite && !!uid, log: b.log || [] };
       W.C.city = Object.assign({}, ro.city);
-      replaceState(b.state || {}); S.day = 1; W.isExample = false; menuOpen = false; takeLegs(b.legs);
+      replaceState(W.V.shared(b.state) || {}); S.day = 1; W.isExample = false; menuOpen = false; takeLegs(W.V.shared(b.legs));
       if (W.coReapply) W.coReapply(b);
       rememberShare(code, b.name);
       loadSharedPools(code, b.cities);
@@ -427,7 +437,7 @@
         var b2 = s2.data() || {};
         if ((b2.updated || 0) > lastUp) {
           lastUp = b2.updated; W.readOnly.name = b2.name || W.readOnly.name; W.readOnly.edit = !!b2.edit && canWrite && !!uid; W.readOnly.log = b2.log || [];
-          var day = S.day; replaceState(b2.state || {}); S.day = day; takeLegs(b2.legs); if (W.coReapply) W.coReapply(b2); loadSharedPools(code, b2.cities); W.changed();
+          var day = S.day; replaceState(W.V.shared(b2.state) || {}); S.day = day; takeLegs(W.V.shared(b2.legs)); if (W.coReapply) W.coReapply(b2); loadSharedPools(code, b2.cities); W.changed();
         }
       }, function () {});
       W.setView("trip"); W.changed();
@@ -503,7 +513,7 @@
         (W.standalone ? '<span><b>Settings</b><span class="small muted">' + (W.cloud ? "Your account, importing a plan, installing on this phone" : "Sign in, install on this phone, prices") + "</span></span></button>"
           : '<span><b>Import a plan</b><span class="small muted">' + "From Wanderlog, a document or an email</span></span></button>") +
         '<div class="tm-sharebox"><h3>Share with family</h3>' + (W.shareBlock ? W.shareBlock() : "") + "</div>";
-      h += '<div class="share"><h3>Open a shared trip</h3><div class="row"><input class="field code" id="openCode" placeholder="Code" maxlength="8" aria-label="Share code to open" autocapitalize="off" autocomplete="off" spellcheck="false"><button type="button" class="btn quiet" data-sync="openshare">' + (opening ? "Opening…" : "Open") + "</button></div>" +
+      h += '<div class="share"><h3>Open a shared trip</h3><div class="row"><input class="field code" id="openCode" placeholder="Code" maxlength="24" aria-label="Share code to open" autocapitalize="off" autocomplete="off" spellcheck="false"><button type="button" class="btn quiet" data-sync="openshare">' + (opening ? "Opening…" : "Open") + "</button></div>" +
         (shareMsg ? '<p class="warn">' + esc(shareMsg) + "</p>" : "") +
         (seenShares.length ? '<ul class="trips">' + seenShares.map(function (x) { return '<li><button type="button" data-sync="openshare" data-code="' + esc(x.code) + '"><b>' + esc(x.name || x.code) + '</b><span class="small muted">' + esc(x.code) + "</span></button></li>"; }).join("") + "</ul>" : "") + "</div></div>";
     }

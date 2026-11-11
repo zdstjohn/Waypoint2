@@ -120,7 +120,7 @@
     return '<div class="wdrop">' + L.map(function (w) {
       var d = drop(w); if (!d) return "";
       return '<p><b>Price drop</b> ' + esc(w.label) + ": " + money(d.now, d.cur) + ' <span class="muted">(was ' + money(d.was, d.cur) + ")</span>" +
-        (w.url ? ' <a href="' + esc(w.url) + '" target="_blank" rel="noopener">Book ↗</a>' : "") + "</p>";
+        (W.safeUrl(w.url) ? ' <a href="' + esc(W.safeUrl(w.url)) + '" target="_blank" rel="noopener">Book ↗</a>' : "") + "</p>";
     }).join("") + "</div>";
   };
   /* Trip settings: everything watched on this trip, with a way to stop */
@@ -134,7 +134,7 @@
       var d = drop(w), cur = w.last || w.base || {};
       var line = (d ? "↓ " + money(d.now, d.cur) + " · was " + money(d.was, d.cur) : cur.total ? "Now " + money(cur.total, cur.cur) : "") + (cur.at ? " · checked " + ago(cur.at) : "") + (w.miss ? " · not found last check" : "");
       return '<li' + (d ? ' class="drop"' : "") + '><div class="wl-b"><b>' + esc(w.label || "Watch") + '</b><span class="small muted">' + esc(line) + "</span></div>" +
-        (w.url ? '<a class="small" href="' + esc(w.url) + '" target="_blank" rel="noopener">Book ↗</a>' : "") +
+        (W.safeUrl(w.url) ? '<a class="small" href="' + esc(W.safeUrl(w.url)) + '" target="_blank" rel="noopener">Book ↗</a>' : "") +
         (busy[w.id] ? '<span class="loading small">Checking…</span>' : '<button type="button" class="linkish" data-unwatch="' + esc(w.id) + '">Stop</button>') + "</li>";
     }).join("") + "</ul>";
   };

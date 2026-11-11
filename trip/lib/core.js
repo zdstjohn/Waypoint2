@@ -45,8 +45,14 @@
     var m = Math.round((Date.now() - t) / 6e4);
     return m < 2 ? "just now" : m < 60 ? m + " min ago" : m < 1440 ? Math.round(m / 60) + " h ago" : m < 10080 ? Math.round(m / 1440) + " d ago" : new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" });
   };
-  W.loadScript = function (src) {
-    return new Promise(function (ok, bad) { var s = document.createElement("script"); s.src = src; s.charset = "utf-8"; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
+  /** a script from elsewhere; with integrity (its sha384), the browser runs it only if it is exactly that file
+      @param {string} src @param {string} [integrity] */
+  W.loadScript = function (src, integrity) {
+    return new Promise(function (ok, bad) {
+      var s = document.createElement("script"); s.src = src; s.charset = "utf-8";
+      if (integrity) { s.integrity = integrity; s.crossOrigin = "anonymous"; }
+      s.onload = ok; s.onerror = bad; document.head.appendChild(s);
+    });
   };
 
   /* ---------- state (the trip) ---------- */

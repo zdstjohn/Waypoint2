@@ -199,7 +199,7 @@
     var cl = W.checklist ? W.checklist(P).filter(function (c) { return c.day === n && c.key.indexOf("stay|") !== 0 && c.key.indexOf("flight|") !== 0; }) : [];
     if (cl.length) h += '<section class="go-tix sk"><h3>Tickets ' + (live ? "today" : "for this day") + "</h3>" + cl.map(function (c) {
       return '<div class="gt-row"><span class="gt-i' + (c.done ? " ok" : "") + '">' + (c.done ? IC.check : IC.ticket) + '</span><div><b>' + esc(c.short || c.title) + '</b><span class="small muted">' + esc(c.done ? (c.why || "Booked") : "Not booked yet") + "</span></div>" +
-        (c.url && !c.done ? '<a class="chip-a pri" href="' + esc(c.url) + '" target="_blank" rel="noopener">Book ↗</a>' : '<button type="button" class="chip-a" data-gobook="' + esc(c.key) + '">Details</button>') + "</div>";
+        (W.safeUrl(c.url) && !c.done ? '<a class="chip-a pri" href="' + esc(W.safeUrl(c.url)) + '" target="_blank" rel="noopener">Book ↗</a>' : '<button type="button" class="chip-a" data-gobook="' + esc(c.key) + '">Details</button>') + "</div>";
     }).join("") + "</section>";
 
     /* what to take out today (comes with the second script) */
@@ -269,7 +269,7 @@
       "<h2>" + esc(it.n) + "</h2>" + (it.d ? '<p class="gh-d">' + esc(it.d) + "</p>" : "") + (sub ? '<p class="small muted">' + esc(sub) + "</p>" : "") +
       (!isNow && live ? '<p class="leave' + (mins <= 10 ? " soon" : "") + '">' + (mins <= 0 ? "Time to go" : mins <= 90 ? "Leave in " + W.fmtMin(Math.max(5, Math.round(mins / 5) * 5)) : "Leave by " + W.clock(leave)) + (lg ? ' <span class="muted">· ' + esc(W.fmtMin(lg.min) + " " + lg.label) + "</span>" : "") + "</p>" : "") +
       '<div class="gh-act"><a class="btn" href="' + esc(W.gmapsDir(from, it, lg ? lg.mode : "walk")) + '" target="_blank" rel="noopener">' + IC.dir + "Directions</a>" +
-      (tix ? '<a class="btn quiet" href="' + esc(tix.url) + '" target="_blank" rel="noopener">' + IC.ticket + esc(tix.t) + "</a>" : "") +
+      (tix && W.safeUrl(tix.url) ? '<a class="btn quiet" href="' + esc(W.safeUrl(tix.url)) + '" target="_blank" rel="noopener">' + IC.ticket + esc(tix.t) + "</a>" : "") +
       (W.readOnly ? "" : '<button type="button" class="icon-btn gh-more" data-sheet="' + esc(e.x.key) + '" aria-label="More for ' + esc(it.n) + '">' + IC.more + "</button>") + "</div></div></section>";
   }
   function nextCard(e, day, P, from, live) {

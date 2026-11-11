@@ -4,15 +4,13 @@
   let calls = {country:0, spots:0, food:0, geo:0}; window.__calls = calls; let seq = 0;
   /* a list's number comes from what was asked, never from the order the requests came in (that order follows timing, and
      with it the places' names, spots and the plan): a city's headline sights are list 1, its other half 2, its places to
-     eat 3 and 4, then trip-style ideas 5, hidden gems 6, rainy-day places 7, food-needs places 9, and "more" pages from 8
+     eat 3 and 4, then rainy-day places 7, food-needs places 9, and "more" pages from 8
      (things to do) and 10 (places to eat) up, one more each time for that city */
   const pages = {};
   const listNo = (prompt, city) => {
     const more = k => { const key = city + '|' + k; pages[key] = (pages[key] || 0) + 1; return (k === 'spots' ? 8 : 10) + (pages[key] - 1) * 4; };
     if (/best-known sights and must-do/.test(prompt)) return 1;
     if (/MORE things to do/.test(prompt)) return more('spots');
-    if (/things to do .*for travelers who especially want/.test(prompt)) return 5;
-    if (/^List \d+ hidden gems in and around/.test(prompt)) return 6;
     if (/indoor things to do/.test(prompt)) return 7;
     if (/things to do|must-do experiences|hidden gems and local favorites/.test(prompt)) return 2;
     if (/MORE places to eat/.test(prompt)) return more('food');
@@ -37,12 +35,6 @@
       const n0 = (window.__lodgeN = (window.__lodgeN||0) + 1); const out = [];
       tiers.forEach(t => { for (let i = 0; i < 4; i++) out.push({ n: city+' '+t+' stay '+n0+'-'+i, tier: t, type: ['hotel','apartment','guesthouse','hotel'][i], area: ['Monti','Trastevere','Centro Storico','Prati'][i], d: 'Family rooms a short walk from the main sights, with breakfast included.', price: {budget:'€85–110',mid:'€170–220',luxury:'€480–650'}[t], site: i%2 ? 'https://www.example-hotel.it/' : (i===2?'https://www.booking.com/hotel/x':''), lat: c[0]+(i-1.5)*0.006, lng: c[1]+(i-1.5)*0.007 }); });
       return { lodging: out }; }
-    if (/especially want:/.test(prompt)) { window.__styleCalls=(window.__styleCalls||[]); window.__styleCalls.push(prompt);
-      const names = prompt.match(/especially want: (.*?)\. Give several/)[1].split(', ');
-      const keys = names.map(n => (window.STYLES.find(s => s[1] === n) || [])[0]).filter(Boolean);
-      const city = prompt.match(/in and around ([A-Za-z ]+),/)[1]; const c = (({Rome:[41.9,12.5],Florence:[43.77,11.25],Venice:[45.44,12.33]})[city] || (function(){ var m = prompt.match(new RegExp(city + ', ([A-Za-z ]+)')); var b = m && window.W && W.findCity && W.findCity(m[1].trim(), city); return b && b.lat != null ? [b.lat, b.lng] : [40,10]; })());
-      const out = []; for (let i = 0; i < 16; i++) { const k = keys[i % keys.length]; out.push({ n: city+' '+k+' pick '+i, d:'A '+k+' idea', t:[k], k:[1,0,-1,0][i%4], s:['am','pm','eve','pm'][i%4], dur:'1-2h', ticket:'Free', lat:c[0]+((i*37)%100/100-.5)*0.05, lng:c[1]+((i*61)%100/100-.5)*0.06 }); }
-      return { spots: out }; }
     if (/^For each of these places/.test(prompt)) { window.__linkCalls=(window.__linkCalls||[]); window.__linkCalls.push(prompt);
       const names=[]; prompt.split('\n').forEach(l=>{ const mm=l.match(/^(Things to do|Places to eat): (.*)$/); if(mm) mm[2].split('; ').forEach(n=>names.push(n)); });
       const D=['45m','1-1.5h','2 hours','90 min','1h30','half day','30-45 min','2-3h'];
@@ -52,7 +44,6 @@
     if (/coordinates of this lodging/.test(prompt)) { calls.geo++; return {lat:41.905, lng:12.49, label:'Hotel', area:'Monti'}; }
     const city = m ? m[1].trim() : 'X'; const c = centers[city] || [40,10];
     if (/things to do|must-do experiences/.test(prompt)) { calls.spots++; seq = listNo(prompt, city); const n = +((prompt.match(/List (?:the )?(\d+)/)||[])[1]) || (/MORE/.test(prompt)?20:28); const out=[]; for(let i=0;i<n;i++){ const s=['am','pm','eve','any'][i%4===3? (i%8===7?3:2): i%2]; out.push({n:city+' sight '+seq+'-'+i, d:'What '+city+' sight '+i+' is known for.', t:i%3?['culture']:['food'], k:i%5===0?-1:1, s, dur: i%3===0 ? '' : (i%3===1 ? '2h' : '1-2 hours'), ticket:i%2?'Free':'€15, book ahead', book: i%4===0 ? 'https://www.colosseo.it/en/tickets?'+i : (i%4===2 ? 'https://www.google.com/search?q=x' : ''), lat:c[0]+((i*41+seq*13)%100/100-.5)*0.04, lng:c[1]+((i*67+seq*29)%100/100-.5)*0.05}); } return {d:city+' is known for stuff', lat:c[0], lng:c[1], spots: out}; }
-    if (/places for breakfast/.test(prompt)) { const out=[]; for(let i=0;i<12;i++) out.push({n:city+' cafe '+i, d:'Known for pastries', cuisine:'Cafe', price:'€', meal:'breakfast', k:1, lat:c[0]+((i*41+seq*13)%100/100-.5)*0.03, lng:c[1]+((i*67+seq*29)%100/100-.5)*0.04}); return {food: out}; }
     if (/places to eat/.test(prompt)) { calls.food++; seq = listNo(prompt, city); const out=[]; const nF = +((prompt.match(/List (?:the )?(\d+)/)||[])[1]) || 18; for(let i=0;i<nF;i++) out.push({n:city+((/breakfast caf/.test(prompt) && i < Math.round(nF/4)) ? ' cafe ' : ' eatery ')+seq+'-'+i, d:'Known for pasta', cuisine:'Italian', price:'€€', meal: (/breakfast caf/.test(prompt) && i < Math.round(nF/4)) ? 'breakfast' : ['lunch','dinner','both'][i%3], menu: i%3===0 ? 'https://www.trattoria-example.it/menu' : '', k:0, lat:c[0]+((i*41+seq*13)%100/100-.5)*0.03, lng:c[1]+((i*67+seq*29)%100/100-.5)*0.04}); return {transit:{system:'Metro and buses, €1.50', pass:'72h pass', airport:'Train 32 min', tip:'Validate tickets'}, stay:[{n:'Monti',d:'central',lat:c[0]+.005,lng:c[1]+.004},{n:'Trastevere',d:'charming',lat:c[0]-.006,lng:c[1]-.01}], food: out}; }
     return {};
   };

@@ -51,6 +51,25 @@ exports.run = async t => {
     return { n0, keys: Object.keys(W.status).filter(k => /^spots\|Italy\|Rome/.test(k)).length };
   });
   t.ok(live.keys >= 1, 'a city list is asked for through the usual door');
+  /* data someone else wrote (a shared trip, the nightly lists): links must be web links, lists lists of named places */
+  const sh = await pg.evaluate(() => {
+    const V = W.V, bad = 'javascript:alert(1)';
+    const web = [V.web('https://example.com/menu?a=1'), V.web(' http://x.it/a '), V.web(bad), V.web('data:text/html,x'), V.web('example.com'), V.web('https://a b.com'), V.web(null), V.web({})];
+    const deep = { a: { b: { c: { d: { e: { f: { g: { h: { i: { j: 1 } } } } } } } } } };
+    const o = V.shared({ book: bad, menu: 'https://ok.example/menu', site: bad, live: { url: bad, src: 'Booking.com' }, imported: [{ n: 'Bar', src: 'map' }, { n: 'X', src: bad }], long: 'x'.repeat(5000), n: NaN, deep, list: new Array(2500).fill(1) });
+    const proto = V.shared(JSON.parse('{"__proto__": {"polluted": 1}, "constructor": 2, "ok": 3}'));
+    const pool = V.pool({ lat: 91, lng: 0, spots: [{ n: ' Colosseum ', lat: 41.89, lng: 12.49, t: 'culture', d: 5, book: bad }, { n: '' }, 'text', null, { d: 'no name' }], food: 'none', rest: { spots: [{ n: 'Kept aside', menu: bad }, 7] } });
+    const menu = W.menuLink({ n: 'Osteria', menu: bad }, 'Rome'), book = W.bookLink({ n: 'Museum', book: bad, ticket: '€10, book ahead' }, 'Rome', false, 'Italy');
+    return { web, o: [o.book, o.menu, o.site, o.live.url, o.live.src, o.imported[0].src, o.imported[1].src, o.long.length, o.n, o.list.length, JSON.stringify(o.deep).length < 200], proto: [Object.keys(proto), ({}).polluted === undefined],
+      pool: pool && [pool.lat, pool.spots.length, pool.spots[0].n, pool.spots[0].t, 'd' in pool.spots[0], pool.spots[0].book, pool.food.length, pool.rest.spots.length, pool.rest.spots[0].menu, pool.rest.food.length], none: [V.pool(null), V.pool([1]), V.pool('x')],
+      menu: /href="https:\/\/www\.google\.com\/search/.test(menu) && !/javascript/.test(menu), book };
+  });
+  t.eq(sh.web, ['https://example.com/menu?a=1', 'http://x.it/a', '', '', '', '', '', ''], 'a web link is http or https and nothing else');
+  t.eq(sh.o, ['', 'https://ok.example/menu', '', '', 'Booking.com', 'map', '', 4000, null, 2000, true], 'shared data: links that are not web links are emptied, a short label stays, long text, long lists and deep nesting are cut');
+  t.eq(sh.proto, [['ok'], true], 'shared data cannot reach into every object');
+  t.eq(sh.pool, [null, 1, 'Colosseum', [], false, '', 0, 1, '', 0], 'shared ideas: only named places, pins on Earth or none, fields of the wrong kind dropped');
+  t.eq(sh.none, [null, null, null], 'something that is not a city\'s ideas is refused');
+  t.ok(sh.menu && sh.book === '', 'a planted link is never drawn: the menu falls back to a search, the ticket link is left out');
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

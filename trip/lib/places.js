@@ -75,7 +75,7 @@
     if (window.claude && window.claude.use) window.claude.use("db").then(function (db) {
       if (!db) return;
       db.collection("places").onSnapshot(function (snap) {
-        REC = {}; snap.docs.forEach(function (d) { var x = d.data() || {}; REC[d.id] = { items: x.items || {}, center: x.center || null }; });
+        REC = {}; snap.docs.forEach(function (d) { var x = W.V.shared(d.data()) || {}; REC[d.id] = { items: x.items && typeof x.items === "object" ? x.items : {}, center: x.center || null }; });
         gen++; applied = {}; W.changed();
       }, function () {});
     }, function () {});

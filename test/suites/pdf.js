@@ -6,7 +6,7 @@ exports.run = async t => {
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, height: 844, db: mkdb() });
   const lib = path.join(t.root, 'node_modules', 'jspdf', 'dist', 'jspdf.umd.min.js');
   if (!t.ok(fs.existsSync(lib), 'the PDF library is installed for the test (npm ci)')) { await ctx.close(); await b.close(); return; }
-  await pg.route(/cdnjs\.cloudflare\.com\/ajax\/libs\/jspdf\//, r => r.fulfill({ body: fs.readFileSync(lib), contentType: 'text/javascript' }));
+  await pg.route(/cdnjs\.cloudflare\.com\/ajax\/libs\/jspdf\//, r => r.fulfill({ body: fs.readFileSync(lib), contentType: 'text/javascript', headers: { 'access-control-allow-origin': '*' } }));
   await exampleTrip(pg); await pg.evaluate(() => { W.S.days = 12; W.changed(); }); await settle(pg, 8000);
   const out = await pg.evaluate(async () => {
     const dl = await window.claude.use('downloads'); const real = dl.save; let bytes = null, name = '';

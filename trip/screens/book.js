@@ -147,7 +147,7 @@
   function makePdf(P) {
     if (pdf.state === "run") return;
     pdf = { state: "run" }; W.render();
-    var ready = window.jspdf ? Promise.resolve() : W.loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
+    var ready = window.jspdf ? Promise.resolve() : W.loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js", "sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk");
     ready.then(function () {
       var doc = new window.jspdf.jsPDF({ unit: "pt", format: "letter" }), PW = doc.internal.pageSize.getWidth(), PH = doc.internal.pageSize.getHeight(), M = 48, y = M;
       var INK = [52, 48, 45], MUTED = [110, 103, 96], NOTE = [201, 80, 58], ACC = [63, 70, 130];

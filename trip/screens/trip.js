@@ -72,7 +72,7 @@
           '<span class="lo-m">' + esc([o.dur, o.price].filter(Boolean).join(" · ")) + "</span></button>";
         if (!sel) return '<div class="lo">' + head + "</div>";
         var where = [[o.from, o.to].filter(Boolean).join(" → "), o.freq].filter(Boolean).map(function (t) { return '<span class="nw">' + esc(t) + "</span>"; }).join(" · ");
-        var book = host ? '<a class="lo-book" href="' + esc(o.url) + '" target="_blank" rel="noopener">Book on ' + esc(host) + ' <span aria-hidden="true">↗</span></a>'
+        var book = host && W.safeUrl(o.url) ? '<a class="lo-book" href="' + esc(W.safeUrl(o.url)) + '" target="_blank" rel="noopener">Book on ' + esc(host) + ' <span aria-hidden="true">↗</span></a>'
           : fy ? '<a class="lo-book quiet" href="' + esc(W.ferrySearch(o, L.a, L.b).url) + '" target="_blank" rel="noopener">' + esc(W.ferrySearch(o, L.a, L.b).text) + ' <span aria-hidden="true">↗</span></a>' : "";
         /* the ferry on Ferryhopper too, if you use it */
         var alt = fy && W.altUrls ? W.altUrls("ferry", { a: L.a, b: L.b }).map(function (u) { return link(u[1], esc(u[0]) + " ↗"); }).join("") : "";
