@@ -6,11 +6,14 @@
 (function () {
   "use strict";
   var W = window.W;
-  var REC = {}, applied = {}, gen = 0;
+  var REC = {},
+    applied = {},
+    gen = 0;
 
   /* the checked record for one place, if there is one */
   W.placeInfo = function (it, country, city) {
-    var c = REC[W.slug(country + " " + city)]; if (!c || !it || !it.n) return null;
+    var c = REC[W.slug(country + " " + city)];
+    if (!c || !it || !it.n) return null;
     return c.items[W.norm(it.n)] || null;
   };
 
@@ -18,25 +21,37 @@
      the planner skips it; the official site fills an empty booking or menu link; hours fill in where unknown */
   function lay(list, items, food, added, pool) {
     (list || []).forEach(function (it) {
-      var r = it && it.n && items[W.norm(it.n)]; if (!r) return;
+      var r = it && it.n && items[W.norm(it.n)];
+      if (!r) return;
       /* the list's own pin, kept before any record moves it, so a record that is later corrected can give it back.
          "was" is a pin an earlier check got wrong: a saved list that still carries it has no own pin to go back to. */
       if (it.g === undefined) it.g = it.lat != null && it.lng != null ? [it.lat, it.lng] : null;
-      var was = r.was && r.was.length === 2 ? r.was : null, same = function (a, b) { return Math.abs(a - b) < 2e-6; };
+      var was = r.was && r.was.length === 2 ? r.was : null,
+        same = function (a, b) {
+          return Math.abs(a - b) < 2e-6;
+        };
       if (was && it.g && same(it.g[0], was[0]) && same(it.g[1], was[1])) it.g = null;
       /* Google's place ID opens the exact listing from every "Google Maps" link. A pin taken from Google ("gpin") may
          be kept for 30 days only, and is never drawn on the free street map. */
       it.gid = r.g || undefined;
       var gOk = !r.gpin || (r.gat && Date.now() - Date.parse(r.gat) < 30 * 864e5);
       it.gpin = r.gpin && gOk ? 1 : undefined;
-      if (r.lat != null && r.lng != null && gOk) { it.lat = r.lat; it.lng = r.lng; }
+      if (r.lat != null && r.lng != null && gOk) {
+        it.lat = r.lat;
+        it.lng = r.lng;
+      } else if (r.nopin) {
       /* a guessed pin that landed far out in the water, with the real place not found yet: no pin beats a wrong one */
-      else if (r.nopin) { it.lat = null; it.lng = null; }
-      else { it.lat = it.g ? it.g[0] : null; it.lng = it.g ? it.g[1] : null; }
+        it.lat = null;
+        it.lng = null;
+      } else {
+        it.lat = it.g ? it.g[0] : null;
+        it.lng = it.g ? it.g[1] : null;
+      }
       if (r.st) it.st = r.st;
       if (r.site) {
-        if (food) { if (!it.menu) it.menu = r.site; }
-        else if (!it.book) it.book = r.site;
+        if (food) {
+          if (!it.menu) it.menu = r.site;
+        } else if (!it.book) it.book = r.site;
       }
       if (r.hours && !it.hours) it.hours = r.hours;
       if (r.k != null) it.k = r.k;
@@ -47,37 +62,75 @@
         /* (marked "rp" so the limit on ideas on show never sets it aside: W.fitIdeas. Without the mark the two took
            turns, one adding it and the other setting it aside, and the page redrew without end. One set aside by the
            version that did that comes back) */
-        var exists = list.filter(function (x) { return W.norm(x.n) === W.norm(r.replace.n); })[0] || (pool ? W.fromRest(pool, r.replace.n, food) : null);
+        var exists =
+          list.filter(function (x) {
+            return W.norm(x.n) === W.norm(r.replace.n);
+          })[0] || (pool ? W.fromRest(pool, r.replace.n, food) : null);
         if (exists) exists.rp = 1;
-        if (!exists) list.push(Object.assign(food ? { meal: it.meal || "both", cuisine: it.cuisine || "", price: it.price || "", reserve: false } : { t: it.t || [], s: it.s || "any", ticket: "" }, JSON.parse(JSON.stringify(r.replace)), { rp: 1 }));
+        if (!exists)
+          list.push(
+            Object.assign(
+              food
+                ? { meal: it.meal || "both", cuisine: it.cuisine || "", price: it.price || "", reserve: false }
+                : { t: it.t || [], s: it.s || "any", ticket: "" },
+              JSON.parse(JSON.stringify(r.replace)),
+              { rp: 1 }
+            )
+          );
         added[W.norm(r.replace.n)] = 1;
       }
     });
   }
   W.applyPlaces = function (country, city, pool) {
     if (!pool || pool.fallback) return pool;
-    var slug = W.slug(country + " " + city), c = REC[slug]; if (!c) return pool;
+    var slug = W.slug(country + " " + city),
+      c = REC[slug];
+    if (!c) return pool;
     var stamp = slug + "|" + gen + "|" + (pool.spots || []).length + "|" + (pool.food || []).length;
     if (applied[slug] === stamp) return pool;
     var added = {};
     /* the city's centre (where you stay until you pick a place) when the guessed one sits in the water */
-    if (c.center && c.center.length === 2) { pool.lat = c.center[0]; pool.lng = c.center[1]; }
-    lay(pool.spots, c.items, false, added, pool); lay(pool.food, c.items, true, added, pool);
+    if (c.center && c.center.length === 2) {
+      pool.lat = c.center[0];
+      pool.lng = c.center[1];
+    }
+    lay(pool.spots, c.items, false, added, pool);
+    lay(pool.food, c.items, true, added, pool);
     (pool.stay || []).forEach(function (x) {
-      var r = x && x.n && c.items[W.norm(x.n)]; if (!r) return;
-      if (r.lat != null && r.lng != null) { x.lat = r.lat; x.lng = r.lng; } else if (r.nopin) { x.lat = null; x.lng = null; }
+      var r = x && x.n && c.items[W.norm(x.n)];
+      if (!r) return;
+      if (r.lat != null && r.lng != null) {
+        x.lat = r.lat;
+        x.lng = r.lng;
+      } else if (r.nopin) {
+        x.lat = null;
+        x.lng = null;
+      }
     });
     applied[slug] = slug + "|" + gen + "|" + (pool.spots || []).length + "|" + (pool.food || []).length;
     return pool;
   };
 
   try {
-    if (window.claude && window.claude.use) window.claude.use("db").then(function (db) {
-      if (!db) return;
-      db.collection("places").onSnapshot(function (snap) {
-        REC = {}; snap.docs.forEach(function (d) { var x = W.V.shared(d.data()) || {}; REC[d.id] = { items: x.items && typeof x.items === "object" ? x.items : {}, center: x.center || null }; });
-        gen++; applied = {}; W.changed();
-      }, function () {});
-    }, function () {});
+    if (window.claude && window.claude.use)
+      window.claude.use("db").then(
+        function (db) {
+          if (!db) return;
+          db.collection("places").onSnapshot(
+            function (snap) {
+              REC = {};
+              snap.docs.forEach(function (d) {
+                var x = W.V.shared(d.data()) || {};
+                REC[d.id] = { items: x.items && typeof x.items === "object" ? x.items : {}, center: x.center || null };
+              });
+              gen++;
+              applied = {};
+              W.changed();
+            },
+            function () {}
+          );
+        },
+        function () {}
+      );
   } catch (e) {}
 })();

@@ -159,6 +159,11 @@ Advisories: tools/audit-waivers.json now also waives dompurify (it only comes wi
 that lib/vtmap.js still draws the map without it).
 Island towns: tools/check_towns.js asks OpenStreetMap where each town in window.TI is and lists those more than 4 km
 off (.github/workflows/towns.yml, run on demand).
+v133: the formatter, and nothing else (the audit's Q2). trip/lib and trip/screens were run through Prettier 3.8.1
+(.prettierrc.json: 140 columns, double quotes, no trailing commas; npm run format). Lines over 200 characters went from
+629 to 93 (what is left is long text in quotes), and the files from 11,370 to 28,306 lines. The built scripts are
+byte for byte the same as before (checked with the build stamp fixed), so nothing the app does has changed. Line
+numbers quoted in older notes refer to the files before this.
 v122: what Claude is asked first. W.run's queue (lib/core.js) no longer goes in the order things were asked: the city on
 screen (the selected day, and today's on a trip) comes first, its main lists (sights, places to eat, breakfast) before
 its second lists, then other cities' main lists, then the extras (hidden gems, rainy-day ideas, links, events, costs);
