@@ -78,21 +78,39 @@
   var c = load("waypoint-cache-v2") || (SEED && SEED.C) || {};
   W.C = /** @type {Cache} */ ({ country: c.country || {}, city: c.city || {}, geo: c.geo || {}, area: c.area || {}, range: c.range || {}, legs: c.legs || {}, cost: c.cost || {}, tz: c.tz || {}, events: c.events || {} });
   var lastS = null, lastV = -1;
-  /* a write this device refused (its storage for the app is full): say so in the banner and the error log, once; nothing
-     is cleared to make room (the idea lists would only be asked for again) */
+  /* a write this device refused (its storage for the app is full): say so in the banner and the error log, once. Before
+     giving up, the saved ideas are cut down to this trip's (writeCache); the trip itself is never cleared. */
   W.storeFailed = function (e) {
     if (W.localFull) return;
     W.localFull = true;
     if (W.logError) W.logError("storage: this device refused a save (" + (e && e.name || "error") + ")", "save");
     if (W.renderBar && W.P) try { W.renderBar(W.P); } catch (x) {}
   };
+  /* The ideas as this device's storage entry holds them: what the trip on screen uses, the rest being in IndexedDB
+     (lib/ideastore.js; all of it where there is none). Refused because the entry is full, it is written again with only
+     this trip's places: the others stay in memory, and are asked for again when their trip is next opened. */
+  function writeCache(force) {
+    if (!force) {
+      try { localStorage.setItem("waypoint-cache-v2", JSON.stringify(W.cacheSlim ? W.cacheSlim(false) : W.C)); return; }
+      catch (e) { if (!W.cacheSlim) throw e; }
+    }
+    if (!W.cacheSlim) throw new Error("full");
+    localStorage.setItem("waypoint-cache-v2", JSON.stringify(W.cacheSlim(true)));
+    if (W.logError && !W.cacheCut) { W.cacheCut = true; W.logError("storage: this device's saved ideas were cut down to the trip on screen (its storage was full)", "save"); }
+  }
+  /** the saved ideas are written again at the next save (lib/ideastore.js, once everything is in IndexedDB) */
+  W.cacheDirty = function () { lastV = -1; };
   W.save = function () {
     /* someone else's shared trip: look, don't keep (planning together sends your changes to its owner instead) */
     if (W.readOnly) { if (W.readOnly.edit && W.coPush) W.coPush(); return; }
-    var wrote = false, failed = false;
-    try { var js = JSON.stringify(W.S); if (js !== lastS) { localStorage.setItem("waypoint-v2", js); lastS = js; wrote = true; } } catch (e) { failed = true; W.storeFailed(e); }
-    /* the cache is big (city lists for every place); it is written only when data has arrived since the last save */
-    try { if (W.dataV !== lastV) { localStorage.setItem("waypoint-cache-v2", JSON.stringify(W.C)); lastV = W.dataV; wrote = true; } } catch (e) { failed = true; W.storeFailed(e); }
+    var wrote = false, failed = false, js = JSON.stringify(W.S);
+    try { if (js !== lastS) { localStorage.setItem("waypoint-v2", js); lastS = js; wrote = true; } }
+    catch (e) {
+      /* no room for the trip itself: make room by cutting the saved ideas down to this trip's, and try once more */
+      try { writeCache(true); lastV = W.dataV; localStorage.setItem("waypoint-v2", js); lastS = js; wrote = true; } catch (e2) { failed = true; W.storeFailed(e2); }
+    }
+    /* the ideas are big (lists for every place); they are written only when data has arrived since the last save */
+    try { if (W.dataV !== lastV) { writeCache(false); lastV = W.dataV; wrote = true; } } catch (e) { failed = true; W.storeFailed(e); }
     if (wrote && !failed) W.localFull = false;   /* there is room again */
     if (W.afterSave) W.afterSave();
   };

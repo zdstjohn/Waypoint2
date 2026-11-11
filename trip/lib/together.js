@@ -92,8 +92,11 @@
     last = cur;
     if (!Object.keys(ops).length) return;
     lset(opsKey(code), ops);
+    var bx = W.readOnly && W.readOnly.box; if (!bx) return;
+    var at = "shared/" + bx.id + "/edits/" + uid;
     try {
-      db.doc("shared/" + code + "/edits/" + uid).set({ who: W.coWho(code) || "Family", at: Date.now(), ops: ops }).then(function () { if (W.readOnly) { W.readOnly.coErr = ""; } },
+      /* sealed with the trip's code, like the trip itself (lib/sharebox.js) */
+      bx.seal({ who: W.coWho(code) || "Family", at: Date.now(), ops: ops }).then(function (doc) { return db.doc(at).set(doc); }).then(function () { if (W.readOnly) { W.readOnly.coErr = ""; } },
         function () { if (W.readOnly) { W.readOnly.coErr = "Your changes couldn't be sent. You may only be able to view this trip: ask for edit access to the app."; W.renderBar && W.renderBar(W.P); } });
     } catch (e) {}
   }
@@ -106,14 +109,23 @@
     if (want === subCode) return;
     if (sub) { try { sub(); } catch (e) {} sub = null; }
     subCode = want; if (!want) return;
-    try { sub = db.collection("shared/" + want + "/edits").onSnapshot(function (s) { if (subCode === want) take(s.docs || []); }, function () {}); } catch (e) {}
+    W.shareBox(want).then(function (bx) {
+      if (subCode !== want) return;
+      try {
+        sub = db.collection("shared/" + bx.id + "/edits").onSnapshot(function (s) {
+          /* each list of changes is opened with the trip's code; one that does not open (not sealed by this code) is skipped */
+          Promise.all((s.docs || []).map(function (d) { return bx.open(d.data && d.data()).then(function (b) { return { id: d.id, b: b }; }); }))
+            .then(function (list) { if (subCode === want) take(list.filter(function (x) { return x.b; })); });
+        }, function () {});
+      } catch (e) {}
+    }, function () {});
   }
   function take(docs) {
     if (W.readOnly) return;
     var seen = S.coSeen || (S.coSeen = {}), mineAt = S.coMine || {}, log = (S.coLog || []).slice(), any = false, moved = false, now = Date.now();
     applying = true;
     docs.forEach(function (d) {
-      var id = d.id, b = (d.data && d.data()) || {}, ops = b.ops && typeof b.ops === "object" ? b.ops : {}, took = seen[id] || 0, top = took;
+      var id = d.id, b = d.b || {}, ops = b.ops && typeof b.ops === "object" ? b.ops : {}, took = seen[id] || 0, top = took;
       var who = String(b.who || "Family").replace(/[\u0000-\u001f<>]/g, "").slice(0, 30) || "Family";
       Object.keys(ops).filter(function (k) { var op = ops[k]; return op && typeof op.at === "number" && op.at > took && op.at < now + 864e5; })
         .sort(function (a, c) { return ops[a].at - ops[c].at; }).forEach(function (k) {

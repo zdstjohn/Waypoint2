@@ -3,6 +3,8 @@
    made it, saves it and shares it back; a later change of the owner's to the same slot stands; switching back to
    view-only takes the controls away. */
 const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb = require('../lib/db');
+/* a shared document, opened with the trip's code (it is kept sealed: lib/sharebox.js) */
+const peek = (pg, code, sub) => pg.evaluate(async ({ code, sub }) => { const bx = await W.shareBox(code), raw = JSON.parse(await window.__dbOp('get', 'shared/' + bx.id + (sub || ''), null) || 'null'); return raw ? bx.open(raw) : null; }, { code, sub });
 exports.run = async t => {
   const store = mkdb(), b = await launch();
   const A = await open(b, { width: 390, height: 844, db: store }); await exampleTrip(A.pg);
@@ -12,7 +14,7 @@ exports.run = async t => {
   await A.pg.waitForTimeout(300);
   await A.pg.click('[data-sync="shareedit"]'); await A.pg.waitForTimeout(2500);
   const code = await A.pg.evaluate(() => W.S.share);
-  const shared = await A.pg.evaluate(async c => JSON.parse(await window.__dbOp('get', 'shared/' + c, null) || 'null'), code);
+  const shared = await peek(A.pg, code);
   t.ok(code && shared && shared.edit === true, 'the owner shares the trip and lets them change the plan: ' + JSON.stringify({ code, edit: shared && shared.edit }));
   t.ok(await A.pg.evaluate(() => /They can change the plan too/.test(document.querySelector('.trip-menu').innerText)), 'with a switch in the share box');
 
@@ -30,7 +32,7 @@ exports.run = async t => {
   const pick = await B.pg.evaluate(() => { const o = document.querySelector('.swap [data-use][data-name]'); return o && o.dataset.name; });
   if (pick) await B.pg.click('.swap [data-use][data-name]', { timeout: 5000 });
   await B.pg.waitForTimeout(2000);
-  const ed = await B.pg.evaluate(async c => JSON.parse(await window.__dbOp('get', 'shared/' + c + '/edits/u-two', null) || 'null'), code);
+  const ed = await peek(B.pg, code, '/edits/u-two');
   t.ok(pick && ed && ed.who === 'Sam' && ed.ops && ed.ops['picks|' + before.key] && ed.ops['picks|' + before.key].v === pick, 'their change goes to their own list of changes: ' + JSON.stringify({ pick, was: before.was, ops: ed && Object.keys(ed.ops || {}) }));
   /* the owner's app takes it, logs it, saves it and shares it back */
   await A.pg.waitForFunction(k => W.S.picks[k] && W.S.coLog && W.S.coLog.length, before.key, { timeout: 8000 }).catch(() => {});
@@ -40,7 +42,7 @@ exports.run = async t => {
   await A.pg.evaluate(() => { if (!document.querySelector('.trip-menu')) document.querySelector('[data-sync="menu"]').click(); }); await A.pg.waitForTimeout(400);
   t.ok(await A.pg.evaluate(() => /Recent changes/.test(document.querySelector('.trip-menu').innerText) && /Sam chose/.test(document.querySelector('.trip-menu').innerText)), 'the share box shows the recent changes');
   await A.pg.waitForTimeout(2500);
-  const back = await A.pg.evaluate(async ({ c, k }) => { const s = JSON.parse(await window.__dbOp('get', 'shared/' + c, null) || 'null'); return s && { pick: s.state.picks[k], seen: (s.coSeen || {})['u-two'] || 0, log: (s.log || []).length }; }, { c: code, k: before.key });
+  const bs = await peek(A.pg, code), back = bs && { pick: bs.state.picks[before.key], seen: (bs.coSeen || {})['u-two'] || 0, log: (bs.log || []).length };
   t.ok(back && back.pick === pick && back.seen > 0 && back.log > 0, 'and the shared copy carries it back, with what was taken: ' + JSON.stringify(back));
   await B.pg.waitForTimeout(1500);
   const bv = await B.pg.evaluate(k => ({ pick: W.S.picks[k], pending: Object.keys(JSON.parse(localStorage.getItem('waypoint-co-' + W.readOnly.code) || '{}')).length, log: /Sam chose/.test((document.querySelector('.co-bar') || {}).innerText || '') }), before.key);

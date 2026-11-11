@@ -95,6 +95,7 @@
   W.loadCountry = function (name) {
     var key = "country|" + name, had = W.C.country[name];
     if ((had && had.v >= W.COUNTRY_V) || W.status[key]) return;
+    if (!had && W.kept && W.kept("country", name, function () { W.loadCountry(name); })) return;   /* kept on this device? (lib/ideastore.js) */
     if (had && had.part) had = undefined;   /* a list cut short last time (the app was closed while it came): asked whole */
     run(key, "List the cities, towns and areas that travelers visit in " + name +
       ", the best known first. Be thorough: 80 to 120 places covering every region, from major cities to small towns. Only real places.\n" +
@@ -179,6 +180,7 @@
   W.loadCity = function (country, city, more, stayDays, nMore) {
     var ck = W.cityKey(country, city), cur = W.C.city[ck];
     if (!more && cur && cur.spots && cur.spots.length) return;
+    if (!cur && W.kept && W.kept("city", ck, function () { W.loadCity(country, city, more, stayDays, nMore); })) return;   /* kept on this device? (lib/ideastore.js) */
     /* never ask about the same city over and over if answers keep coming back empty */
     /* count real attempts only: a redraw while this city's lists are on their way isn't another try */
     if (!more && W.cityBusy(ck)) return;

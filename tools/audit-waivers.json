@@ -1,0 +1,6 @@
+{
+  "about": "Packages whose published advisories are known and waited on, each until a date. After the date the audit check fails again. See tools/lib_audit.js.",
+  "waivers": [
+    { "pkg": "jspdf", "until": "2026-12-15", "reason": "2.5.1 has published advisories (fixed in 3.x and 4.x). The app only makes a PDF of your own trip with it. Upgrading needs the package registry and the new file's integrity hash, which the session that added this check could not reach." }
+  ]
+}

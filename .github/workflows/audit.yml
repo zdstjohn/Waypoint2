@@ -1,0 +1,23 @@
+# Every Monday, and whenever a library or the check itself changes: are the libraries this app uses named in a
+# published security advisory? tools/lib_audit.js asks npm about the packages in package.json and OSV about the two
+# libraries that reach the browser (jsPDF from cdnjs, MapLibre in trip/vt). A finding fails the run unless
+# tools/audit-waivers.json waives that package until a date; the run's summary lists what was found and what is waived.
+name: library advisories
+on:
+  schedule:
+    - cron: '23 12 * * 1'   # Monday, 4:23 am in Seattle
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['package.json', 'package-lock.json', 'tools/lib_audit.js', 'tools/audit-waivers.json', 'trip/screens/book.js', 'trip/vt/**', '.github/workflows/audit.yml']
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci --ignore-scripts
+      - run: node tools/lib_audit.js --self
+      - run: node tools/lib_audit.js

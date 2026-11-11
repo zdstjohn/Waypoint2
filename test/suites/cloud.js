@@ -118,8 +118,8 @@ exports.run = async t => {
       const sh = document.querySelector('[data-sync="share"]'); if (!sh) return 'no share button';
       sh.click(); await new Promise(r => setTimeout(r, 3000)); const c = W.S.share || 'no code'; document.querySelector('[data-sync="menu"]').click(); return c;
     });
-    t.ok(/^[a-z0-9]{4,10}$/i.test(code), 'Ann can share her trip: ' + code);
-    if (/^[a-z0-9]{4,10}$/i.test(code)) {
+    t.ok(/^[a-z0-9]{12}$/i.test(code), 'Ann can share her trip: ' + code);
+    if (/^[a-z0-9]{12}$/i.test(code)) {
       await B.pg.evaluate(c => { document.querySelector('[data-sync="menu"]').click(); }); await B.pg.waitForTimeout(400);
       await B.pg.fill('#openCode', code); await B.pg.click('[data-sync="openshare"]');
       await B.pg.waitForFunction(() => W.readOnly && W.P && W.P.stops.length === 2, null, { timeout: 15000 }).catch(() => {});

@@ -136,7 +136,8 @@ exports.run = async t => {
     /* a short stay asks for its 15 at once */
     const short = await ps.evaluate(async () => {
       window.__asked.length = 0; W.S.countries[0].picked = ['Zagreb', 'Zadar']; W.S.cityDays = { 'Croatia|Zagreb': 5, 'Croatia|Zadar': 2 }; W.S.days = 7; W.changed();
-      for (let i = 0; i < 40 && !window.__asked.some(x => /Zadar/.test(x.head)); i++) await new Promise(r => setTimeout(r, 100));
+      /* (its lists are asked for a moment later than the rest: the device is first asked whether it already keeps them) */
+      for (let i = 0; i < 40 && window.__asked.filter(x => /^List/.test(x.head) && /Zadar/.test(x.head)).length < 2; i++) await new Promise(r => setTimeout(r, 100));
       return window.__asked.filter(x => /Zadar/.test(x.head) && /^List/.test(x.head)).map(x => x.head.replace(/ in (and around )?Zadar.*/, ''));
     });
     t.ok(short.includes('List the 15 best things to do') && short.includes('List 15 places to eat'), 'a 2-day stay asks for its 15 at once: ' + JSON.stringify(short));

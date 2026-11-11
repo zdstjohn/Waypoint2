@@ -121,6 +121,29 @@ whole, if a streamed answer breaks off. W.EFFORT (effort by kind of request, rea
 lib/speedtest.js measures it first, once, on the owner's own device and trip (never under test, never in the
 installable app): the same list asked with the usual effort and with low, timed and compared with the ideas already
 checked, written to data/users/<id>/diag/effort. The quick starter list (the audit's option 4) is not built.
+v131: shared trips locked to their code, and where ideas are kept (the audit's S1 and R1).
+A shared trip: everyone admitted to the app's database can read and list its shared documents, so the code alone
+protected nothing. lib/sharebox.js stretches the code (PBKDF2, SHA-256, 150,000 rounds) into the document's name, the
+names of the documents under it and an AES-GCM key: W.shareBox(code) gives { id, name(label), seal(obj), open(doc) }.
+The trip (shared/<id>), its ideas lists (pools/<name>), family's changes (edits/<their id>) and hearts
+(hearts/<their id>) are all sealed ({ v: 1, iv, ct, at }; a long list is packed first where the browser can, z: 1); a
+listing shows no code, name, traveler, date or place. New codes have 12 characters. A trip shared before v131 sat in the
+open under its code: it still opens (W.sharePlain), its owner's app replaces it with the locked copy as soon as it is
+open (lockShare, retire in lib/sync.js) and deletes the open one, and whoever has it on screen follows (openShared's
+moved). An old short code still works and says it is short. What this does not change: anyone who may write to the
+database can still delete a document. test/suites/share.js.
+Ideas on the device: lib/ideastore.js keeps every city and country in IndexedDB ("waypoint-ideas", one record each,
+written only when that one changed), and the storage entry (waypoint-cache-v2) holds only what the trip on screen uses
+(W.cacheSlim), so it no longer grows with every trip. A city or country that is not in memory is looked for there before
+Claude is asked (W.kept, from W.loadCity and W.loadCountry). An entry the phone refuses is written again with only this
+trip's places, and a trip that does not fit is saved after the ideas are cut down (writeCache in lib/core.js): saving
+recovers by itself. With no IndexedDB (some private windows, the offline copy) everything stays in the entry, as
+before. Not done: records are never pruned from IndexedDB (it has room; a later clean-up could drop cities unused for
+a year). test/suites/kept.js.
+Library advisories (the audit's T5): tools/lib_audit.js asks npm about the packages in package.json and OSV about the two
+libraries that reach the browser (jsPDF from cdnjs, MapLibre in trip/vt); .github/workflows/audit.yml runs it every
+Monday and when a library changes. A finding fails the run unless tools/audit-waivers.json waives that package until a
+date (jsPDF 2.5.1 is waived until 15 December 2026: it has published advisories and needs upgrading).
 v122: what Claude is asked first. W.run's queue (lib/core.js) no longer goes in the order things were asked: the city on
 screen (the selected day, and today's on a trip) comes first, its main lists (sights, places to eat, breakfast) before
 its second lists, then other cities' main lists, then the extras (hidden gems, rainy-day ideas, links, events, costs);
@@ -365,6 +388,8 @@ lib/              the shared library
                   check confirms it), merged into one list; a Google Maps search for the same words is one link away.
                   An added place joins the city's list as your own (S.imported, with the trip) and goes in the part of
                   the day you pick. The page can't reach the internet itself: the map comes through the connection.
+  sharebox.js     a shared trip's documents, named and sealed from its code (W.shareBox, W.sharePlain)
+  ideastore.js    ideas in IndexedDB, one record a place; the storage entry keeps this trip's only (W.kept, W.cacheSlim)
   speedtest.js    one measurement, once, for the artifact's owner: is a list asked with low effort faster and as good?
                   (second script; writes data/users/<id>/diag/effort; W.EFFORT stays empty until that is read)
   offline.js      the trip without a signal: the photo index and photos kept on the phone (IndexedDB), map packs

@@ -25,10 +25,17 @@
     if (!db || code === subCode) return;   /* (waits for the database before subscribing) */
     if (sub) { sub(); sub = null; } subCode = code; counts = {};
     if (!code) return;
-    sub = db.collection("shared/" + code + "/hearts").onSnapshot(function (snap) {
-      var c = {};
-      snap.docs.forEach(function (d) { var it = (d.data() || {}).items || {}; Object.keys(it).forEach(function (x) { if (it[x]) c[x] = (c[x] || 0) + 1; }); });
-      counts = c; W.changed();
+    /* hearts are sealed with the trip's code, like the trip itself (lib/sharebox.js) */
+    W.shareBox(code).then(function (bx) {
+      if (subCode !== code) return;
+      sub = db.collection("shared/" + bx.id + "/hearts").onSnapshot(function (snap) {
+        Promise.all((snap.docs || []).map(function (d) { return bx.open(d.data()); })).then(function (list) {
+          if (subCode !== code) return;
+          var c = {};
+          list.forEach(function (b) { var it = b && b.items && typeof b.items === "object" ? b.items : {}; Object.keys(it).forEach(function (x) { if (it[x]) c[x] = (c[x] || 0) + 1; }); });
+          counts = c; W.changed();
+        });
+      }, function () {});
     }, function () {});
   }
   W.heartsFor = function (it) { return !W.readOnly && counts[k(it)] || 0; };
@@ -36,18 +43,22 @@
   /* ---------- someone else's shared trip: your own hearts ---------- */
   var mine = {}, mineFor = null, writing = false, again = false;
   function loadMine() {
-    var code = W.readOnly && W.readOnly.code, want = code && uid && db ? code + "/" + uid : null;
+    var code = W.readOnly && W.readOnly.code, bx = W.readOnly && W.readOnly.box, want = code && bx && uid && db ? bx.id + "/" + uid : null;
     if (want === mineFor) return;
     mineFor = want; mine = {};
-    if (!want) return;
-    db.doc("shared/" + code + "/hearts/" + uid).get().then(function (s) { if (mineFor === want && s.exists) { mine = Object.assign({}, (s.data() || {}).items || {}); W.changed(); } }, function () {});
+    if (!want || !bx) return;
+    var open = bx.open;
+    db.doc("shared/" + bx.id + "/hearts/" + uid).get().then(function (s) { return s.exists ? open(s.data()) : null; })
+      .then(function (b) { if (mineFor === want && b && b.items && typeof b.items === "object") { mine = Object.assign({}, b.items); W.changed(); } }, function () {});
   }
   function saveMine() {
     if (!W.readOnly || !uid || !db) return;
     if (writing) { again = true; return; }
     writing = true;
     var items = {}; Object.keys(mine).forEach(function (x) { if (mine[x]) items[x] = 1; });
-    db.doc("shared/" + W.readOnly.code + "/hearts/" + uid).set({ items: items, at: Date.now() }).then(null, function () {}).then(function () { writing = false; if (again) { again = false; saveMine(); } });
+    var bx = W.readOnly.box; if (!bx) { writing = false; return; }
+    var at = "shared/" + bx.id + "/hearts/" + uid;
+    bx.seal({ items: items, at: Date.now() }).then(function (doc) { return db.doc(at).set(doc); }).then(null, function () {}).then(function () { writing = false; if (again) { again = false; saveMine(); } });
   }
 
   /* the heart and comment buttons (in a stop's details and on idea cards) */

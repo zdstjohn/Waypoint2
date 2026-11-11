@@ -243,6 +243,7 @@
     });
     if (!firstSnap && !snap.metadata.fromCache) {
       firstSnap = true; setTimeout(release, 2500);
+      setTimeout(lockShare, 3000);
       /* a new device still showing the example: open your most recent trip */
       var ids = Object.keys(remote).sort(function (a, b) { return remote[b].updated - remote[a].updated; });
       if (W.isExample && ids.length && ids[0] !== S.tripId) {
@@ -304,8 +305,11 @@
         pushShare();
       }
     }
+    lockShare();
     if (firstSnap) { pushPools(); pushSharePools(); pullPools(); }
   }
+  /* a trip shared before v131 moves to its locked copy as soon as its owner's app is open: nothing has to change first */
+  function lockShare() { if (!W.readOnly && S.share && !shareSig["x:" + S.share]) { pushShare(); pushSharePools(); } }
 
   /* ---------- trips ---------- */
   function keepCurrent() { var cur = meta(); cur.state = syncable(S); cur.name = W.tripName(); }
@@ -343,7 +347,7 @@
     var t = idx[id] || {}, code = id === S.tripId ? S.share : t.state && t.state.share;
     delete idx[id]; saveIdx();
     if (col) enqueue("trip/" + id, function () { return col.doc(id).delete(); });
-    if (code && db) enqueue("share/" + code, function () { return db.doc("shared/" + code).delete(); });
+    if (code) unshare(code, id === S.tripId ? cityKeys() : []);
     if (id === S.tripId) {
       var rest = Object.keys(idx).filter(function (k) { return idx[k].state; }).sort(function (a, b) { return (idx[b].updated || 0) - (idx[a].updated || 0); });
       if (rest.length) openTrip(rest[0], false, true);
@@ -370,30 +374,71 @@
     var body = { name: W.tripName(), owner: uid, legs: tripLegs(), state: sharedState(), cities: (W.P && W.P.stops || []).map(function (s) { return slugOf(W.cityKey(s.country, s.name)); }),
       /* planning together: whether they may change the plan, the last change taken from each of them, and who changed what */
       edit: !!S.shareEdit, coSeen: S.coSeen || {}, log: (S.coLog || []).slice(-20) };
-    var sg = hash(JSON.stringify(body)); if (shareSig[code] === sg) return;
+    /* kept locked to its code (lib/sharebox.js): named and sealed from the code, so a listing of the database shows
+       neither the code nor anything readable */
+    var sk = "x:" + code, sg = hash(JSON.stringify(body)); if (shareSig[sk] === sg) return;
     body.updated = Date.now();
-    enqueue("share/" + code, function () { return db.doc("shared/" + code).set(clone(body)).then(function () { shareSig[code] = sg; lset("waypoint-sharesync-v1", shareSig); }); });
+    enqueue("share/" + code, function () {
+      return W.shareBox(code).then(function (bx) { return bx.seal(clone(body)).then(function (doc) { return db.doc("shared/" + bx.id).set(doc); }); })
+        .then(function () { shareSig[sk] = sg; lset("waypoint-sharesync-v1", shareSig); retire(code); });
+    });
+  }
+  function gone(path) { try { return db.doc(path).delete().then(null, function () {}); } catch (e) { return Promise.resolve(); } }
+  /* a trip shared before v131 sat in the open under its code. Once its locked copy is saved, the open one is deleted,
+     with its ideas lists and (where this device may) what family had sent to it. Once per code. */
+  function retire(code) {
+    if (shareSig["old:" + code] || !db) return;
+    shareSig["old:" + code] = 1;
+    Object.keys(shareSig).forEach(function (k) { if (k === code || k.indexOf(code + "/") === 0) delete shareSig[k]; });
+    lset("waypoint-sharesync-v1", shareSig);
+    if (code.length > 10) return;   /* codes this long were never kept in the open */
+    var keys = cityKeys();
+    enqueue("share-open/" + code, function () {
+      var jobs = [gone("shared/" + code)].concat(keys.map(function (ck) { return gone("shared/" + code + "/pools/" + slugOf(ck)); }));
+      ["edits", "hearts"].forEach(function (sub) {
+        try {
+          jobs.push(db.collection("shared/" + code + "/" + sub).get().then(function (s) {
+            return Promise.all((s.docs || []).map(function (d) { return gone("shared/" + code + "/" + sub + "/" + d.id); }));
+          }, function () {}));
+        } catch (e) {}
+      });
+      return Promise.all(jobs);
+    });
+  }
+  /* stop sharing: the locked copy and its ideas lists go (and the open copy of a trip shared before v131) */
+  function unshare(code, keys) {
+    Object.keys(shareSig).forEach(function (k) { if (k === code || k === "x:" + code || k === "old:" + code || k.indexOf(code + "/") === 0 || k.indexOf("x:" + code + "/") === 0) delete shareSig[k]; });
+    lset("waypoint-sharesync-v1", shareSig);
+    if (!db) return;
+    enqueue("share/" + code, function () {
+      return W.shareBox(code).then(function (bx) {
+        return Promise.all((keys || []).map(function (ck) { return bx.name("pool:" + slugOf(ck)).then(function (n) { return gone("shared/" + bx.id + "/pools/" + n); }); }).concat([db.doc("shared/" + bx.id).delete()]));
+      }, function () {}).then(function () { return code.length > 10 ? null : gone("shared/" + code); });
+    });
   }
   function pushSharePools() {
     var code = S.share; if (!code || !db || !canWrite) return;
     cityKeys().forEach(function (ck) {
       var pool = W.C.city[ck]; if (!pool || pool.fallback) return;
-      var s = JSON.stringify(pool), sg = hash(s), k = code + "/" + slugOf(ck);
-      if (shareSig[k] === sg || s.length > 240000) return;
+      var s = JSON.stringify(pool), sg = hash(s), k = "x:" + code + "/" + slugOf(ck);
+      /* (a document holds 256 KB; sealed text is a third longer than what it seals unless the browser can pack it first) */
+      if (shareSig[k] === sg || s.length > (W.sharePacks ? 240000 : 170000)) return;
       enqueue("sharepool/" + k, function () {
-        return db.doc("shared/" + code + "/pools/" + slugOf(ck)).set({ k: ck, pool: JSON.parse(s) }).then(function () { shareSig[k] = sg; lset("waypoint-sharesync-v1", shareSig); });
+        return W.shareBox(code).then(function (bx) {
+          return Promise.all([bx.name("pool:" + slugOf(ck)), bx.seal({ k: ck, pool: JSON.parse(s) })]).then(function (r) { return db.doc("shared/" + bx.id + "/pools/" + r[0]).set(r[1]); });
+        }).then(function () { shareSig[k] = sg; lset("waypoint-sharesync-v1", shareSig); });
       });
     });
   }
   function startShare() {
     if (!db) return;
-    S.share = rid(10, "abcdefghjkmnpqrstuvwxyz23456789"); shareMsg = "";
+    S.share = rid(12, "abcdefghjkmnpqrstuvwxyz23456789"); shareMsg = "";
     W.save(); pushShare(); pushSharePools();
   }
   function stopShare() {
     var code = S.share; if (!code) return;
     delete S.share;
-    if (db) enqueue("share/" + code, function () { return db.doc("shared/" + code).delete(); });
+    unshare(code, cityKeys());
     W.save();
   }
 
@@ -404,44 +449,66 @@
     seenShares = seenShares.filter(function (x) { return x.code !== code; });
     seenShares.unshift({ code: code, name: name }); seenShares = seenShares.slice(0, 8); lset("waypoint-shared-seen-v1", seenShares);
   }
-  function loadSharedPools(code, cities, force) {
-    (cities || []).forEach(function (sl) {
-      db.doc("shared/" + code + "/pools/" + sl).get().then(function (snap) {
-        if (!snap.exists || !W.readOnly || W.readOnly.code !== code) return;
-        /* someone else's ideas: checked before they are used (lib/validate.js) */
-        var b = snap.data() || {}, pool = typeof b.k === "string" && b.pool ? W.V.pool(b.pool) : null; if (pool) { W.C.city[b.k] = pool; W.changed(); }
-      }, function () {});
+  function loadSharedPools(code, cities, bx) {
+    (Array.isArray(cities) ? cities : []).forEach(function (sl) {
+      if (typeof sl !== "string" || !/^[a-z0-9-]{1,120}$/.test(sl)) return;
+      bx.name("pool:" + sl).then(function (n) { return db.doc("shared/" + bx.id + "/pools/" + n).get(); }).then(function (snap) {
+        if (!snap.exists || !W.readOnly || W.readOnly.code !== code) return null;
+        return bx.open(snap.data()).then(function (b) {
+          if (!b || !W.readOnly || W.readOnly.code !== code) return;
+          /* someone else's ideas: checked before they are used (lib/validate.js) */
+          var pool = typeof b.k === "string" && b.pool ? W.V.pool(b.pool) : null; if (pool) { W.C.city[b.k] = pool; W.changed(); }
+        });
+      }).then(null, function () {});
     });
   }
-  function openShared(code) {
-    code = String(code || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  /* The trip is looked for where its code keeps it locked (lib/sharebox.js). One shared before v131 may still sit in
+     the open under its code, until its owner's app next saves it: that one is read as it is, and followed to its locked
+     copy the moment the open one is taken away. */
+  function findShared(code) {
+    return W.shareBox(code).then(function (bx) {
+      return db.doc("shared/" + bx.id).get().then(function (snap) {
+        return snap.exists ? bx.open(snap.data()).then(function (b) { return b ? { bx: bx, b: b } : null; }) : null;
+      });
+    }, function () { return null; }).then(function (hit) {
+      if (hit || code.length > 10) return hit;
+      return db.doc("shared/" + code).get().then(function (snap) {
+        var d = snap.exists ? snap.data() : null;
+        return d && typeof d === "object" && d.v !== 1 && d.state ? { bx: W.sharePlain(code), b: d } : null;
+      });
+    });
+  }
+  function openShared(code, moved) {
+    code = W.shareCode(code);
     if (!db) { shareMsg = W.needsClaude("Opening a shared trip", "Shared trips need this page open in the Claude app."); bar(); return; }
-    if (code.length < 6) { shareMsg = "Codes are 6 to 10 letters and numbers."; bar(); return; }
-    opening = true; shareMsg = ""; bar();
-    db.doc("shared/" + code).get().then(function (snap) {
+    if (code.length < 6) { shareMsg = "Codes are 6 to 12 letters and numbers."; bar(); return; }
+    if (!moved) { opening = true; shareMsg = ""; bar(); }
+    findShared(code).then(function (hit) {
       opening = false;
-      if (!snap.exists) { shareMsg = "No shared trip with that code. It may have been stopped."; bar(); return; }
-      var b = snap.data() || {};
+      if (moved && (!W.readOnly || W.readOnly.code !== code)) return;   /* (closed while its locked copy was looked for) */
+      if (!hit) { if (moved && W.readOnly) W.readOnly.gone = true; else if (!moved) shareMsg = "No shared trip with that code. It may have been stopped."; bar(); return; }
+      var b = hit.b, bx = hit.bx, day = moved ? S.day : 1;
       if (!W.readOnly) ro = { S: clone(S), city: W.C.city, example: W.isExample };
-      W.readOnly = { code: code, name: b.name || "Shared trip", edit: !!b.edit && canWrite && !!uid, log: b.log || [] };
-      W.C.city = Object.assign({}, ro.city);
-      replaceState(W.V.shared(b.state) || {}); S.day = 1; W.isExample = false; menuOpen = false; takeLegs(W.V.shared(b.legs));
+      W.readOnly = { code: code, box: bx, name: b.name || "Shared trip", edit: !!b.edit && canWrite && !!uid, log: b.log || [] };
+      if (!moved) W.C.city = Object.assign({}, ro.city);
+      replaceState(W.V.shared(b.state) || {}); S.day = day; W.isExample = false; menuOpen = false; takeLegs(W.V.shared(b.legs));
       if (W.coReapply) W.coReapply(b);
       rememberShare(code, b.name);
-      loadSharedPools(code, b.cities);
+      loadSharedPools(code, b.cities, bx);
       var lastUp = b.updated || 0;
       if (roUnsub) roUnsub();
-      roUnsub = db.doc("shared/" + code).onSnapshot(function (s2) {
-        if (!W.readOnly || W.readOnly.code !== code) return;
-        if (!s2.exists) { W.readOnly.gone = true; bar(); return; }
-        var b2 = s2.data() || {};
-        if ((b2.updated || 0) > lastUp) {
+      roUnsub = db.doc("shared/" + bx.id).onSnapshot(function (s2) {
+        if (!W.readOnly || W.readOnly.code !== code || W.readOnly.box !== bx) return;
+        if (!s2.exists) { if (bx.plain) openShared(code, true); else { W.readOnly.gone = true; bar(); } return; }
+        bx.open(s2.data()).then(function (b2) {
+          if (!b2 || !W.readOnly || W.readOnly.code !== code || W.readOnly.box !== bx || !((b2.updated || 0) > lastUp)) return;
           lastUp = b2.updated; W.readOnly.name = b2.name || W.readOnly.name; W.readOnly.edit = !!b2.edit && canWrite && !!uid; W.readOnly.log = b2.log || [];
-          var day = S.day; replaceState(W.V.shared(b2.state) || {}); S.day = day; takeLegs(W.V.shared(b2.legs)); if (W.coReapply) W.coReapply(b2); loadSharedPools(code, b2.cities); W.changed();
-        }
+          var d2 = S.day; replaceState(W.V.shared(b2.state) || {}); S.day = d2; takeLegs(W.V.shared(b2.legs)); if (W.coReapply) W.coReapply(b2); loadSharedPools(code, b2.cities, bx); W.changed();
+        });
       }, function () {});
-      W.setView("trip"); W.changed();
-    }, function () { opening = false; shareMsg = "Couldn't open that trip just now. Try again."; bar(); });
+      if (!moved) W.setView("trip");
+      W.changed();
+    }, function () { opening = false; if (!moved) { shareMsg = "Couldn't open that trip just now. Try again."; bar(); } });
   }
   function closeShared() {
     if (!W.readOnly) return;
@@ -544,7 +611,9 @@
     if (!db || !uid) return '<p class="small muted">' + W.esc(W.needsClaude("Sharing", "Sharing works when this page is open in the Claude app.")) + "</p>";
     if (!canWrite) return '<p class="small muted">You can view shared trips here, but your access to this page doesn\'t allow sharing.</p>';
     if (S.share) return '<p class="small">' + (S.shareEdit ? "They can open this trip and change the plan with the code" : "They can view this trip (not change it) with the code") + "</p>" + '<div class="row"><input class="field code" id="shareCode" readonly value="' + esc(S.share) + '" aria-label="Share code"><button type="button" class="btn quiet" data-sync="copy">Copy</button><button type="button" class="linkish" data-sync="unshare">Stop sharing</button></div>' +
-      '<p class="small muted">Send them this page from the Share menu at the top. They tap the trip name ▸ Open a shared trip and enter the code. Your bookings and checklist stay private.</p>' + coShare();
+      '<p class="small muted">Send them this page from the Share menu at the top. They tap the trip name ▸ Open a shared trip and enter the code. Your bookings and checklist stay private.</p>' +
+      /* the trip is kept locked to its code; a short code from an earlier version is easier to guess than a new one */
+      (S.share.length < 10 ? '<p class="small muted">This is an older, short code. For a longer one, stop sharing and share again, then send family the new code.</p>' : "") + coShare();
     return '<p class="small muted">Family see your plan, live, and can\'t change it. Bookings stay private.</p><button type="button" class="btn quiet" data-sync="share">Share view-only</button>';
   };
   /* planning together, your side: let them change the plan, and what they changed */

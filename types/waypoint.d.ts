@@ -80,7 +80,9 @@ interface Photo { url: string; credit?: string; page?: string; near?: string | b
 /** g: Google's place ID (kept for good); gpin/gat: the pin came from Google on that day (kept 30 days, never on the free map) */
 interface PlaceRecord { lat?: number | null; lng?: number | null; g?: string; gpin?: 1; gat?: string; [k: string]: any; checked?: string; osm?: string; name?: string; st?: Spot["st"]; site?: string; hours?: Hours; k?: Kid; note?: string; place?: string; replace?: Partial<Food & Spot> & { n: string }; approx?: 1; nopin?: 1; ashore?: 1; stay?: 1; pin_tried?: string; area?: 1; was?: [number, number] }
 interface OfflineState { planSig(P: Plan): string; takeBlock?(P: Plan): string; exportCopy?(P: Plan): Promise<any>; photoUrls(P: Plan): string[]; copyNote(P: Plan): string; cities?: Record<string, { photos: number; of: number; map: boolean }>; tripBlock(P: Plan): string; state: string; n: number; total: number; at: number; maps: any[]; err: string; off: boolean; copy: boolean; trip: any; copyState: string; copyErr: string; why: string; save(P: Plan, why?: string): void; tick(P: Plan): void; src(url: string): string; block(P: Plan): string; takeBlock(P: Plan): string; exportCopy(P: Plan): Promise<void>; click(d: DOMStringMap, P: Plan): boolean; [k: string]: any }
-interface ReadOnly { code: string; [k: string]: any }
+/** a shared trip's documents, named and sealed from its code (lib/sharebox.js) */
+interface ShareBox { id: string; plain?: number; name: (label: string) => Promise<string>; seal: (obj: any) => Promise<any>; open: (doc: any) => Promise<any> }
+interface ReadOnly { code: string; box?: ShareBox; [k: string]: any }
 interface Milestone { key: string; title: string; text: string; also?: string[]; go?: View }
 interface Readiness { pct: number; [k: string]: any }
 /** the one door for Claude's answers (lib/validate.js) */
@@ -452,6 +454,16 @@ interface Waypoint {
   shapeNotes: any;
   shapeTrip: any;
   shareBlock: any;
+  /** lib/ideastore.js: ideas kept in IndexedDB, the storage entry holding only this trip's */
+  kept: (kind: "city" | "country", key: string, again: () => void) => boolean;
+  cacheSlim: (force: boolean) => Cache;
+  cacheDirty: () => void;
+  cacheCut?: boolean;
+  ideaStore: { ready: Promise<boolean>; keep: () => void; isOn: () => boolean; keptAll: () => boolean };
+  shareBox: (code: any) => Promise<ShareBox>;
+  sharePlain: (code: any) => ShareBox;
+  shareCode: (code: any) => string;
+  sharePacks: boolean;
   shortNote: any;
   shutBy: any;
   sitesRow: any;
