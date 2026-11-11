@@ -1,0 +1,31 @@
+# Every Sunday, and on demand: which code do the tests run? node test/run.js --cov collects the browser's own coverage
+# from every suite and writes test/out/coverage.md: each source file with the share of its built code that ran, and the
+# longest stretches no test runs. The table goes on the run's page; the file is kept as an artifact. It never fails on a
+# number: it is there to be read when deciding what to test next.
+name: coverage
+on:
+  schedule:
+    - cron: '17 13 * * 0'   # Sunday, 5:17 am in Seattle
+  workflow_dispatch:
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install pillow
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: node test/run.js --cov --jobs=2
+      - if: always()
+        run: cat test/out/coverage.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "No coverage report." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: test/out/coverage.md
+          if-no-files-found: ignore

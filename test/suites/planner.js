@@ -1,7 +1,7 @@
 /* The day planner and the clock: planner-made days fit (only your own picks may say "no time"), stops run in clock order
    with lunch and dinner where meals go, toddler days get a nap, a short "any time" place is not stretched into a day trip,
    energy levels are spread rather than all heavy, a long ferry day leaves its outings out, and planning is quick. */
-const { launch, open, exampleTrip, settle } = require('../lib/page');
+const { launch, open, exampleTrip, settle, calm } = require('../lib/page');
 const audit = () => {
   const P = W.P, bad = [], mineBad = [], order = [], meals = [], naps = 0, levels = [];
   let napDays = 0;
@@ -56,7 +56,7 @@ exports.run = async t => {
 
   /* an automatic 14-day Greece trip with kids */
   await pg.evaluate(() => { W.S.countries = [{ name: 'Greece', mode: 'auto', picked: [] }]; W.S.days = 14; W.S.cityDays = {}; W.S.mine = {}; W.S.picks = {}; W.S.legPick = {}; W.changed(); });
-  await pg.waitForTimeout(5000); await settle(pg);
+  await calm(pg, 7500);
   a = await pg.evaluate(audit);
   t.ok(a.N === 14, 'auto Greece: 14 days'); t.eq(a.bad, [], 'auto Greece: every planner-made stop fits'); t.eq(a.order, [], 'auto Greece: clock order');
   const ms = await pg.evaluate(() => { const t0 = performance.now(); for (let i = 0; i < 5; i++) W.plan(); return Math.round((performance.now() - t0) / 5); });

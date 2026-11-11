@@ -2,7 +2,7 @@
    itself. It must show the trip that is inside it even when the phone gives a downloaded file no storage (it used to
    open on the example trip), start cleanly on any screen, ask the network for nothing, offer nothing that needs the
    live app, keep one copy's trip apart from another's, and keep what you change in it when the phone allows. */
-const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb = require('../lib/db'); const fs = require('fs'); const path = require('path');
+const { launch, open, exampleTrip, settle, calm, started } = require('../lib/page'); const mkdb = require('../lib/db'); const fs = require('fs'); const path = require('path');
 exports.run = async t => {
   const b = await launch(); const { pg } = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(pg); await settle(pg, 8000);
   const make = () => pg.evaluate(async () => {
@@ -15,7 +15,7 @@ exports.run = async t => {
   const fileA = path.join(t.out, 'air-a.html'); fs.writeFileSync(fileA, await make());
   /* a second copy, of a different trip, saved to the same folder */
   await pg.evaluate(() => { W.newTripFrom({ v: 2, algo: 2, styles: ['culture'], countries: [{ mode: 'manual', name: 'Italy', picked: ['Florence'] }], days: 3, start: '2027-09-01', depart: 'Los Angeles (LAX)', travelers: [38, 36], stays: {}, picks: {}, seen: {}, cityDays: {}, tripName: 'Second trip' }); });
-  await pg.waitForTimeout(1500); await settle(pg, 6000);
+  await calm(pg, 7500);
   const fileB = path.join(t.out, 'air-b.html'); fs.writeFileSync(fileB, await make());
 
   const walk = async (label, nostore) => {
@@ -26,7 +26,7 @@ exports.run = async t => {
     await fp.addInitScript(ns => {
       if (ns) { Object.defineProperty(window, 'localStorage', { configurable: true, get() { throw new DOMException('denied', 'SecurityError'); } }); Object.defineProperty(window, 'indexedDB', { configurable: true, get() { throw new DOMException('denied', 'SecurityError'); } }); }
     }, nostore);
-    await fp.goto('file://' + fileA); await fp.waitForTimeout(2500);
+    await fp.goto('file://' + fileA); await started(fp);
     const first = await fp.evaluate(() => ({ copy: W.offline.copy, name: W.tripName(), N: W.P.N, example: !!W.isExample, start: W.S.start, stay: Object.values(W.S.stays || {}).map(s => s.label)[0] || '', kept: window.__WP_COPY_KEPT,
       full: /storage full/i.test(document.body.innerText), planTab: (() => { const p = document.getElementById('tabSetup'); return !!p && p.getBoundingClientRect().width > 0; })() }));
     t.ok(first.copy && first.N === 10 && !first.example && first.start && /Hotel Test/.test(first.stay), `${label}: the copy opens on the trip inside it, with its dates and lodging (${first.name}, ${first.N} days, from ${first.start})`);
@@ -72,15 +72,15 @@ exports.run = async t => {
     t.ok(nostore ? /lasts until you close it/.test(day.note) : /stays in this copy/.test(day.note), `${label}: and says honestly whether changes are kept`);
     t.ok(day.swapped && day.panel && day.packKey, `${label}: a swap from the saved ideas, a stop's panel and the packing list all work`);
     /* close and reopen, on Prepare (this used to stop the page's start-up) */
-    await fp.reload(); await fp.waitForTimeout(2500);
+    await fp.reload(); await started(fp);
     const again = await fp.evaluate(() => ({ view: W.view(), N: W.P.N, note: Object.values(W.S.journal || {}).map(j => j.note).filter(Boolean)[0] || '', book: !!document.querySelector('#viewBook .prep-seg'), clicks: (() => { const tb = document.querySelector('nav [data-view="trip"]'); tb.click(); return W.view(); })() }));
     t.ok(again.view === 'book' && again.book && again.N === 10 && again.clicks === 'trip', `${label}: reopened on Prepare, it draws and the tabs still work`);
     t.eq(again.note, nostore ? '' : 'Gelato by the river', nostore ? `${label}: with no storage the note is gone after closing, as the copy said` : `${label}: what you changed is still there after closing and reopening`);
     /* the other copy, opened on the same phone, shows its own trip; and the first is still the first */
-    await fp.goto('file://' + fileB); await fp.waitForTimeout(2200);
+    await fp.goto('file://' + fileB); await started(fp);
     const other = await fp.evaluate(() => ({ name: W.tripName(), N: W.P.N, cities: W.P.stops.map(s => s.name).join(','), trips: Object.keys(JSON.parse(localStorage.getItem('waypoint-trips-v1') || localStorage.getItem('waypoint-trips') || '{}')).length }));
     t.ok(other.name === 'Second trip' && other.N === 3 && other.cities === 'Florence', `${label}: a second copy shows its own trip, not the first one's: ` + JSON.stringify(other));
-    await fp.goto('file://' + fileA); await fp.waitForTimeout(2200);
+    await fp.goto('file://' + fileA); await started(fp);
     t.ok(await fp.evaluate(() => W.P.N === 10 && W.tripName() !== 'Second trip'), `${label}: and the first copy is still the first trip`);
     t.eq(reqs, [], `${label}: nothing was asked of the network`);
     t.eq(errs, [], `${label}: no errors`);

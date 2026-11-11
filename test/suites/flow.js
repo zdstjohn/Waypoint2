@@ -1,6 +1,6 @@
 /* Getting around the plan: the actions sheet, moving a stop to another day and undoing it, leaving a slot free and undoing,
    the swap cards, the glance, swiping between days, the next-step bar and quick start. */
-const { launch, open, exampleTrip, settle } = require('../lib/page');
+const { launch, open, exampleTrip, settle, calm } = require('../lib/page');
 exports.run = async t => {
   /* the very first open asks where you're headed, over the example trip; the sheet can be put aside */
   { const b0 = await launch(); const { pg: p0, ctx: c0 } = await open(b0, { width: 390, firstRun: true }); await p0.waitForTimeout(800);
@@ -145,7 +145,7 @@ exports.run = async t => {
   const qs = await pg.evaluate(() => ({ view: W.view(), country: W.S.countries[0] && W.S.countries[0].name, days: W.S.days, start: W.S.start, kids: W.S.travelers.filter(a => a < 18).length, depart: W.S.depart }));
   t.eq(qs, { view: 'trip', country: 'Portugal', days: 9, start: '2027-07-05', kids: qs.kids, depart: 'Seattle (SEA)' }, 'quick start sets up the trip: ' + JSON.stringify(qs));
   t.ok(qs.kids >= 1, 'with the child that was added');
-  await pg.waitForTimeout(5000); await settle(pg);
+  await calm(pg, 7500);
   const later = await pg.evaluate(() => ({ stops: W.P.stops.map(x => x.name), slots: document.querySelectorAll('.slots .slot[data-slotkey]').length }));
   t.ok(later.stops.length >= 2 && later.slots >= 4, 'and the trip fills in: ' + JSON.stringify(later));
   /* islands: a destination is a town, never a whole island */

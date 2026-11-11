@@ -2,7 +2,7 @@
    holds it under a name and in a form only the code gives. A trip shared before v131 (in the open, under its code) still
    opens, is replaced by its locked copy the next time its owner's app saves it, and whoever has it open follows along.
    Hearts travel sealed too; stopping takes the locked copy away; a wrong code opens nothing. */
-const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb = require('../lib/db');
+const { launch, open, exampleTrip, settle, until } = require('../lib/page'); const mkdb = require('../lib/db');
 exports.run = async t => {
   const store = mkdb(), b = await launch();
   const A = await open(b, { width: 390, height: 844, db: store }); await exampleTrip(A.pg);
@@ -12,7 +12,8 @@ exports.run = async t => {
   });
   const openCode = async (pg, code) => {
     await pg.evaluate(() => { if (!document.querySelector('.trip-menu')) document.querySelector('[data-sync="menu"]').click(); }); await pg.waitForTimeout(400);
-    await pg.fill('#openCode', code); await pg.click('[data-sync="openshare"]'); await pg.waitForTimeout(2500);
+    await pg.fill('#openCode', code); await pg.click('[data-sync="openshare"]');
+    await pg.waitForFunction(() => W.readOnly || /No shared trip|Couldn.t open/.test((document.querySelector('.trip-menu') || document.body).innerText), null, { timeout: 8000 }).catch(() => {}); await pg.waitForTimeout(500);
   };
 
   /* 1. a trip shared before v131: in the open, under a short code, as that version wrote it */
@@ -59,14 +60,14 @@ exports.run = async t => {
   t.ok(!c5.ro && /No shared trip with that code/.test(c5.msg), 'a wrong code opens nothing');
   await A.pg.evaluate(() => { if (!document.querySelector('.trip-menu')) document.querySelector('[data-sync="menu"]').click(); }); await A.pg.waitForTimeout(400);
   const hint = await A.pg.evaluate(() => /older, short code/.test(document.querySelector('.trip-menu').innerText));
-  await A.pg.click('[data-sync="unshare"]'); await A.pg.waitForTimeout(2500);
-  const d5 = await all(A.pg);
+  await A.pg.click('[data-sync="unshare"]');
+  const d5 = await until(async () => { const d = await all(A.pg); return !Object.keys(d).some(k => k === 'shared/' + id || /\/pools\//.test(k)) ? d : null; }) || await all(A.pg);
   await B.pg.waitForFunction(() => W.readOnly && W.readOnly.gone, null, { timeout: 8000 }).catch(() => {});
   t.ok(hint && !Object.keys(d5).some(k => k === 'shared/' + id || /\/pools\//.test(k)) && await B.pg.evaluate(() => !!(W.readOnly && W.readOnly.gone)), 'an old short code says so; stopping removes the locked copy and its lists, and the viewer is told: ' + JSON.stringify(Object.keys(d5)));
   /* 6. sharing again makes a 12-character code, never kept in the open */
   await A.pg.evaluate(() => { if (!document.querySelector('.trip-menu')) document.querySelector('[data-sync="menu"]').click(); }); await A.pg.waitForTimeout(400);
-  await A.pg.click('[data-sync="share"]'); await A.pg.waitForTimeout(2500);
-  const code = await A.pg.evaluate(() => W.S.share), d6 = await all(A.pg);
+  await A.pg.click('[data-sync="share"]');
+  const code = await until(() => A.pg.evaluate(() => W.S.share)), d6 = await until(async () => { const d = await all(A.pg); return Object.keys(d).some(k => /^shared\/x[0-9a-f]{24}$/.test(k)) ? d : null; }) || {};
   t.ok(/^[a-z2-9]{12}$/.test(code) && !Object.keys(d6).some(k => k.includes(code)) && !JSON.stringify(d6).includes(code) && Object.keys(d6).some(k => /^shared\/x[0-9a-f]{24}$/.test(k)), 'a new code has 12 characters and appears nowhere in the database: ' + code.length);
   await openCode(C.pg, code.slice(0, 4) + ' ' + code.slice(4, 8).toUpperCase() + '-' + code.slice(8));
   t.ok(await C.pg.evaluate(() => !!(W.readOnly && W.readOnly.name) && !W.readOnly.box.plain), 'and opens the trip, however it is typed (spaces, capitals)');

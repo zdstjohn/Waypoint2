@@ -4,6 +4,7 @@
    the shared database, and it says plainly what it can plan. */
 const { chromium } = require('playwright'); const { spawn } = require('child_process'); const path = require('path'); const fs = require('fs'); const http = require('http');
 const PORT = 8774, URL = `http://127.0.0.1:${PORT}/`;
+const { started } = require('../lib/page');
 exports.run = async t => {
   const dist = path.join(__dirname, '..', '..', 'dist');
   t.ok(fs.existsSync(path.join(dist, 'index.html')) && fs.existsSync(path.join(dist, 'sw.js')) && !fs.existsSync(path.join(dist, 'vercel.json')), 'dist/ is built (and the host\'s settings stay out of it)');
@@ -18,7 +19,7 @@ exports.run = async t => {
     pg.on('pageerror', e => errs.push(e.message)); pg.on('console', m => { if (m.type() === 'error') errs.push(m.text().slice(0, 160)); });
     pg.on('response', r => { if (r.status() >= 400) bad.push(r.status() + ' ' + r.url()); });
     await pg.addInitScript(() => { try { if (!localStorage.getItem('waypoint-now')) localStorage.setItem('waypoint-now', '2027-06-09T10:40:00'); } catch (e) {} });
-    await pg.goto(URL); await pg.waitForTimeout(3500);
+    await pg.goto(URL); await started(pg); await pg.waitForTimeout(700);   /* (and a moment for the service worker to take the page) */
     /* installable */
     const man = await pg.evaluate(async () => { const m = await (await fetch('manifest.webmanifest')).json(); const sizes = [];
       for (const i of m.icons) { const im = new Image(); im.src = i.src; await im.decode(); sizes.push(i.sizes === im.naturalWidth + 'x' + im.naturalHeight); } return { name: m.name, display: m.display, start: m.start_url, maskable: m.icons.some(i => i.purpose === 'maskable'), sizes }; });
@@ -76,10 +77,10 @@ exports.run = async t => {
     /* offline: reload with no connection, then a new tab */
     await pg.reload(); await pg.waitForTimeout(1500);
     await ctx.setOffline(true);
-    await pg.reload(); await pg.waitForTimeout(2500);
+    await pg.reload(); await started(pg);
     const off = await pg.evaluate(() => ({ name: W.tripName(), ok: document.querySelector('main:not([hidden])').innerText.length > 100, later: W.laterReady, fonts: [...document.fonts].some(f => f.family === 'Dela Gothic One' && f.status === 'loaded') }));
     t.ok(off.name === 'Spain trip' && off.ok && off.later && off.fonts, 'with no connection it opens on your trip, with everything (both scripts, the fonts): ' + JSON.stringify(off));
-    const p2 = await ctx.newPage(); await p2.goto(URL + '#today'); await p2.waitForTimeout(2500);
+    const p2 = await ctx.newPage(); await p2.goto(URL + '#today'); await started(p2);
     t.ok(await p2.evaluate(() => W.tripName() === 'Spain trip' && W.view() === 'go'), 'opened from the home screen (start page #today) with no connection, it shows Today');
     await ctx.setOffline(false);
     t.eq(bad.filter(u => !/favicon\.ico/.test(u)), [], 'every file it asks for is there');

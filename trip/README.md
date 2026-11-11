@@ -144,6 +144,21 @@ Library advisories (the audit's T5): tools/lib_audit.js asks npm about the packa
 libraries that reach the browser (jsPDF from cdnjs, MapLibre in trip/vt); .github/workflows/audit.yml runs it every
 Monday and when a library changes. A finding fails the run unless tools/audit-waivers.json waives that package until a
 date (jsPDF 2.5.1 is waived until 15 December 2026: it has published advisories and needs upgrading).
+v132: tests and tools only; the app is unchanged (the audit's T1, T2, T3, T5, R4).
+What the tests run: node test/run.js --cov (npm run coverage) collects the browser's own coverage from every suite that
+opens the app through test/lib/page.js (test/lib/cov.js), maps the built scripts back to the source files through
+their source maps and writes test/out/coverage.md: each file with the share of its built code that ran, and the
+longest stretches no test runs. First measurement: 76% (least: the street map engine, the speed measurement, the
+install card, the itinerary import, live prices). .github/workflows/coverage.yml runs it every Sunday.
+Waits: test/lib/page.js has calm(pg) (an action's work has started and everything is quiet again), started(pg) (a page
+just opened has its plan) and until(fn) (an async check is true); they replace the "wait N seconds, then settle" pairs
+and the longest fixed waits (about 100 of 254 seconds). The shorter fixed waits remain.
+The runner's last line names every suite that passed only on its second run, alone.
+Advisories: tools/audit-waivers.json now also waives dompurify (it only comes with jsPDF's package) and maplibre-gl
+(GHSA-jrc7-96c5-q579 is in the attribution control, which the app's map does not use: tools/lib_audit.js --self checks
+that lib/vtmap.js still draws the map without it).
+Island towns: tools/check_towns.js asks OpenStreetMap where each town in window.TI is and lists those more than 4 km
+off (.github/workflows/towns.yml, run on demand).
 v122: what Claude is asked first. W.run's queue (lib/core.js) no longer goes in the order things were asked: the city on
 screen (the selected day, and today's on a trip) comes first, its main lists (sights, places to eat, breakfast) before
 its second lists, then other cities' main lists, then the extras (hidden gems, rainy-day ideas, links, events, costs);

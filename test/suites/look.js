@@ -1,6 +1,6 @@
 /* v118 look: an idea's row is its links as pictures (photos, map), nothing else; photo credits are plain text; the kids' banner is centred; Prepare's tabs stay put on a wide screen; the
    street map's outer limit hugs the town and the day's stops. */
-const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb = require('../lib/db');
+const { launch, open, exampleTrip, settle, calm } = require('../lib/page'); const mkdb = require('../lib/db');
 exports.run = async t => {
   const b = await launch();
   { const { pg, errors } = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(pg);
@@ -38,10 +38,10 @@ exports.run = async t => {
   { /* desktop: the kids' banner, Prepare's tabs */
     const { pg, errors } = await open(b, { width: 1440, height: 900, db: mkdb() }); await exampleTrip(pg);
     await pg.evaluate(() => { W.save && W.save(); localStorage.setItem('waypoint-now', '2027-06-09T10:40:00'); });
-    await pg.reload(); await pg.waitForTimeout(2500); await settle(pg);
+    await pg.reload(); await calm(pg, 5000);
     const kc = await pg.evaluate(() => { const k = document.querySelector('#viewGo .kids-chip'); if (!k) return null; const r = k.getBoundingClientRect(), rg = document.createRange(); rg.selectNodeContents(k); const tr = rg.getBoundingClientRect(); return { left: Math.round(tr.left - r.left), right: Math.round(r.right - tr.right) }; });
     t.ok(!kc || Math.abs(kc.left - kc.right) <= 4, 'the kids\' banner text is centred: ' + JSON.stringify(kc));
-    await pg.evaluate(() => { localStorage.removeItem('waypoint-now'); W.setAppMode && W.setAppMode('plan'); W.goView('book'); }); await pg.waitForTimeout(1500); await settle(pg);
+    await pg.evaluate(() => { localStorage.removeItem('waypoint-now'); W.setAppMode && W.setAppMode('plan'); W.goView('book'); }); await calm(pg, 4000);
     const pos = [];
     for (const tab of ['tobook', 'booked', 'budget', 'pack', 'take']) {
       await pg.evaluate(tb => { W.S.prepTab = tb; W.render(); }, tab); await pg.waitForTimeout(tab === 'pack' ? 900 : 300);

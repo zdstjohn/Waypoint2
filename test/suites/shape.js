@@ -2,7 +2,7 @@
    enough nights per place, Toledo as a day trip from Madrid instead of another hotel, a sensible order, the first days
    kept easy for jet lag, trains over flights where they are short, a flight offered where the ground leg is long,
    no strenuous outings for the grandparents, and every planner-made stop still fitting its day. */
-const { launch, open, settle } = require('../lib/page');
+const { launch, open, settle, calm } = require('../lib/page');
 const SPAIN = [['Madrid', 40.42, -3.70], ['Toledo', 39.86, -4.02], ['Seville', 37.39, -5.98], ['Granada', 37.18, -3.60], ['Malaga', 36.72, -4.42], ['Barcelona', 41.39, 2.17]];
 exports.run = async t => {
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, tz: 'America/Los_Angeles' });
@@ -13,7 +13,7 @@ exports.run = async t => {
       countries: [{ name: 'Spain', mode: 'manual', picked: ['Madrid', 'Toledo', 'Malaga', 'Granada', 'Seville', 'Barcelona'] }] });
     W.render();
   }, SPAIN);
-  await pg.waitForTimeout(6000); await settle(pg, 8000);
+  await calm(pg, 14000);
 
   const shape = () => pg.evaluate(() => {
     const P = W.P, R = W.routeCheck(P);
@@ -33,7 +33,7 @@ exports.run = async t => {
     if (!fixes.length) break;
     const f = fixes.find(i => /day trip/.test(i.act)) || fixes.find(i => /night/.test(i.act)) || fixes.find(i => /order/.test(i.act)) || fixes[0];
     await pg.evaluate(data => { const el = document.createElement('button'); el.innerHTML = ''; const tmp = document.createElement('div'); tmp.innerHTML = '<b ' + data + '></b>'; W.routeClick(tmp.firstChild.dataset, W.P); W.changed(); }, f.data);
-    await pg.waitForTimeout(3000); await settle(pg, 6000);
+    await calm(pg, 9000);
   }
   s = await shape();
   const madrid = s.stops.find(x => x[0] === 'Madrid');
@@ -80,7 +80,7 @@ exports.run = async t => {
   }
 
   /* everything the planner made still fits */
-  await pg.waitForTimeout(1500); await settle(pg, 5000);
+  await calm(pg, 6500);
   const bad = await pg.evaluate(() => { const out = []; W.P.days.forEach(d => { const T = W.dayTimes(d, W.P); d.slots.forEach(x => { if (x.item && !W.S.mine[x.key] && T.rows[x.slot] && T.rows[x.slot].skip) out.push('D' + d.n + ' ' + x.slot); }); }); return out; });
   t.eq(bad, [], 'every planner-made stop fits its day');
   t.eq(errors(), [], 'no page errors');

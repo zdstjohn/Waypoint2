@@ -1,0 +1,21 @@
+# On demand: are the island towns (window.TI in trip/data/data2.js) where the app says they are? tools/check_towns.js
+# asks OpenStreetMap's search for each and lists the ones more than 4 km off on the run's page (about ten minutes: one
+# question a second, as the service's rules ask). Run it after adding towns.
+name: island towns
+on:
+  workflow_dispatch:
+    inputs:
+      country: { description: 'One country only (empty: all)', required: false, default: '' }
+jobs:
+  towns:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node tools/check_towns.js "$COUNTRY"
+        env:
+          COUNTRY: ${{ inputs.country }}
+      - uses: actions/upload-artifact@v4
+        with: { name: towns-check, path: towns-check.json, if-no-files-found: ignore }

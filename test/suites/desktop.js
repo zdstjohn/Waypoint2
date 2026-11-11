@@ -9,7 +9,7 @@
      - Explore: the search across the top, the route on the right below
      - the trip menu opens under the trip's name (right side of the banner), inside the window
      - the kids' corner stays picture-book sized and centred on a big screen */
-const { launch, open, exampleTrip, settle } = require('../lib/page'); const SCREENS = require('../lib/screens'); const CHECK = require('../lib/check');
+const { launch, open, exampleTrip, settle, calm } = require('../lib/page'); const SCREENS = require('../lib/screens'); const CHECK = require('../lib/check');
 const inside = (a, b, m = 1) => a.left >= b.left - m && a.right <= b.right + m && a.top >= b.top - m && a.bottom <= b.bottom + m;
 exports.run = async t => {
   const b = await launch();
@@ -19,7 +19,7 @@ exports.run = async t => {
       W.S.countries = [{ name: 'Greece', mode: 'manual', picked: ['Athens', 'Santorini', 'Crete', 'Naxos', 'Corfu'] }, { name: 'Italy', mode: 'manual', picked: ['Amalfi Coast', 'Lake Como'] }];
       W.S.days = 26; W.S.names = ['Zach', 'Anna', 'Mila', 'Leo']; W.replan(); W.render();
     });
-    await pg.waitForTimeout(1200); await settle(pg, 8000);
+    await calm(pg, 9200);
     t.ok(await pg.evaluate(() => matchMedia('(hover:hover) and (pointer:fine)').matches), `@${width}: the page sees a mouse`);
     for (const sc of SCREENS) {
       await pg.keyboard.press('Escape').catch(() => {});

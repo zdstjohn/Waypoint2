@@ -2,7 +2,7 @@
    kid's pick); the banner says the time and sky where you're going; no postcard; milestones cheer once, with the real count; the kids' view saves picks, stamps and finds without re-planning;
    Prepare shows how ready you are; a day's mood is saved and the recap's highlight reel counts it; a year later, the trip
    says hello. A shared (read-only) trip shows none of the nudges. */
-const { launch, open, settle } = require('../lib/page'); const mkdb = require('../lib/db');
+const { launch, open, settle, calm } = require('../lib/page'); const mkdb = require('../lib/db');
 const GR = [['Chania', 35.5138, 24.018], ['Rethymno', 35.3644, 24.4822], ['Heraklion', 35.3387, 25.1442]];
 const px = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
 exports.run = async t => {
@@ -24,7 +24,7 @@ exports.run = async t => {
   t.eq(named.names, 'Zach,Anna,Mila,Leo,Joe', 'a name typed in Plan is saved with the trip');
   t.ok(/Mila/.test(named.fam) && named.kids.join() === 'Mila,Leo' && named.elders.join() === 'Joe', `the family by name (${named.fam})`);
 
-  await pg.evaluate(() => { W.setView('trip'); W.render(); }); await pg.waitForTimeout(4000); await settle(pg, 6000);
+  await pg.evaluate(() => { W.setView('trip'); W.render(); }); await calm(pg, 10000);
   const trip = await pg.evaluate(() => {
     const top = document.querySelector('.top'), line = document.getElementById('topline'), tags = [...document.querySelectorAll('#viewTrip .gt')].map(e => e.textContent);
     const pc = document.querySelector('#viewTrip .postcard');

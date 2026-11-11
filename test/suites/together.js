@@ -2,7 +2,7 @@
    another phone) opens it with the code, says who they are, swaps a stop; the owner's app takes the change, logs who
    made it, saves it and shares it back; a later change of the owner's to the same slot stands; switching back to
    view-only takes the controls away. */
-const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb = require('../lib/db');
+const { launch, open, exampleTrip, settle, calm, until } = require('../lib/page'); const mkdb = require('../lib/db');
 /* a shared document, opened with the trip's code (it is kept sealed: lib/sharebox.js) */
 const peek = (pg, code, sub) => pg.evaluate(async ({ code, sub }) => { const bx = await W.shareBox(code), raw = JSON.parse(await window.__dbOp('get', 'shared/' + bx.id + (sub || ''), null) || 'null'); return raw ? bx.open(raw) : null; }, { code, sub });
 exports.run = async t => {
@@ -12,16 +12,17 @@ exports.run = async t => {
   await A.pg.click('[data-sync="share"]'); await A.pg.waitForTimeout(600);
   await A.pg.evaluate(() => { if (!document.querySelector('.trip-menu')) document.querySelector('[data-sync="menu"]').click(); });
   await A.pg.waitForTimeout(300);
-  await A.pg.click('[data-sync="shareedit"]'); await A.pg.waitForTimeout(2500);
+  await A.pg.click('[data-sync="shareedit"]');
   const code = await A.pg.evaluate(() => W.S.share);
-  const shared = await peek(A.pg, code);
+  const shared = await until(async () => { const d = await peek(A.pg, code); return d && d.edit === true ? d : null; });
   t.ok(code && shared && shared.edit === true, 'the owner shares the trip and lets them change the plan: ' + JSON.stringify({ code, edit: shared && shared.edit }));
   t.ok(await A.pg.evaluate(() => /They can change the plan too/.test(document.querySelector('.trip-menu').innerText)), 'with a switch in the share box');
 
   /* the other person, on their own phone */
   const B = await open(b, { width: 390, height: 844, db: store, uid: 'u-two' }); await settle(B.pg);
   await B.pg.click('[data-sync="menu"]'); await B.pg.waitForTimeout(400);
-  await B.pg.fill('#openCode', code); await B.pg.click('[data-sync="openshare"]'); await B.pg.waitForTimeout(2500);
+  await B.pg.fill('#openCode', code); await B.pg.click('[data-sync="openshare"]');
+  await B.pg.waitForFunction(() => W.readOnly && W.readOnly.edit && !!document.querySelector('.ro-note'), null, { timeout: 8000 }).catch(() => {}); await calm(B.pg, 6000);
   const bo = await B.pg.evaluate(() => ({ edit: !!(W.readOnly && W.readOnly.edit), note: (document.querySelector('.ro-note') || {}).innerText || '', rr: document.querySelectorAll('#viewTrip [data-reroll]').length }));
   t.ok(bo.edit && /Planning together/.test(bo.note) && bo.rr > 0, 'they open it with the code and can change the plan: ' + JSON.stringify(bo));
   await B.pg.fill('#coWhoIn', 'Sam'); await B.pg.click('.co-who [data-sync="cowho"]:not([data-name])'); await B.pg.waitForTimeout(300);
@@ -31,8 +32,7 @@ exports.run = async t => {
   await B.pg.click(`#viewTrip [data-reroll="${before.slot}"]`); await B.pg.waitForTimeout(700);
   const pick = await B.pg.evaluate(() => { const o = document.querySelector('.swap [data-use][data-name]'); return o && o.dataset.name; });
   if (pick) await B.pg.click('.swap [data-use][data-name]', { timeout: 5000 });
-  await B.pg.waitForTimeout(2000);
-  const ed = await peek(B.pg, code, '/edits/u-two');
+  const ed = await until(async () => { const d = await peek(B.pg, code, '/edits/u-two'); return d && d.ops && Object.keys(d.ops).length ? d : null; });
   t.ok(pick && ed && ed.who === 'Sam' && ed.ops && ed.ops['picks|' + before.key] && ed.ops['picks|' + before.key].v === pick, 'their change goes to their own list of changes: ' + JSON.stringify({ pick, was: before.was, ops: ed && Object.keys(ed.ops || {}) }));
   /* the owner's app takes it, logs it, saves it and shares it back */
   await A.pg.waitForFunction(k => W.S.picks[k] && W.S.coLog && W.S.coLog.length, before.key, { timeout: 8000 }).catch(() => {});
@@ -41,8 +41,7 @@ exports.run = async t => {
   t.ok(ow.log.some(l => l === 'Sam chose ' + pick + ' for Day ' + before.day + ' ' + ({ breakfast: 'breakfast', am: 'morning', lunch: 'lunch', pm: 'afternoon', dinner: 'dinner', eve: 'evening' })[before.slot]), 'and logs who changed what: ' + JSON.stringify(ow.log));
   await A.pg.evaluate(() => { if (!document.querySelector('.trip-menu')) document.querySelector('[data-sync="menu"]').click(); }); await A.pg.waitForTimeout(400);
   t.ok(await A.pg.evaluate(() => /Recent changes/.test(document.querySelector('.trip-menu').innerText) && /Sam chose/.test(document.querySelector('.trip-menu').innerText)), 'the share box shows the recent changes');
-  await A.pg.waitForTimeout(2500);
-  const bs = await peek(A.pg, code), back = bs && { pick: bs.state.picks[before.key], seen: (bs.coSeen || {})['u-two'] || 0, log: (bs.log || []).length };
+  const bs = await until(async () => { const d = await peek(A.pg, code); return d && d.state.picks[before.key] === pick && (d.coSeen || {})['u-two'] > 0 ? d : null; }) || await peek(A.pg, code), back = bs && { pick: bs.state.picks[before.key], seen: (bs.coSeen || {})['u-two'] || 0, log: (bs.log || []).length };
   t.ok(back && back.pick === pick && back.seen > 0 && back.log > 0, 'and the shared copy carries it back, with what was taken: ' + JSON.stringify(back));
   await B.pg.waitForTimeout(1500);
   const bv = await B.pg.evaluate(k => ({ pick: W.S.picks[k], pending: Object.keys(JSON.parse(localStorage.getItem('waypoint-co-' + W.readOnly.code) || '{}')).length, log: /Sam chose/.test((document.querySelector('.co-bar') || {}).innerText || '') }), before.key);
@@ -61,8 +60,8 @@ exports.run = async t => {
   t.ok(own && st === own, 'a later change of the owner\'s to the same slot stands: ' + JSON.stringify({ own, st }));
   /* back to view-only */
   await A.pg.evaluate(() => { if (!document.querySelector('.trip-menu')) document.querySelector('[data-sync="menu"]').click(); }); await A.pg.waitForTimeout(300);
-  await A.pg.click('[data-sync="shareedit"]'); await A.pg.waitForTimeout(3000);
-  await B.pg.waitForTimeout(1500);
+  await A.pg.click('[data-sync="shareedit"]');
+  await B.pg.waitForFunction(() => W.readOnly && !W.readOnly.edit && !document.querySelector('#viewTrip [data-reroll]'), null, { timeout: 10000 }).catch(() => {}); await B.pg.waitForTimeout(300);
   const vo = await B.pg.evaluate(() => ({ edit: !!(W.readOnly && W.readOnly.edit), rr: document.querySelectorAll('#viewTrip [data-reroll]').length, note: (document.querySelector('.ro-note') || {}).innerText || '' }));
   t.ok(!vo.edit && vo.rr === 0 && /view only/.test(vo.note), 'switching back to view-only takes the controls away: ' + JSON.stringify(vo));
   t.eq(A.errors().concat(B.errors()), [], 'no page errors');

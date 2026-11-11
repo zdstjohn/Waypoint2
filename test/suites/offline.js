@@ -1,7 +1,7 @@
 /* Offline: saving keeps the trip's photos and its photo index on the phone; with the network gone the app says so in
    Travel mode and shows the same photos from the phone; the saved index fills in on the next open before (or without)
    the database; the offline copy is one file that opens with no server at all and shows the trip. */
-const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb = require('../lib/db'); const fs = require('fs'); const path = require('path');
+const { launch, open, exampleTrip, settle, started } = require('../lib/page'); const mkdb = require('../lib/db'); const fs = require('fs'); const path = require('path');
 const px = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
 const ph = id => ({ url: px + '#' + id, credit: 'Test, CC BY-SA 4.0', page: 'https://commons.wikimedia.org/wiki/File:' + id });
 exports.run = async t => {
@@ -89,7 +89,7 @@ exports.run = async t => {
   });
   const file = path.join(t.out, 'offline-copy.html'); fs.writeFileSync(file, html);
   const c2 = await b.newContext({ viewport: { width: 390, height: 800 } }); const fp = await c2.newPage(); const ferr = []; fp.on('pageerror', e => ferr.push(e.message));
-  await fp.goto('file://' + file); await fp.waitForTimeout(2500);
+  await fp.goto('file://' + file); await started(fp);
   const fc = await fp.evaluate(() => ({ copy: W.offline.copy, slots: W.P.days.reduce((a, d) => a + (d.slots || []).length, 0), shown: document.querySelectorAll('main:not([hidden]) .slot, main:not([hidden]) .go-rt li').length, photos: [...document.querySelectorAll('img.photo')].map(i => i.getAttribute('src').slice(0, 5)), inFile: Object.keys((window.__WP_OFFLINE || {}).blobs || {}).length, city: W.P.stops[0] && W.P.stops[0].name, block: (W.S.appMode = 'travel', W.S.appModeAt = W.isoDay(W.now()), W.render(), W.offline.block(W.P)), fonts: [...document.fonts].some(f => f.status === 'loaded') }));
   t.ok(fc.copy && fc.slots > 4 && fc.shown > 0 && fc.city === 'Rome', `the copy opens from disk with the trip in it (${fc.slots} slots, ${fc.shown} on screen, ${fc.city})`);
   t.ok(fc.inFile >= want.all && fc.photos.every(s => s === 'data:'), `its photos are inside the file (${fc.inFile} in the file of ${want.all}, ${fc.photos.length} on screen, all from the file)`);

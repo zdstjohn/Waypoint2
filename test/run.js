@@ -40,12 +40,17 @@
                 The build and the test server are shared; each suite runs in a process of its own, the longest first.
                 The suites that time things (perf, vitals) run alone afterwards, and a suite that fails while others
                 were running is run once more alone: only a failure on its own counts (the report says "on a second
-                run, alone" when that happened) */
+                run, alone" when that happened, and the last line names every suite that needed it)
+   --cov        also measure which code the suites run: test/out/coverage.md lists every source file with the share of
+                its built code that ran, and the longest stretches no test runs (perf and vitals are left out) */
 const { spawn, spawnSync } = require('child_process'); const fs = require('fs'); const path = require('path');
 const ROOT = path.resolve(__dirname, '..'); const OUT = path.join(__dirname, 'out'); fs.mkdirSync(OUT, { recursive: true });
 const args = process.argv.slice(2); const flags = new Set(args.filter(a => a.startsWith('--'))); const pick = args.filter(a => !a.startsWith('--'));
 const ALL = ['smoke', 'layout', 'planner', 'shape', 'flow', 'bookings', 'travel', 'claude', 'draw', 'look', 'airplane', 'standalone', 'cloud', 'tickets', 'holidays', 'firstview', 'together', 'share', 'kept', 'nope', 'eat', 'money', 'menus', 'storage', 'pdf', 'simple', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'fuzz', 'vitals', 'desktop', 'explore'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
 let suites = pick.length ? pick : ALL;
+/* --cov: also collect which code ran (test/lib/cov.js); the suites that time things are left out of such a run */
+const COV = flags.has('--cov') || !!process.env.WP_COV;
+if (flags.has('--cov')) { process.env.WP_COV = '1'; suites = suites.filter(s => !['perf', 'vitals', 'visual'].includes(s)); }
 /* --shard=k/n runs one of n groups, balanced by how long each suite takes (seconds, from the online runs; a suite not
    listed counts as 15): GitHub runs the three groups side by side. Every suite lands in exactly one group. */
 const SECS = { simple: 25, smoke: 110, layout: 183, desktop: 166, a11y: 71, flow: 44, together: 37, share: 40, kept: 30, fuzz: 30, firstview: 23, travel: 22, shape: 21, nope: 20,
@@ -90,16 +95,17 @@ const line = r => `${r[1] === 'ok' ? '✓' : '✗'} ${r[0].padEnd(9)} ${String(r
 const child = [...flags].map(f => /^--child=(.+)$/.exec(f)).find(Boolean);
 if (child) {
   flags.delete(child[0]);
-  runSuite(child[1]).then(r => { fs.writeFileSync(path.join(OUT, '.res-' + child[1] + '.json'), JSON.stringify(r)); process.exit(r[1] === 'ok' ? 0 : 1); });
+  runSuite(child[1]).then(r => { try { require('./lib/cov').save(child[1]); } catch (e) { } fs.writeFileSync(path.join(OUT, '.res-' + child[1] + '.json'), JSON.stringify(r)); process.exit(r[1] === 'ok' ? 0 : 1); });
 } else (async () => {
   await require('../build/bundle.js').build();   /* the page loads app.js; build it from the sources first */
   spawnSync('node', [path.join(ROOT, 'build', 'standalone.js')], { stdio: 'ignore' });   /* and the installable version (dist/) from that */
   const server = await serverUp();
   const jf = [...flags].map(f => /^--jobs=(\d+)$/.exec(f)).find(Boolean);
   const jobs = Math.max(1, Math.min(8, jf ? +jf[1] : +process.env.JOBS || (process.env.CI ? 1 : 3)));
-  const results = {}; const started = Date.now();
+  const results = {}; const started = Date.now(), rerun = [];
+  if (COV) require('./lib/cov').clear();
   if (jobs === 1 || suites.length === 1) {
-    for (const name of suites) { const r = await runSuite(name); results[name] = r; console.log(line(r)); }
+    for (const name of suites) { const r = await runSuite(name); results[name] = r; console.log(line(r)); if (COV) require('./lib/cov').save(name); }
   } else {
     /* a suite in a process of its own */
     const one = name => new Promise(done => {
@@ -117,7 +123,7 @@ if (child) {
     /* failed while others were running: once more, alone. Only that result counts */
     for (const name of again) {
       const first = results[name], r = await one(name);
-      if (r[1] === 'ok') r[5] = (r[5] || []).concat('passed on a second run, alone (with others running: ' + String(first[2][0] || '').slice(0, 160) + ')');
+      if (r[1] === 'ok') { rerun.push(name); r[5] = (r[5] || []).concat('passed on a second run, alone (with others running: ' + String(first[2][0] || '').slice(0, 160) + ')'); }
       results[name] = r; console.log(line(r));
     }
     for (const name of suites.filter(s => ALONE.has(s))) { const r = await one(name); results[name] = r; console.log(line(r)); }
@@ -125,7 +131,9 @@ if (child) {
   if (server) server.kill();
   const report = suites.map(n => results[n]), failed = report.filter(r => r[1] !== 'ok').length;
   const took = Math.round((Date.now() - started) / 1000);
-  console.log((failed ? `\n${failed} suite(s) failed: ${report.filter(r => r[1] !== 'ok').map(r => r[0]).join(', ')}` : '\nall suites passed') + ` (${suites.length} suites, ${Math.floor(took / 60)} min ${took % 60} s${jobs > 1 && suites.length > 1 ? ', ' + jobs + ' at a time' : ''})`);
+  console.log((failed ? `\n${failed} suite(s) failed: ${report.filter(r => r[1] !== 'ok').map(r => r[0]).join(', ')}` : '\nall suites passed') + ` (${suites.length} suites, ${Math.floor(took / 60)} min ${took % 60} s${jobs > 1 && suites.length > 1 ? ', ' + jobs + ' at a time' : ''}${rerun.length ? '; passed only on a second run, alone: ' + rerun.join(', ') : ''})`);
+  /* a suite that needed its second run is flaky: the last line names it, and the names are kept for the report */
+  if (COV) { const c = require('./lib/cov').report(); console.log(`coverage: ${Math.round(c.all * 100)}% of the app's built code ran in ${c.measured.length} suites (least: ${c.rows.slice(0, 4).map(x => x.f + ' ' + Math.round(x.pct * 100) + '%').join(', ')}); details in test/out/coverage.md`); }
   fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(report.map(r => r.slice(0, 5)), null, 1));
   process.exit(failed ? 1 : 0);
 })();

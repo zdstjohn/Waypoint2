@@ -2,7 +2,7 @@
    other sites; a tap that changes nothing about the trip re-renders without re-planning; a render stays quick with the
    CPU throttled 4x (an older phone); map packs decode in a worker and come back from the IndexedDB cache on the next
    visit. The numbers go into the notes so a slowdown shows up in the report. */
-const { launch, open, settle } = require('../lib/page'); const fs = require('fs'); const path = require('path');
+const { launch, open, settle, calm } = require('../lib/page'); const fs = require('fs'); const path = require('path');
 const SPAIN = [['Madrid', 40.4168, -3.7038], ['Toledo', 39.8628, -4.0273], ['Malaga', 36.7213, -4.4214], ['Granada', 37.1773, -3.5986], ['Seville', 37.3891, -5.9845], ['Barcelona', 41.3874, 2.1686]];
 exports.run = async t => {
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, tz: 'America/Los_Angeles' });
@@ -37,7 +37,7 @@ exports.run = async t => {
       countries: [{ name: 'Spain', mode: 'manual', picked: ['Madrid', 'Toledo', 'Malaga', 'Granada', 'Seville', 'Barcelona'] }] });
     W.render();
   }, SPAIN);
-  await pg.waitForTimeout(5000); await settle(pg, 8000);
+  await calm(pg, 13000);
   const cdp = await ctx.newCDPSession(pg); await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
   const tm = await pg.evaluate(() => {
     const T = {}; const time = (k, f, n) => { const t0 = performance.now(); for (let i = 0; i < n; i++) f(); T[k] = +((performance.now() - t0) / n).toFixed(1); };

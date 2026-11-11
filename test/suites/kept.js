@@ -64,7 +64,7 @@ exports.run = async t => {
   const N = await open(b, { width: 390, height: 844, db: mkdb(), init: "try { Object.defineProperty(window, 'indexedDB', { value: undefined, configurable: true }); } catch (e) {}" }); await exampleTrip(N.pg);
   const r4 = await N.pg.evaluate(async () => {
     W.C.city['Spain|Madrid'] = { d: 'Kept', lat: 40.4, lng: -3.7, spots: [{ n: 'Madrid kept sight', d: 'x', t: [], k: 0, s: 'am', lat: 40.4, lng: -3.7 }], food: [] };
-    W.arrived(); W.save(); await new Promise(r => setTimeout(r, 3500)); W.arrived(); W.save();
+    W.arrived(); W.save(); await W.ideaStore.ready; await new Promise(r => setTimeout(r, 400)); W.arrived(); W.save();
     return { on: W.ideaStore.isOn(), idb: typeof indexedDB, cities: Object.keys(JSON.parse(localStorage.getItem('waypoint-cache-v2')).city).sort() };
   });
   t.ok(!r4.on && r4.cities.includes('Spain|Madrid') && r4.cities.includes('Italy|Rome'), 'with no IndexedDB, every place stays in the entry: ' + JSON.stringify(r4));

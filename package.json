@@ -1,11 +1,13 @@
 {
   "name": "waypoint",
   "private": true,
-  "version": "0.131.0",
+  "version": "0.132.0",
   "description": "Waypoint: a family trip planner. Plain JavaScript, bundled with esbuild, checked with TypeScript, tested with Playwright.",
   "scripts": {
     "build": "node build/bundle.js",
     "test": "node test/run.js",
+    "coverage": "node test/run.js --cov",
+    "audit:libs": "node tools/lib_audit.js",
     "types": "tsc -p tsconfig.json && tsc -p tsconfig.strict.json",
     "postinstall": "node -e \"require('fs').symlinkSync('../node_modules','build/node_modules','dir')\" 2>/dev/null || true"
   },

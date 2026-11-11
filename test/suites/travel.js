@@ -1,10 +1,10 @@
 /* Travel mode: during the trip the app opens on Today with a timeline, running late shifts the times, the day before and after
    are a tap away. */
-const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb = require('../lib/db');
+const { launch, open, exampleTrip, settle, calm } = require('../lib/page'); const mkdb = require('../lib/db');
 exports.run = async t => {
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(pg);
   await pg.evaluate(() => { W.save && W.save(); localStorage.setItem('waypoint-now', '2027-06-09T10:40:00'); });
-  await pg.reload(); await pg.waitForTimeout(2500); await settle(pg);
+  await pg.reload(); await calm(pg, 5000);
   const s = await pg.evaluate(() => ({ view: W.view(), travel: document.documentElement.classList.contains('travel'), tl: document.querySelectorAll('.go-rt li').length, hero: !!document.querySelector('.go-hero') }));
   t.ok(s.view === 'go' && s.travel, 'during the trip the app opens on Today in Travel mode: ' + JSON.stringify(s));
   t.ok(s.tl >= 3, 'with the day laid out as a route');

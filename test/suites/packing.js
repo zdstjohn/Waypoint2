@@ -1,7 +1,7 @@
 /* Pack and prepare: the lists come from the plan — toddlers bring the stroller and nap kit, grandparents their own
    bag, a flight brings the carry-on rule, beach days bring swim things; ticks, removals and your own items stay with
    the trip; the grandparents' view narrows the list; the planner is not re-run for a tick. */
-const { launch, open, exampleTrip, settle } = require('../lib/page');
+const { launch, open, exampleTrip, settle, calm } = require('../lib/page');
 const SPAIN = [['Madrid', 40.4168, -3.7038], ['Toledo', 39.8628, -4.0273], ['Malaga', 36.7213, -4.4214], ['Granada', 37.1773, -3.5986], ['Seville', 37.3891, -5.9845], ['Barcelona', 41.3874, 2.1686]];
 exports.run = async t => {
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, tz: 'America/Los_Angeles' }); await exampleTrip(pg);
@@ -46,7 +46,7 @@ exports.run = async t => {
       countries: [{ name: 'Spain', mode: 'manual', picked: ['Madrid', 'Toledo', 'Malaga', 'Granada', 'Seville', 'Barcelona'] }] });
     W.setView('trip'); W.render();
   }, SPAIN);
-  await pg.waitForTimeout(5000); await settle(pg, 8000);
+  await calm(pg, 13000);
   const sp = await pg.evaluate(() => {
     const L = W.packing(W.P), f = L.facts; W.setView('book'); W.S.prepTab = 'pack'; W.render();
     document.querySelector('[data-packwho="grandparents"]').click();

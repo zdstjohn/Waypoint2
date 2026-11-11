@@ -59,7 +59,8 @@ exports.run = async t => {
     await A.pg.fill('#authPw', 'short'); await A.pg.click('.auth-go');
     t.ok(/at least 8 characters/.test(await A.pg.textContent('.auth-err')), 'a short password is caught before it is sent');
     await A.pg.fill('#authEmail', 'Ann@Example.com'); await A.pg.fill('#authPw', 'ann-pass-123');
-    await Promise.all([A.pg.waitForNavigation({ timeout: 8000 }).catch(() => null), A.pg.click('.auth-go')]); await A.pg.waitForTimeout(2500);
+    await Promise.all([A.pg.waitForNavigation({ timeout: 8000 }).catch(() => null), A.pg.click('.auth-go')]);
+    await A.pg.waitForFunction(() => window.W && W.cloud && W.sampleState === 'on' && !document.querySelector('.auth-gate'), null, { timeout: 10000 }).catch(() => {}); await A.pg.waitForTimeout(300);
     const a1 = await A.pg.evaluate(() => ({ gate: !!document.querySelector('.auth-gate'), cloud: W.cloud, sample: W.sampleState, cls: document.documentElement.classList.contains('cloud') }));
     t.ok(!a1.gate && a1.cloud && a1.sample === 'on' && a1.cls, 'Ann is signed in: no gate, Claude is on: ' + JSON.stringify(a1));
     /* 2. Claude's ideas for a city with none built in, through the function, with her sign-in */
@@ -116,7 +117,7 @@ exports.run = async t => {
     const code = await A.pg.evaluate(async () => {
       document.querySelector('[data-sync="menu"]').click(); await new Promise(r => setTimeout(r, 400));
       const sh = document.querySelector('[data-sync="share"]'); if (!sh) return 'no share button';
-      sh.click(); await new Promise(r => setTimeout(r, 3000)); const c = W.S.share || 'no code'; document.querySelector('[data-sync="menu"]').click(); return c;
+      sh.click(); for (let i = 0; i < 40 && !W.S.share; i++) await new Promise(r => setTimeout(r, 100)); await new Promise(r => setTimeout(r, 1800)); const c = W.S.share || 'no code';   /* (and time for the locked copy to be saved) */ document.querySelector('[data-sync="menu"]').click(); return c;
     });
     t.ok(/^[a-z0-9]{12}$/i.test(code), 'Ann can share her trip: ' + code);
     if (/^[a-z0-9]{12}$/i.test(code)) {

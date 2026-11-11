@@ -1,6 +1,6 @@
 /* Redrawing only what changed (lib/patch.js): a redraw with nothing new touches nothing; after any change the page is
    exactly what a full rebuild would give; what is being typed, the focus and the street map's place survive. */
-const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb = require('../lib/db');
+const { launch, open, exampleTrip, settle, calm } = require('../lib/page'); const mkdb = require('../lib/db');
 exports.run = async t => {
   const b = await launch(); const { pg, errors } = await open(b, { width: 1280, height: 900, db: mkdb() }); await exampleTrip(pg);
 
@@ -79,7 +79,7 @@ exports.run = async t => {
   t.eq(typed, { drew: true, text: 'gela', focus: 'placeQ' }, 'new data redraws Explore while you type, and the box keeps your text and the focus');
   /* Today, during the trip */
   await pg.evaluate(() => { W.setSimple(false); W.save && W.save(); localStorage.setItem('waypoint-now', '2027-06-09T10:40:00'); });
-  await pg.reload(); await pg.waitForTimeout(2500); await settle(pg);
+  await pg.reload(); await calm(pg, 5000);
   const go = await pg.evaluate(() => {
     const el = document.getElementById('viewGo'); let muts = 0; const mo = new MutationObserver(l => { muts += l.length; });
     W.render(); mo.observe(el, { childList: true, subtree: true, characterData: true }); W.render(); W.render(); muts += mo.takeRecords().length; const quiet = muts;

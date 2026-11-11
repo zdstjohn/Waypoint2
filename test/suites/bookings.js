@@ -1,9 +1,9 @@
 /* Bookings: the checklist has what to book and by when, ticking an item, the budget adds up, a booking added by hand lands
    on its day and in the budget. */
-const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb = require('../lib/db');
+const { launch, open, exampleTrip, settle, calm } = require('../lib/page'); const mkdb = require('../lib/db');
 exports.run = async t => {
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(pg);
-  await pg.click('#tabBook'); await pg.waitForTimeout(1200); await settle(pg);
+  await pg.click('#tabBook'); await calm(pg, 3700);
   const chk = await pg.evaluate(() => ({ items: document.querySelectorAll('.chk').length, by: document.querySelectorAll('.chk .by').length, stays: [...document.querySelectorAll('.chk')].filter(c => /stay|hotel|place to stay/i.test(c.innerText)).length }));
   t.ok(chk.items >= 5, 'the checklist has things to book: ' + JSON.stringify(chk));
   t.ok(chk.by >= 3, 'with "book by" dates');

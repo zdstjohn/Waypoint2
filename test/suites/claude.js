@@ -1,10 +1,10 @@
 /* Asking Claude about the plan: replan the rest of today from one sentence (checked, with undo), and "Check my plan"
    (reads the whole trip, lists problems, changes nothing). */
-const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb = require('../lib/db');
+const { launch, open, exampleTrip, settle, calm } = require('../lib/page'); const mkdb = require('../lib/db');
 exports.run = async t => {
   const b = await launch(); const { pg, errors } = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(pg);
   await pg.evaluate(() => { W.save && W.save(); localStorage.setItem('waypoint-now', '2027-06-09T10:40:00'); });
-  await pg.reload(); await pg.waitForTimeout(2500); await settle(pg);
+  await pg.reload(); await calm(pg, 5000);
   await pg.waitForFunction(() => W.laterReady && !!document.getElementById('replanQ'), null, { timeout: 8000 }).catch(() => {});
   t.ok(await pg.$('#replanQ'), 'Today has a box to say what is going on');
   const snap = () => pg.evaluate(() => { const d = W.P.days[W.S.day - 1], T = W.dayTimes(d, W.P), nm = W.nowMin(); return d.slots.map(x => ({ slot: x.slot, n: x.item ? x.item.n : null, free: !!(W.S.free || {})[x.key], started: !!(T.rows[x.slot] && T.rows[x.slot].start != null && T.rows[x.slot].start <= nm + 5) })); });
@@ -67,7 +67,7 @@ exports.run = async t => {
   t.eq(await pg.evaluate(() => JSON.stringify(W.S.picks)), picks0, 'checking changes nothing in the plan');
 
   /* kept across a reload without asking again; a changed plan says so */
-  await pg.reload(); await pg.waitForTimeout(2500); await settle(pg);
+  await pg.reload(); await calm(pg, 5000);
   await pg.evaluate(() => { W.setAppMode && W.view() === 'go' && W.setAppMode('plan'); }); await pg.waitForTimeout(600);
   await pg.evaluate(() => { W.S.tview = 'days'; W.S.glanceOpen = true; W.setView('trip'); W.render(); }); 
   await pg.waitForFunction(() => !!document.querySelector('.pcheck .pcheck-l'), null, { timeout: 8000 }).catch(() => {});
