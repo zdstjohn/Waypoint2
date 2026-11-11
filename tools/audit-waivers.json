@@ -2,16 +2,6 @@
   "about": "Packages whose published advisories are known and waited on, each until a date. After the date the audit check fails again. See tools/lib_audit.js.",
   "waivers": [
     {
-      "pkg": "jspdf",
-      "until": "2026-12-15",
-      "reason": "2.5.1 has published advisories (fixed in 3.x and 4.x). The app only makes a PDF of your own trip with it. Upgrading needs the package registry and the new file's integrity hash, which the session that added this check could not reach."
-    },
-    {
-      "pkg": "dompurify",
-      "until": "2026-12-15",
-      "reason": "Comes only with jsPDF's package (for its html() method, which the app does not use); it is not shipped to the browser. Goes away with the jsPDF upgrade."
-    },
-    {
       "pkg": "maplibre-gl",
       "until": "2027-02-28",
       "reason": "GHSA-jrc7-96c5-q579 (fixed in 6.4.1) is in the attribution control, which writes attribution text as HTML. The app creates its map with attributionControl: false (lib/vtmap.js) and uses no popups, so that code never runs here. 4.7.1 to 6.x is a major upgrade to plan and test."

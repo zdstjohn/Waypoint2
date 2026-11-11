@@ -1,4 +1,5 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v135: Settings has a new card, "A copy of your trips" (Save a copy, Open a saved copy).
-settings-*
+# v137: Explore's search card keeps its box and button inside the card (the column may now shrink; the box's own
+# width follows the font and used to push the row to the card's edge).
+explore-*

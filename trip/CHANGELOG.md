@@ -2,6 +2,22 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v137
+
+jsPDF brought up to date, Nunito as one file, and a search card that keeps to its card (the audit's T5 follow-up and P5).
+The PDF export loads jsPDF 4.2.1 from cdnjs (2.5.1 before), with its integrity hash (the same file on cdnjs and
+jsDelivr); 2.5.1 had a dozen published advisories, 4.2.1 has none, and the dompurify that comes with its package went
+from 2.5.9 to 3.4.17 (none either). test/suites/pdf.js runs against it; the two waivers in tools/audit-waivers.json
+are gone. MapLibre's stays (its one advisory is in the attribution control, which the map does not use).
+Nunito is one variable file for every weight in use (fonts/nunito-latin-wght-normal.woff2, 39 KB, in place of four
+files of 16 KB; the extended Latin letters likewise): the first screen makes 7 requests instead of 10, and on the
+slow-phone test the last font is in at 1.2 seconds instead of 2.1. The face is declared for weights 400 to 800, so a
+heavier weight asked for still draws at 800 as before. The screens are pixel for pixel the same except Explore's
+search card: a search box's own width follows the font's measurements, and the card's column could not shrink, so the
+box pushed its row to the card's edge (.psearch now has a column that may shrink).
+tools/test_tools.py checks the nightly tools' own rules on fixed examples (which place on the map is the one meant,
+opening hours, distances, map tiles); the tools suite runs it.
+
 ## v136
 
 The database rule for the installable app's nightly paths (the audit's S4); the app itself is unchanged. A signed-in

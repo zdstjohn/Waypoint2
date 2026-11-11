@@ -1,8 +1,9 @@
 /* The tools around the app, on what can be checked without the internet (the audit's T4, a start): the source pack
    unpacks to exactly the files it was made from; the advisory check's own logic holds and its map waiver still rests
    on fact; the island towns' table reads cleanly and no town sits far from the others of its island (a slipped digit).
-   The nightly Python helpers that talk to the web (photos, menus, place checks) are not covered here; the photo judge
-   has its own suite (judge). */
+   The nightly helpers' own rules (which place on the map is the one meant, opening hours, map tiles) are checked on
+   fixed examples by tools/test_tools.py; fetching and writing are not covered (they need the services themselves). The
+   photo judge has its own suite (judge). */
 const { spawnSync } = require('child_process'); const fs = require('fs'); const path = require('path'); const os = require('os'); const vm = require('vm');
 exports.run = async t => {
   const ROOT = t.root, run = (cmd, args) => spawnSync(cmd, args, { cwd: ROOT, encoding: 'utf8' });
@@ -23,6 +24,9 @@ exports.run = async t => {
   t.ok(a.status === 0 && /its own checks pass/.test(a.stdout), 'the library advisory check passes its own checks (waivers by date, the map waiver\'s ground): ' + (a.stdout + a.stderr).trim().split('\n').pop().slice(0, 160));
   const w = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/audit-waivers.json'), 'utf8')).waivers;
   t.ok(w.every(x => x.pkg && /^\d{4}-\d\d-\d\d$/.test(x.until) && x.reason && x.reason.length > 40), 'every waiver names a package, an end date and a reason');
+  /* 2b. the nightly tools' own logic, on fixed examples (tools/test_tools.py) */
+  const py = run('python3', ['tools/test_tools.py']);
+  t.ok(py.status === 0 && /all their own checks pass/.test(py.stdout), 'the nightly tools match places, read opening hours and find map tiles as their rules say: ' + (py.stdout + py.stderr).trim().split('\n').slice(-3).join(' | ').slice(0, 300));
   /* 3. the island towns */
   const ctx = { window: {} }; vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'trip/data/data2.js'), 'utf8'), ctx);
   const TI = ctx.window.TI, bad = [], far = []; let n = 0;
