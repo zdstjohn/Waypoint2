@@ -86,7 +86,7 @@
                 s.effort = c.intensity;
                 if (c.kind) s.kind = c.kind;
               }
-              if (it.lat != null && home && home.lat != null) s.km_from_lodging = Math.round(W.km(home, it) * 10) / 10;
+              if (it.lat != null && home && home.lat != null) s.km_from_lodging = Math.round((W.km(home, it) || 0) * 10) / 10;
               if (it.hours && it.hours.o != null) {
                 s.open = W.clock(it.hours.o) + "-" + W.clock(it.hours.c);
                 if (it.hours.closed && it.hours.closed.length)

@@ -1133,7 +1133,9 @@
     if (S.places) {
       try {
         S.map.setMaxBounds(area(S.places, c));
-      } catch (e) {}
+      } catch (e) {
+        W.caught(e, "the street map's bounds");
+      }
     }
     var b = new ML.LngLatBounds(c[0], c[0]);
     c.forEach(function (q) {
@@ -1267,7 +1269,9 @@
                     try {
                       var sc = S.map && S.map.style && S.map.style.sourceCaches && S.map.style.sourceCaches.hi;
                       if (sc && sc.reload) sc.reload();
-                    } catch (x) {}
+                    } catch (x) {
+                      W.caught(x, "the street map's reload");
+                    }
                   }, 1500);
               }
               mapErr(msg);

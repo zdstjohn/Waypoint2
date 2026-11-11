@@ -54,6 +54,13 @@
       400
     );
   }
+  /* an error the app carries on from (a handler that would otherwise swallow it): it still goes to the error log, once,
+     so a real fault in such a place leaves a trace (the audit's R3) */
+  W.caught = function (e, where) {
+    try {
+      W.logError(String((e && e.message) || e), where + " (carried on)", e && e.stack);
+    } catch (x) {}
+  };
   W.logError = function (msg, where, stack) {
     if (window.__WP_OFFLINE || W.readOnly) return;
     var m = short(msg, 300),

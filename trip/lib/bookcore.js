@@ -312,7 +312,7 @@
   };
   document.addEventListener("change", function (e) {
     var t = e.target;
-    if (t && t.getAttribute && t.getAttribute("data-curpick")) W.setCurView(t.value);
+    if (t && t.getAttribute && t.getAttribute("data-curpick")) W.setCurView(t.value || "");
   });
   /* prices written in text ("€15, book ahead", "£8–12", "USD 20"), converted the same way */
   var CUR_SYM = {

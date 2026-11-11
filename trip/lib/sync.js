@@ -750,6 +750,45 @@
       window.scrollTo(0, 0);
     });
   };
+  /* ---------- a copy of your trips, as a file (Settings; the audit's O3) ---------- */
+  /* Every trip on this device as one plain document: each plan's settings, picks, bookings, checklist and journal notes.
+     Photos stay in the app's storage (the file carries their ids). Yours to keep: it is the only backup that does not
+     depend on this app's database. */
+  W.tripsExport = function () {
+    var out = /** @type {any[]} */ ([]);
+    if (W.readOnly) return null; /* (someone else's trip is on screen: go back to yours first) */
+    Object.keys(idx).forEach(function (id) {
+      var cur = id === S.tripId,
+        st = cur ? clone(S) : idx[id].state;
+      if (st) out.push({ id: id, name: cur ? W.tripName() : idx[id].name || "Trip", updated: idx[id].updated || 0, state: st });
+    });
+    if (!out.length && !W.isExample) out.push({ id: S.tripId || "", name: W.tripName(), updated: Date.now(), state: clone(S) });
+    return { app: "Waypoint", kind: "trips", v: 1, saved: new Date().toISOString(), trips: out };
+  };
+  /* Trips from such a file. One this device already has (the same id) is left alone: nothing here is ever overwritten.
+     The file is data from outside, so each trip is checked like a shared one before it is kept (plain data, web links
+     only), and it arrives unshared. Returns how many were added, or -1 when the file is not a copy of trips. */
+  W.tripsImport = function (doc) {
+    if (W.readOnly || !doc || doc.app !== "Waypoint" || doc.kind !== "trips" || !Array.isArray(doc.trips)) return -1;
+    var added = /** @type {string[]} */ ([]);
+    doc.trips.slice(0, 200).forEach(function (t) {
+      var st = t && typeof t === "object" ? W.V.shared(t.state) : null;
+      if (!st || typeof st !== "object" || st.v !== 2 || !Array.isArray(st.countries)) return;
+      var id = typeof t.id === "string" && /^[a-z0-9]{4,40}$/i.test(t.id) ? t.id : "t" + rid(11);
+      if (idx[id] || id === S.tripId) return;
+      delete st.share;
+      delete st.shareEdit;
+      st.tripId = id;
+      idx[id] = { name: String(t.name || st.tripName || "Trip").slice(0, 80), updated: +t.updated || Date.now(), state: st };
+      added.push(id);
+    });
+    if (added.length) {
+      saveIdx();
+      if (firstSnap) added.forEach(pushTrip); /* and to your account, when you have one */
+      W.changed();
+    }
+    return added.length;
+  };
   function deleteTrip(id) {
     var t = idx[id] || {},
       code = id === S.tripId ? S.share : t.state && t.state.share;

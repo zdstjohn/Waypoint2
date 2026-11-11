@@ -67,7 +67,7 @@
         '\nReply with JSON only: {"opts":[{"mode":"ferry","from":"","to":"","dur":"","price":"","freq":"","op":"","url":"","book":false,"note":""}]}',
       "quick",
       function (r) {
-        W.C.legs[k] = {
+        (W.C.legs || (W.C.legs = {}))[k] = {
           v: LEGV,
           opts: ((r && r.opts) || [])
             .filter(function (o) {
@@ -291,7 +291,7 @@
       pool = W.C.city[ck];
     if (!pool || pool.fallback) return;
     var ages = W.ages().join(","),
-      have = W.C.cost[ck];
+      have = /** @type {Costs | null} */ (W.C.cost[ck]);
     if (have && have.ages !== ages) have = null;
     var paid = (pool.spots || []).filter(W.isPaid).map(function (x) {
       return x.n;

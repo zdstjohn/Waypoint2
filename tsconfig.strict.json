@@ -1,7 +1,43 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "strictNullChecks": true },
-  "include": ["types/waypoint.d.ts", "trip/data/**/*.js",
-    "trip/lib/validate.js", "trip/lib/sharebox.js", "trip/lib/ideastore.js", "trip/lib/places.js", "trip/lib/autopilot.js", "trip/lib/shape.js", "trip/lib/classify.js", "trip/lib/photos.js", "trip/lib/prices.js", "trip/lib/route.js", "trip/lib/watch.js", "trip/lib/offline.js", "trip/lib/offcopy.js", "trip/lib/import.js", "trip/lib/map.js", "trip/lib/eat.js", "trip/lib/links.js",
-    "trip/screens/family.js", "trip/screens/today.js", "trip/screens/journal.js", "trip/screens/settings.js"]
+  "compilerOptions": {
+    "strictNullChecks": true
+  },
+  "include": [
+    "types/waypoint.d.ts",
+    "trip/data/**/*.js",
+    "trip/lib/validate.js",
+    "trip/lib/sharebox.js",
+    "trip/lib/ideastore.js",
+    "trip/lib/places.js",
+    "trip/lib/autopilot.js",
+    "trip/lib/shape.js",
+    "trip/lib/classify.js",
+    "trip/lib/photos.js",
+    "trip/lib/prices.js",
+    "trip/lib/route.js",
+    "trip/lib/watch.js",
+    "trip/lib/offline.js",
+    "trip/lib/offcopy.js",
+    "trip/lib/import.js",
+    "trip/lib/map.js",
+    "trip/lib/eat.js",
+    "trip/lib/links.js",
+    "trip/screens/family.js",
+    "trip/screens/today.js",
+    "trip/screens/journal.js",
+    "trip/screens/settings.js",
+    "trip/lib/errlog.js",
+    "trip/lib/holidays.js",
+    "trip/lib/icons.js",
+    "trip/lib/later.js",
+    "trip/lib/nightfood.js",
+    "trip/lib/patch.js",
+    "trip/lib/bookcore.js",
+    "trip/lib/pwa.js",
+    "trip/lib/storage.js",
+    "trip/lib/together.js",
+    "trip/lib/towns.js",
+    "trip/lib/asks.js"
+  ]
 }

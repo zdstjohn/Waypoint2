@@ -22,7 +22,9 @@
     a.forEach(function (fn) {
       try {
         fn();
-      } catch (e) {}
+      } catch (e) {
+        W.caught(e, "after a redraw");
+      }
     });
   };
   function q(sel) {

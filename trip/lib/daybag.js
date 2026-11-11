@@ -80,7 +80,9 @@
     var T = null;
     try {
       T = W.dayTimes(day, P);
-    } catch (e) {}
+    } catch (e) {
+      W.caught(e, "the day's times, for the day bag");
+    }
     if (tod && T && T.nap && T.nap.away) add("nap", "A stroller cover or blanket for a nap on the go", "Nap out today");
     if (longOut >= 2 || day.moveFrom) add("power", "A charged phone (or a power bank)", "");
     return out.map(function (o) {

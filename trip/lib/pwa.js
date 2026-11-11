@@ -122,7 +122,7 @@
     var t = /** @type {HTMLElement} */ (e.target),
       a = t && t.closest ? /** @type {HTMLElement | null} */ (t.closest("[data-acct]")) : null;
     if (a && CL) {
-      if (a.dataset.acct === "out") CL.signOut();
+      if (a.dataset && a.dataset.acct === "out") CL.signOut();
       else CL.showSignIn();
       return;
     }

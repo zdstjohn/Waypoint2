@@ -240,7 +240,7 @@
     if (W.readOnly || !db || !uid) return "";
     var w = docs[idFor(kind, key)];
     if (!w) {
-      var can = kind === "stay" ? !!(W.S.stays[key] && W.S.stays[key].live) : !!W.fareMin(key, P);
+      var can = kind === "stay" ? !!(W.S.stays[key] && W.S.stays[key].live) : !!(P && W.fareMin(key, P)); /* (a fare needs the plan) */
       return can ? '<button type="button" class="chip-a" data-watch="' + kind + '" data-wkey="' + esc(key) + '">Watch price</button>' : "";
     }
     var d = drop(w),

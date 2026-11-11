@@ -29,7 +29,7 @@
   }
   function lget(k) {
     try {
-      return JSON.parse(localStorage.getItem(k));
+      return JSON.parse(localStorage.getItem(k) || "null");
     } catch (e) {
       return null;
     }
@@ -208,7 +208,9 @@
             }
           }
         );
-    } catch (e) {}
+    } catch (e) {
+      W.caught(e, "sending a change to a shared trip");
+    }
   }
 
   /* ---------- you, the owner: take their changes ---------- */
@@ -252,7 +254,9 @@
             },
             function () {}
           );
-        } catch (e) {}
+        } catch (e) {
+          W.caught(e, "listening for family's changes");
+        }
       },
       function () {}
     );

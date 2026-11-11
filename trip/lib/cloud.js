@@ -601,7 +601,9 @@
           if (opts && opts.onText) {
             try {
               opts.onText({ text: text, delta: delta });
-            } catch (e) {}
+            } catch (e) {
+              if (window.W && window.W.caught) window.W.caught(e, "an answer as it is written");
+            }
           }
         }
         return pump();

@@ -1,13 +1,4 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v127: stops are marked by a picture and a letter (the Day tab, Today's route, the map's pins), the photo sits at the
-# right with the swap button under it, Menu is an icon, and Plan's place box reads "Add any city or town".
-today-*
-trip-days-*
-trip-story-*
-explore-*
-swap-*
-stop-panel-*
-meal-panel-*
-menu-*
-setup-*
+# v135: Settings has a new card, "A copy of your trips" (Save a copy, Open a saved copy).
+settings-*

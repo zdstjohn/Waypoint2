@@ -69,7 +69,7 @@
     }
     take(W.S);
     try {
-      for (var i = 0; i < localStorage.length; i++) take(localStorage.getItem(localStorage.key(i)));
+      for (var i = 0; i < localStorage.length; i++) take(localStorage.getItem(localStorage.key(i) || ""));
     } catch (e) {}
     /* what the page shows (less this card, whose thumbnails are the unused files themselves) */
     var page = document.documentElement.innerHTML,

@@ -166,6 +166,7 @@
     lastV = -1;
   /* a write this device refused (its storage for the app is full): say so in the banner and the error log, once. Before
      giving up, the saved ideas are cut down to this trip's (writeCache); the trip itself is never cleared. */
+  W.caught = function () {}; /* (lib/errlog.js replaces this: an error the app carries on from still goes to the log) */
   W.storeFailed = function (e) {
     if (W.localFull) return;
     W.localFull = true;
@@ -546,7 +547,9 @@
                 stream.take(batch, head || {});
                 arrived();
               }
-            } catch (e) {}
+            } catch (e) {
+              W.caught(e, "ideas as they are written");
+            }
           };
         }
         W.SAMPLE.json(prompt, opts)

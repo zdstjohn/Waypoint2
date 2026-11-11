@@ -51,6 +51,19 @@
     );
     if (W.curPicker)
       h += card("Prices", "Show every cost in one currency, or each as listed. This is for this phone only.", W.curPicker(P), "set-cur");
+    /* a copy of your trips, as a file you keep (lib/sync.js W.tripsExport); and trips back from such a file */
+    if (!W.readOnly)
+      h += card(
+        "A copy of your trips",
+        "Every trip on this device in one file: the plans, bookings, checklists and journal notes (photos stay in the app). Keep it somewhere safe; it is a backup that does not depend on this app.",
+        '<div class="row"><button type="button" class="btn quiet" data-trips="save">Save a copy</button>' +
+          '<button type="button" class="btn quiet" data-trips="open">Open a saved copy</button>' +
+          '<input type="file" id="tripsFile" accept=".json,application/json" hidden aria-label="A saved copy of your trips"></div>' +
+          '<p class="small muted" id="tripsMsg" role="status">' +
+          esc(tripsMsg) +
+          "</p>",
+        "set-copy"
+      );
     if (W.storageCard) h += W.storageCard(card); /* the app's stored files, for people who can edit it (lib/storage.js) */
     W.keepInputs(host, function () {
       var t = W.$("importText"),
@@ -62,8 +75,74 @@
       }
     });
   };
+  /* ---------- a copy of your trips ---------- */
+  var tripsMsg = "";
+  function say(t) {
+    tripsMsg = t;
+    var m = W.$("tripsMsg");
+    if (m) m.textContent = t;
+  }
+  function saveTrips() {
+    var doc = W.tripsExport();
+    if (!doc || !doc.trips.length) return say("There is no trip of your own to save yet.");
+    var blob = new Blob([JSON.stringify(doc)], { type: "application/json" }),
+      file = "Waypoint trips " + doc.saved.slice(0, 10) + ".json",
+      n = doc.trips.length;
+    (window.claude && window.claude.use ? window.claude.use("downloads") : Promise.resolve(null))
+      .then(function (dl) {
+        if (dl) return dl.save({ filename: file, data: blob });
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = file;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      })
+      .then(
+        function () {
+          say("Saved " + n + (n === 1 ? " trip" : " trips") + " as " + file + ".");
+        },
+        function () {
+          say("The file was not saved.");
+        }
+      );
+  }
+  function openTrips(file) {
+    var read = new FileReader();
+    read.onerror = function () {
+      say("That file could not be read.");
+    };
+    read.onload = function () {
+      var doc = null;
+      try {
+        doc = JSON.parse(String(read.result || ""));
+      } catch (e) {}
+      var n = W.tripsImport(doc);
+      say(
+        n < 0
+          ? "That file is not a copy of Waypoint trips."
+          : n === 0
+            ? "Every trip in that file is already on this device."
+            : "Added " + n + (n === 1 ? " trip" : " trips") + ". Tap the trip name at the top to open one."
+      );
+    };
+    read.readAsText(file);
+  }
+  document.addEventListener("change", function (e) {
+    var t = /** @type {any} */ (e.target);
+    if (t && t.id === "tripsFile" && t.files && t.files[0]) {
+      openTrips(t.files[0]);
+      t.value = "";
+    }
+  });
   W.settingsClick = function (b, d, P) {
     if (d.sync) return; /* sharing buttons are handled by sync.js */
+    if (d.trips === "save") return saveTrips();
+    if (d.trips === "open") {
+      var f = W.$("tripsFile");
+      if (f) f.click();
+      return;
+    }
     if (W.storageClick && W.storageClick(d)) return;
     if (W.importClick && W.importClick(d)) return;
     if (W.takeItClick && W.takeItClick(d, P)) return;

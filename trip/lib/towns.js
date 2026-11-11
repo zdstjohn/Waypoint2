@@ -106,12 +106,13 @@
       }
       var k = W.norm(c.name);
       if (map[k]) return;
-      map[k] = Object.assign({}, c, { whole: 1, isl: is.name });
+      var isName = is.name;
+      map[k] = Object.assign({}, c, { whole: 1, isl: isName });
       isleTowns(is, c).forEach(function (t) {
         var tk = W.norm(t.name),
           had = map[tk];
         if (!had) put(t);
-        else if (!had.isl && !had.whole) had.isl = is.name;
+        else if (!had.isl && !had.whole) had.isl = isName;
       });
     });
     /* an entry Claude placed on an island we know: say so (the planner keeps to one base on a small island) */
