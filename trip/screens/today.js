@@ -4,15 +4,7 @@
   "use strict";
   var W = window.W,
     esc = W.esc;
-  /* the clock (a test can pin it with localStorage "waypoint-now") */
-  W.now = function () {
-    var o = null;
-    try {
-      o = localStorage.getItem("waypoint-now");
-    } catch (e) {}
-    var d = o ? new Date(o) : new Date();
-    return isNaN(d.getTime()) ? new Date() : d;
-  };
+  /* minutes into the day, by the trip's clock (W.now, lib/times.js) */
   function nowMin() {
     var d = W.now();
     return d.getHours() * 60 + d.getMinutes();
@@ -146,6 +138,7 @@
     return (
       '<section class="today sk" aria-live="polite"><div class="today-h"><b>Today</b><span class="muted">' +
       W.clock(nm) +
+      (W.tripTimeNote(day.city) ? " · " + esc(W.tripTimeNote(day.city)) : "") +
       (late ? " · plan moved " + W.fmtMin(late) + " later" : "") +
       "</span></div>" +
       lines.join("") +

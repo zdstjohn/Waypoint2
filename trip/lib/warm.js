@@ -108,23 +108,34 @@
       d = tn ? P.days[tn - 1] : null;
     return d ? { country: d.country, city: d.city } : { country: P.stops[0].country, city: P.stops[0].name };
   }
-  var SKYF = {}; /* one clock per time zone, kept: making one is the slow part */
+  /* The time in the banner. On the trip it is the trip's clock (W.now), the same one the greeting and Today go by, so
+     the banner never says one time and Today another. Before the trip (and after) the greeting goes by your own
+     clock, and the banner adds what time it is where you are going */
+  var SKYF = /** @type {Record<string, Intl.DateTimeFormat>} */ ({}); /* one clock per time zone, kept: making one is the slow part */
   W.sky = function (P) {
     var pl = placeNow(P);
     if (!pl) return null;
-    var tz = W.tzFor && W.tzFor(pl.country);
-    if (!tz) return { phase: "night", city: pl.city, time: "" };
     var hh = 0,
       mm = 0;
-    try {
-      (SKYF[tz] = SKYF[tz] || new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }))
-        .formatToParts(W.now())
-        .forEach(function (x) {
-          if (x.type === "hour") hh = +x.value % 24;
-          if (x.type === "minute") mm = +x.value;
-        });
-    } catch (e) {
-      return { phase: "night", city: pl.city, time: "" };
+    if (W.todayN && W.todayN(P)) {
+      var n = W.now();
+      hh = n.getHours();
+      mm = n.getMinutes();
+    } else {
+      var s = P.stops[0],
+        at = W.stopAt ? W.stopAt(s) : null,
+        tz = W.tripZone(pl.country, at ? at.lng : null, at ? at.lat : null).tz;
+      if (!tz) return { phase: "night", city: pl.city, time: "" };
+      try {
+        (SKYF[tz] = SKYF[tz] || new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }))
+          .formatToParts(W.instant())
+          .forEach(function (x) {
+            if (x.type === "hour") hh = +x.value % 24;
+            if (x.type === "minute") mm = +x.value;
+          });
+      } catch (e) {
+        return { phase: "night", city: pl.city, time: "" };
+      }
     }
     var phase = hh >= 5 && hh < 8 ? "dawn" : hh >= 8 && hh < 17 ? "day" : hh >= 17 && hh < 20 ? "dusk" : "night";
     return { phase: phase, city: pl.city, time: W.clock(hh * 60 + mm), hour: hh };

@@ -1,7 +1,3 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v141: Prepare's header loses "Prices in" (now the first line of Budget); Explore's places to eat get the menu
-# picture; with a mouse every page keeps the scrollbar's gutter, so each desktop screen is laid out 15 px narrower.
-book-*
-explore-*
-*-desk-*
+# v142: no screen is meant to change (the trip's clock equals the pinned clock the pictures are taken at).

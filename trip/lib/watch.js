@@ -196,7 +196,7 @@
   function later() {
     if (queue || W.readOnly) return;
     var t = W.S.tripId,
-      today = W.isoDay ? W.isoDay(new Date()) : "";
+      today = W.isoDay ? W.isoDay(W.now()) : "";
     var due = Object.keys(docs)
       .map(function (k) {
         return docs[k];

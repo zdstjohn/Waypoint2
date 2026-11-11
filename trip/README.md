@@ -261,6 +261,9 @@ Checks (node test/run.js, from the folder above trip/)
   money         Prices in: as listed by default; dollars converted with "≈"; text prices ("€15, book ahead", "£8–12");
                 no rate stays as listed; the choice in Prepare's Budget and in Settings, kept on the phone, not in the
                 trip; Prepare's tabs stay in one place whichever tab is open.
+  clock         one clock: a phone in Rome and one in Los Angeles see the same Now and Next at the same moment; "Rome
+                time" shown when the trip's clock is not the phone's; the date turns over there first; before and
+                after the trip the phone's own clock; the zones of countries with several.
   meals         enough places to eat for the days: a meal the plan leaves without a place is asked for by name, near
                 the stop before it (one question, a place to spare, the children's dinner time); places set aside come
                 out first; three questions per town and no more; never for a meal you freed or a trip you only read.

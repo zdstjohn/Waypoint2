@@ -884,7 +884,7 @@
     if (!c) return;
     S.prepTab = c.done ? "booked" : "tobook";
     var f = fold(),
-      k = "u-" + bucketOf(c, new Date());
+      k = "u-" + bucketOf(c, W.now());
     f[k] = 0;
     try {
       localStorage.setItem("waypoint-bkfold", JSON.stringify(f));
@@ -1064,7 +1064,7 @@
     }
     var h = "",
       ro = W.readOnly,
-      today = new Date();
+      today = W.now();
     /* book ahead (travel days need their options to know what to book) */
     P.stops.forEach(function (s, si) {
       if (si) W.loadLeg(P.stops[si - 1], s);

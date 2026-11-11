@@ -424,7 +424,15 @@
       esc(day.city) +
       "</b>" +
       '<span class="muted">' +
-      esc([fmt(W.dateOf(n), { weekday: "long", month: "short", day: "numeric" }), live ? W.clock(nm) : ""].filter(Boolean).join(" · ")) +
+      esc(
+        [
+          fmt(W.dateOf(n), { weekday: "long", month: "short", day: "numeric" }),
+          live ? W.clock(nm) : "",
+          live ? W.tripTimeNote(day.city) : ""
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      ) +
       "</span></div>" +
       '<button type="button" class="icon-btn" data-goprev="' +
       (b ? b.n : "") +

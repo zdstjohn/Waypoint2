@@ -38,7 +38,7 @@
     var S = W.S;
     if (W.readOnly || W.isExample) return null;
     var out = [],
-      today = new Date(),
+      today = W.now(),
       tn = W.todayN ? W.todayN(P) : null;
     if (tn) {
       var tv = W.travelNudge && W.travelNudge(P);

@@ -2,6 +2,33 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v142
+
+One clock: everything live goes by the time where the trip is.
+- The problem. The banner's greeting went by the phone's clock, the time beside it was the destination's, and Today
+  ("Now", "Next", "Leave in 25 min", which day is today, "running late") went by the phone's again. On a phone that
+  is on the trip's time they agree. On any other they did not: someone following a shared trip from home, a phone
+  left on home time, a laptop. From Los Angeles, a family's 10:30 in Rome showed "Good evening", "10:30 AM in Rome",
+  and a Today worked out for 1:30 at night on what was, half the day, the wrong date.
+- The clock now lives in one place (lib/times.js, moved out of screens/today.js). W.instant() is the moment it is.
+  W.now() is the trip's clock: the time of day where the trip is today, which every live reading already used through
+  W.now() and W.nowMin(). W.tripShift() is the minutes between the trip's clock and the phone's: 0 for a phone on the
+  trip's time, so nothing changes for travellers. Before the trip and after it the clock is the phone's own.
+- Where it shows. The banner on the trip: greeting and time from the same clock ("Good morning · 10:30 AM in Rome").
+  Before the trip the greeting is yours and the banner adds the time where you are going, as before. When the trip's
+  clock is not the phone's, Today and the Today card say whose time it is ("10:30 AM · Rome time").
+- Which zone. A country with one zone keeps it. A country with several (the United States, Canada, Mexico, Brazil,
+  Australia, Indonesia) had one zone for all of it, so a Los Angeles trip was on New York's; the zone now goes by the
+  place's longitude (Hawaii and Alaska told apart by latitude). That is right to within the hour, so a phone within
+  the hour of it is taken to be there and its own clock stands. Known limit: someone one zone away from such a
+  trip sees their own time, as before.
+- The last few readings of the phone's date ("today" for countdowns, booking deadlines, the price watch) go by the
+  trip's clock too.
+- Tests: a new suite, clock (19 checks): a phone in Rome, the same moment from Los Angeles (same Now and Next word
+  for word, "Rome time" shown), the date turning over there first, before and after the trip, and the zones of
+  multi-zone countries. A test's pinned time without a zone is the trip's own clock, so the existing suites read
+  as before. 47 suites.
+
 ## v141
 
 Seven things you asked for, and one structural change they led to.

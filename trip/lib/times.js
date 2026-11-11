@@ -44,6 +44,147 @@
     return W.party().kid ? hm(18, 30) : null;
   };
 
+  /* ---------- the clock ----------
+     Two readings, and the difference matters to anyone whose phone is not on the trip's time: a grandparent following
+     a shared trip from home, a phone left on home time, a laptop that never changed zone.
+       W.instant()  the moment it is, the same everywhere.
+       W.now()      the trip's clock: a Date whose own fields (getHours, getDate…) read the time of day WHERE THE TRIP IS
+                    TODAY. Everything live goes by it: which day is today, what is on now and next, when to leave,
+                    "running late", the greeting. Before the trip and after it, it is the phone's own clock.
+     W.tripShift() is the minutes between the two (0 when the phone is on the trip's time, as it is for travellers).
+     Where the trip is today comes from the plan last made (W.P), else the first stop; its zone from tripZone().
+     A test pins the clock with localStorage "waypoint-now": a time with no zone ("2027-06-09T10:30") is the trip's own
+     clock, read as is; one with a zone ("…T08:30:00Z") is a moment, turned into trip time like the real clock is. */
+  function pinned() {
+    var o = null;
+    try {
+      o = localStorage.getItem("waypoint-now");
+    } catch (e) {}
+    if (!o) return null;
+    var d = new Date(o);
+    return isNaN(d.getTime()) ? null : { d: d, wall: !/(Z|[+-]\d\d:?\d\d)$/.test(o) };
+  }
+  W.instant = function () {
+    var p = pinned();
+    return p ? p.d : new Date();
+  };
+  /* Countries with more than one time zone: the zone goes by how far east the place is (rough bands, right to within
+     the hour, which the phone's own clock then settles: see tripShift). Everywhere else the country's one zone */
+  var BANDS = {
+    "United States": [
+      [-169, "Pacific/Honolulu"],
+      [-141, "America/Anchorage"],
+      [-114.5, "America/Los_Angeles"],
+      [-102, "America/Denver"],
+      [-87, "America/Chicago"],
+      [180, "America/New_York"]
+    ],
+    Canada: [
+      [-120, "America/Vancouver"],
+      [-110, "America/Edmonton"],
+      [-102, "America/Regina"],
+      [-90, "America/Winnipeg"],
+      [-68, "America/Toronto"],
+      [-57, "America/Halifax"],
+      [180, "America/St_Johns"]
+    ],
+    Mexico: [
+      [-115, "America/Tijuana"],
+      [-105, "America/Mazatlan"],
+      [-88, "America/Mexico_City"],
+      [180, "America/Cancun"]
+    ],
+    Brazil: [
+      [-67, "America/Rio_Branco"],
+      [-57, "America/Manaus"],
+      [180, "America/Sao_Paulo"]
+    ],
+    Australia: [
+      [129, "Australia/Perth"],
+      [138, "Australia/Darwin"],
+      [141, "Australia/Adelaide"],
+      [180, "Australia/Sydney"]
+    ],
+    Indonesia: [
+      [114.5, "Asia/Jakarta"],
+      [128, "Asia/Makassar"],
+      [180, "Asia/Jayapura"]
+    ]
+  };
+  BANDS.USA = BANDS["United States"];
+  /** the time zone of a place: its country's, or for a country with several the one its longitude falls in
+      @param {string} country @param {number | null} [lng] @param {number | null} [lat] @returns {{ tz: string | null, rough: boolean }} */
+  W.tripZone = function (country, lng, lat) {
+    var b = BANDS[country];
+    if (b && lng != null) {
+      /* (Hawaii lies under Alaska's longitudes: the latitude tells them apart) */
+      if (b === BANDS.USA && lat != null && lat < 30 && lng < -150) return { tz: "Pacific/Honolulu", rough: true };
+      for (var i = 0; i < b.length; i++) if (lng < /** @type {number} */ (b[i][0])) return { tz: String(b[i][1]), rough: true };
+    }
+    return { tz: W.tzFor(country), rough: !!b };
+  };
+  /* where the trip is on its day n: from the plan last made, else the first stop */
+  function placeOn(n) {
+    var P = W.P,
+      d = P && P.days && P.days[n - 1],
+      s = d && P.stops[d.stop];
+    if (!s) {
+      var c = (W.S.countries || [])[0];
+      return c ? { country: c.name, lng: null, lat: null } : null;
+    }
+    var at = W.stopAt ? W.stopAt(s) : null;
+    return { country: s.country, lng: at && at.lng != null ? at.lng : null, lat: at && at.lat != null ? at.lat : null };
+  }
+  var SHIFT = { key: "", v: 0 };
+  W.tripShift = function () {
+    var p = pinned();
+    if (p && p.wall) return 0;
+    var t = p ? p.d : new Date(),
+      S = W.S;
+    if (!S || !S.start) return 0;
+    var key =
+      Math.floor(t.getTime() / 60000) +
+      "|" +
+      S.start +
+      "|" +
+      (S.tripId || "") +
+      "|" +
+      (W.P && W.P.stops && W.P.stops[0] ? W.P.stops[0].name + W.P.N : "");
+    if (SHIFT.key === key) return SHIFT.v;
+    var dev = -t.getTimezoneOffset(),
+      v = 0,
+      first = placeOn(1);
+    /* which day it is there: by the first stop's clock, then by that day's own place (a trip can cross a zone) */
+    for (var pass = 0, pl = first; pass < 2 && pl; pass++) {
+      var z = W.tripZone(pl.country, pl.lng, pl.lat),
+        off = z.tz ? offsetMin(z.tz, t) : null;
+      if (off == null) {
+        v = 0;
+        break;
+      }
+      /* a zone guessed from longitude is right to within the hour: a phone within the hour of it is there, and exact */
+      v = z.rough && Math.abs(off - dev) <= 60 ? 0 : off - dev;
+      var n = W.dayOfDate(W.isoDay(new Date(t.getTime() + v * 60000))),
+        N = W.P && W.P.N ? W.P.N : S.days || 0;
+      if (n == null || n < 1 || n > N) {
+        v = 0; /* not on the trip today: the phone's own clock */
+        break;
+      }
+      pl = placeOn(n);
+    }
+    SHIFT = { key: key, v: v };
+    return v;
+  };
+  W.now = function () {
+    var t = W.instant(),
+      v = W.tripShift();
+    return v ? new Date(t.getTime() + v * 60000) : t;
+  };
+  /* "Rome time", when the trip's clock is not the phone's (else "") @param {string} city */
+  W.tripTimeNote = function (city) {
+    return W.tripShift() ? city + " time" : "";
+  };
+
   /* ---------- dates ---------- */
   W.dateOf = function (n) {
     if (!W.S.start) return null;
@@ -148,19 +289,23 @@
   };
 
   /* ---------- jet lag ---------- */
-  /* minutes a time zone is ahead of UTC on a date */
+  /* minutes a time zone is ahead of UTC on a date (one formatter per zone, kept: making one is the slow part) */
+  var ZF = /** @type {Record<string, Intl.DateTimeFormat>} */ ({});
   function offsetMin(tz, date) {
     try {
       var p = {};
-      new Intl.DateTimeFormat("en-US", {
-        timeZone: tz,
-        hourCycle: "h23",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit"
-      })
+      (
+        ZF[tz] ||
+        (ZF[tz] = new Intl.DateTimeFormat("en-US", {
+          timeZone: tz,
+          hourCycle: "h23",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit"
+        }))
+      )
         .formatToParts(date)
         .forEach(function (x) {
           p[x.type] = x.value;

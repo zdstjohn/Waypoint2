@@ -999,7 +999,7 @@
         else if (bkG && bkG.by)
           tags +=
             '<span class="gt due' +
-            (bkG.by < new Date() ? " late" : "") +
+            (bkG.by < W.now() ? " late" : "") +
             '">Book by ' +
             esc(bkG.by.toLocaleDateString(undefined, { month: "short", day: "numeric" })) +
             "</span>";

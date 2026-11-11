@@ -383,7 +383,14 @@ interface Waypoint {
   nextStep: any;
   norm: (s: unknown) => string;
   notForLine: any;
+  /** the trip's clock: a Date whose own fields read the time of day where the trip is today (lib/times.js) */
   now: () => Date;
+  /** the moment it is, the same everywhere */
+  instant: () => Date;
+  /** minutes the trip's clock is ahead of the phone's (0 for a phone on the trip's time, and off the trip) */
+  tripShift: () => number;
+  tripZone: (country: string, lng?: number | null, lat?: number | null) => { tz: string | null; rough: boolean };
+  tripTimeNote: (city: string) => string;
   nowMin: () => number;
   officialLink: any;
   officialUrl: (it: any, food?: any, country?: string, city?: string) => any;
