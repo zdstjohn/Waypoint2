@@ -1216,6 +1216,9 @@
       tl = $("topline");
     if (tl) tl.innerHTML = W.topLine ? W.topLine(W.P) : "";
     if (W.pinBar) W.pinBar(W.P);
+    /* the trips menu, open: Back closes it (lib/back.js) */
+    if (menuOpen) W.backOpen("menu", W.closeTripMenu);
+    else W.backShut("menu");
     if (W.readOnly) {
       el.innerHTML =
         '<div class="tripbar ro-bar"><div class="trip-sw ro-sw"><span class="ts-n"><b>' +

@@ -77,8 +77,8 @@ exports.run = async t => {
     const { pg, errors } = await open(b, { width: 1440, height: 900, db: mkdb() }); await exampleTrip(pg);
     await pg.evaluate(() => { W.save && W.save(); localStorage.setItem('waypoint-now', '2027-06-09T10:40:00'); });
     await pg.reload(); await calm(pg, 5000);
-    const kc = await pg.evaluate(() => { const k = document.querySelector('#viewGo .kids-chip'); if (!k) return null; const r = k.getBoundingClientRect(), rg = document.createRange(); rg.selectNodeContents(k); const tr = rg.getBoundingClientRect(); return { left: Math.round(tr.left - r.left), right: Math.round(r.right - tr.right) }; });
-    t.ok(!kc || Math.abs(kc.left - kc.right) <= 4, 'the kids\' banner text is centred: ' + JSON.stringify(kc));
+    const kc = await pg.evaluate(() => { const k = document.querySelector('#viewGo .go-kids'), h = document.querySelector('#viewGo .go-hero'), rt = document.querySelector('#viewGo .go-route'); if (!k) return null; return { below: !!h && !!rt && k.getBoundingClientRect().top > rt.getBoundingClientRect().bottom, loud: /gradient/.test(getComputedStyle(k).backgroundImage), old: !!document.querySelector('.kids-chip') }; });
+    t.ok(!kc || (kc.below && !kc.loud && !kc.old), 'the kids\' corner is a quiet row below what is now, what is next and the route (not a banner above them): ' + JSON.stringify(kc));
     await pg.evaluate(() => { localStorage.removeItem('waypoint-now'); W.setAppMode && W.setAppMode('plan'); W.goView('book'); }); await calm(pg, 4000);
     const pos = [];
     for (const tab of ['tobook', 'booked', 'budget', 'pack', 'take']) {

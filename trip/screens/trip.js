@@ -111,7 +111,24 @@
   };
   /* the day the banner shows on a phone (lib/warm.js W.topLine): the Day view's own day, or none on any other screen */
   W.bannerDay = function (P) {
-    if (view !== "trip" || S.tview === "map" || S.glanceOpen || !P || !P.days) return null;
+    /* (Simple view has no banner line: there the day keeps its own heading in the page) */
+    if (!P || !P.days || !P.days.length || (W.simple && W.simple())) return null;
+    /* Today: the day it shows, and the time there while the trip is on */
+    if (view === "go" && W.goDayN) {
+      var gd = P.days[W.goDayN(P) - 1];
+      return gd
+        ? {
+            city: gd.city,
+            date: fmtDate(gd.n),
+            /* (and whose time it is, when the phone is somewhere else) */
+            level:
+              W.todayN(P) === gd.n
+                ? "<span>" + W.clock(W.nowMin()) + (W.tripTimeNote(gd.city) ? " · " + esc(W.tripTimeNote(gd.city)) : "") + "</span>"
+                : ""
+          }
+        : null;
+    }
+    if (view !== "trip" || S.tview === "map" || S.glanceOpen) return null;
     var day = P.days[S.day - 1];
     return day ? { city: day.city, date: fmtDate(day.n), level: dayLevel(day, P).replace(/^ · /, "") } : null;
   };
@@ -256,7 +273,7 @@
         '<p class="small muted">' +
         esc(W.betweenCities(L.km)) +
         ". " +
-        link(W.gmapsDir(W.stopAt(L.a), { n: L.b.name + ", " + L.b.country, lat: null }, "transit"), "Directions") +
+        link(W.gmapsDir(W.stopAt(L.a), { n: L.b.name + ", " + L.b.country, lat: null }, "transit"), "Navigate") +
         "</p>";
     return h + "</section>";
   }
@@ -883,13 +900,15 @@
   /* The day's stops in order, as the Day tab lists them: today's card, the cards for arriving and leaving, each stop
      with its number and clock notes, the way from one to the next, the nap, and the way back to where you stay.
      Returns the list's HTML, the stops' points in order (for the map and the route link) and the day's times. */
-  function dayStops(P, day, home, pool) {
+  function dayStops(P, day, home, pool, short) {
     var num = 0,
       pts = [],
       prevPt = home,
       list = "",
       T = W.dayTimes(day, P),
-      wasOut = false;
+      wasOut = false,
+      /* today: what is over is dimmed, what is on now is marked (and the day opens there) */
+      nowM = W.isToday(day) ? W.nowMin() : null;
     /* on its own, a city has only the handful of ideas built into the app: say so where they've run out */
     if (
       W.standalone &&
@@ -910,7 +929,7 @@
           ? "More come once Claude answers."
           : '<button type="button" class="linkish" data-acct="in">Sign in</button> for fresh ideas for any city.') +
         "</div>";
-    list += W.todayCard(day, P, T);
+    list += W.todayRow(day, P, T);
     if (day.moveFrom) list += legCard(P, day, T);
     else if (day.tripFirst) list += flightCard(P, day) + jetCard(P);
     list += W.bookedRow ? W.bookedRow(day) : "";
@@ -928,6 +947,11 @@
         R = T && T.rows[x.slot],
         label = (R && R.label) || W.SLOT_NAME[x.slot];
       var tm = R && R.start != null && !R.skip ? '<span class="tm">' + W.clock(R.start) + "</span>" : "";
+      var timed = nowM != null && R && !R.skip && R.start != null && R.end != null,
+        isPast = timed && R.end <= nowM,
+        isNow = timed && R.start <= nowM && nowM < R.end,
+        liveCls = isPast ? " past" : isNow ? " is-now" : "",
+        nowTag = isNow ? '<span class="now-tag">Now</span>' : "";
       /* the day's clock notes, as one quiet line under the stop: warnings first */
       var notes = R
         ? R.warn
@@ -969,7 +993,7 @@
             W.fmtMin(rb.min) +
             " " +
             rb.label +
-            (home.none ? "" : " " + link(W.gmapsDir(prevPt, home, rb.mode), "Directions")) +
+            (home.none ? "" : " " + link(W.gmapsDir(prevPt, home, rb.mode), "Navigate")) +
             "</div>";
         prevPt = home;
         wasOut = false;
@@ -995,7 +1019,9 @@
            before (from wherever you are when it's the first stop and no stay is picked yet) */
         if (lg)
           list +=
-            '<a class="travel-note nav-leg" href="' +
+            '<a class="travel-note nav-leg' +
+            (isPast ? " past" : "") +
+            '" href="' +
             esc(W.gmapsDir(from === home && home.none ? null : from, it, lg.mode)) +
             '" target="_blank" rel="noopener" aria-label="Navigate to ' +
             esc(it.n) +
@@ -1073,9 +1099,11 @@
             '<article class="slot sk food slim' +
             (ph ? " haspic" : "") +
             (R && R.skip ? " skipped" : "") +
+            liveCls +
             '" data-slotkey="' +
             esc(x.key) +
             '">' +
+            nowTag +
             W.stopMark(it, true, x.slot, num) +
             '<div class="slot-body"><button type="button" class="slot-toggle" data-open="' +
             esc(x.key) +
@@ -1102,9 +1130,11 @@
             '<article class="slot sk' +
             (ph ? " haspic" : "") +
             (R && R.skip ? " skipped" : "") +
+            liveCls +
             '" data-slotkey="' +
             esc(x.key) +
             '">' +
+            nowTag +
             W.stopMark(it, false, x.slot, num) +
             '<div class="slot-body"><button type="button" class="slot-toggle" data-open="' +
             esc(x.key) +
@@ -1138,6 +1168,7 @@
         list +=
           '<article class="slot sk free slim' +
           (food ? " food" : "") +
+          liveCls +
           '" data-slotkey="' +
           esc(x.key) +
           '"><span class="num" style="background:var(--soft)"></span><div class="slot-body"><span class="sl-l">' +
@@ -1148,6 +1179,7 @@
           esc(label) +
           (x.free && !W.readOnly ? " · swap to add something" : "") +
           "</span>" +
+          (short && !short.said && W.slotShort(x) && x.slot !== "eve" && !x.trip ? ((short.said = true), short.html) : "") +
           "</div>" +
           (!W.canEdit() || x.rest ? "" : '<div class="slim-a">' + rr + "</div>") +
           "</article>";
@@ -1473,6 +1505,7 @@
     }
     return h;
   }
+  var nowSeen = ""; /* today's Day view has been opened at what is on now (see the end of renderTrip) */
   W.renderTrip = function (P, target) {
     /* the map is a way of looking at the trip (Day · Explore); the old Explore view draws the same thing */
     if (S.tview === /** @type {any} */ ("story")) S.tview = "days"; /* the storybook was removed in v118 */
@@ -1513,6 +1546,7 @@
     if (S.glanceOpen && target !== "explore" && W.glance) {
       W.draw(el, W.stayBar(P, tn) + W.viewSwitch() + '<div class="all-days">' + W.glance(P) + "</div>", "all|" + S.tripId);
       W.stayTrack(true);
+      nowSeen = "";
       return;
     }
     h +=
@@ -1607,8 +1641,10 @@
     }
 
     /* a part of the day the city's first ideas don't fill (a meal, the morning or the afternoon; not an evening left
-       open on purpose, a travel day's cut hours or time you freed): more ideas come only when you ask */
-    var dpool = W.pool(day.country, day.city);
+       open on purpose, a travel day's cut hours or time you freed): more ideas come only when you ask. Said where the
+       gap is, in the first such free row of the day (dayStops), not above the plan */
+    var dpool = W.pool(day.country, day.city),
+      /** @type {{said: boolean, html: string} | null} */ short = null;
     if (
       !xp &&
       !day.loading &&
@@ -1618,17 +1654,18 @@
       (day.slots || []).some(function (x) {
         return W.slotShort(x) && x.slot !== "eve" && !x.trip;
       })
-    ) {
-      var shortBusy = W.cityBusy(W.cityKey(day.country, day.city));
-      h +=
-        '<p class="small muted short-note">' +
-        esc(day.city) +
-        "'s ideas don't fill this day. " +
-        (shortBusy
-          ? '<span class="loading">Finding more…</span>'
-          : '<button type="button" class="linkish" data-more="1">Find more ideas</button>') +
-        "</p>";
-    }
+    )
+      short = {
+        said: false,
+        html:
+          '<span class="small muted short-note">Nothing in ' +
+          esc(day.city) +
+          "'s ideas fits here. " +
+          (W.cityBusy(W.cityKey(day.country, day.city))
+            ? '<span class="loading">Finding more…</span>'
+            : '<button type="button" class="linkish" data-more="1">Find more ideas</button>') +
+          "</span>"
+      };
 
     /* the day */
     var pool = W.pool(day.country, day.city),
@@ -1690,7 +1727,7 @@
       /* (the hops of the day on show are the ones worth asking Google for: W.legWant, lib/core.js) */
       W.legWant++;
       var lr0 = W.legReal,
-        stops = dayStops(P, day, home, pool),
+        stops = dayStops(P, day, home, pool, short),
         pts = stops.pts,
         list = stops.list,
         T = stops.T;
@@ -1794,6 +1831,24 @@
       h + (xpCols ? "</div>" : "") + "</div>",
       "day|" + S.tripId + "|" + S.day + "|" + (xp ? "map" : "list") + "|" + (W.simple() ? 1 : 0)
     );
+    /* today, opened afresh (from another tab or day, or as the app starts): the day opens at what is on now, or at
+       what is next, not at a morning that is over. Once per visit to the day: after that the scrolling is yours.
+       (A frame later: arriving on a screen puts it at the top first.) */
+    var nowKey = xp || !W.isToday(day) ? "" : S.tripId + "|" + day.n;
+    if (!nowKey) nowSeen = "";
+    else if (nowKey !== nowSeen && el.querySelector(".slots .slot[data-slotkey]")) {
+      nowSeen = nowKey;
+      requestAnimationFrame(function () {
+        var find = function () {
+          return view !== "trip" || S.tview === "map" || S.glanceOpen
+            ? null
+            : el.querySelector(".slots .slot.is-now") || el.querySelector(".slots .slot.past ~ .slot:not(.past)");
+        };
+        var at = find();
+        /* (under the rows that stay at the top on a phone, with the way there showing above it) */
+        if (at && at.getBoundingClientRect().top > window.innerHeight * 0.45) holdAt(find, 170);
+      });
+    }
     /* on a phone in list view the map is hidden: don't run it in the background */
     if (vtWant) {
       var slotEl = el.querySelector(".vt-slot");
@@ -1838,9 +1893,7 @@
     document.documentElement.classList.toggle("travel", travel);
     if (travel && firstRender && view === "trip" && !W.readOnly) {
       view = "go";
-      try {
-        history.replaceState(null, "", HASH.go);
-      } catch (x) {}
+      W.navTo(HASH.go);
     }
     firstRender = false;
     if ($("viewKids")) $("viewKids").hidden = view !== "kids";
@@ -1862,6 +1915,7 @@
     if (W.offline) W.offline.tick(P);
     if (W.warmTick) W.warmTick(P);
     /* Plan, Prepare, the kids' corner, the recap and settings live in the second script: until it has come, a moment's "Loading…" */
+    if (view !== "trip") nowSeen = ""; /* (coming back to today's Day view opens it at what is on now again) */
     var later = view === "kids" || view === "recap" || view === "settings" || view === "book" || view === "setup";
     if (later && !W.needLater()) {
       var lv = $(
@@ -1901,13 +1955,15 @@
     if (a) {
       e.preventDefault();
       var to = /** @type {View} */ (a.dataset.view);
+      /* the tab of the screen you are on: back to its top */
+      if (to === view && a.closest(".tabs")) window.scrollTo({ top: 0, behavior: W.smooth() });
       if (to === view || (W.readOnly && (to === "setup" || to === "settings"))) return;
       if (to === "settings") prevView = view;
+      /* a tab takes the place of the screen you are on; a link in the page is a step Back returns from (lib/back.js) */
+      var byLink = !a.closest(".tabs");
       W.fxFlip("page", VIEWS[to] > VIEWS[view] ? 1 : -1, function () {
         view = to;
-        try {
-          history.replaceState(null, "", HASH[view]);
-        } catch (x) {}
+        W.navTo(HASH[view], byLink);
         W.render();
         window.scrollTo(0, 0);
       });
@@ -2137,9 +2193,7 @@
         W.openStay[W.cityKey(gs.country, gs.name)] = true;
         W.scrollToStop = +d.gostay;
         view = "setup";
-        try {
-          history.replaceState(null, "", "#plan");
-        } catch (x) {}
+        W.navTo("#plan", true);
         W.render();
       });
       return;
@@ -2197,6 +2251,7 @@
     } else if (d.jdel != null && W.journalClick) W.journalClick(d);
     else if (d.journalgo) {
       if (W.goToDay) W.goToDay(+d.journalgo);
+      if (W.goOpen) W.goOpen("journal"); /* (on Today it may be folded to a line: this is the way to it, so it opens) */
       W.goView("go", "#viewGo .journal");
       return;
     } else if ((d.live || d.livepick != null || d.site) && W.liveClick) W.liveClick(d, P);
@@ -2376,34 +2431,35 @@
     return prevView === "settings" ? "trip" : prevView;
   };
   /* go to a screen; anchor (a selector) lands on that part of it instead of the top, once the page has changed */
+  /* Scroll so that an element sits `gap` px below the top of the screen, and keep it there for a moment: what is
+     above it can still grow as it loads (photos, the forecast, the day bag). Your own scrolling ends it at once. */
+  function holdAt(find, gap) {
+    var until = Date.now() + 1800,
+      mine = false,
+      stop = function () {
+        mine = true;
+      };
+    ["wheel", "touchstart", "keydown", "mousedown"].forEach(function (ev) {
+      window.addEventListener(ev, stop, { once: true, passive: true });
+    });
+    (function hold() {
+      if (mine || Date.now() > until) return;
+      var b = find();
+      if (b) {
+        var top = b.getBoundingClientRect().top;
+        if (Math.abs(top - gap) > 4) window.scrollTo(0, Math.max(0, top + window.pageYOffset - gap));
+      }
+      requestAnimationFrame(hold);
+    })();
+  }
   W.goView = function (to, anchor) {
     if (W.closeStop) W.closeStop(); /* a stop's sheet belongs to the screen it was opened on */
     var land = function () {
-      var a = anchor && document.querySelector(anchor);
-      if (!a) {
-        window.scrollTo(0, 0);
-        return;
-      }
-      window.scrollTo(0, Math.max(0, a.getBoundingClientRect().top + window.pageYOffset - 12));
-      /* what is above it can still grow as it loads (photos, the day bag): for a moment, keep the spot in place, unless
-         you start scrolling yourself */
-      var until = Date.now() + 1800,
-        mine = false,
-        stop = function () {
-          mine = true;
-        };
-      ["wheel", "touchstart", "keydown", "mousedown"].forEach(function (ev) {
-        window.addEventListener(ev, stop, { once: true, passive: true });
-      });
-      (function hold() {
-        if (mine || Date.now() > until) return;
-        var b = document.querySelector(anchor);
-        if (b) {
-          var top = b.getBoundingClientRect().top;
-          if (Math.abs(top - 12) > 4) window.scrollTo(0, Math.max(0, top + window.pageYOffset - 12));
-        }
-        requestAnimationFrame(hold);
-      })();
+      if (anchor && document.querySelector(anchor))
+        holdAt(function () {
+          return document.querySelector(anchor);
+        }, 12);
+      else window.scrollTo(0, 0);
     };
     if (to === view) {
       W.render();
@@ -2416,9 +2472,7 @@
       VIEWS[to] > VIEWS[view] ? 1 : -1,
       function () {
         view = to;
-        try {
-          history.replaceState(null, "", HASH[view]);
-        } catch (x) {}
+        W.navTo(HASH[view], true); /* (a jump by a link: Back returns from it) */
         W.render();
         land();
       },
@@ -2429,9 +2483,7 @@
     if (window.__WP_OFFLINE && (v === "setup" || v === "settings"))
       v = "trip"; /* a copy is for the trip itself: planning needs the live app */
     view = v;
-    try {
-      history.replaceState(null, "", HASH[v]);
-    } catch (x) {}
+    W.navTo(HASH[v]);
   };
   W.currentView = function () {
     return view;

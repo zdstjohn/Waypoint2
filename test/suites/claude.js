@@ -5,8 +5,10 @@ exports.run = async t => {
   const b = await launch(); const { pg, errors } = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(pg);
   await pg.evaluate(() => { W.save && W.save(); localStorage.setItem('waypoint-now', '2027-06-09T10:40:00'); });
   await pg.reload(); await calm(pg, 5000);
-  await pg.waitForFunction(() => W.laterReady && !!document.getElementById('replanQ'), null, { timeout: 8000 }).catch(() => {});
-  t.ok(await pg.$('#replanQ'), 'Today has a box to say what is going on');
+  await pg.waitForFunction(() => W.laterReady && !!document.querySelector('#viewGo [data-goplans]'), null, { timeout: 8000 }).catch(() => {});
+  t.ok(!(await pg.$('#replanQ')) && !(await pg.$('#viewGo .go-rescue')) && await pg.$('#viewGo [data-goplans]'), 'Today keeps the ways to rescue the day behind one button, "Change of plans", in the row under "Running late?"');
+  await pg.click('#viewGo [data-goplans]'); await pg.waitForFunction(() => !!document.getElementById('replanQ'), null, { timeout: 4000 }).catch(() => {});
+  t.ok(await pg.$('#replanQ') && await pg.evaluate(() => document.querySelector('[data-goplans]').getAttribute('aria-expanded') === 'true' && document.querySelectorAll('.go-rescue [data-rescue]').length === 4), 'opened, it has the four rescues and a box to say what is going on');
   const snap = () => pg.evaluate(() => { const d = W.P.days[W.S.day - 1], T = W.dayTimes(d, W.P), nm = W.nowMin(); return d.slots.map(x => ({ slot: x.slot, n: x.item ? x.item.n : null, free: !!(W.S.free || {})[x.key], started: !!(T.rows[x.slot] && T.rows[x.slot].start != null && T.rows[x.slot].start <= nm + 5) })); });
   const before = await snap();
 

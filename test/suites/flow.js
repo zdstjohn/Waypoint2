@@ -113,15 +113,19 @@ exports.run = async t => {
     const before = cards.filter(c => { let p = c.previousElementSibling; while (p && !p.matches('article.slot, .nav-leg')) p = p.previousElementSibling; return p && p.matches('.nav-leg'); }).length;
     return { n: L.length, cards: cards.length, before, hrefs: L.every(a => /^https:\/\/www\.google\.com\/maps\/dir\/\?api=1(&origin=[^&]+)?&destination=/.test(a.href) && a.target === '_blank'), text: L[0] && L[0].textContent.replace(/\s+/g, ' ').trim(), inCard: document.querySelectorAll('#viewTrip article.slot .leg').length }; });
   t.ok(nav.n >= nav.cards && nav.before === nav.cards && nav.hrefs && /^Navigate\s*·.*\d+ min/.test(nav.text || '') && nav.inCard === 0, 'each stop has "Navigate · 19 min" on the way to it, opening Google Maps directions, and the card no longer repeats the time: ' + JSON.stringify(nav));
-  /* back to the top: a round button once you are most of a screen down, above the tab bar; one tap goes up */
+  /* back to the top: a round button when you turn back up from far down a screen, above the tab bar; one tap goes up.
+     On the way down it stays out of the way (it sits where each row keeps its button) */
   await pg.evaluate(() => { scrollTo(0, 0); W.upCheck(); }); await pg.waitForTimeout(300);
   const up0 = await pg.evaluate(() => { const u = document.getElementById('totop'); return !u || !u.classList.contains('on'); });
   /* (All days is long enough to scroll; a short day may not be) */
   await pg.evaluate(() => { W.S.glanceOpen = true; W.render(); }); await pg.waitForTimeout(400);
   await pg.evaluate(() => { scrollTo(0, document.documentElement.scrollHeight); W.upCheck(); }); await pg.waitForTimeout(400);
+  const upDown = await pg.evaluate(() => { const u = document.getElementById('totop'); return !u || !u.classList.contains('on'); });
+  await pg.evaluate(() => { scrollTo(0, scrollY - 160); W.upCheck(); }); await pg.waitForTimeout(400);
   const up1 = await pg.evaluate(() => { const u = document.getElementById('totop'), tb = document.querySelector('.tabs'); if (!u) return null; const r = u.getBoundingClientRect(), t = tb.getBoundingClientRect(), cs = getComputedStyle(u);
     return { on: u.classList.contains('on'), above: r.bottom <= t.top, right: innerWidth - r.right, w: Math.round(r.width), ring: /gradient/.test(cs.backgroundImage), name: u.getAttribute('aria-label') }; });
-  t.ok(up0 && up1 && up1.on && up1.above && up1.right >= 15 && up1.w >= 48 && up1.ring && up1.name === 'Back to the top', 'a back-to-top button shows once you scroll down, above the tab bar, with a gradient ring: ' + JSON.stringify(up1));
+  t.ok(up0 && upDown, 'scrolling down a long screen shows no back-to-top button: nothing covers the rows\' own buttons');
+  t.ok(up1 && up1.on && up1.above && up1.right >= 15 && up1.w >= 44 && up1.ring && up1.name === 'Back to the top', 'turning back up brings it, above the tab bar, with a gradient ring: ' + JSON.stringify(up1));
   await pg.click('#totop'); await pg.waitForFunction(() => scrollY < 5, null, { timeout: 4000 }).catch(() => {});
   t.ok(await pg.evaluate(() => scrollY < 5), 'and one tap goes back to the top');
   await pg.evaluate(() => { W.S.glanceOpen = false; W.render(); }); await pg.waitForTimeout(300);

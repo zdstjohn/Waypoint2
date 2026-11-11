@@ -2,6 +2,40 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v148
+
+The first five of the ten changes from the design review: the screens you use on the street.
+- Today opens on what you do next. While you are at a stop, Now and Next are one card: where you are (until when,
+  tickets), then what is next, when to leave ("Leave in 25 min · 22 min walk") and the screen's one main button,
+  "Directions to lunch". A real fault went with it: the Now card's Directions ran from the stop you were at to
+  itself. Every way there on a live day now starts where you are (no starting point is sent, so Google Maps uses the
+  phone's), and "Directions here" is a quiet link. screens/travel.js (nextPart, leaveLine, heroCard).
+- Today is shorter. The route (and map) sit right under Now and Next. "Rescue the day" is behind "Change of plans":
+  "Running late?" is a question with its three answers in one row under it (+15 min, +30 min, Change of plans). The day bag and the journal are one line each outside their time of day (the
+  bag opens until the first stop, the journal after the last; what you open stays open). The kids' corner is a quiet
+  row further down, not a banner at the top. On a phone the banner carries the day (city, date, the time, the whole
+  route), as on the Trip tab, so the heading that repeated it is gone and the days before and after are at the
+  foot. The forecast is one line with a picture of the weather. screens/travel.js (fold, W.goDayN), lib/gmaps.js
+  (W.wxLine), screens/trip.js (W.bannerDay).
+- The Day view starts with the plan. On the day itself the TODAY box is one line ("Now · Roman Forum until 1:30 ·
+  Today ›") that opens Today; stops that are over are dimmed, the one you are at is marked "Now", and the day opens
+  scrolled to it (once per visit; holdAt keeps the spot while photos load). "Rome's ideas don't fill this day" moved
+  from above the plan into the free row it is about. screens/today.js (W.todayRow), screens/trip.js (dayStops).
+- Android's Back button, in the installed app: Back closes what is open (a stop's details, the trips menu, the
+  new-trip questions), then returns from a screen you reached by a link (Settings, the kids' corner, Prepare from
+  "Tickets today") to the one you came from, and only then leaves the app. Tabs take each other's place and never
+  pile up. New lib/back.js (W.backOpen, W.backShut, W.navTo); every change of screen goes through W.navTo. Off inside
+  Claude, where the page lives in Claude's own frame. New suite: back.
+- One name and one size for "take me there". "Navigate" is from one stop to the next (the Day view's lines, Today's
+  route); "Directions" is to one place from where you are (Near you's "Go" is now "Directions"). On a touch screen
+  day numbers and row buttons are 44px, and the round icon buttons and pills take a 44px touch without changing
+  their look (app.css, "touch sizes"). The back-to-top button is smaller and comes only when you scroll back up, so it
+  no longer covers the buttons at the right of each row; tapping the tab you are on also goes to the top.
+- Fixed on the way: the banner's route button vanished whenever the banner was redrawn without the day (the cloud's
+  status changing); the link is now kept (lib/warm.js). Tonight's "Directions" started from the stay itself.
+- Room for all this in the first script: the new-trip questions moved to the second script (screens/quickstart.js;
+  W.whenLater in lib/later.js opens them when it has come).
+
 ## v147
 
 Street maps in the installable app, hosted in Waypoint's own Supabase project.

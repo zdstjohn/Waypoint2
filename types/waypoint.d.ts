@@ -404,6 +404,8 @@ interface Waypoint {
   bannerRoute: (url: string) => void;
   pinBar: (P: Plan) => void;
   clip: (s: string, n: number) => string;
+  goDayN: (P: Plan) => number;
+  dayBagState: (day: Day, P: Plan) => { n: number; total: number } | null;
   upCheck: () => void;
   nightsAt: (P: Plan, si: number) => number;
   nightsText: (P: Plan, si: number) => string;
@@ -557,7 +559,7 @@ interface Waypoint {
   takeItBlock: any;
   takeItClick: (d: any, P: Plan) => any;
   tickLabel: (key: string) => string;
-  todayCard: any;
+  todayRow: (day: Day, P: Plan, T: any) => string;
   todayN: (P?: Plan | null) => number | null;
   topLine: (P: Plan) => string;
   travelNudge: (P: Plan) => { key: string; k: string; text: string; sub: string; go: any } | null;
@@ -599,6 +601,22 @@ interface Waypoint {
   laterLoading?: boolean;
   loadLater: () => void;
   needLater: () => boolean;
+  /** open a folded part of Today ("bag", "journal") */
+  goOpen: (name: string) => void;
+  /** "smooth", or "auto" for someone who asked for less motion */
+  smooth: () => ScrollBehavior;
+  /** the Back button (lib/back.js): something opened on top of the screen / was closed by its own control */
+  backOpen: (key: string, close: () => any) => void;
+  backShut: (key: string) => void;
+  /** the address follows the screen; step: reached by a link, so Back returns from it */
+  navTo: (hash: string, step?: boolean) => void;
+  /** run this once the second script is here (asks for it when it is not) */
+  whenLater: (fn: () => void) => void;
+  laterDone: () => void;
+  /** quick start (screens/quickstart.js, second script) */
+  qsOpen: (first?: boolean) => void;
+  qsIsOpen: () => boolean;
+  qsClose: () => boolean;
   ideasFull: (pool: Pool | null | undefined) => boolean;
   /** how many things to do and places to eat a city starts with at least; more only on "Find more" */
   FIRST_IDEAS: number;

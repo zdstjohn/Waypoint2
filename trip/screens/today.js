@@ -1,5 +1,6 @@
-/* Waypoint Today mode: during the trip, My trip opens on today, says what's now and what's next,
-   when to leave, and shifts the rest of the day when you're running late. */
+/* Waypoint, today on the Trip tab: during the trip the Day view opens on today, with one line for what's on now and
+   the way to the Today screen (screens/travel.js); and the clock the whole day goes by, with "running late" moving
+   the rest of the day. */
 (function () {
   "use strict";
   var W = window.W,
@@ -46,8 +47,9 @@
     out.late = late;
   };
 
-  /* the card at the top of today */
-  W.todayCard = function (day, P, T) {
+  /* Today's day on the Trip tab: one line saying what is on now (or next), and the way to the Today screen, where the
+     day is lived (when to leave, directions, running late). The plan itself starts right under it. */
+  W.todayRow = function (day, P, T) {
     if (!isToday(day) || !T) return "";
     var nm = nowMin(),
       rows = (T.order || [])
@@ -66,84 +68,29 @@
       if (o.R.start <= nm && nm < o.R.end) cur = o;
       else if (!next && o.R.start > nm) next = o;
     });
-    var home = W.homebase(day.country, day.city),
-      late = W.lateFor(day);
-    var napNow = T.nap && T.nap.start <= nm && nm < T.nap.end;
-    var lines = [];
-    if (napNow)
-      lines.push(
-        '<p class="now-l"><span class="k">Now</span> Nap or rest back at ' +
-          esc(home.label) +
-          ' <span class="muted">until ' +
-          W.clock(T.nap.end) +
-          "</span></p>"
-      );
-    else if (cur)
-      lines.push(
-        '<p class="now-l"><span class="k">Now</span> ' +
-          esc(cur.x.item.n) +
-          ' <span class="muted">until about ' +
-          W.clock(cur.R.end) +
-          "</span></p>"
-      );
-    var acts = "";
-    if (next) {
-      var from = cur ? cur.x.item : null;
-      if (!from) {
-        rows.forEach(function (o) {
-          if (o.R.end <= nm && o.x.item.lat != null) from = o.x.item;
-        });
-      }
-      if (!from || napNow) from = home;
-      var lg = W.leg(from, next.x.item),
-        leave = next.R.start - (lg ? lg.min : 10);
-      var mins = leave - nm;
-      lines.push(
-        '<p class="now-l"><span class="k">Next</span> ' +
-          esc(next.x.item.n) +
-          ' <span class="muted">at ' +
-          W.clock(next.R.start) +
-          "</span></p>"
-      );
-      lines.push(
-        '<p class="leave' +
-          (mins <= 10 ? " soon" : "") +
-          '">' +
-          (mins <= 0
-            ? "Time to go"
-            : mins <= 90
-              ? "Leave in " + W.fmtMin(Math.max(5, Math.round(mins / 5) * 5))
-              : "Leave by " + W.clock(leave)) +
-          (lg ? ' <span class="muted">· ' + esc(W.fmtMin(lg.min) + " " + lg.label) + "</span>" : "") +
-          "</p>"
-      );
-      acts +=
-        '<a class="lo-book" href="' +
-        esc(W.gmapsDir(from, next.x.item, lg ? lg.mode : "walk")) +
-        '" target="_blank" rel="noopener">Directions <span aria-hidden="true">↗</span></a>';
-    } else if (!cur && !napNow) {
-      var tomorrow = P.days[day.n];
-      lines.push(
-        '<p class="now-l">' +
-          (rows.length && nm >= rows[rows.length - 1].R.end ? "That's today done." : "Nothing else planned today.") +
-          (tomorrow ? ' <span class="muted">Tomorrow: ' + esc(tomorrow.city) + "</span>" : "") +
-          "</p>"
-      );
-      if (tomorrow) acts += '<button type="button" class="btn quiet sm" data-day="' + tomorrow.n + '">See tomorrow</button>';
-    }
-    if (next || cur)
-      acts +=
-        '<button type="button" class="btn quiet sm" data-late="15">Running late</button>' +
-        (late ? '<button type="button" class="linkish" data-late="0">Back on time</button>' : "");
+    var late = W.lateFor(day),
+      zone = W.tripTimeNote(day.city),
+      napNow = T.nap && T.nap.start <= nm && nm < T.nap.end;
+    var k = napNow || cur ? "Now" : next ? "Next" : "",
+      what = napNow
+        ? "Nap or rest"
+        : cur
+          ? cur.x.item.n
+          : next
+            ? next.x.item.n
+            : rows.length && nm >= rows[rows.length - 1].R.end
+              ? "That's today done"
+              : "Nothing else planned today",
+      when = napNow ? "until " + W.clock(T.nap.end) : cur ? "until " + W.clock(cur.R.end) : next ? "at " + W.clock(next.R.start) : "";
+    var tail = [when, zone, late ? "running " + W.fmtMin(late) + " late" : ""].filter(Boolean).join(" · ");
     return (
-      '<section class="today sk" aria-live="polite"><div class="today-h"><b>Today</b><span class="muted">' +
-      W.clock(nm) +
-      (W.tripTimeNote(day.city) ? " · " + esc(W.tripTimeNote(day.city)) : "") +
-      (late ? " · plan moved " + W.fmtMin(late) + " later" : "") +
-      "</span></div>" +
-      lines.join("") +
-      (acts ? '<div class="lo-act">' + acts + "</div>" : "") +
-      "</section>"
+      '<button type="button" class="today-row" data-view="go"><span class="tr-t">' +
+      (k ? '<b class="tr-k">' + k + "</b> " : "") +
+      '<span class="tr-n">' +
+      esc(what) +
+      "</span>" +
+      (tail ? ' <span class="muted">' + esc(tail) + "</span>" : "") +
+      '</span><span class="tr-go">Today<span aria-hidden="true"> ›</span></span></button>'
     );
   };
   W.lateClick = function (d) {

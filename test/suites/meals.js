@@ -38,7 +38,7 @@ exports.run = async t => {
   t.ok(!/for breakfast|for lunch/.test(ask), 'meals that have a place are not asked for');
   const total = +(ask.match(/^List (\d+) MORE/) || [])[1];
   t.ok(total >= 2 && total <= 12, 'one place to spare for each meal, twelve at most in one question (' + total + ')');
-  t.ok(/ideas don't fill this day/.test(note) && /Finding more/.test(note), 'meanwhile the day says more are being found: "' + note.trim() + '"');
+  t.ok(/Nothing in .+'s ideas fits here/.test(note) && /Finding more/.test(note), 'meanwhile the day says more are being found: "' + note.trim() + '"');
   await settle(pg, 9000);
   const s2 = await snap(0), dinners = s2.meals.filter(m => m.slot === 'dinner' && !m.cut && !m.free);
   t.ok(dinners.length >= 2 && dinners.every(m => m.n), 'when they arrive, every dinner has a place: ' + dinners.map(m => m.n).join(', '));
@@ -68,7 +68,9 @@ exports.run = async t => {
   const s5 = await snap(2), mine = s5.mealAsks.filter(p => p.indexOf('in ' + s5.city + ',') > -1);
   t.ok(mine.length === 3 && s5.count === 3, 'when the answers bring nothing, the town is asked three times and no more (' + mine.length + ')');
   const note2 = await pg.evaluate(() => { const d = W.plan().days.find(d => d.stop === 2 && d.slots.some(x => x.slot === 'dinner' && !x.item && !x.cut)); if (!d) return 'no day'; W.S.day = d.n; W.S.tview = 'days'; W.goView('trip'); W.render(); const p = document.querySelector('#viewTrip .short-note'); return p ? p.textContent + '|' + !!p.querySelector('[data-more]') : ''; });
-  t.ok(/ideas don't fill this day/.test(note2) && /Find more ideas\|true/.test(note2), 'the day then says so, with "Find more ideas" to ask yourself');
+  t.ok(/Nothing in .+'s ideas fits here/.test(note2) && /Find more ideas\|true/.test(note2), 'the free part of the day then says so itself, with "Find more ideas" to ask yourself');
+  const where = await pg.evaluate(() => { const p = document.querySelector('#viewTrip .short-note'); return { inRow: !!(p && p.closest('article.slot.free')), n: document.querySelectorAll('#viewTrip .short-note').length }; });
+  t.ok(where.inRow && where.n === 1, 'the note sits in the free row it is about, once a day, not above the plan');
   /* a meal you freed is yours: not counted, not asked for */
   const freed = await pg.evaluate(() => { const P = W.plan(), ck = Object.keys(P.gaps)[0], n0 = P.gaps[ck].at.length; const d = P.days.find(d => d.stop === 2 && d.slots.some(x => x.slot === 'dinner' && !x.item && !x.cut)), x = d.slots.find(y => y.slot === 'dinner');
     (W.S.free || (W.S.free = {}))[x.key] = 1; W.replan(); const P2 = W.plan(), g = P2.gaps[ck]; return { n0, n1: g ? g.at.length : 0 }; });

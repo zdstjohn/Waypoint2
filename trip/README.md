@@ -14,8 +14,9 @@ into each redrawn screen, and a WebGL picture that moves is blank (black) until 
 when moved, resized (a ResizeObserver) or shown again. Touch-first phones use two fingers on the map (the page scrolls
 with one); with a mouse or trackpad the wheel zooms and dragging moves it. The postcards and
 greetings (lib/warm.js) stay in the first script: they are on the first screen, and arriving later would move it.
-How ready you are and the trip's memories (lib/memories.js) and Near you on Today (screens/near.js) come with the
-second: none is on a first screen before the second script is in.
+How ready you are and the trip's memories (lib/memories.js), Near you on Today (screens/near.js) and the questions
+for a new trip (screens/quickstart.js) come with the second: none is on a first screen before the second script is
+in (W.whenLater runs a step once it is: the very first open asks its three questions that way).
 The offline copy carries both scripts and both stylesheets.
 Travel mode stays in the first script on purpose: on the trip it is the first screen, often on a weak signal. What the
 first screen reads from Prepare (the book-by checklist, the budget, which booking belongs to a stop) is lib/bookcore.js,
@@ -47,6 +48,10 @@ lib/              the shared library
                   view, tv, build, ua, w, on, n}], updated}). Nothing personal: the message, where in the code, which
                   screen, the build, the browser and the screen width. Read it with ArtifactData get on that path.
   later.js        loads app2.js (above); loaded right after errlog.js
+  back.js         the Back button in the installed app: what opens on top of the screen is one entry in the browser's
+                  history (W.backOpen; closing it yourself takes the entry out, W.backShut), a screen reached by a link is
+                  one too (W.navTo with step) and tabs replace the current one, so Back closes, then steps back, then
+                  leaves. Off inside Claude (W.navTo only keeps the address in step there)
   classify.js     what a place is (kind, how long, how tiring, indoors, which parts of the day) — read by the planner,
                   the clock and the pictures
   validate.js     the one door for everything Claude sends back (W.V): names, pins near the city they were asked for
@@ -218,8 +223,13 @@ screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.
                   Pack · Take along) and Today (travel.js: Travel mode, also the storybook; near.js: Near you, the
                   closest ideas to your phone's location or to where the plan has you, with Go and Add; travel.js also
                   draws the Google Maps row, W.gmRow: Maps, Save as list, About times, shared with the Day tab). On the
-                  Day tab the way to each stop is a "Navigate" line between the cards. flow.js has the next-step
-                  bar, undo, the stop sheet and the quick start (shown on the very first open; a stop's sheet keeps
+                  Day tab the way to each stop is a "Navigate" line between the cards ("Navigate" is always from one
+                  stop to the next, "Directions" to one place from where you are). On the day itself the Day tab has
+                  one line for what is on now (today.js, W.todayRow), dims what is over and opens at the stop you are
+                  at; Today shows Now and Next in one card with the way to what is next as its one main button, the
+                  route under it, and the day bag and journal folded to a line outside their time of day. flow.js has
+                  the next-step bar, undo and the stop sheet; quickstart.js (second script) the three questions for a
+                  new trip (shown on the very first open; a stop's sheet keeps
                   "Leave free" and "Not for us" at its foot, apart from its links, and "Not for us" asks once); journal, family;
                   settings.js is "Import a plan" and Storage (sharing lives in the trip menu); kids.js is "For the kids"
                   (from the trip menu and Today): today's outings in big photo cards with a heart per kid, a passport

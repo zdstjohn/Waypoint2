@@ -1,3 +1,11 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v147: street maps in the installable app; no screen of the Claude version changes.
+# v148: Today opens on now and next (one card), the route under it, the rest folded; the Day view's free row carries
+# the "ideas" note. The back-to-top button no longer shows on the way down, which changes the scrolled (-700) frame of
+# every long screen: Prepare, Settings, the swap and All days.
+today-*
+trip-days-*
+book-*
+settings-*
+swap-*
+trip-all-*

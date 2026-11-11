@@ -154,6 +154,19 @@
   });
   setInterval(sync, 5000); /* leaving Today by any other route (a tab, a link) lets the screen sleep again soon */
 
+  /** how much of the day's bag is packed @returns {{n: number, total: number} | null} */
+  W.dayBagState = function (day, P) {
+    var items = W.dayBag(day, P),
+      got = (W.S.bag || {})[W.restKey(day)] || {};
+    return items.length
+      ? {
+          n: items.filter(function (o) {
+            return got[o.id];
+          }).length,
+          total: items.length
+        }
+      : null;
+  };
   /* ---------- the card ---------- */
   W.dayBagCard = function (day, P, live) {
     var items = W.dayBag(day, P);

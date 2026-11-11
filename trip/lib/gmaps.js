@@ -422,23 +422,41 @@
         return Math.round(F ? (c * 9) / 5 + 32 : c);
       };
     var wet = r.pop >= 70 || (r.pop >= 50 && WET.test(r.t || ""));
+    /* one line: a picture for the weather, then what, how likely, how warm (the words "Today's forecast" are there for
+       a screen reader; the picture says it to the eye), and Google's page for the rest */
     var bits = [
       esc(r.x),
-      r.pop >= 20 ? r.pop + "% chance of " + r.pt : "",
+      /* ("Rain · 75%", not "Rain · 75% rain": the kind of weather is said once) */
+      r.pop >= 20
+        ? r.pop +
+          "%" +
+          (new RegExp(r.pt, "i").test(r.x || "")
+            ? '<span class="vh"> chance of ' + r.pt + "</span>"
+            : ' <span class="vh">chance of </span>' + r.pt)
+        : "",
       /* (wx-t, not nb: .nb is the stop letter's badge, pinned to a corner, and took the temperatures out past the edge) */
       '<span class="wx-t">' + deg(r.lo) + "–" + deg(r.hi) + (F ? "°F" : "°C") + "</span>"
     ].filter(Boolean);
     return (
       '<p class="day-wx' +
       (wet ? " wet" : "") +
-      '"><b>' +
+      '">' +
+      W.icon(wet || WET.test(r.t || "") ? "rain" : "sun", 2.1) +
+      '<span class="wx-l"><b class="vh">' +
       (live ? "Today's forecast" : "Forecast") +
-      ":</b> " +
+      ": </b>" +
       bits.join(" · ") +
-      ' <span class="muted">· ' +
-      W.extLink(r.u || "https://www.google.com/search?q=" + encodeURIComponent("weather " + day.city + ", " + day.country), "Google ↗") +
+      /* (with the way indoors beside it, the line stays one line: Google's page is on every other day's forecast) */
+      (wet && rescue
+        ? ""
+        : ' <span class="muted">· ' +
+          W.extLink(
+            r.u || "https://www.google.com/search?q=" + encodeURIComponent("weather " + day.city + ", " + day.country),
+            "Google ↗"
+          ) +
+          "</span>") +
       "</span>" +
-      (wet && rescue ? ' <button type="button" class="chip" data-rescue="rain">Rain likely · go indoors</button>' : "") +
+      (wet && rescue ? '<button type="button" class="chip" data-rescue="rain">Go indoors</button>' : "") +
       "</p>"
     );
   };

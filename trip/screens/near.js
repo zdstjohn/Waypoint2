@@ -149,13 +149,13 @@
               esc(slot.label) +
               '">Add</button>'
             : "") +
-          '<a class="btn sm nr-go" href="' +
+          '<a class="btn quiet sm nr-go" href="' +
           esc(W.gmapsDir(useHere || (ctx.from && ctx.from.none) ? null : at, it, lg ? lg.mode : "walking")) +
           '" target="_blank" rel="noopener" aria-label="Directions to ' +
           esc(it.n) +
           '">' +
           W.icon("dir", 2.2) +
-          "Go</a></div></li>"
+          "Directions</a></div></li>"
         );
       })
       .join("");

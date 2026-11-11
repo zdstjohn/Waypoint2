@@ -15,13 +15,33 @@
   var cssDone = !!window.__WP_LATER,
     jsDone = false,
     cssAsked = false;
-  function ready() {
-    if (cssDone && jsDone && !W.laterReady) {
-      W.laterReady = true;
-      W.laterLoading = false;
-      W.changed();
-    }
+  /** @type {(() => void)[]} */ var waiting = [];
+  function done() {
+    if (W.laterReady) return;
+    W.laterReady = true;
+    W.laterLoading = false;
+    var q = waiting;
+    waiting = [];
+    q.forEach(function (f) {
+      try {
+        f();
+      } catch (e) {
+        if (W.caught) W.caught(e, "after the second script");
+      }
+    });
+    W.changed();
   }
+  function ready() {
+    if (cssDone && jsDone) done();
+  }
+  /* (an offline copy's inline second script says so itself, in its last line) */
+  W.laterDone = done;
+  /** run this once the second script is here: at once when it is, otherwise it is asked for and this waits for it */
+  W.whenLater = function (fn) {
+    if (W.laterReady) return fn();
+    waiting.push(fn);
+    W.loadLater();
+  };
   W.loadLater = function () {
     if (W.laterReady || W.laterLoading || window.__WP_LATER) return;
     W.laterLoading = true;

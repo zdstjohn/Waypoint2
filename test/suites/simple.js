@@ -31,7 +31,10 @@ exports.run = async t => {
   t.ok(rt1.stops > 2 && rt1.dir, 'Today keeps the route with its directions: ' + JSON.stringify(rt1));
   await pg.evaluate(() => W.goView('go')); await pg.waitForTimeout(800);
   const g1 = await look();
-  t.ok(g1.photos === 0 && !(await pg.evaluate(() => { const k = document.querySelector('.kids-chip'); return k && k.checkVisibility(); })), 'Today: no photos and no kids\' banner: ' + JSON.stringify(g1));
+  t.ok(g1.photos === 0 && !(await pg.evaluate(() => { const k = document.querySelector('.go-kids'); return k && k.checkVisibility(); })), 'Today: no photos and no kids\' row: ' + JSON.stringify(g1));
+  /* Simple view has no banner line, so on a phone the day's own heading stays in the page (the banner carries it otherwise) */
+  const hd = await pg.evaluate(async () => { const gt = document.querySelector('#viewGo .go-top'), go = !!gt && gt.checkVisibility(); W.goView('trip'); W.S.tview = 'days'; W.render(); await new Promise(r => setTimeout(r, 500)); const h2 = document.querySelector('#viewTrip .day-h h2'), r = h2 && h2.getBoundingClientRect(); return { go, day: !!r && r.width > 20 && r.height > 10, attr: document.querySelector('.top').hasAttribute('data-day') }; });
+  t.ok(hd.go && hd.day && !hd.attr, 'on a phone, Today and the Day view keep their own day heading (there is no banner line to carry it): ' + JSON.stringify(hd));
   /* a stop's panel: no photo, the actions stay */
   await pg.evaluate(() => { W.goView('trip'); W.S.tview = 'days'; W.render(); const x = W.P.days[1].slots.find(y => y.item && !W.isFood(y.slot)); W.openStop(x.key); }); await pg.waitForTimeout(500);
   t.ok(await pg.evaluate(() => !document.querySelector('#sheethost img.photo') && !!document.querySelector('#sheethost [data-sheetact="swap"]')), 'a stop\'s panel has no photo and keeps its actions');

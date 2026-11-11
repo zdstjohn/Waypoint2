@@ -28,8 +28,10 @@
     check: svg('<path d="M4.5 10.5l3.5 3.5 7.5-8"/>'),
     train: W.icon("train", 2.2),
     chevL: svg('<path d="M12.5 4l-6 6 6 6"/>'),
-    chevR: svg('<path d="M7.5 4l6 6-6 6"/>')
+    chevR: svg('<path d="M7.5 4l6 6-6 6"/>'),
+    chevD: svg('<path d="M4 7.5l6 6 6-6"/>')
   };
+  var todayRoute = ""; /* today's whole route in Google Maps (the banner's route button on a phone) */
 
   /* ======================= which mode ======================= */
   /* a mode you pick lasts for that day; otherwise the trip's dates decide */
@@ -175,7 +177,7 @@
         ? ""
         : W.extLink(
             W.gmapsDir(a.lat != null ? a : { label: (a.label || a.n) + ", " + city, lat: null }, to, lg ? lg.mode : "walking"),
-            "Directions"
+            "Navigate" /* (from one stop to the next: "Navigate"; to one place from wherever you are: "Directions") */
           );
     return (
       '<li class="rc-leg' +
@@ -224,7 +226,7 @@
       '<div class="g-acts">' +
       (!home.none && home.lat != null
         ? '<a class="chip-a" href="' +
-          esc(W.gmapsDir(live ? lastPlace(list, nm, home) : home, { n: home.label, lat: home.lat, lng: home.lng }, "transit")) +
+          esc(W.gmapsDir(null, { n: home.label, lat: home.lat, lng: home.lng }, "transit")) +
           '" target="_blank" rel="noopener">Directions</a>'
         : "") +
       (!(stay && stay.label) && !W.readOnly
@@ -377,6 +379,7 @@
     )
       rows += legRow(prev, homePt, true);
     var gm = pts.length ? W.dayRouteUrl(day, pts, home) : "";
+    todayRoute = gm;
     h +=
       '<section class="go-day go-route sk"><div class="go-rh"><h3>' +
       "Today's route" +
@@ -391,6 +394,10 @@
       "</section>";
     return h;
   }
+  /** the day Today shows: one you are looking ahead or back at, else today, else the Trip tab's day */
+  W.goDayN = function (P) {
+    return Math.max(1, Math.min(P.N, goN || W.todayN(P) || W.S.day || 1));
+  };
   W.renderGo = function (P) {
     var el = $("viewGo");
     if (!el) return;
@@ -400,8 +407,7 @@
     }
     var S = W.S,
       tn = W.todayN(P),
-      n = goN || tn || S.day || 1;
-    n = Math.max(1, Math.min(P.N, n));
+      n = W.goDayN(P);
     S.day = n;
     var day = P.days[n - 1],
       live = tn === n,
@@ -414,13 +420,18 @@
     /* the top: which day, and moving between days */
     var a = P.days[n - 2],
       b = P.days[n];
-    if (W.kidNames && P.p.kid)
-      h +=
-        '<button type="button" class="kids-chip" data-view="kids"><span class="kc-i" aria-hidden="true">' +
-        W.icon("star", 2.1) +
-        "</span> " +
-        esc(W.kidNames(13).length ? "For " + W.joinNames(W.kidNames(13)) : "For the kids") +
-        ": their day, passport and treasure hunt ›</button>";
+    /* (the kids' corner is a quiet row further down: the top of this screen is what you do now and next) */
+    var kidsRow =
+      W.kidNames && P.p.kid
+        ? '<button type="button" class="go-kids sk" data-view="kids">' +
+          W.icon("star", 2.1) +
+          "<span><b>" +
+          esc(W.kidNames(13).length ? "For " + W.joinNames(W.kidNames(13)) : "For the kids") +
+          '</b><span class="small muted">Their day, passport and treasure hunt</span></span>' +
+          IC.chevR +
+          "</button>"
+        : "";
+    var GO = '<div class="go' + (live ? " live" : "") + '">';
     h +=
       '<div class="go-top"><button type="button" class="icon-btn" data-goprev="' +
       (a ? a.n : "") +
@@ -470,7 +481,7 @@
     if (!T) {
       h +=
         '<div class="empty sk"><div class="loading" style="justify-content:center">Gathering ideas for ' + esc(day.city) + "…</div></div>";
-      W.draw(el, '<div class="go">' + h.replace("<!--wx-->", W.wxLine ? W.wxLine(day, live) : "") + "</div>");
+      W.draw(el, GO + h.replace("<!--wx-->", W.wxLine ? W.wxLine(day, live) : "") + "</div>");
       return;
     }
 
@@ -564,7 +575,9 @@
           ? home
           : lastPlace(list, nm, home)
       : home;
-    if (hero) h += heroCard(hero, cur === hero, day, P, from, live, nm, home);
+    /* at a stop with something after it: one card, Now on top, Next under it with the screen's one main button */
+    var nextHtml = cur && cur.k === "stop" && nxt ? nextPart(nxt, from, nm, home) : "";
+    if (hero) h += heroCard(hero, cur === hero, day, P, from, live, nm, home, nextHtml);
     else if (live) {
       var bk = list.filter(function (e) {
         return e.k === "back";
@@ -577,13 +590,16 @@
         (home.none
           ? ""
           : '<div class="gh-act"><a class="btn" href="' +
-            esc(W.gmapsDir(lastPlace(list, nm, home), { n: home.label, lat: home.lat, lng: home.lng }, "transit")) +
+            esc(W.gmapsDir(null, { n: home.label, lat: home.lat, lng: home.lng }, "transit")) +
             '" target="_blank" rel="noopener">' +
             IC.dir +
             "Directions back</a></div>") +
         "</div></section>";
     }
-    if (second) h += nextCard(second, day, P, hero && hero.k === "stop" ? hero.x.item : home, live);
+    if (second && !nextHtml) h += nextCard(second, day, P, hero && hero.k === "stop" ? hero.x.item : home, live);
+
+    /* today, stop by stop, with the map: straight under what's now and next */
+    h += goRoute(P, day, list, home, live, cur, nxt, nm, mapBtn, mapIn);
 
     /* running late, and rescuing the rest of the day */
     var late = W.lateFor(day),
@@ -594,11 +610,20 @@
     h = h.replace("<!--wx-->", W.wxLine ? W.wxLine(day, live, !!(live && (cur || nxt) && !W.readOnly && !resc)) : "");
     if (live && (cur || nxt) && !W.readOnly) {
       h +=
-        '<div class="go-late"><span>Running late?</span><button type="button" class="chip" data-late="15">+15 min</button><button type="button" class="chip" data-late="30">+30 min</button>' +
+        /* the question above, its answers in one row under it: +15, +30 and "Change of plans" */
+        '<div class="go-late"><span class="gl-q">Running late?</span><div class="gl-b"><button type="button" class="chip" data-late="15">+15 min</button><button type="button" class="chip" data-late="30">+30 min</button>' +
+        (resc
+          ? ""
+          : '<button type="button" class="chip go-cop" data-goplans="1" aria-expanded="' +
+            plansOpen +
+            '">Change of plans' +
+            IC.chevD +
+            "</button>") +
+        "</div>" +
         (late
-          ? '<button type="button" class="linkish" data-late="0">Back on time</button><span class="small muted">plan moved ' +
+          ? '<span class="gl-moved"><button type="button" class="linkish" data-late="0">Back on time</button><span class="small muted">plan moved ' +
             W.fmtMin(late) +
-            " later</span>"
+            " later</span></span>"
           : "") +
         "</div>";
       if (resc)
@@ -606,9 +631,9 @@
           '<div class="go-rescue sk done"><span class="gr-k">' +
           esc(rescueLine(resc)) +
           '</span><button type="button" class="linkish" data-unrescue="1">Undo</button></div>';
-      else
+      else if (plansOpen)
         h +=
-          '<div class="go-rescue sk"><span class="gr-k">Day going sideways? Rescue the rest of it:</span><div class="gr-b">' +
+          '<div class="go-rescue sk"><span class="gr-k">Rescue the rest of the day:</span><div class="gr-b">' +
           '<button type="button" class="chip" data-rescue="rain">Rain · go indoors</button><button type="button" class="chip" data-rescue="tired">Everyone\'s done · keep it easy</button>' +
           '<button type="button" class="chip" data-rescue="behind">Way behind · trim</button><button type="button" class="chip" data-rescue="closed">It\'s closed · swap</button></div>' +
           '<span class="small muted">Nothing that has started or is booked changes. One tap, undo any time.</span>' +
@@ -619,25 +644,63 @@
     /* ideas near where you are now (your phone's location, or where the plan has you), on the day itself */
     if (live && W.nearCard) h += W.nearCard(day, P, { from: from, nm: nm, live: live });
 
-    h += goRoute(P, day, list, home, live, cur, nxt, nm, mapBtn, mapIn);
-
     h += goTickets(P, n, live);
-    /* what to take out today (comes with the second script) */
-    if (W.dayBagCard) h += W.dayBagCard(day, P, live);
-
     h += goTonight(P, day, list, home, live, n, nm);
+    /* what to take out today is a before-you-leave job: open until the first stop, one line after it (second script) */
+    var first = stops[0],
+      last = stops[stops.length - 1];
+    if (W.dayBagCard) {
+      var bs = W.dayBagState ? W.dayBagState(day, P) : null;
+      h += fold(
+        "bag",
+        "Day bag",
+        bs ? (bs.n === bs.total ? "All packed" : bs.n + " of " + bs.total + " packed") : "",
+        !live || !first || nm < first.start,
+        W.dayBagCard(day, P, live)
+      );
+    }
+    /* a photo and a line for the journal: an evening job, one line until the last stop is over */
+    if (W.journalCard)
+      h += fold("journal", "Journal", "A photo and a line for today", !live || !last || nm >= last.end, W.journalCard(day));
+    h += kidsRow;
     if (W.offline && W.offline.off) h = W.offline.block(P) + h; /* offline: say so first */
-
-    /* a photo and a line for the journal */
-    if (W.journalCard) h += W.journalCard(day);
     if (W.offline && !W.offline.off) h += W.offline.block(P);
+    /* the day before and after (on a phone the banner carries the day, so its arrows are down here, as on the Day tab) */
+    var nav = function (d, dir) {
+      return d
+        ? '<button type="button" class="dn-b ' +
+            (dir < 0 ? "pv" : "nx") +
+            '" data-goprev="' +
+            d.n +
+            '" aria-label="' +
+            (dir < 0 ? "Previous" : "Next") +
+            " day: Day " +
+            d.n +
+            ", " +
+            esc(d.city) +
+            '">' +
+            (dir < 0 ? IC.chevL : "") +
+            "<span><small>" +
+            (dir < 0 ? "Previous" : "Next") +
+            "</small><b>Day " +
+            d.n +
+            " · " +
+            esc(d.city) +
+            "</b></span>" +
+            (dir > 0 ? IC.chevR : "") +
+            "</button>"
+        : "";
+    };
+    if (a || b) h += '<nav class="daynav go-nav" aria-label="Other days">' + nav(a, -1) + nav(b, 1) + "</nav>";
     h +=
       '<p class="small muted go-foot">' +
       (tn
         ? 'While the trip is on, the app opens here. <button type="button" class="linkish" data-appmode="plan">Open on Trip instead</button>'
         : "") +
       "</p>";
-    W.draw(el, '<div class="go">' + h + "</div>", "go|" + W.S.tripId + "|" + day.n);
+    W.draw(el, GO + h + "</div>", "go|" + W.S.tripId + "|" + day.n);
+    /* on a phone the banner carries the day; its route button opens today's whole route */
+    if (W.bannerRoute) W.bannerRoute(todayRoute);
     /* the map itself comes with the second script: until then its place is held, saying it is loading */
     if (vtWant) {
       var slotEl = el.querySelector(".vt-slot");
@@ -659,7 +722,44 @@
     var o = L && L.best;
     return o ? [W.modeName(o.mode), L.r2r ? W.fmtMin(L.r2r.min) : o.dur, o.op].filter(Boolean).join(" · ") : "Travel to the next stop";
   }
-  function heroCard(e, isNow, day, P, from, live, nm, home) {
+  /* "Leave in 25 min · 22 min transit": how long until you set off (to the minute it matters, the clock time further out) */
+  function leaveLine(mins, at, lg, go) {
+    return (
+      '<p class="leave' +
+      (mins <= 10 ? " soon" : "") +
+      '">' +
+      (mins <= 0 ? go : mins <= 90 ? "Leave in " + W.fmtMin(Math.max(5, Math.round(mins / 5) * 5)) : "Leave by " + W.clock(at)) +
+      (lg ? ' <span class="muted">· ' + esc(W.fmtMin(lg.min) + " " + lg.label) + "</span>" : "") +
+      "</p>"
+    );
+  }
+  /* under Now, in the same card: what's next, when to leave for it, and the one main button, the way there from
+     where you are (no starting point: Google Maps starts at the phone) */
+  function nextPart(e, from, nm, home) {
+    var nap = e.k !== "stop",
+      to = nap ? { n: home.label, lat: home.lat, lng: home.lng } : e.x.item,
+      lg = W.leg(from, to),
+      at = e.start - (lg ? lg.min : nap ? 15 : 10);
+    if (nap && (e.away || home.none)) return "";
+    return (
+      '<div class="gh-next"><span class="gh-k">Next · ' +
+      W.clock(e.start) +
+      " " +
+      (nap ? "nap" : esc(slotName(e))) +
+      '</span><b class="ghn-n">' +
+      (nap ? "Back to " + esc(home.label) : esc(to.n)) +
+      "</b>" +
+      leaveLine(at - nm, at, lg, nap ? "Time to head back" : "Time to go") +
+      '<a class="btn gh-go" href="' +
+      esc(W.gmapsDir(null, to, lg ? lg.mode : "transit")) +
+      '" target="_blank" rel="noopener">' +
+      IC.dir +
+      "Directions to " +
+      (nap ? "your stay" : e.food ? esc(slotName(e).toLowerCase()) : esc(W.clip(to.n, 24))) +
+      "</a></div>"
+    );
+  }
+  function heroCard(e, isNow, day, P, from, live, nm, home, nextHtml) {
     if (e.k === "nap" && e.away) {
       return (
         '<section class="go-hero sk nap"><div class="gh-b"><span class="gh-k' +
@@ -690,23 +790,12 @@
         (e.k === "nap" ? (isNow ? "Rest back at " : "Head back to ") : "Take it easy near ") +
         esc(home.label) +
         "</h2>" +
-        (!isNow && live
-          ? '<p class="leave' +
-            (hm <= 10 ? " soon" : "") +
-            '">' +
-            (hm <= 0
-              ? "Time to head back"
-              : hm <= 90
-                ? "Leave in " + W.fmtMin(Math.max(5, Math.round(hm / 5) * 5))
-                : "Leave by " + W.clock(e.start - (hl ? hl.min : 15))) +
-            (hl ? ' <span class="muted">· ' + esc(W.fmtMin(hl.min) + " " + hl.label) + "</span>" : "") +
-            "</p>"
-          : "") +
+        (!isNow && live ? leaveLine(hm, e.start - (hl ? hl.min : 15), hl, "Time to head back") : "") +
         (isNow && e.k === "nap" ? '<p class="muted">Nap until ' + W.clock(e.end) + ", then the afternoon starts.</p>" : "") +
         (home.none
           ? ""
           : '<div class="gh-act"><a class="btn" href="' +
-            esc(W.gmapsDir(from, { n: home.label, lat: home.lat, lng: home.lng }, "transit")) +
+            esc(W.gmapsDir(live ? null : from, { n: home.label, lat: home.lat, lng: home.lng }, "transit")) +
             '" target="_blank" rel="noopener">' +
             IC.dir +
             "Directions</a></div>") +
@@ -779,23 +868,17 @@
       "</h2>" +
       (it.d ? '<p class="gh-d">' + esc(it.d) + "</p>" : "") +
       (sub ? '<p class="small muted">' + esc(sub) + "</p>" : "") +
-      (!isNow && live
-        ? '<p class="leave' +
-          (mins <= 10 ? " soon" : "") +
-          '">' +
-          (mins <= 0
-            ? "Time to go"
-            : mins <= 90
-              ? "Leave in " + W.fmtMin(Math.max(5, Math.round(mins / 5) * 5))
-              : "Leave by " + W.clock(leave)) +
-          (lg ? ' <span class="muted">· ' + esc(W.fmtMin(lg.min) + " " + lg.label) + "</span>" : "") +
-          "</p>"
-        : "") +
-      '<div class="gh-act"><a class="btn" href="' +
-      esc(W.gmapsDir(from, it, lg ? lg.mode : "walk")) +
-      '" target="_blank" rel="noopener">' +
-      IC.dir +
-      "Directions</a>" +
+      (!isNow && live ? leaveLine(mins, leave, lg, "Time to go") : "") +
+      /* where you are now needs no main button: the way there is a quiet link (you may still be on the way), and the
+         main one is the way to what's next (below). On a live day every way there starts where you are. */
+      '<div class="gh-act">' +
+      (isNow
+        ? ""
+        : '<a class="btn" href="' +
+          esc(W.gmapsDir(live ? null : from, it, lg ? lg.mode : "walk")) +
+          '" target="_blank" rel="noopener">' +
+          IC.dir +
+          "Directions</a>") +
       (tix && W.safeUrl(tix.url)
         ? '<a class="btn quiet" href="' + esc(W.safeUrl(tix.url)) + '" target="_blank" rel="noopener">' + IC.ticket + esc(tix.t) + "</a>"
         : "") +
@@ -808,7 +891,17 @@
           '">' +
           IC.more +
           "</button>") +
-      "</div></div></section>"
+      "</div>" +
+      (isNow
+        ? '<a class="linkish gh-here" href="' +
+          esc(W.gmapsDir(null, it, "transit")) +
+          '" target="_blank" rel="noopener">' +
+          IC.dir +
+          "Directions here</a>"
+        : "") +
+      "</div>" +
+      (nextHtml || "") +
+      "</section>"
     );
   }
   function nextCard(e, day, P, from, live) {
@@ -830,15 +923,54 @@
       "</b>" +
       (lg ? '<span class="small muted">' + esc(W.fmtMin(lg.min) + " " + lg.label) + "</span>" : "") +
       "</div>" +
-      '<a class="icon-btn" href="' +
+      '<a class="btn quiet sm gn-go" href="' +
       esc(W.gmapsDir(from, it, lg ? lg.mode : "walk")) +
       '" target="_blank" rel="noopener" aria-label="Directions to ' +
       esc(it.n) +
       '">' +
       IC.dir +
-      "</a></div>"
+      "Directions</a></div>"
     );
   }
+  /* a part of Today that belongs to another time of day (the day bag before you leave, the journal in the evening):
+     open then, one line the rest of the time; what you open or close stays that way while the app is open */
+  /** @type {Record<string, boolean>} */ var folds = {};
+  function fold(name, title, meta, openNow, body) {
+    if (!body) return "";
+    var open = name in folds ? folds[name] : openNow;
+    return (
+      '<details class="go-fold sk" data-gofold="' +
+      name +
+      '"' +
+      (open ? " open" : "") +
+      "><summary><b>" +
+      title +
+      '</b><span class="small muted">' +
+      esc(meta) +
+      "</span>" +
+      IC.chevD +
+      "</summary>" +
+      body +
+      "</details>"
+    );
+  }
+  /* (only a tap on its line is your choice: the screen opening or folding it by the time of day is not, so that is
+     never remembered; hence the click, not the browser's "toggle", which also fires when the page is redrawn) */
+  document.addEventListener(
+    "click",
+    function (e) {
+      var t = /** @type {HTMLElement | null} */ (e.target),
+        sm = t && t.closest ? t.closest(".go-fold > summary") : null,
+        dt = sm ? /** @type {HTMLDetailsElement} */ (sm.parentNode) : null;
+      if (dt && dt.dataset.gofold) folds[dt.dataset.gofold] = !dt.open;
+    },
+    true
+  );
+  /** open one of them (a link elsewhere leads to it: the Day view's "Journal" button) */
+  W.goOpen = function (name) {
+    folds[name] = true;
+  };
+  var plansOpen = false; /* "Change of plans": the ways to rescue the rest of the day, behind one button */
 
   /* ======================= clicks (before the views' own handlers) ======================= */
   document.addEventListener(
@@ -871,6 +1003,12 @@
         goN = null;
         W.render();
         window.scrollTo(0, 0);
+        return;
+      }
+      if (d.goplans) {
+        stop();
+        plansOpen = !plansOpen;
+        W.render();
         return;
       }
       if (d.gomap) {

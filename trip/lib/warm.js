@@ -147,7 +147,8 @@
      title is not a block of its own under the banner and the plan starts higher up. Both are written; the stylesheet
      shows one (.top[data-day], narrow screens). The text of the day is hidden from a screen reader, which reads the
      day's own heading in the page; the route link is not */
-  var DIR = W.icon("dir", 2.2);
+  var DIR = W.icon("dir", 2.2),
+    routeUrl = ""; /* the day's route, kept: the banner is drawn again more often than the day is (the cloud's status) */
   W.topLine = function (P) {
     if (!P || !P.stops || !P.stops.length) return "";
     var sk = W.sky(P),
@@ -171,7 +172,9 @@
           "</b>" +
           (day.date ? "<span>" + esc(day.date) + "</span>" : "") +
           (day.level ? "<span>" + day.level + "</span>" : "") +
-          '</span><a class="tl-go" hidden target="_blank" rel="noopener" aria-label="Open the whole route in Google Maps">' +
+          '</span><a class="tl-go"' +
+          (routeUrl ? ' href="' + esc(routeUrl) + '"' : " hidden") +
+          ' target="_blank" rel="noopener" aria-label="Open the whole route in Google Maps">' +
           DIR +
           "</a></span>"
         : "")
@@ -179,10 +182,11 @@
   };
   /* the Day view knows the day's route once its stops are placed (screens/trip.js): it hands the link over */
   W.bannerRoute = function (url) {
+    routeUrl = url || "";
     var a = /** @type {HTMLAnchorElement | null} */ (document.querySelector("#topline .tl-go"));
     if (!a) return;
-    a.hidden = !url;
-    if (url) a.href = url;
+    a.hidden = !routeUrl;
+    if (routeUrl) a.href = routeUrl;
     else a.removeAttribute("href");
   };
   /* When the banner has scrolled away (a phone, the Day view): one slim row stays, with the logo, the city and where
@@ -223,17 +227,26 @@
   };
 
   /* ======================= back to the top ======================= */
-  /* A round ↑ in the bottom corner once you have scrolled most of a screen down a long day (or any long screen),
-     with a gradient ring so it stands out from the cards; gone near the top, and while a sheet is open. Above the tab
-     bar on a phone. */
+  /* A round ↑ in the bottom corner, with a gradient ring so it stands out from the cards. It comes when you turn
+     back: far down a long screen, as soon as you scroll up; gone again when you carry on down (it sits where each
+     row keeps its button, and would cover them), near the top, and while a sheet is open. Above the tab bar on a
+     phone. */
   var upBtn = null,
-    upTick = 0;
+    upTick = 0,
+    upY = 0,
+    upTurn = false;
   function smooth() {
     return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
   }
+  W.smooth = smooth;
   function upCheck() {
     upTick = 0;
-    var on = window.scrollY > Math.max(600, window.innerHeight * 0.8) && !document.documentElement.classList.contains("modal-open");
+    var y = window.scrollY;
+    /* (a few pixels either way are a thumb resting, not a turn) */
+    if (y < upY - 6) upTurn = true;
+    else if (y > upY + 6) upTurn = false;
+    if (Math.abs(y - upY) > 6) upY = y;
+    var on = upTurn && y > Math.max(600, window.innerHeight * 0.8) && !document.documentElement.classList.contains("modal-open");
     if (!upBtn) {
       if (!on) return;
       upBtn = document.createElement("button");

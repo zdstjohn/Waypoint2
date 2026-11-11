@@ -100,6 +100,9 @@ exports.run = async t => {
   const g = await pg.evaluate(() => ({ items: document.querySelectorAll('#viewGo .gb-i').length, sw: !!document.querySelector('#viewGo [data-awake]'), head: (document.querySelector('#viewGo .gb-h .muted') || {}).textContent }));
   t.ok(g.items > 0 && /0 of/.test(g.head || ''), 'Today shows the day bag: ' + g.items + ' things, ' + g.head);
   if (g.items) {
+    /* (once the first stop has begun the bag is one line, "0 of 5 packed": a tap opens it) */
+    const folded = await pg.evaluate(() => { const d = document.querySelector('#viewGo details[data-gofold="bag"]'); if (d && !d.open) { d.querySelector('summary').click(); return true; } return false; });
+    if (folded) await pg.waitForTimeout(300);
     await pg.click('#viewGo .gb-i'); await pg.waitForTimeout(400);
     const tk = await pg.evaluate(() => ({ on: document.querySelector('#viewGo .gb-i').getAttribute('aria-pressed'), saved: JSON.stringify(W.S.bag), head: document.querySelector('#viewGo .gb-h .muted').textContent }));
     t.ok(tk.on === 'true' && /"Italy\|Rome\|2":\{/.test(tk.saved) && /1 of/.test(tk.head), 'a tick is kept with the trip: ' + tk.saved);

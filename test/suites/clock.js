@@ -11,19 +11,20 @@ exports.run = async t => {
     W.replan(); W.dataV = (W.dataV || 0) + 1; W.needLater(); W.goView('go'); W.render(); await new Promise(r => setTimeout(r, 700)); W.render();
     const P = W.plan(), n = W.todayN(P), top = document.querySelector('#topline'), go = document.querySelector('#viewGo');
     const head = go ? (go.querySelector('h2, .go-h, .go-when') || go).textContent.replace(/\s+/g, ' ').trim().slice(0, 90) : '';
-    const now = go && go.querySelector('.go-now, .now-card, .gn'); 
+    const goBanner = top ? top.textContent.replace(/\s+/g, ' ').trim() : '';   /* (the banner while Today is up: it carries the day) */
+
     W.S.day = n || W.S.day; W.S.tview = 'days'; W.goView('trip'); W.render();
-    const hd = document.querySelector('#viewTrip .today-h'), card = hd && hd.closest('.today');
+    const row = document.querySelector('#viewTrip .today-row'), rowText = row ? row.textContent.replace(/\s+/g, ' ').trim() : '';
     return { shift: W.tripShift(), hour: W.now().getHours(), min: W.now().getMinutes(), date: W.isoDay(W.now()), todayN: n, greeting: W.greeting().split(',')[0],
       banner: top ? top.textContent.replace(/\s+/g, ' ').trim() : '', goHead: head, goText: go ? go.textContent.replace(/\s+/g, ' ').trim().slice(0, 400) : '',
-      cardHead: card ? hd.textContent.replace(/\s+/g, ' ').trim() : '', card: card ? card.textContent.replace(/\s+/g, ' ').replace(/ · Rome time/, '').trim() : '', devHour: new Date().getTimezoneOffset() };
+      goBanner, cardHead: rowText, card: rowText.replace(/ · Rome time/, ''), devHour: new Date().getTimezoneOffset() };
   }, pin);
 
   /* ---- a phone that is in Rome (or any phone, as the tests pin it: the trip's own time) ---- */
   const rome = await open(b, { width: 390, height: 844, db: mkdb(), tz: 'Europe/Rome' }); await exampleTrip(rome.pg); await settle(rome.pg, 6000);
   const there = await read(rome.pg, '2027-06-09T08:30:00Z');   /* 10:30 in Rome on day 3 */
   t.ok(there.shift === 0 && there.hour === 10 && there.min === 30 && there.todayN === 3, 'a phone on the trip\'s time reads its own clock: 10:30, day 3, nothing moved');
-  t.ok(/^Today ?10:30/.test(there.cardHead) && !/time/.test(there.cardHead) && !/Rome time/.test(there.goText), 'and nothing says "Rome time": it is simply the time (' + there.cardHead + ')');
+  t.ok(/^(Now|Next) /.test(there.cardHead) && !/Rome time/.test(there.cardHead) && !/Rome time/.test(there.goText) && !/Rome time/.test(there.goBanner), 'the day\'s line for today says what is on, and nothing says "Rome time": it is simply the time (' + there.cardHead + ')');
   t.ok(/Good morning/.test(there.banner) && /10:30\s?AM in Rome/.test(there.banner), 'the banner greets by it and shows it: "' + there.banner + '"');
 
   /* ---- the same moment, seen from Los Angeles (1:30 at night there, the day before by an hour and a half… no: same date) ---- */
@@ -31,9 +32,9 @@ exports.run = async t => {
   const far = await read(la.pg, '2027-06-09T08:30:00Z');
   t.ok(far.shift === 540 && far.hour === 10 && far.min === 30, 'from Los Angeles, nine hours behind, the trip\'s clock still reads 10:30 (' + far.shift + ' min ahead of the phone)');
   t.ok(far.todayN === 3 && far.date === '2027-06-09', 'today is the trip\'s day 3');
-  t.ok(/^Today ?10:30\s?AM · Rome time/.test(far.cardHead), 'the Today card says whose time it is: "' + far.cardHead + '"');
-  t.ok(/Rome time/.test(far.goText), 'and so does the Today tab');
-  t.ok(far.card === there.card && far.card.length > 40, 'what is on now and next is word for word what the family in Rome sees');
+  t.ok(/ · Rome time/.test(far.cardHead), 'the day\'s line for today says whose time it is: "' + far.cardHead + '"');
+  t.ok(/Rome time/.test(far.goText) && /10:30\s?AM · Rome time/.test(far.goBanner), 'and so does the Today tab, in the banner that carries its day');
+  t.ok(far.card === there.card && far.card.length > 20, 'what is on now and next is word for word what the family in Rome sees');
   t.ok(/Good morning/.test(far.banner) && /10:30\s?AM in Rome/.test(far.banner), 'the banner agrees with it: "' + far.banner + '" (not "Good evening" by the phone, and not a second time)');
 
   /* ---- the date turns over there first ---- */
