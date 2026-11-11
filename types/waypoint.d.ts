@@ -45,7 +45,9 @@ interface Costs { ages: string; cur?: string; breakfast?: number | null; lunch?:
 interface Cache { country: Record<string, { blurb: string; cities: BuiltCity[]; v?: number; part?: number }>; city: Record<string, Pool>; geo: Record<string, LatLng & { area?: string }>;
   range: Record<string, { s?: number; r?: number; sig: string }>; legs?: Record<string, any>; cost: Record<string, Costs>; tz: Record<string, string>; live?: any; area: Record<string, any>;
   /** holidays and festivals from Claude per city, for the dates asked about (lib/holidays.js) */
-  events: Record<string, { v: number; from: string; to: string; items: CityEvent[] }> }
+  events: Record<string, { v: number; from: string; to: string; items: CityEvent[] }>;
+  /** typical fares from Claude for a flight from home, one way, the whole group (lib/prices.js W.fareGuess) */
+  fare?: Record<string, { cur: string; total: number }> }
 interface CityEvent { n: string; from: string; to: string; kind: string; closes: boolean; crowds: boolean; note: string }
 interface Holiday { n: string; big: number; src: string; note?: string; custom?: boolean }
 interface Party { toddler: boolean; kid: boolean; senior: boolean; adults: number; kids: number[] }
@@ -395,6 +397,9 @@ interface Waypoint {
   bannerDay: (P: Plan) => { city: string; date: string; level: string } | null;
   bannerRoute: (url: string) => void;
   pinBar: (P: Plan) => void;
+  /** a typical fare for a flight from home (one way, the whole group), from Claude; null until known (lib/prices.js) */
+  fareGuess: (dir: "out" | "home", P: Plan) => { cur: string; total: number } | null;
+  fareGuessBusy: () => boolean;
   nowMin: () => number;
   officialLink: any;
   officialUrl: (it: any, food?: any, country?: string, city?: string) => any;

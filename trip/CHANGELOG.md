@@ -2,6 +2,36 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v144
+
+Four of the reviews' suggestions, as you chose them (4A, 6A, 9A + 9C, 10A + 10B).
+- Whole names (4A). A place's name runs to two lines instead of being cut to a few letters ("Sant'Eustachio Il
+  Caffè", not "Sant'Eustach…"): on the day's meal cards, on All days and on the next-day bar. One rule in app.css
+  for the three; a name longer than two lines is still shortened at the end.
+- Today's map is open (6A). Where the city has a street map, Today's route shows it above the stops without a tap.
+  "Hide map" folds it and the phone remembers; a phone saving data (its data-saver setting) starts folded, since a
+  city's map is a few megabytes the first time. (6B, the map beside the day on a big screen, was already there in the
+  Claude version for every city of a trip: 83 cities have a map. The installable app has none; see below.)
+- Prepare on a phone (9A): five equal tabs, a picture over each name, the counts as badges. "Take along" is no
+  longer cut off (on the narrowest phones its name takes two short lines). Three new pictures in lib/icons.js
+  (wallet, bag, save). The badges use the accent's own ink, so they read in the dark theme too.
+- Prepare on a big screen (9C): To book and Booked keep the left column; the budget sits at the top of the right
+  column (the table, the total and "Open the budget ›"), then the booking sites and price watches. One budget
+  function (budgetSeg) draws both the Budget tab and this compact copy.
+- Flights in the budget (10A + 10B). Flights from home used to count only once booked, or after "Live fares"
+  (Expedia); otherwise the total left them out in small print. Now, with no booking and no live fare, Claude is
+  asked once for a typical fare each way (half a return booked a few months ahead, the whole group; W.fareGuess in
+  lib/prices.js, cached per route, month and group). The flights row and the total include it and say "estimate";
+  a card under the table says so too, with "Add what we paid" (the add-a-booking form under Booked, open on a
+  flight) and live fares. A booked flight's price replaces its estimate. When no fare is known at all the total
+  reads "+ flights" and the card says they are not counted yet.
+- Not done, a decision for you: street maps in the installable app. The maps live in Claude's file store, which
+  the installable app can't load. Two ways to give it maps are set out in the reply to you.
+- Tests: money (the five phone tabs; the fare estimate asked once each way, counted, marked and carded; "Add what
+  we paid"; a booked flight replacing its estimate; "+ flights" when nothing is known), desktop (the two columns on
+  To book and Booked; the page width with and without a scrollbar), look (whole names), travel (the map open, folded
+  and remembered, folded on a data-saving phone and after you hid it). The test stand-in answers the fare question.
+
 ## v143
 
 Less above the plan on a phone: the banner carries the day, and shrinks to one row as you scroll.

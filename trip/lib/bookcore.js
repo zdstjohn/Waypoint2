@@ -824,12 +824,17 @@
         });
       });
     });
-    /* flights: booked, else the cheapest live fare you checked, else not estimated */
-    ["out", "home"].forEach(function (dir) {
+    /* flights from home: booked, else the cheapest live fare you checked, else a typical fare (kept apart as well, so the
+       budget can say it is an estimate), else not counted (and the budget says so) */
+    /** @type {Array<"out" | "home">} */ (["out", "home"]).forEach(function (dir) {
       if (!P.ap || flightBooking(P, dir === "home")) return;
-      var f = W.fareMin && W.fareMin(dir, P);
+      var f = W.fareMin && W.fareMin(dir, P),
+        g = !f && W.fareGuess ? W.fareGuess(dir, P) : null;
       if (f) add(B.travel.est, f.cur, f.total);
-      else (B.travel.flights = B.travel.flights || []).push(dir);
+      else if (g) {
+        add(B.travel.est, g.cur, g.total);
+        add((B.travel.guess = B.travel.guess || {}), g.cur, g.total);
+      } else (B.travel.flights = B.travel.flights || []).push(dir);
     });
     var tot = { booked: {}, est: {} };
     Object.keys(B).forEach(function (k) {

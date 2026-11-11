@@ -33,6 +33,33 @@ exports.run = async t => {
   t.ok(new Set(tabsY.map(v => parseInt(v, 10))).size === 1 && tabsY[0].endsWith('below') && tabsY.slice(1).every(v => !/below|ABOVE/.test(v)), 'on a phone the tabs stay put from Budget to Pack, Take along, To book and Booked ("Prices in" sits below them, on Budget only): ' + tabsY.join(', '));
   await pg.evaluate(() => document.querySelector('#viewBook [data-prep="budget"]').click()); await pg.waitForTimeout(300);
   /* and in Settings */
+  /* on a phone the five tabs are equal, a picture over the whole name, the count a badge: none is cut off */
+  const tb = await pg.evaluate(() => { const seg = document.querySelector('#viewBook .prep-seg'), sb = seg.getBoundingClientRect();
+    return [...seg.querySelectorAll('button')].map(b => { const r = b.getBoundingClientRect(), n = b.querySelector('.ps-n'), i = b.querySelector('.ps-i'), g = b.querySelector('.gn');
+      return { w: Math.round(r.width), h: Math.round(r.height), name: n.textContent, whole: n.scrollWidth <= n.clientWidth + 1, pic: !!i && i.getBoundingClientRect().width >= 18, inside: r.left >= sb.left - 1 && r.right <= sb.right + 1, badge: g ? g.textContent : '' }; }); });
+  t.eq(tb.map(x => x.name), ['To book', 'Booked', 'Budget', 'Pack', 'Take along'], 'Prepare\'s five tabs, by name');
+  t.ok(tb.every(x => x.whole && x.pic && x.inside && x.h >= 52) && Math.max(...tb.map(x => x.w)) - Math.min(...tb.map(x => x.w)) <= 1, 'on a phone they are five equal tabs, each a picture over its whole name, all in view (' + tb.map(x => x.w + 'x' + x.h).join(' ') + ')');
+  t.ok(/^\d+$/.test(tb[0].badge) && /^\d+$/.test(tb[3].badge), 'To book and Pack show their counts as badges (' + tb[0].badge + ', ' + tb[3].badge + ')');
+  /* flights from home: a typical fare when nothing better is known, marked as an estimate, and a way to put in what you paid */
+  await pg.evaluate(() => { localStorage.removeItem('waypoint-cur'); document.querySelector('#viewBook [data-prep="budget"]').click(); }); await pg.waitForTimeout(1200);
+  const fe = await pg.evaluate(() => ({ asks: (window.__fareAsks || []).map(p => p.match(/from (.+?) to (.+?) in (\w+ \d{4})/).slice(1).join(' > ')), row: [...document.querySelectorAll('#viewBook table.budget tbody tr')].find(r => /Flights/.test(r.textContent)).innerText.replace(/\s+/g, ' '),
+    foot: document.querySelector('#viewBook table.budget tfoot').innerText.replace(/\s+/g, ' '), card: (document.querySelector('#viewBook .bud-fl') || {}).innerText, est: !!document.querySelector('#viewBook table.budget .est') }));
+  t.eq(fe.asks, ['LAX > Rome > June 2027', 'Venice > LAX > June 2027'], 'with no flight booked and no live fare, Claude is asked a typical fare each way, once');
+  t.ok(/incl\. ≈ \$2,420 flights from home estimate/.test(fe.row) && fe.est, 'the flights row counts it and says it is an estimate: "' + fe.row + '"');
+  t.ok(/\$2,420/.test(fe.foot) && /incl\. flight estimate/.test(fe.foot) && !/\+ flights/.test(fe.foot), 'and so does the total: "' + fe.foot + '"');
+  t.ok(/^Flights from home are an estimate/.test(fe.card || '') && /Add what we paid/.test(fe.card) && /Live fares/.test(fe.card), 'a card says so, with "Add what we paid" and live fares');
+  await pg.evaluate(() => document.querySelector('#viewBook [data-addfl]').click()); await pg.waitForTimeout(500);
+  const af = await pg.evaluate(() => ({ tab: W.S.prepTab, open: document.querySelector('#viewBook details.addbk').open, kind: document.querySelector('#bkKind').value, focus: document.activeElement && document.activeElement.id }));
+  t.eq(af, { tab: 'booked', open: true, kind: 'flight', focus: 'bkTitle' }, '"Add what we paid" opens the add-a-booking form under Booked, on a flight, ready to type');
+  await pg.fill('#bkTitle', 'LAX to Rome'); await pg.fill('#bkDate', '2027-06-07'); await pg.fill('#bkPrice', '2310'); await pg.fill('#bkCur', 'USD'); await pg.click('[data-addbk]'); await pg.waitForTimeout(600);
+  await pg.evaluate(() => document.querySelector('#viewBook [data-prep="budget"]').click()); await pg.waitForTimeout(800);
+  const pd = await pg.evaluate(() => ({ row: [...document.querySelectorAll('#viewBook table.budget tbody tr')].find(r => /Flights/.test(r.textContent)).innerText.replace(/\s+/g, ' '), card: (document.querySelector('#viewBook .bud-fl') || {}).innerText || '' }));
+  t.ok(/\$2,310/.test(pd.row) && /incl\. ≈ \$1,240 flights from home/.test(pd.row), 'once the flight out is booked its price counts as paid, and only the flight home is still an estimate: "' + pd.row + '"');
+  /* when no fare is known at all: "+ flights" on the total, and the card says they are not counted */
+  await pg.evaluate(() => { window.__fare = 0; W.C.fare = {}; W.S.bookings = (W.S.bookings || []).filter(b => b.kind !== 'flight'); W.render(); }); await pg.waitForTimeout(1200); await pg.evaluate(() => W.render());
+  const nf = await pg.evaluate(() => ({ foot: document.querySelector('#viewBook table.budget tfoot').innerText.replace(/\s+/g, ' '), card: (document.querySelector('#viewBook .bud-fl.missing') || {}).innerText || '' }));
+  t.ok(/\+ flights/.test(nf.foot) && !/estimate/.test(nf.foot) && /^Not counted yet: flights from home/.test(nf.card), 'with no fare known the total reads "+ flights" and the card says they are not counted: "' + nf.foot + '"');
+  await pg.evaluate(() => { window.__fare = null; localStorage.setItem('waypoint-cur', 'USD'); });
   await pg.evaluate(() => W.goView('settings')); await pg.waitForTimeout(500);
   t.ok(await pg.evaluate(() => document.querySelector('#set-cur [data-curpick]').value === 'USD'), 'Settings has the same choice');
   t.eq(errors(), [], 'no page errors');

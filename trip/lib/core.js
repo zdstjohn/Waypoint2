@@ -160,7 +160,8 @@
     legs: c.legs || {},
     cost: c.cost || {},
     tz: c.tz || {},
-    events: c.events || {}
+    events: c.events || {},
+    fare: c.fare || {}
   });
   var lastS = null,
     lastV = -1;

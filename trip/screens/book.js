@@ -793,6 +793,7 @@
   /* ---------- the Bookings page ---------- */
   var calConfirm = false,
     addOpen = false,
+    addKind = "" /* the kind the add-a-booking form starts on ("flight" from the budget's "Add what we paid") */,
     tickFx = null;
   function section(title, sub, body, cls, side) {
     return (
@@ -891,13 +892,23 @@
     } catch (e) {}
     laterAll = true;
   };
-  /* Prepare > Budget: what the trip is likely to cost, by kind of cost and by day, in the currency you chose. */
-  function budgetSeg(P) {
-    var h = "";
+  /* Prepare > Budget: what the trip is likely to cost, by kind of cost, in the currency you chose. Flights from home are
+     counted when booked, else at the cheapest live fare you checked, else at a typical fare marked "estimate"; when
+     none of those is known the total says "+ flights" and a card says what is missing, with a way to add it. side =
+     the compact copy beside To book and Booked on a big screen (no currency choice, no card: the Budget tab has them) */
+  /* a big screen: To book and Booked keep the left column, the budget and the rest stack on the right (app.css) */
+  function wide() {
+    return window.innerWidth >= 1100;
+  }
+  function budgetSeg(P, side) {
     var bud = W.budget(P),
+      tr = bud.rows.travel,
+      guess = tr.guess && Object.keys(tr.guess).length ? tr.guess : null,
+      fareBusy = W.fareGuessBusy && W.fareGuessBusy(),
       costBusy = Object.keys(W.status).some(function (k) {
         return k.indexOf("cost|") === 0 && W.status[k] === "loading";
       });
+    var EST = ' <span class="est">estimate</span>';
     var tb = Object.keys(bud.rows)
       .map(function (k) {
         var r = bud.rows[k];
@@ -909,9 +920,16 @@
           sumText(r.booked) +
           "</td><td>" +
           (Object.keys(r.est).length ? "≈ " + sumText(r.est) : "—") +
+          (r.guess ? '<div class="small muted">incl. ≈ ' + sumText(r.guess) + " flights from home" + EST + "</div>" : "") +
           (r.flights
             ? '<div class="small muted">' +
-              (r.flights.length > 1 ? "plus flights" : r.flights[0] === "home" ? "plus the flight home" : "plus the flight out") +
+              (fareBusy
+                ? "estimating flights…"
+                : r.flights.length > 1
+                  ? "plus flights"
+                  : r.flights[0] === "home"
+                    ? "plus the flight home"
+                    : "plus the flight out") +
               "</div>"
             : r.open
               ? '<div class="small muted">' + (costBusy ? "estimating…" : "some not known") + "</div>"
@@ -920,21 +938,49 @@
         );
       })
       .join("");
-    h += section(
+    var totEst = Object.keys(bud.tot.est).length ? "≈ " + sumText(bud.tot.est) : "—";
+    var table =
+      '<div class="tbl"><table class="budget"><thead><tr><th scope="col"></th><th scope="col">Booked</th><th scope="col">Still to pay</th></tr></thead><tbody>' +
+      tb +
+      '</tbody><tfoot><tr><th scope="row">Total</th><td>' +
+      sumText(bud.tot.booked) +
+      "</td><td>" +
+      totEst +
+      (tr.flights ? '<div class="bud-plus">+ flights</div>' : guess ? '<div class="small muted">incl. flight estimate</div>' : "") +
+      "</td></tr></tfoot></table></div>";
+    if (side)
+      return section(
+        "Budget",
+        "",
+        table + '<p class="small"><button type="button" class="linkish" data-prep="budget">Open the budget ›</button></p>',
+        "bk-side bud-side"
+      );
+    /* what the flights from home are, when they are not a price you paid */
+    var fl = "";
+    if ((guess || tr.flights) && !W.readOnly) {
+      var outF = W.fareChip ? W.fareChip("out", P) : "";
+      fl =
+        '<div class="bud-fl' +
+        (guess ? "" : " missing") +
+        '"><b>' +
+        (guess ? "Flights from home are an estimate" : "Not counted yet: flights from home") +
+        "</b><p>" +
+        (guess
+          ? "≈ " + sumText(guess) + " for everyone, from typical fares for your dates. Put in what you paid, or check live fares."
+          : fareBusy
+            ? "Working out a typical fare…"
+            : "Usually the biggest single cost of a trip. Put in what you paid, or check live fares.") +
+        '</p><div class="bud-fl-a"><button type="button" class="chip-a pri" data-addfl="1">Add what we paid</button>' +
+        outF +
+        "</div></div>";
+    }
+    return section(
       "Budget",
       "Booked amounts from your bookings; the rest estimated from typical prices for your group" +
         (costBusy ? ' <span class="loading">working out prices…</span>' : "") +
         ".",
-      (W.curPicker ? W.curPicker(P) : "") +
-        '<div class="tbl"><table class="budget"><thead><tr><th scope="col"></th><th scope="col">Booked</th><th scope="col">Still to pay</th></tr></thead><tbody>' +
-        tb +
-        '</tbody><tfoot><tr><th scope="row">Total</th><td>' +
-        sumText(bud.tot.booked) +
-        "</td><td>" +
-        (Object.keys(bud.tot.est).length ? "≈ " + sumText(bud.tot.est) : "—") +
-        "</td></tr></tfoot></table></div>"
+      (W.curPicker ? W.curPicker(P) : "") + table + fl
     );
-    return h;
   }
   /* Prepare > Booked: your bookings in date order (each with its reference, time, cost and a way to change it), the
      form for adding one, what Gmail found, and the things the checklist counts as done. */
@@ -1022,7 +1068,7 @@
         '<select class="field" id="bkKind" aria-label="Kind">' +
         Object.keys(KIND)
           .map(function (k) {
-            return '<option value="' + k + '">' + KIND[k] + "</option>";
+            return '<option value="' + k + '"' + (k === addKind ? " selected" : "") + ">" + KIND[k] + "</option>";
           })
           .join("") +
         "</select>" +
@@ -1222,12 +1268,13 @@
           return !(S.pack || {})[i.key];
         }).length
       : 0;
+    /* the tabs: [key, name, count, picture]. On a phone the five are equal, a picture over the name, the count a badge */
     var SEGS = [
-      ["tobook", "To book", nBook],
-      ["booked", "Booked", 0],
-      ["budget", "Budget", 0],
-      ["pack", "Pack", nPack],
-      ["take", "Take along", 0]
+      ["tobook", "To book", nBook, "ticket"],
+      ["booked", "Booked", 0, "check"],
+      ["budget", "Budget", 0, "wallet"],
+      ["pack", "Pack", nPack, "bag"],
+      ["take", "Take along", 0, "save"]
     ];
     /* above the tabs: the readiness card and nothing else, so the tabs sit in the same place whichever one is open
        (the "Prices in" choice used to be here on three tabs of five, and the tabs jumped when it came and went; it is
@@ -1242,7 +1289,10 @@
           '" data-prep="' +
           g[0] +
           '">' +
+          W.icon(String(g[3]), 2, "ps-i") +
+          '<span class="ps-n">' +
           g[1] +
+          "</span>" +
           (g[2] ? '<span class="gn">' + g[2] + "</span>" : "") +
           "</button>"
         );
@@ -1262,6 +1312,7 @@
               "</p>"),
         "bk-ahead"
       );
+      if (wide()) h += budgetSeg(P, true);
       if (!ro)
         h +=
           section(
@@ -1281,6 +1332,7 @@
     /* your bookings */
     if (seg === "booked") {
       h += bookedSeg(P, list, doneGroup, ro, nBooked);
+      if (wide()) h += budgetSeg(P, true);
     }
 
     /* budget */
@@ -1420,6 +1472,18 @@
       S.prepTab = d.prep;
       W.render();
       window.scrollTo(0, 0);
+      return;
+    }
+    /* the budget's "Add what we paid": the add-a-booking form under Booked, open, on a flight */
+    if (d.addfl && !W.readOnly) {
+      S.prepTab = "booked";
+      addOpen = true;
+      addKind = "flight";
+      W.render();
+      var f0 = document.querySelector("details.addbk");
+      if (f0) f0.scrollIntoView({ block: "center" });
+      var t0 = $("bkTitle");
+      if (t0) t0.focus({ preventScroll: true });
       return;
     }
     if (d.laterall) {

@@ -8,22 +8,32 @@ exports.run = async t => {
   const s = await pg.evaluate(() => ({ view: W.view(), travel: document.documentElement.classList.contains('travel'), tl: document.querySelectorAll('.go-rt li').length, hero: !!document.querySelector('.go-hero') }));
   t.ok(s.view === 'go' && s.travel, 'during the trip the app opens on Today in Travel mode: ' + JSON.stringify(s));
   t.ok(s.tl >= 3, 'with the day laid out as a route');
-  /* today's map: folded behind a Map button in the route's header (where the city has a street map), opened in place */
+  /* today's map: open above the stops (where the city has a street map); "Hide map" folds it, and the phone remembers */
   const mp = await pg.evaluate(async () => {
     const none = !document.querySelector('#viewGo [data-gomap]');
     const f = W.vtFor, m = W.vtMount, st = W.vtState; W.vtFor = () => 'test-city'; W.vtState = () => 'idle'; W.vtMount = () => false; W.render();
-    const btn = document.querySelector('#viewGo .go-route [data-gomap]'), closed = !!btn && btn.getAttribute('aria-expanded') === 'false' && !document.querySelector('#viewGo .map-wrap');
-    if (btn) btn.click(); await new Promise(r => setTimeout(r, 300));
     const b2 = document.querySelector('#viewGo .go-route [data-gomap]'), wrap = document.querySelector('#viewGo .go-route .map-wrap'), list = document.querySelector('#viewGo .go-rt');
-    const open = !!wrap && !!b2 && b2.getAttribute('aria-expanded') === 'true' && /Hide map/.test(b2.textContent) && !!list && wrap.getBoundingClientRect().bottom <= list.getBoundingClientRect().top + 1 && !!document.querySelector('#viewGo [data-zoom="fit"]');
+    const open = !!wrap && !!b2 && b2.getAttribute('aria-expanded') === 'true' && /Hide map/.test(b2.textContent) && !!list && wrap.getBoundingClientRect().bottom <= list.getBoundingClientRect().top + 1 && !!document.querySelector('#viewGo [data-zoom="fit"]') && localStorage.getItem('waypoint-gomap') === null;
     W.goView('trip'); W.S.tview = 'map'; W.render(); await new Promise(r => setTimeout(r, 300));
     const explore = !document.querySelector('#viewTrip .map-wrap');
     W.goView('go'); await new Promise(r => setTimeout(r, 300)); if (document.querySelector('#viewGo [data-gomap]')) document.querySelector('#viewGo [data-gomap]').click(); await new Promise(r => setTimeout(r, 200));
-    const shut = !document.querySelector('#viewGo .map-wrap');
+    const shut = !document.querySelector('#viewGo .map-wrap') && document.querySelector('#viewGo [data-gomap]').getAttribute('aria-expanded') === 'false' && localStorage.getItem('waypoint-gomap') === '0';
+    document.querySelector('#viewGo [data-gomap]').click(); await new Promise(r => setTimeout(r, 200));
+    const again = !!document.querySelector('#viewGo .map-wrap') && localStorage.getItem('waypoint-gomap') === '1';
     W.vtFor = f; W.vtMount = m; W.vtState = st; W.render();
-    return { none, closed, open, explore, shut };
+    return { none, open, explore, shut, again };
   });
-  t.ok(mp.none && mp.closed && mp.open && mp.shut && mp.explore, 'Today has a Map button where the city has a street map: closed at first, it opens the map above the stops and hides it again; Explore has no map: ' + JSON.stringify(mp));
+  t.ok(mp.none && mp.open && mp.explore, 'where the city has a street map, Today shows it open above the stops, with "Hide map"; Explore has no map: ' + JSON.stringify(mp));
+  t.ok(mp.shut && mp.again, '"Hide map" folds it and the phone remembers; "Map" brings it back');
+  /* a phone saving data, or one where you hid the map, starts with it folded */
+  for (const [label, init] of [['saving data', () => { Object.defineProperty(navigator, 'connection', { value: { saveData: true }, configurable: true }); }], ['hid it before', () => { try { localStorage.setItem('waypoint-gomap', '0'); } catch (e) {} }]]) {
+    const o = await open(b, { width: 390, height: 844, init });
+    await o.pg.evaluate(() => { localStorage.setItem('waypoint-now', '2027-06-09T10:30'); W.S.start = '2027-06-07'; W.isExample = false; W.vtFor = () => 'test-city'; W.vtState = () => 'idle'; W.vtMount = () => false; W.goView('go'); W.render(); });
+    await settle(o.pg, 8000);   /* (the day's places pinned: the map needs them) */
+    const f2 = await o.pg.evaluate(async () => { W.render(); await new Promise(r => setTimeout(r, 300)); const btn = document.querySelector('#viewGo [data-gomap]'); return { ok: !!btn && btn.getAttribute('aria-expanded') === 'false' && !document.querySelector('#viewGo .map-wrap'), btn: btn ? btn.getAttribute('aria-expanded') : 'none', view: W.view() }; });
+    t.ok(f2.ok, 'a phone that is ' + label + ' starts with the map folded behind "Map" ' + JSON.stringify(f2));
+    await o.ctx.close();
+  }
   const t0 = await pg.evaluate(() => (document.querySelector('.go-rt li.next .t') || document.querySelector('.go-rt li:not(.done) .t') || {}).textContent);
   if (await pg.$('[data-late="15"]')) {
     await pg.click('[data-late="15"]'); await pg.waitForTimeout(700);

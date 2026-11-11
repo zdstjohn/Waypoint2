@@ -121,8 +121,18 @@ exports.run = async t => {
           return { x: Math.round(r.left), y: Math.round(r.top + scrollY), w: Math.round(r.width), client: document.documentElement.clientWidth, scrolls: document.documentElement.scrollHeight > innerHeight + 1, cur: !!document.querySelector('#viewBook .cur-pick'), curInBudget: !!document.querySelector('#viewBook .cur-pick') && !document.querySelector('#viewBook .prep-seg ~ .cur-pick') && !(h && h.classList.contains('cur-pick')) }; }));
       }
       t.ok(pos.every(p => p.x === pos[0].x && p.y === pos[0].y && p.w === pos[0].w), `@${width}: Prepare's tabs sit in one place on all five tabs (${pos.map(p => p.x + ',' + p.y).join(' ')})`);
-      t.ok(pos.every(p => p.client === pos[0].client) && pos.some(p => p.scrolls) && pos.some(p => !p.scrolls), `@${width}: the page is as wide with a scrollbar as without (${pos.map(p => p.client + (p.scrolls ? ' scrolls' : '')).join(', ')})`);
+      /* (and a page too short to scroll: every tab is long enough to scroll now, so one is made short) */
+      const short = await pg.evaluate(() => { const v = document.querySelector('#viewBook'), keep = v.innerHTML; [...v.children].forEach(c => { if (!c.matches('.ready, .prep-seg')) c.remove(); }); const r = { client: document.documentElement.clientWidth, scrolls: document.documentElement.scrollHeight > innerHeight + 1 }; v.innerHTML = keep; return r; });
+      t.ok(pos.concat([short]).every(p => p.client === pos[0].client) && pos.some(p => p.scrolls) && !short.scrolls, `@${width}: the page is as wide with a scrollbar as without (${pos.concat([short]).map(p => p.client + (p.scrolls ? ' scrolls' : '')).join(', ')})`);
       t.ok(pos.map(p => p.cur).join() === 'false,false,true,false,false' && pos[2].curInBudget, `@${width}: "Prices in" is part of Budget, not of the header above the tabs`);
+      /* To book (and Booked) on the left, the budget at the top of the right column, the booking sites under it */
+      const cols = [];
+      for (const seg of ['tobook', 'booked']) {
+        await pg.evaluate(s => document.querySelector('#viewBook [data-prep="' + s + '"]').click(), seg); await pg.waitForTimeout(450);
+        cols.push(await pg.evaluate(() => { const m = document.querySelector('#viewBook .bk-ahead, #viewBook .bk-done').getBoundingClientRect(), s = document.querySelector('#viewBook .bud-side'), r = s && s.getBoundingClientRect(), nx = s && s.nextElementSibling && s.nextElementSibling.getBoundingClientRect();
+          return { left: Math.round(m.left), side: r ? Math.round(r.left) : 0, top: r ? Math.round(r.top - m.top) : 99, below: nx ? Math.round(nx.left - r.left) + '/' + Math.round(nx.top - r.bottom) : 'none', total: s ? /Total/.test(s.textContent) && /Open the budget/.test(s.textContent) : false }; }));
+      }
+      t.ok(cols.every(c => c.side > c.left + 300 && Math.abs(c.top) <= 2 && c.total) && /^0\//.test(cols[0].below), `@${width}: To book and Booked keep the left column, the budget sits at the top of the right one, with what follows under it (${JSON.stringify(cols)})`);
     }
     t.eq(errors(), [], `@${width}: no page errors`);
     await ctx.close();

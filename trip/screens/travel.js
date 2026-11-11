@@ -131,7 +131,18 @@
 
   /* ======================= travel mode: one screen ======================= */
   var goN = null; /* a day you're previewing; null = today */
-  var goMapOpen = false; /* the map on Today, when it is folded behind its button */
+  /* The street map on Today's route is open unless you hid it (remembered on this phone), or the phone is saving data:
+     a city's map is a few megabytes the first time. "Map" / "Hide map" folds it either way */
+  var GOMAP = "waypoint-gomap",
+    goMapOpen = (function () {
+      var v = null;
+      try {
+        v = localStorage.getItem(GOMAP);
+      } catch (e) {}
+      if (v) return v === "1";
+      var c = /** @type {any} */ (navigator).connection;
+      return !(c && c.saveData);
+    })();
   /* open Today on a given day (the journal button on Trip) */
   W.goToDay = function (n) {
     var tn = W.todayN(W.P);
@@ -843,6 +854,9 @@
       if (d.gomap) {
         stop();
         goMapOpen = !goMapOpen;
+        try {
+          localStorage.setItem(GOMAP, goMapOpen ? "1" : "0");
+        } catch (x) {}
         W.render();
         return;
       }

@@ -531,6 +531,46 @@
     }, null);
   };
 
+  /* A typical fare for a flight from home (one way: half a return booked a few months ahead, the whole group), from
+     Claude, for the budget when the flight isn't booked and no live fare was checked. Asked once per route, month and
+     group; marked "estimate" wherever it shows */
+  /** @param {"out" | "home"} dir @param {Plan} P */
+  W.fareGuess = function (dir, P) {
+    var F = fareTrip(dir, P);
+    if (!F || !F.date) return null;
+    var month = F.date.toLocaleDateString("en-US", { month: "long", year: "numeric" }),
+      key = F.from + ">" + F.to + "|" + month + "|" + W.ages().join(","),
+      C = W.C.fare || (W.C.fare = {}),
+      g = C[key];
+    if (g) return g.total > 0 ? g : null;
+    if (W.readOnly) return null;
+    W.run(
+      "fareg|" + key,
+      "Typical economy airfare for one way from " +
+        F.from +
+        " to " +
+        F.to +
+        " in " +
+        month +
+        ", booked a few months ahead as half of a return ticket, for this group: " +
+        (W.who ? W.who() : "") +
+        ' The total for everyone, as a plain number, in the currency of the place they fly from (cur = its ISO 4217 code). If you can\'t tell, say total 0.\nReply with JSON only: {"cur":"USD","total":0}',
+      "quick",
+      function (r) {
+        r = r || {};
+        var total = W.V.money(r.total) || 0;
+        W.C.fare = W.C.fare || {};
+        W.C.fare[key] = { cur: W.V.currency(r.cur, "USD"), total: total > 0 ? total : 0 };
+      }
+    );
+    return null;
+  };
+  W.fareGuessBusy = function () {
+    return Object.keys(W.status).some(function (k) {
+      return k.indexOf("fareg|") === 0 && W.status[k] === "loading";
+    });
+  };
+
   W.liveClick = function (d, P) {
     if (d.site) {
       var ss = S.sites || (S.sites = {});

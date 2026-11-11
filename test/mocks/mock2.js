@@ -27,6 +27,8 @@
         await new Promise(r => setTimeout(r, 80));
         return { fit: names.map(n => /eatery \d+-\d*[02468]$/.test(n) ? { n, fit: 'poor', fitw: 'Mostly shellfish dishes' } : { n, fit: 'good', fitw: 'Plenty without shellfish' }) };
       }
+      /* a typical fare from home (lib/prices.js W.fareGuess): window.__fare sets it (0 = not known) */
+      if (/^Typical economy airfare/.test(prompt)) { (window.__fareAsks = window.__fareAsks || []).push(prompt); return { cur: 'USD', total: window.__fare != null ? window.__fare : (/^Typical economy airfare for one way from [A-Z]{3} /.test(prompt) ? 1180 : 1240) }; }
       if (/^Typical travel costs in/.test(prompt)) {
         const pl = (prompt.match(/\nPlaces: (.*)\n/) || [])[1];
         return { cur: 'EUR', breakfast: 30, lunch: 70, dinner: 95, transit: 20, lodge: 180, tickets: pl ? pl.split('; ').map((n, i) => ({ n, total: 20 + i })) : [] };

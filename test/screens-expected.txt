@@ -1,10 +1,9 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v143: one row of switches (Day, All days, Explore) on every Trip screen at every size; on a phone the banner's last
-# line is the day and the day's title block is gone. Screens that open over the Day view show it behind them.
+# v144: Prepare's phone tabs (pictures over names) and, on a big screen, the budget beside To book; the budget's
+# flights estimate and card; place names on two lines in the day, All days and the next-day bar.
+book-*
+book-add-*
 trip-*
-explore-*
-swap-*
-stop-panel-*
-meal-panel-*
+recap-*
 menu-*

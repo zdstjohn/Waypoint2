@@ -47,6 +47,11 @@
       '<path d="M4 7.5h8M18 7.5h2M4 16.5h2M12 16.5h8"/><circle class="ia" cx="15" cy="7.5" r="2.6"/><circle cx="15" cy="7.5" r="2.6"/><circle class="ia" cx="9" cy="16.5" r="2.6"/><circle cx="9" cy="16.5" r="2.6"/>',
     /* what a stop offers */
     dir: '<path d="M12 3 21 12l-9 9-9-9z"/><path d="M9.6 14.4v-2.6c0-.9.6-1.6 1.6-1.6h3.2M13.2 8.4l1.8 1.8-1.8 1.8"/>',
+    /* Prepare's tabs (on a phone the five tabs are pictures over short words) */
+    wallet:
+      '<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18a1.5 1.5 0 0 1 1.5 1.5V8"/><path d="M3.5 7.5v10A2.5 2.5 0 0 0 6 20h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 19 8H6a2.5 2.5 0 0 1-2.5-.5"/><circle class="ia" cx="16.5" cy="14" r="1.6"/>',
+    bag: '<rect x="3.5" y="7.5" width="17" height="12.5" rx="2.5"/><path d="M8.5 7.5V5.5A1.5 1.5 0 0 1 10 4h4a1.5 1.5 0 0 1 1.5 1.5v2"/><path d="M3.5 12.5h17"/><rect class="ia" x="10.5" y="11" width="3" height="3" rx=".8"/>',
+    save: '<path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5"/><path d="M4 15.5v2A2.5 2.5 0 0 0 6.5 20h11a2.5 2.5 0 0 0 2.5-2.5v-2"/>',
     ticket:
       '<path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h14a1.5 1.5 0 0 1 1.5 1.5V10a2 2 0 0 0 0 4v2.5A1.5 1.5 0 0 1 19 18H5a1.5 1.5 0 0 1-1.5-1.5V14a2 2 0 0 0 0-4z"/><path d="M14.5 6.5v11" stroke-dasharray="1.6 2.2"/><circle class="ia" cx="9" cy="12" r="1.9"/>',
     swap: '<path d="M19.5 12a7.5 7.5 0 0 1-13.4 4.6M4.5 12a7.5 7.5 0 0 1 13.4-4.6"/><path d="M18.4 3.6v4h-4M5.6 20.4v-4h4"/><circle class="ia" cx="12" cy="12" r="2"/>',

@@ -28,6 +28,9 @@ exports.run = async t => {
     /* photo credits: text, not links */
     const cr = await pg.evaluate(() => ({ links: document.querySelectorAll('a.credit').length, spans: document.querySelectorAll('span.credit').length, pe: [...document.querySelectorAll('span.credit')].every(s => getComputedStyle(s).pointerEvents === 'none') }));
     t.ok(cr.links === 0 && cr.pe, `photo credits are plain text a tap goes through (${cr.spans} shown)`);
+    /* a place's name runs to two lines rather than "Sant'Eustach…" */
+    const nm = await pg.evaluate(() => { W.S.tview = 'days'; W.S.glanceOpen = false; W.render(); return [...document.querySelectorAll('#viewTrip .slot.slim .nm')].filter(e => e.textContent.trim()).map(e => { const c = getComputedStyle(e); return { n: e.textContent.trim(), whole: e.scrollHeight <= e.clientHeight + 2, lines: Math.round(e.clientHeight / parseFloat(c.lineHeight)), clamp: c.webkitLineClamp }; }); });
+    t.ok(nm.length >= 2 && nm.every(x => x.whole && x.lines <= 2 && x.clamp === '2'), 'the day\'s places show their whole names, on two lines at most: ' + nm.map(x => x.n + ' (' + x.lines + ')').join(', '));
     /* On a phone the banner's last line is the day (city, date, how full, the route), so the day's title is not a block
        of its own under it, and the first stop starts higher up; the heading stays in the page for a screen reader */
     const bd = await pg.evaluate(() => { W.S.tview = 'days'; W.S.glanceOpen = false; W.render(); scrollTo(0, 0); const top = document.querySelector('.top'), tl = document.querySelector('#topline .tl-day'), go = tl && tl.querySelector('.tl-go'), h = document.querySelector('#viewTrip .day-h'), gm = document.querySelector('#viewTrip .day-gm a');
