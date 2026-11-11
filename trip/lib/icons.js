@@ -63,6 +63,23 @@
     chevU: '<path d="m4.5 15 7.5-7.5 7.5 7.5"/>',
     arrowR: '<path d="M4.5 12h15M13.5 6l6 6-6 6"/>',
     arrowL: '<path d="M19.5 12h-15M10.5 6l-6 6 6 6"/>',
+    /* what kind of stop it is (W.kindIcon) */
+    kCafe: '<path d="M5 9.500h11v4.500a4.500 4.500 0 0 1-4.500 4.500h-2A4.500 4.500 0 0 1 5 14z"/><path d="M16 11h1.500a2 2 0 0 1 0 4H16"/><path d="M8.500 3.500v2.500M12 3.500v2.500"/>',
+    kGelato: '<path d="M7.500 10a4.500 4.500 0 0 1 9 0z"/><path d="M8.200 10 12 20.500 15.800 10"/>',
+    kWine: '<path d="M8 3.500h8l-.600 5a3.400 3.400 0 0 1-6.800 0z"/><path d="M12 12v7.500M8.500 19.500h7"/>',
+    kBeach: '<path d="M4 11.500a8 8 0 0 1 16 0z"/><path d="M12 11.500v6"/><path d="M4 20.500c1.300-1 2.700-1 4 0s2.700 1 4 0 2.700-1 4 0 2.700 1 4 0"/>',
+    kMountain: '<path d="M2.500 19.500 9.500 6.500l4 7 2.500-3.500 5.500 9.500z"/>',
+    kRuins: '<path d="M4 8.500 12 4l8 4.500z"/><path d="M6.500 8.500v9M10.200 8.500v9M13.800 8.500v9M17.500 8.500v9M4 20h16"/>',
+    kChurch: '<path d="M12 2.500v5M10 4.500h4"/><path d="M7 20.500V12l5-4.500 5 4.500v8.500z"/><path d="M10.500 20.500v-4a1.500 1.500 0 0 1 3 0v4"/>',
+    kMuseum: '<rect x="4" y="5" width="16" height="14" rx="1.500"/><path d="M4 15.500 8.500 11l3.500 3 2.500-2 5.500 4.500"/><circle cx="15.500" cy="9" r="1.200"/>',
+    kCastle: '<path d="M5 20.500V9.500L4 8.500v-4h3V7h2.500V4.500h5V7H17V4.500h3v4l-1 1v11z"/><path d="M10 20.500V16a2 2 0 0 1 4 0v4.500"/>',
+    kTown: '<path d="M3.500 20v-9.500L8 7l4.500 3.500V20"/><path d="M12.500 20v-6.500l4-3 4 3V20"/><path d="M2.500 20h19"/>',
+    kBoat: '<path d="M12 3.500v10"/><path d="M12 5l6 8.500h-6z"/><path d="M3.500 16h17l-2 4.500h-13z"/>',
+    kPark: '<path d="M12 21v-5.500"/><path d="M12 3.500a5 5 0 0 0-4.600 7 4 4 0 0 0 1.600 5h6a4 4 0 0 0 1.600-5A5 5 0 0 0 12 3.500z"/>',
+    kMarket: '<path d="M4 9.500 5.500 4.500h13L20 9.500"/><path d="M4 9.500a2.700 2.700 0 0 0 5.300 0 2.700 2.700 0 0 0 5.400 0 2.700 2.700 0 0 0 5.300 0"/><path d="M5.500 12.500V20h13v-7.500"/>',
+    kView: '<path d="M3 17.500h18M6 21h12"/><path d="M7 17.500a5 5 0 0 1 10 0"/><path d="M12 6.500V9M5.800 9.800l1.700 1.700M18.200 9.800l-1.700 1.700"/>',
+    kWater: '<path d="M12 3.500c3.500 4.500 5.500 7.500 5.500 10.500a5.500 5.500 0 0 1-11 0c0-3 2-6 5.500-10.500z"/>',
+    kFun: '<circle cx="12" cy="10.500" r="7"/><path d="M12 3.500v7M5 10.500h14M9 21l3-10.500L15 21"/>',
     nap: '<path class="ia" d="M18 14.800A7 7 0 0 1 9.7 6.4 7 7 0 1 0 18 14.800z"/><path d="M18 14.800A7 7 0 0 1 9.7 6.4 7 7 0 1 0 18 14.800z"/><path d="M14.5 3.500h4l-4 4.500h4" stroke-width="1.6"/>'
   };
   W.ICONS = I;
@@ -73,5 +90,27 @@
   };
   /* the arrow before "Back" and after "See my trip": drawn, so it sits on the words' middle line in every font
      (the font's own "←" sat low on phones) */
+  /* the icon for what a stop is: a meal by its kind (a cup for breakfast and cafés, a cone for gelato, a glass for a
+     wine bar, else a knife and fork), a sight by the picture kind it was listed with, else by its tags, else a pin */
+  var KIND = { beach: "kBeach", island: "kBoat", harbor: "kBoat", mountain: "kMountain", gorge: "kMountain", cave: "kMountain", ruins: "kRuins", temple: "kRuins", church: "kChurch", museum: "kMuseum",
+    castle: "kCastle", oldtown: "kTown", square: "kTown", bridge: "kTown", park: "kPark", garden: "kPark", market: "kMarket", viewpoint: "kView", lake: "kWater", waterfall: "kWater", spa: "kWater",
+    nightlife: "moon", themepark: "kFun", zoo: "kFun", vineyard: "kWine" };
+  var TAGK = { beach: "kBeach", mountain: "kMountain", culture: "kRuins", nature: "kPark", scenic: "kView", nightlife: "moon", shopping: "kMarket", food: "food", wellness: "kWater", adventure: "kMountain" };
+  W.kindIcon = function (it, food, slot) {
+    if (food) return slot === "breakfast" || /^(cafe|bakery)$/.test(it.pic || "") ? "kCafe" : it.pic === "gelato" ? "kGelato" : it.pic === "wine" ? "kWine" : "food";
+    if (KIND[it.pic]) return KIND[it.pic];
+    var t = (it.t || []).filter(function (x) { return TAGK[x]; })[0];
+    return t ? TAGK[t] : "pin";
+  };
+  /* a stop's letter. Google Maps letters a route A, B, C from where it starts, and the day's route starts where you're
+     staying: so the stay is A and the day's first stop is B, here, on the map's pins and in Google Maps alike */
+  W.stopTag = function (n) { return n >= 0 && n <= 25 ? String.fromCharCode(65 + n) : String(n); };
+  /* a stop's marker: the icon for what it is, with its letter as a small tag (the letter is what ties a row to its pin) */
+  W.stopMark = function (it, food, slot, n) {
+    return '<span class="num ki' + (food ? " f" : "") + '">' + W.icon(W.kindIcon(it, food, slot), 2.1) + '<i class="nb">' + W.stopTag(n) + "</i></span>";
+  };
+  W.homeMark = function () { return '<span class="rc-hi" aria-hidden="true">' + W.icon("home", 2.4) + '<i class="nb">A</i></span>'; };
+  /* the menu, as a button: a menu card */
+  I.menu = '<path d="M6.500 3.500h11A1.500 1.500 0 0 1 19 5v14a1.500 1.500 0 0 1-1.500 1.500h-11A1.500 1.500 0 0 1 5 19V5a1.500 1.500 0 0 1 1.500-1.500z"/><path d="M9 7.500v2.200a1.400 1.400 0 0 0 2.800 0V7.500M10.400 9.700v3.800"/><path d="M14.800 7.500v6"/><path d="M8.500 16.800h7"/>';
   W.arrow = function (dir) { return W.icon(dir === "r" ? "arrowR" : "arrowL", 2.3, "arr" + (dir === "r" ? " arr-r" : "")); };
 })();

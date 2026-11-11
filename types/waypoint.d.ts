@@ -29,7 +29,8 @@ interface Pool extends LatLng { d?: string; spots: Spot[]; food: Food[]; stay?: 
   rest?: { spots: Spot[]; food: Food[] }; showN?: { spots?: number; food?: number }; askedN?: number;
   styleAsked?: Record<string, 1>; indoorAsked?: 1; gemsAsked?: 0 | 1; fameAsked?: 0 | 1; cityLow?: string }
 /** a destination in a country list (built in, or from Claude) */
-interface BuiltCity extends LatLng { name: string; region?: string; w?: number; pop?: number; t?: string[]; d?: string; spots?: Spot[] }
+/** isl = the island a town is on; whole = the entry is an island itself (kept only so an older trip that has one as a stop still works) */
+interface BuiltCity extends LatLng { name: string; region?: string; isl?: string; whole?: number; w?: number; pop?: number; t?: string[]; d?: string; spots?: Spot[] }
 interface Country { name: string; mode: "manual" | "suggest"; picked: string[] }
 interface Stay { label: string; lat?: number | null; lng?: number | null; live?: { total: number; cur: string; url: string; at: number; in: string; out: string; src: string } }
 /** the trip, as saved (localStorage "waypoint-v2" and the account) */
@@ -41,7 +42,7 @@ interface TripState { v: 2; algo?: number; tripId?: string; tripName?: string; s
   share?: any; imported?: any; bookings?: Booking[]; booked?: Record<string, any>; [k: string]: any }
 interface Booking { key?: string; kind: string; title?: string; day?: number; [k: string]: any }
 interface Costs { ages: string; cur?: string; breakfast?: number | null; lunch?: number | null; dinner?: number | null; transit?: number | null; lodge?: number | null; tickets: Record<string, number | null> }
-interface Cache { country: Record<string, { blurb: string; cities: BuiltCity[] }>; city: Record<string, Pool>; geo: Record<string, LatLng & { area?: string }>;
+interface Cache { country: Record<string, { blurb: string; cities: BuiltCity[]; v?: number }>; city: Record<string, Pool>; geo: Record<string, LatLng & { area?: string }>;
   range: Record<string, { s?: number; r?: number; sig: string }>; legs?: Record<string, any>; cost: Record<string, Costs>; tz: Record<string, string>; live?: any; area: Record<string, any>;
   /** holidays and festivals from Claude per city, for the dates asked about (lib/holidays.js) */
   events: Record<string, { v: number; from: string; to: string; items: CityEvent[] }> }
@@ -182,6 +183,12 @@ interface Waypoint {
   fareMin: any;
   ferrySearch: any;
   findCity: (country: string, name: string) => BuiltCity | null;
+  isleOf: (country: string, name: string) => { name: string; group: boolean; towns: { name: string; lat: number; lng: number }[] } | null;
+  isleChoice: (country: string, name: string) => { isle: string; group: boolean; towns: BuiltCity[] } | null;
+  townsOnly: (list: BuiltCity[]) => BuiltCity[];
+  islesInto: (old: BuiltCity[], fresh: BuiltCity[]) => BuiltCity[];
+  isleSwap: (country: string, from: string, to: string) => void;
+  COUNTRY_V: number;
   flightHrs: any;
   flightsUrl: any;
   fmtKm: any;
@@ -560,6 +567,10 @@ interface Waypoint {
   icon: (name: string, weight?: number, cls?: string) => string;
   arrow: (dir?: string) => string;
   legIcon: (mode: string) => string;
+  kindIcon: (it: any, food: boolean, slot?: string) => string;
+  stopTag: (n: number) => string;
+  stopMark: (it: any, food: boolean, slot: string | undefined, n: number) => string;
+  homeMark: () => string;
   /** a city's own photo for its header: the city, else the first of these places with one, else its best-known sight */
   cityPhoto: (country: string, city: string, prefer?: (Spot | Food)[]) => Photo | null;
   /** the photo filling a header, with its credit */

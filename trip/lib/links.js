@@ -7,7 +7,7 @@
   function regOf(h) { var p = h.split("."), r = p.slice(-2).join("."); return /^(co|com|org|gov|ac|net)\.[a-z]{2}$/.test(r) && p.length > 2 ? p.slice(-3).join(".") : r; }
   /* menu: the restaurant's own menu page when Claude knows it, otherwise a search for that restaurant's menu */
   /* a planned meal's "Menu": its panel, opened at the menu (read from the restaurant's own site overnight) */
-  W.menuBtn = function (key) { return '<button type="button" class="menu-btn" data-open="' + esc(key) + '" data-menu="1" aria-haspopup="dialog">Menu</button>'; };
+  W.menuBtn = function (key) { return '<button type="button" class="menu-btn" data-open="' + esc(key) + '" data-menu="1" aria-haspopup="dialog" aria-label="Menu" title="Menu">' + W.icon("menu", 2) + "</button>"; };
   W.menuLink = function (it, city) {
     var url = it.menu || "https://www.google.com/search?q=" + encodeURIComponent(it.n + " " + city + " menu"), host = "";
     if (it.menu) { try { host = new URL(it.menu).hostname.replace(/^www\./, ""); } catch (e) {} }
@@ -33,7 +33,7 @@
   W.hostOf = hostOf;
   W.bookLink = function (it, city, food, country) {
     var o = W.officialUrl(it, food, country, city); if (!o) return "";
-    return '<a class="book" href="' + esc(o.url) + '" target="_blank" rel="noopener" title="' + (o.verified ? "Official site, checked" : "Official site") + '">' + (food ? "Reserve" : "Tickets") + " · " + esc(o.host) + (o.verified ? ' <span class="ok" aria-label="checked official site">✓</span>' : "") + "</a>";
+    return '<a class="book" href="' + esc(o.url) + '" target="_blank" rel="noopener" title="' + (o.verified ? "Official site, checked" : "Official site") + '">' + (food ? "Reserve" : "Tickets") + " · " + esc(o.host) + (o.verified ? '\u00a0<span class="ok" aria-label="checked official site">✓</span>' : "") + "</a>";   /* (no break before the tick: it used to drop onto a line of its own) */
   };
   /* flights: a Google Flights search (airlines and fares change too often to pick one) */
   W.flightsUrl = function (from, to, d) {

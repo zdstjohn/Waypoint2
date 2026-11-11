@@ -156,25 +156,113 @@
   };
 
   /* ---------- destination data ---------- */
-  W.countryCities = function (name) {
-    var built = (window.TD[name] || {}).cities || [], ai = (W.C.country[name] || {}).cities || [];
-    var out = [], seen = {};
-    built.concat(ai).forEach(function (c) { var k = W.norm(c.name); if (!seen[k]) { seen[k] = 1; out.push(c); } });
-    return out;
-  };
-  W.countryBlurb = function (name) { return (window.TD[name] || {}).blurb || (W.C.country[name] || {}).blurb || ""; };
-  /* looked up for every stop on every redraw: one index per country, rebuilt when either list it was made from is
-     replaced (the built-in one, or Claude's, which arrives later or comes back from a saved trip) */
-  var fcCache = Object.create(null);
-  W.findCity = function (country, name) {
-    var built = (window.TD[country] || {}).cities || null, ai = (W.C.country[country] || {}).cities || null, e = fcCache[country];
-    if (!e || e.built !== built || e.ai !== ai) {
-      e = fcCache[country] = { built: built, ai: ai, map: Object.create(null) };
-      W.countryCities(country).forEach(function (c) { var k = W.norm(c.name); if (!e.map[k]) e.map[k] = c; });
+  /* A destination is a town, never a whole island: you stay somewhere on Crete, not "in Crete". window.TI (data/data2.js)
+     lists the well-known islands with their towns. Wherever an island would be offered (the built-in list, Claude's
+     list, a name you type), its towns are offered instead. A trip made before this, with an island as a stop, keeps
+     working: W.findCity still knows the island (marked whole), and Plan offers its towns in its place. */
+  var isleIdx = null;
+  /* an island is matched by one of its listed names; "Santorini Island" and "the island of Santorini" also find
+     Santorini (but "Vancouver" never finds Vancouver Island: only what is typed loses the word, not the list) */
+  function isleFind(by, name) {
+    var k = W.norm(name);
+    return by[k] || by[k.replace(/^(the )?(isle|island) of /, "").replace(/ (island|islands|isle)$/, "")] || null;
+  }
+  function isles(country) {
+    if (!isleIdx) {
+      isleIdx = Object.create(null);
+      var TI = /** @type {any} */ (window).TI || {};
+      Object.keys(TI).forEach(function (cn) {
+        var by = Object.create(null), rows = TI[cn].map(function (/** @type {string[]} */ row) {
+          var group = row[0].charAt(0) === "*", names = row[0].replace(/^\*/, "").split(",");
+          var is = { name: names[0], group: group, towns: row[1].split(";").map(function (t) { var m = t.split("@"), q = m[1].split(","); return { name: m[0], lat: +q[0], lng: +q[1] }; }) };
+          names.forEach(function (n) { by[W.norm(n)] = is; });
+          return is;
+        });
+        isleIdx[cn] = { rows: rows, by: by };
+      });
     }
-    return e.map[W.norm(name)] || null;
+    return isleIdx[country] || null;
+  }
+  /** the island a name stands for (null for a town, or a name that is no island we know)
+      @param {string} country @param {string} name @returns {{ name: string, group: boolean, towns: { name: string, lat: number, lng: number }[] } | null} */
+  W.isleOf = function (country, name) {
+    var x = isles(country), is = x && isleFind(x.by, name) || null;
+    /* "Victoria" is a town on Mahé before it is anything else */
+    if (is && is.towns.some(function (t) { return W.norm(t.name) === W.norm(name); })) return null;
+    return is;
+  };
+  /* an island's towns as destinations. They take after the island's own entry where there is one (its tags, its
+     suggested days, the ideas built into the app); the usual base comes first and counts as the best known */
+  function isleTowns(is, base) {
+    base = base || {};
+    return is.towns.map(function (t, i) {
+      var c = /** @type {BuiltCity} */ ({ name: t.name, region: is.name, isl: is.name, lat: t.lat, lng: t.lng, w: i ? Math.max(1, (base.w || 2) - 1) : base.w || 2,
+        t: base.t || [], d: i || !base.d ? (is.group ? "In " : "On ") + is.name + "." : base.d });
+      if (i) c.pop = Math.max(1, (base.pop || 3) - Math.min(i, 2)); else if (base.pop) c.pop = base.pop;
+      if (base.spots) c.spots = base.spots;
+      return c;
+    });
+  }
+  /* one index per country, rebuilt when either list it was made from is replaced (the built-in one, or Claude's, which
+     arrives later or comes back from a saved trip). list = what is offered; map = every name that can be looked up,
+     which also has the islands themselves (whole) and every town of the islands we know */
+  var ccCache = Object.create(null);
+  function cityIndex(country) {
+    var built = (window.TD[country] || {}).cities || null, ai = (W.C.country[country] || {}).cities || null, e = ccCache[country];
+    if (e && e.built === built && e.ai === ai) return e;
+    e = ccCache[country] = { built: built, ai: ai, list: [], map: Object.create(null) };
+    var list = e.list, map = e.map, x = isles(country);
+    var put = function (c) { var k = W.norm(c.name); if (map[k]) return; map[k] = c; list.push(c); };
+    (built || []).concat(ai || []).forEach(function (c) {
+      var is = x ? W.isleOf(country, c.name) : null;
+      if (!is) { put(c); return; }
+      var k = W.norm(c.name); if (map[k]) return;
+      map[k] = Object.assign({}, c, { whole: 1, isl: is.name });
+      isleTowns(is, c).forEach(function (t) { var tk = W.norm(t.name), had = map[tk]; if (!had) put(t); else if (!had.isl && !had.whole) had.isl = is.name; });
+    });
+    /* an entry Claude placed on an island we know: say so (the planner keeps to one base on a small island) */
+    if (x) x.rows.forEach(function (is) {
+      var first = is.towns[0];
+      is.towns.forEach(function (t) { var had = map[W.norm(t.name)]; if (had && !had.isl && !had.whole) had.isl = is.name; });
+      /* names that are not offered but can still be looked up: the island itself, and its towns */
+      Object.keys(x.by).forEach(function (k) { if (x.by[k] === is && !map[k]) map[k] = /** @type {BuiltCity} */ ({ name: is.name, lat: first.lat, lng: first.lng, whole: 1, isl: is.name }); });
+      isleTowns(is, null).forEach(function (t) { var tk = W.norm(t.name); if (!map[tk]) map[tk] = t; });
+    });
+    return e;
+  }
+  W.countryCities = function (name) { return cityIndex(name).list; };
+  W.countryBlurb = function (name) { return (window.TD[name] || {}).blurb || (W.C.country[name] || {}).blurb || ""; };
+  /* looked up for every stop on every redraw */
+  W.findCity = function (country, name) {
+    var e = cityIndex(country);
+    return e.map[W.norm(name)] || isleFind(e.map, name) || null;
+  };
+  /** the towns to choose between when a name is an island (the ones we know first, then any others the country list
+      places on it), or null when the name is a town @param {string} country @param {string} name @returns {{ isle: string, group: boolean, towns: BuiltCity[] } | null} */
+  W.isleChoice = function (country, name) {
+    var is = W.isleOf(country, name), e = cityIndex(country), k = W.norm(name), out = [], seen = {};
+    var add = function (c) { var nk = W.norm(c.name); if (c && !c.whole && !seen[nk]) { seen[nk] = 1; out.push(c); } };
+    if (is) is.towns.forEach(function (t) { add(e.map[W.norm(t.name)]); });
+    /* towns the country list places on this island (also how an island we don't list ourselves is recognised) */
+    var on = Object.create(null); on[is ? W.norm(is.name) : k] = 1;
+    var listed = e.list.filter(function (c) { return c.isl && isleFind(on, c.isl); });
+    if (!is && !listed.length) {
+      on[k.replace(/^(the )?(isle|island) of /, "").replace(/ (island|islands|isle)$/, "")] = 1;
+      listed = e.list.filter(function (c) { return c.isl && isleFind(on, c.isl); });
+    }
+    if (!is && (!listed.length || e.map[k] && !e.map[k].whole)) return null;
+    listed.slice().sort(function (a, b) { return (b.pop || 0) - (a.pop || 0); }).forEach(add);
+    return { isle: is ? is.name : listed[0].isl || name, group: !!(is && is.group), towns: out.slice(0, 8) };
   };
   W.cityKey = function (country, city) { return country + "|" + city; };
+  /** a stop that is a whole island becomes one of its towns: it takes the island's place in your list, with the days
+      and the lodging you had set (the ideas are the town's own) @param {string} country @param {string} from @param {string} to */
+  W.isleSwap = function (country, from, to) {
+    var S = W.S, c = S.countries.filter(function (x) { return x.name === country; })[0]; if (!c || !to || from === to) return;
+    var j = c.picked.indexOf(from), a = W.cityKey(country, from), b = W.cityKey(country, to);
+    if (j > -1) { if (c.picked.indexOf(to) < 0) c.picked[j] = to; else c.picked.splice(j, 1); }
+    [S.cityDays, S.stays].forEach(function (m) { if (m && m[a] != null) { if (m[b] == null) m[b] = m[a]; delete m[a]; } });
+  };
   W.openStay = {};   /* which cities have their lodging panel open on Plan (screens/setup.js, second script) */
   /* idea pool for a city: Claude's list, or the built-in fallback when Claude isn't available */
   W.pool = function (country, city) {
@@ -364,19 +452,47 @@
   var BOOKRULE = "book = for any place that charges admission or needs booking: the page on the place's OWN official website (or its official government/foundation ticket office) where visitors buy tickets. Never a reseller, tour operator or look-alike ticket site (no GetYourGuide, Viator, Tiqets, Klook, Headout, Musement, 'colosseumtickets.com' style sites). If you are not confident of the exact official address, an empty string.";
   var TAGRULE = " Tags (t) only from: " + TAGS.join(",") + ". k: 1 = great for small kids, 0 = fine, -1 = better for older kids and adults.";
 
-  /* every destination in a country */
+  /* every destination in a country: cities, towns and areas (the Amalfi Coast, the Algarve). An island is never an entry; its towns are, each naming the island
+     (isl). A list cached before islands were handled this way (no v) is asked again once; the old one stays in use
+     until the new one comes, and for good if it doesn't */
+  W.COUNTRY_V = 2;
   W.loadCountry = function (name) {
-    var key = "country|" + name;
-    if (W.C.country[name] || W.status[key]) return;
-    run(key, "List the cities, towns, islands and areas that travelers visit in " + name +
-      ". Be thorough: 80 to 120 places covering every region, from major cities to small towns and islands. Only real places.\n" +
-      "Reply with JSON only: {\"blurb\":\"one sentence about traveling in " + name + "\",\"cities\":[{\"name\":\"\",\"region\":\"\",\"lat\":0,\"lng\":0,\"w\":2,\"pop\":3,\"t\":[\"tag\"],\"d\":\"what it is known for, max 12 words\"}]}\n" +
+    var key = "country|" + name, had = W.C.country[name];
+    if ((had && had.v >= W.COUNTRY_V) || W.status[key]) return;
+    run(key, "List the cities, towns and areas that travelers visit in " + name +
+      ". Be thorough: 80 to 120 places covering every region, from major cities to small towns. Only real places.\n" +
+      "An island or a group of islands is never an entry. For an island, list its towns instead " +
+      "(not \"Crete\" but Heraklion, Chania, Rethymno; for a small island its main town or port by its usual name, like \"Hydra Town\" or \"Naxos Town\"), each with the island's name in isl. " +
+      "isl is \"\" for a place on the mainland or on the country's main island.\n" +
+      "Reply with JSON only: {\"blurb\":\"one sentence about traveling in " + name + "\",\"cities\":[{\"name\":\"\",\"region\":\"\",\"isl\":\"\",\"lat\":0,\"lng\":0,\"w\":2,\"pop\":3,\"t\":[\"tag\"],\"d\":\"what it is known for, max 12 words\"}]}\n" +
       "w = suggested days (1-4). pop = how popular with visitors, 1-5." + TAGRULE.split(" k:")[0],
       "quick", function (r) {
-        var list = V.list(r && r.cities, V.city);
+        var list = W.townsOnly(V.list(r && r.cities, V.city));
         /* keep even an empty answer so the page never asks again in a loop */
-        W.C.country[name] = { blurb: String(r && r.blurb || ""), cities: list };
+        W.C.country[name] = { blurb: String(r && r.blurb || "") || (had && had.blurb) || "", cities: had && had.cities.length ? W.islesInto(had.cities, list) : list, v: W.COUNTRY_V };
       });
+  };
+  /** an answer that still names an island as a place (its name is its own isl) loses it when the island's towns are
+      there too; alone, it is that island's one town and stays @param {BuiltCity[]} list */
+  W.townsOnly = function (list) {
+    return list.filter(function (c) {
+      if (!c.isl || W.norm(c.isl) !== W.norm(c.name)) return true;
+      return !list.some(function (o) { return o !== c && o.isl && W.norm(o.isl) === W.norm(c.isl); });
+    });
+  };
+  /** A list from before, brought up to date with a new answer without the places you already see shifting: every
+      town it had stays as it was (so a suggested trip keeps its stops), each island it named gives way to that
+      island's towns, and a town now known to be on an island says so. Nothing else is added.
+      @param {BuiltCity[]} old @param {BuiltCity[]} fresh */
+  W.islesInto = function (old, fresh) {
+    var isl = Object.create(null), by = Object.create(null), seen = Object.create(null), out = [];
+    fresh.forEach(function (c) { by[W.norm(c.name)] = c; if (c.isl && W.norm(c.isl) !== W.norm(c.name)) isl[W.norm(c.isl)] = 1; });
+    old.forEach(function (c) {
+      var k = W.norm(c.name), f = by[k]; if (isl[k] || seen[k]) return;
+      seen[k] = 1; out.push(f && f.isl && !c.isl ? Object.assign({}, c, { isl: f.isl }) : c);
+    });
+    fresh.forEach(function (c) { var k = W.norm(c.name); if (c.isl && !seen[k]) { seen[k] = 1; out.push(c); } });
+    return out;
   };
 
   /* 25+ things to do, plus places to eat, transit and where to stay, for one city */

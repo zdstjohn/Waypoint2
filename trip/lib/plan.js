@@ -75,6 +75,14 @@
   /* ---------- stops ---------- */
   function stops(N, p, ap) {
     var perCity = p.toddler ? 4 : 3;
+    /* a suggested country: days or lodging once set for a whole island go to the island's usual base, which now stands in for it */
+    W.S.countries.forEach(function (c) {
+      if (c.mode === "manual") return;
+      Object.keys(W.S.cityDays || {}).concat(Object.keys(W.S.stays || {})).forEach(function (k) {
+        if (k.indexOf(c.name + "|") !== 0) return;
+        var is = W.isleOf(c.name, k.slice(c.name.length + 1)); if (is) W.isleSwap(c.name, k.slice(c.name.length + 1), is.towns[0].name);
+      });
+    });
     var manualCount = 0, fixedSum = 0, fixedCount = 0, suggest = [];
     W.S.countries.forEach(function (c) {
       if (c.mode !== "manual") { suggest.push(c); return; }
@@ -95,10 +103,16 @@
       var share = Math.floor(left / suggest.length) + (suggest.indexOf(c) < left % suggest.length ? 1 : 0);
       /* the best-fitting places, but only ones within an easy journey (under 5 hours) of another place on the trip */
       var sorted = cities.slice().sort(function (a, b) { return cityScore(b, p) - cityScore(a, p); }), ranked = [];
-      for (var i = 0; i < sorted.length && ranked.length < Math.max(1, share); i++) {
-        var cand = sorted[i];
-        if (ranked.length && !ranked.some(function (q) { return legMin(c.name, q, cand) < 300; })) continue;
-        ranked.push(cand);
+      /* one base on an island first; a second town on the same island only when the list would otherwise run short,
+         and then only one a real journey away (Chania after Heraklion, never Oia after Fira) */
+      for (var pass = 0; pass < 2 && ranked.length < Math.max(1, share); pass++) {
+        for (var i = 0; i < sorted.length && ranked.length < Math.max(1, share); i++) {
+          var cand = sorted[i];
+          if (ranked.indexOf(cand) > -1) continue;
+          if (cand.isl && ranked.some(function (q) { return q.isl === cand.isl && (!pass || (W.km(q, cand) || 0) < 40); })) continue;
+          if (ranked.length && !ranked.some(function (q) { return legMin(c.name, q, cand) < 300; })) continue;
+          ranked.push(cand);
+        }
       }
       /* start with the one nearest where you arrive, then the shortest way round */
       var prev = out.length ? out[out.length - 1].c : ap;

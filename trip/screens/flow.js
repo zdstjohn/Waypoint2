@@ -113,7 +113,7 @@
       '<p class="small muted">' + (qs.first ? "Waypoint plans family trips around naps, little legs and grandparents\' pace. Three quick questions and you\'ll have a day-by-day plan; everything can be changed afterwards." : "Three quick questions. You can fine-tune everything afterwards.") + "</p>" +
       '<label class="fld"><span>Where to?</span><input class="field" id="qsWhere" list="countryList" placeholder="A country, e.g. Greece" value="' + esc(keep.qsWhere || "") + '"></label>' +
       (W.standalone && !W.cloud ? '<p class="small muted sa-note">This version plans trips to ' + esc(W.builtInCountries()) + ".</p>" : "") +
-      '<label class="fld"><span>Places <em>(optional)</em></span><input class="field" id="qsCities" placeholder="Leave empty and we\'ll pick, or e.g. Crete, Naxos" value="' + esc(keep.qsCities || "") + '"></label>' +
+      '<label class="fld"><span>Places <em>(optional)</em></span><input class="field" id="qsCities" placeholder="Leave empty and we\'ll pick, or e.g. Chania, Naxos Town" value="' + esc(keep.qsCities || "") + '"></label>' +
       '<div class="fld"><span>When?</span><div class="qs-when"><input class="field" id="qsStart" type="date" value="' + esc(start) + '" aria-label="Start date"><span class="muted">for</span>' +
       '<input class="field" id="qsDays" type="number" min="2" max="60" value="' + esc(days) + '" aria-label="Number of days"><span class="muted">days</span></div></div>' +
       '<div class="fld"><span>Who\'s going?</span><div class="qs-who"><div class="stepper"><button type="button" data-qs="a-" aria-label="One adult fewer"' + (qs.adults <= 1 ? " disabled" : "") + '>−</button><b>' + qs.adults + '</b><button type="button" data-qs="a+" aria-label="One more adult">+</button></div><span class="muted">adult' + (qs.adults > 1 ? "s" : "") + "</span></div>" +
@@ -132,7 +132,15 @@
     qsKids();
     var c = W.countryName ? W.countryName(($("qsWhere") || {}).value || "") : (($("qsWhere") || {}).value || "").trim();
     if (!c) { qs.msg = "Pick a country from the list."; drawQS(); return; }
-    var cities = (($("qsCities") || {}).value || "").split(/[,;]+/).map(function (x) { return x.trim(); }).filter(Boolean).map(function (x) {
+    var typed = (($("qsCities") || {}).value || "").split(/[,;]+/).map(function (x) { return x.trim(); }).filter(Boolean);
+    /* an island is not a place to stay: say which towns it has, and wait for one */
+    var isle = typed.map(function (x) { return W.isleChoice(c, x); }).filter(function (x) { return x && x.towns.length; })[0];
+    if (isle) {
+      var tn = isle.towns.slice(0, 3).map(function (t) { return t.name; });
+      qs.msg = isle.isle + (isle.group ? " covers more than one place." : " is a whole island.") + " Name a town there instead, such as " + (tn.length > 1 ? tn.slice(0, -1).join(", ") + " or " + tn[tn.length - 1] : tn[0]) + ".";
+      drawQS(); var qc = $("qsCities"); if (qc) qc.focus(); return;
+    }
+    var cities = typed.map(function (x) {
       var k = W.findCity(c, x); return k ? k.name : x.replace(/\b\w/g, function (m) { return m.toUpperCase(); });
     });
     var days = Math.max(2, Math.min(60, Math.round(+($("qsDays") || {}).value) || 10)), start = ($("qsStart") || {}).value || "", from = (($("qsFrom") || {}).value || "").trim();

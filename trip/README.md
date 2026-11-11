@@ -70,6 +70,23 @@ v126: today's map moves to Today too. Where the city has a street map, the route
 (screens/travel.js, data-gomap): closed at first, it opens the map in place above the stops, with the zoom buttons,
 and stays open or closed while the app is open. Explore no longer shows a map. On a big screen the Day view still
 has it beside the day.
+v127: stops by letter, and towns instead of islands. A stop's marker is a small picture of what it is (a cup, a fork,
+a temple, a beach: W.kindIcon, lib/icons.js) with a letter tag, on the Day tab, in Today's route and on the map's
+pins. Letters go the way Google Maps letters a route: A is where you're staying, the first stop is B (W.stopTag), so
+the route opened in Google Maps matches the app. On the Day tab the marker sits at the left, centred in its card, the
+photo at the right with the swap button under it in the corner; "Menu" is an icon button.
+A destination is a town, never a whole island: you stay somewhere on Crete, not "in Crete". data/data2.js has
+window.TI, the well-known islands (about 80, in 35 countries) with their towns and where they are. lib/core.js:
+W.countryCities gives towns only (an island in the built-in list or in a list Claude gave gives way to its towns,
+which carry the island's built-in ideas); W.isleOf says whether a name is an island; W.isleChoice gives the towns to
+choose between; W.findCity still knows an island, marked whole, so a trip made before this keeps working. Claude is
+now asked never to list an island, only its towns, each naming the island it is on (isl); areas that are not islands
+(the Amalfi Coast, the Algarve) stay as they were. A list cached before this is asked again once:
+the new answer only swaps the islands it names for their towns (W.islesInto), so nothing else on a planned trip
+shifts. On Plan, typing an island offers its towns and adds nothing until one is chosen; an older stop that is an
+island shows its towns, and choosing one puts it in the island's place with its days and lodging (W.isleSwap). Quick
+start turns an island back and names its towns. Suggested places keep to one base on an island unless the list would
+run short, and then only a town a real journey away (lib/plan.js).
 v122: what Claude is asked first. W.run's queue (lib/core.js) no longer goes in the order things were asked: the city on
 screen (the selected day, and today's on a trip) comes first, its main lists (sights, places to eat, breakfast) before
 its second lists, then other cities' main lists, then the extras (hidden gems, rainy-day ideas, links, events, costs);

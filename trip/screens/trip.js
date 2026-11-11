@@ -221,13 +221,13 @@
     pts.forEach(function (p) {
       rows += legRow(prev, p, false);
       var R = T && T.rows[p.slot], when = [R && R.start != null && !R.skip ? W.clock(R.start) : "", (R && R.label) || W.SLOT_NAME[p.slot]].filter(Boolean).join(" · ");
-      rows += '<li class="rc-stop"><span class="num' + (p.food ? " f" : "") + '">' + p.num + '</span><span class="rc-b"><b>' + esc(p.n) + '</b><span class="small muted">' + esc(when) +
+      rows += '<li class="rc-stop">' + W.stopMark(p.it || {}, !!p.food, p.slot, p.num) + '<span class="rc-b"><b>'  + esc(p.n) + '</b><span class="small muted">' + esc(when) +
         (p.lat == null ? " · " + link(W.gmapsPlace(p, city), "find on Google Maps") : "") + "</span></span></li>";
       if (p.lat != null) prev = p;
     });
     if (prev !== home) rows += legRow(prev, home, true);
     return '<aside class="explorer rcard sk"><div class="explorer-h"><h3>Today\'s route</h3>' + zoomBtns + "</div>" + mapBox +
-      '<ol class="rc-list"><li class="rc-home"><span class="rc-hi" aria-hidden="true">' + W.icon("home", 2.4) + '</span><span class="rc-b"><b>' + esc(home.label) + '</b><span class="small muted">where you\'re staying</span></span></li>' + rows + "</ol>" +
+      '<ol class="rc-list"><li class="rc-home">' + W.homeMark() + '<span class="rc-b"><b>' + esc(home.label) + '</b><span class="small muted">where you\'re staying</span></span></li>' + rows + "</ol>" +
       (gm ? '<a class="btn rc-gm" href="' + esc(gm) + '" target="_blank" rel="noopener">Open the whole day in Google Maps ↗</a>' : "") +
       (mapBox && mapBox.indexOf("vt-slot") > -1 ? '<p class="map-note">© OpenMapTiles © OpenStreetMap contributors</p>' : "") + "</aside>";
   }
@@ -403,7 +403,7 @@
         if (day.trip && !x.trip && wasOut && prevPt !== home) { var rb = W.leg(prevPt, home); if (rb) list += '<div class="travel-note">Back from ' + esc(day.trip.name) + " to " + esc(home.label) + " · " + W.fmtMin(rb.min) + " " + rb.label + " " + link(W.gmapsDir(prevPt, home, rb.mode), "Directions") + "</div>"; prevPt = home; wasOut = false; }
         if (it && x.trip) wasOut = true;
         if (it) {
-          num++; pts.push({ n: it.n, lat: it.lat, lng: it.lng, gid: it.gid, gpin: it.gpin, num: num, i: num, food: food, slot: x.slot });
+          num++; pts.push({ n: it.n, lat: it.lat, lng: it.lng, gid: it.gid, gpin: it.gpin, num: num, i: num, food: food, slot: x.slot, it: it });
           var lg = W.leg(prevPt, it), from = prevPt;
           var legTag = lg ? '<span class="leg" title="' + esc(W.fmtMin(lg.min) + " " + lg.label + " · " + W.fmtKm(lg.d) + (from === home ? " from " + home.label : "")) + '"><span class="vh">' + esc(lg.label) + " </span>" + (LEG_IC[lg.mode] || LEG_IC.transit) + esc(W.fmtMin(lg.min)) + "</span>" : "";
           if (it.lat != null) prevPt = it;
@@ -435,17 +435,21 @@
           var glance = tags ? '<span class="gtags">' + tags + "</span>" : "";
           if (food) {
             /* meals: one slim row (time, name, menu); everything else is a tap away */
-            list += '<article class="slot sk food slim' + (ph ? " haspic" : "") + (R && R.skip ? " skipped" : "") + '" data-slotkey="' + esc(x.key) + '">' + (ph ? '<div class="thumb sm">' + ph + '<span class="num">' + num + "</span></div>" : '<span class="num">' + num + "</span>") +
+            /* a stop's card: its marker at the left, in the middle of the card (one column down the whole day, meals
+               and sights alike); its photo at the right, never under the marker; the swap button in the bottom-right corner */
+            list += '<article class="slot sk food slim' + (ph ? " haspic" : "") + (R && R.skip ? " skipped" : "") + '" data-slotkey="' + esc(x.key) + '">' + W.stopMark(it, true, x.slot, num) +
               '<div class="slot-body"><button type="button" class="slot-toggle" data-open="' + esc(x.key) + '" aria-haspopup="dialog">' +
               '<span class="sl-l">' + tm + '<b class="nm">' + esc(it.n) + "</b></span>" +
               '<span class="when">' + label + (legTag ? " · " + legTag : "") + "</span></button>" +
               (notes ? '<div class="slot-notes">' + notes + "</div>" : "") + "</div>" +
-              '<div class="slim-a">' + booked + W.menuBtn(x.key) + (W.canEdit() ? rr : "") + "</div></article>";
+              '<div class="slim-a">' + (ph ? '<div class="thumb sm">' + ph + "</div>" : "") + booked + W.menuBtn(x.key) + (W.canEdit() ? rr : "") + "</div></article>";
           } else {
-            list += '<article class="slot sk' + (R && R.skip ? " skipped" : "") + '" data-slotkey="' + esc(x.key) + '">' + (ph ? '<div class="thumb">' + ph + '<span class="num">' + num + "</span></div>" : '<span class="num">' + num + "</span>") +
+            var th = ph ? '<div class="thumb">' + ph + "</div>" : "";
+            list += '<article class="slot sk' + (ph ? " haspic" : "") + (R && R.skip ? " skipped" : "") + '" data-slotkey="' + esc(x.key) + '">' + W.stopMark(it, false, x.slot, num) +
               '<div class="slot-body"><button type="button" class="slot-toggle" data-open="' + esc(x.key) + '" aria-haspopup="dialog">' +
               '<span class="when">' + tm + label + stayChip(it, food, x.slot) + '</span><span class="nm">' + esc(it.n) + '</span><span class="desc">' + esc(it.d) + "</span>" + glance + "</button>" +
-              (main || booked ? '<div class="slot-act">' + booked + main + "</div>" : "") + (notes || legTag ? '<div class="slot-notes">' + legTag + notes + "</div>" : "") + "</div>" + (!W.canEdit() ? "" : '<div class="slot-btns">' + rr + "</div>") + "</article>";
+              (main || booked ? '<div class="slot-act">' + booked + main + "</div>" : "") + (notes || legTag ? '<div class="slot-notes">' + legTag + notes + "</div>" : "") + "</div>" +
+              (th || W.canEdit() ? '<div class="slot-btns">' + th + (W.canEdit() ? rr : "") + "</div>" : "") + "</article>";
           }
         } else if (R && R.skip && !swap) {
           /* no time for anything here today (a long journey): nothing to show, except a note like "breakfast before you set off" */

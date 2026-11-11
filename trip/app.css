@@ -238,6 +238,9 @@ details.step > summary:focus-visible{outline:2px solid var(--ink);outline-offset
 .chips .linkish{padding:4px 2px}
 .browse h4{font-family:var(--f-body);text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:12px 0 6px;font-weight:800;font-size:var(--t-cap)}
 .browse .chip{font-size:var(--t-ui);padding:3px 10px}
+/* a whole island named as a place: its towns to choose between */
+.isle-ask{display:grid;gap:8px;padding:10px 12px;border-radius:var(--r-md);background:var(--accent-soft);min-width:0}
+.isle-ask p{margin:0;color:var(--ink)}
 .stepper{display:flex;align-items:center;border:var(--hair);border-radius:var(--r-md);overflow:hidden;width:max-content;background:var(--surface)}
 .stepper button{border:0;background:transparent;width:38px;height:38px;font-size:var(--t-h3);font-weight:800;cursor:pointer;color:var(--fg)}
 @media (hover:hover){.stepper button:not(:disabled):hover{background:var(--sunk)}}
@@ -1885,3 +1888,28 @@ svg.arr.arr-r{margin:0 0 0 .35em}
 .go-map .zoom{justify-self:end}
 .go-map .map-wrap{margin:0}
 .go-map .map-note{padding:0 6px}
+
+/* a stop's card on the Day tab: its marker at the left, in the middle of the card (one column down the whole day,
+   meals and sights alike); its photo at the right; the swap button in the bottom-right corner */
+.slot > .num{align-self:center}
+.slot .slot-btns{align-self:stretch;align-content:space-between;justify-items:end;gap:6px}
+.slot:not(.haspic) .slot-btns{align-content:end}
+.slot .slot-btns .thumb{width:76px}
+.slim-a .thumb{flex:none}
+.slim-a .menu-btn{display:inline-grid;place-items:center;width:40px;height:40px;padding:0;border:0;background:transparent;border-radius:var(--r-md);cursor:pointer}
+.slim-a .menu-btn svg{width:21px;height:21px}
+/* a stop's marker: the icon for what it is on its colour (orange for a meal), its letter as a small tag. The same
+   marker on the Day tab's cards and in Today's route; the map's pins carry the same letters */
+.num.ki{width:34px;height:34px;position:relative}
+.num.ki svg[data-i]{width:19px;height:19px;stroke:currentColor}
+.num.ki svg[data-i] .ia{fill:currentColor;opacity:.25}
+.num.ki svg[data-i] .if{fill:currentColor}
+.slot.slim .num.ki{width:32px;height:32px}
+.slot.slim .num.ki svg{width:18px;height:18px}
+.nb{position:absolute;right:-6px;bottom:-5px;min-width:17px;height:17px;padding:0 3px;border-radius:9px;background:var(--surface);color:var(--fg);box-shadow:0 0 0 1.500px var(--soft);font:800 10px/17px var(--f-body);text-align:center;font-style:normal}
+.rc-hi{position:relative}
+.rc-stop .num.ki{width:32px;height:32px}
+.go-route .rc-home .rc-hi,.rcard .rc-home .rc-hi{width:32px;height:32px}
+.rc-leg{margin-left:15px}
+.vt-pin.home{position:relative}
+.vt-pin.home i{position:absolute;right:-7px;bottom:-6px;min-width:15px;height:15px;border-radius:8px;background:#fff;color:#2E2A27;font:800 9px/15px var(--f-body);text-align:center;font-style:normal;box-shadow:var(--sh-1)}

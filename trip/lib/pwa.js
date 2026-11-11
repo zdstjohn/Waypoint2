@@ -14,7 +14,8 @@
   W.builtInCities = function () {
     var TD = /** @type {any} */ (window).TD || {};
     return Object.keys(TD).map(function (c) {
-      var n = (TD[c].cities || []).filter(function (x) { return x.spots && x.spots.length; }).map(function (x) { return x.name; });
+      /* an island shows as its usual base (Fira for Santorini): W.countryCities gives towns only */
+      var isl = {}, n = (W.countryCities ? W.countryCities(c) : TD[c].cities || []).filter(function (x) { if (!(x.spots && x.spots.length)) return false; if (!x.isl) return true; if (isl[x.isl]) return false; return (isl[x.isl] = true); }).map(function (x) { return x.name; });
       return n.length ? (n.length > 1 ? n.slice(0, -1).join(", ") + " and " + n[n.length - 1] : n[0]) + " in " + c : "";
     }).filter(Boolean).join("; ");
   };

@@ -20,6 +20,14 @@
   }
   W.countryName = countryName;
   var openBrowse = {};
+  /* a whole island typed as a place: the towns to choose between instead, by country */
+  var isleAsk = {};
+  /** "Crete is a whole island. Choose a town on it:" with its towns; pick = the chip's data attributes for one town */
+  function isleHint(ch, pick, done) {
+    return '<div class="isle-ask" role="group" aria-label="Towns ' + (ch.group ? "in " : "on ") + esc(ch.isle) + '"><p class="small"><b>' + esc(ch.isle) + "</b> " +
+      (ch.group ? "covers more than one place. Choose a town there:" : "is a whole island. Choose a town on it:") + '</p><div class="chips">' +
+      ch.towns.map(function (t) { return '<button type="button" class="chip" ' + pick(t) + ' title="' + esc(t.d || "") + '">' + esc(t.name) + "</button>"; }).join("") + (done || "") + "</div></div>";
+  }
   var ageLabel = function (a) { return a < 2 ? "Baby" : a < 5 ? "Toddler" : a < 13 ? "Child" : a < 18 ? "Teen" : a >= 65 ? "Grandparent" : "Adult"; };   /* 65 and over: shorter days, fewer moves */
 
   var openStay = W.openStay = W.openStay || {};   /* which cities have their lodging panel open (made in lib/core.js: Trip and Today open one before this script has come) */
@@ -44,6 +52,8 @@
       '<input id="cdays' + i + '" type="number" min="1" max="30" value="' + s.days + '" data-cdin="' + i + '" aria-label="Days in ' + esc(s.name) + '">' +
       '<button type="button" data-cdays="' + i + '" data-delta="1" aria-label="One more day in ' + esc(s.name) + '"' + (s.days >= 30 ? " disabled" : "") + ">+</button></div></div>" +
       paceRow(s, i) +
+      /* a stop from before islands gave way to their towns: it still works, and its towns are one tap away */
+      (function () { var ch = W.isleChoice(s.country, s.name); return ch && ch.towns.length ? isleHint(ch, function (t) { return 'data-isleswap="' + i + '" data-town="' + esc(t.name) + '"'; }) : ""; })() +
       '<div class="stop-a"><button type="button" class="stay-btn' + (hb.set ? " set" : "") + '" data-openstay="' + i + '" aria-expanded="' + open + '">' + BED_ICON +
       "<span>" + (geoBusy ? "Locating…" : hb.set ? "<b>" + esc(hb.label) + "</b>" : "Where to stay") + "</span>" + CHEV + "</button>" +
       (j > 0 ? '<button type="button" class="icon-btn" data-up="' + j + '" data-ci="' + ci + '" aria-label="Visit ' + esc(s.name) + ' earlier">' + UP_ICON + "</button>" : "") +
@@ -77,9 +87,11 @@
         : loadingList ? '<div class="loading">Finding destinations in ' + esc(c.name) + "…</div>" : '<p class="small muted">' + (W.sampleState === "off" ? "Switch to “I'll choose” and type the cities you want." : "Getting destinations…") + "</p>") + "</div>";
     }
     h += rows ? '<div class="stops">' + rows + "</div>" : '<p class="small muted">No cities yet. Search below or tap one to add it.</p>';
-    h += '<div class="row"><input class="field" id="cityIn' + ci + '" list="cl' + ci + '" placeholder="Add any city, town or island">' +
-      '<datalist id="cl' + ci + '">' + cities.map(function (x) { return '<option value="' + esc(x.name) + '">' + esc(x.region || "") + "</option>"; }).join("") + "</datalist>" +
+    h += '<div class="row"><input class="field" id="cityIn' + ci + '" list="cl' + ci + '" placeholder="Add any city or town">' +
+      '<datalist id="cl' + ci + '">' + cities.map(function (x) { return '<option value="' + esc(x.name) + '">' + esc(x.isl || x.region || "") + "</option>"; }).join("") + "</datalist>" +
       '<button type="button" class="btn" data-addcity="' + ci + '">Add</button></div>';
+    var ask = isleAsk[c.name];
+    if (ask) h += isleHint(ask, function (t) { return 'data-pick="' + esc(t.name) + '" data-ci="' + ci + '" aria-pressed="' + (c.picked.indexOf(t.name) > -1) + '"'; }, '<button type="button" class="linkish" data-isledone="' + ci + '">Done</button>');
     var popular = cities.filter(function (x) { return c.picked.indexOf(x.name) < 0; }).sort(function (a, b) { return (b.pop || 4) - (a.pop || 4); }).slice(0, 5);
     if (popular.length) h += '<div class="chips">' + popular.map(function (x) { return '<button type="button" class="chip" data-pick="' + esc(x.name) + '" data-ci="' + ci + '">+ ' + esc(x.name) + "</button>"; }).join("") +
       (!loadingList && cities.length > 5 ? '<button type="button" class="linkish" data-browse="' + ci + '">' + (openBrowse[c.name] ? "Hide list" : "Browse all " + cities.length) + "</button>" : "") + "</div>";
@@ -279,7 +291,11 @@
   }
   function addCity(i) {
     var inp = $("cityIn" + i), v = inp && inp.value.trim(); if (!v) return;
-    var c = S.countries[i], known = W.findCity(c.name, v), name = known ? known.name : v.replace(/\b\w/g, function (m) { return m.toUpperCase(); });
+    var c = S.countries[i], isle = W.isleChoice(c.name, v);
+    /* an island is not a place to stay: its towns are offered instead, and nothing is added until one is chosen */
+    if (isle && isle.towns.length) { isleAsk[c.name] = isle; inp.value = ""; W.render(); return; }
+    delete isleAsk[c.name];
+    var known = W.findCity(c.name, v), name = known ? known.name : v.replace(/\b\w/g, function (m) { return m.toUpperCase(); });
     if (c.picked.indexOf(name) < 0) c.picked.push(name);
     inp.value = ""; W.render(); var again = $("cityIn" + i); if (again) again.focus();
   }
@@ -329,6 +345,8 @@
       }
     }
     else if (d.pick && c) { var j = c.picked.indexOf(d.pick); if (j > -1) c.picked.splice(j, 1); else c.picked.push(d.pick); }
+    else if (d.isledone != null) { var ic = S.countries[+d.isledone]; if (ic) delete isleAsk[ic.name]; }
+    else if (d.isleswap != null) { var is = P.stops[+d.isleswap]; if (is && d.town) W.isleSwap(is.country, is.name, d.town); }
     else if (d.unpick && c) c.picked.splice(c.picked.indexOf(d.unpick), 1);
     else if (d.up && c) { var u = +d.up, t = c.picked[u]; c.picked[u] = c.picked[u - 1]; c.picked[u - 1] = t; }
     else if (d.addcity != null) return addCity(+d.addcity);

@@ -299,17 +299,18 @@
     /** @type {HTMLElement} */ var el = document.createElement("div");
     if (g.home) {
       el.className = "vt-pin home";
-      el.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 7.5 8 3l5.5 4.5V13h-3.5V9.5h-4V13H2.5z" fill="currentColor"/></svg>';
-      el.setAttribute("aria-label", "Where you're staying");
+      el.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 7.5 8 3l5.5 4.5V13h-3.5V9.5h-4V13H2.5z" fill="currentColor"/></svg><i>A</i>';
+      el.setAttribute("aria-label", "A. Where you're staying");
       return el;
     }
-    var ps = g.items, many = ps.length > 1, nums = ps.map(function (p) { return p.num; }).join("·");
+    /* lettered as Google Maps letters the day's route: A is where you're staying, B the first stop (W.stopTag) */
+    var ps = g.items, many = ps.length > 1, nums = ps.map(function (p) { return W.stopTag(p.num); }).join("·");
     /* one stop: the pin opens it in Google Maps (reviews, photos, hours, directions) */
     if (!many && S.city) { var a = document.createElement("a"); a.href = W.gmapsPlace(ps[0], S.city); a.target = "_blank"; a.rel = "noopener"; el = a; }
     el.className = "vt-pin" + (many ? " many" : ps[0].food ? " food" : "");
     el.innerHTML = "<b>" + nums + "</b><span>" + W.esc(ps[0].n) + (many ? " +" + (ps.length - 1) : "") + "</span>";
-    el.setAttribute("aria-label", ps.map(function (p) { return p.num + ". " + p.n; }).join(", "));
-    el.title = ps.map(function (p) { return p.num + ". " + p.n; }).join("\n");
+    el.setAttribute("aria-label", ps.map(function (p) { return W.stopTag(p.num) + ". " + p.n; }).join(", "));
+    el.title = ps.map(function (p) { return W.stopTag(p.num) + ". " + p.n; }).join("\n");
     return el;
   }
   /* Stops closer together on screen than a pin is wide share one marker at their common spot, numbers in a row, so

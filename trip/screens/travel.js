@@ -163,7 +163,7 @@
         var it = e.x.item, bk = W.bookEntryFor ? W.bookEntryFor(P, day, it) : null;
         num++; pts.push({ n: it.n, lat: it.lat, lng: it.lng, gid: it.gid, gpin: it.gpin, num: num, food: !!e.food, slot: e.x.slot });
         rows += legRow(prev, it, false);
-        rows += '<li class="rc-stop' + st + '"><span class="num' + (e.food ? " f" : "") + '">' + num + '</span><button type="button" class="rc-b" data-sheet="' + esc(e.x.key) + '" aria-haspopup="dialog"><b>' + esc(it.n) + '</b><span class="small muted">' +
+        rows += '<li class="rc-stop' + st + '">' + W.stopMark(it, !!e.food, e.x.slot, num) + '<button type="button" class="rc-b" data-sheet="' + esc(e.x.key) + '" aria-haspopup="dialog"><b>' + esc(it.n) + '</b><span class="small muted">' +
           tm + " · " + esc(slotName(e)) + (bk ? (bk.done ? ' · <span class="ok">booked</span>' : ' · <span class="warn-t">not booked</span>') : "") + "</span></button>" +
           (it.lat == null ? '<a class="rc-find small" href="' + esc(W.gmapsPlace(it, day.city)) + '" target="_blank" rel="noopener">find on Google Maps</a>' : "") + "</li>";
         if (it.lat != null) prev = it;
@@ -179,7 +179,7 @@
     if (prev !== home && !list.some(function (e) { return e.k === "back"; })) rows += legRow(prev, homePt, true);
     var gm = pts.length ? W.dayRouteUrl(day, pts, home) : "";
     h += '<section class="go-day go-route sk"><div class="go-rh"><h3>' + "Today's route" + "</h3>" + mapBtn + "</div>" + mapIn +
-      (pts.length || rows ? '<ol class="rc-list go-rt"><li class="rc-home"><span class="rc-hi" aria-hidden="true">' + W.icon("home", 2.4) + '</span><span class="rc-b"><b>' + esc(home.label) + '</b><span class="small muted">where you\'re staying</span></span></li>' + rows + "</ol>"
+      (pts.length || rows ? '<ol class="rc-list go-rt"><li class="rc-home">' + W.homeMark() + '<span class="rc-b"><b>' + esc(home.label) + '</b><span class="small muted">where you\'re staying</span></span></li>' + rows + "</ol>"
         : '<p class="small muted">Nothing planned for this day yet.</p>') +
       (gm ? '<a class="btn rc-gm" href="' + esc(gm) + '" target="_blank" rel="noopener">Open the whole route in Google Maps ↗</a>' : "") + "</section>";
 

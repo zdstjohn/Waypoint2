@@ -148,6 +148,76 @@ exports.run = async t => {
   await pg.waitForTimeout(5000); await settle(pg);
   const later = await pg.evaluate(() => ({ stops: W.P.stops.map(x => x.name), slots: document.querySelectorAll('.slots .slot[data-slotkey]').length }));
   t.ok(later.stops.length >= 2 && later.slots >= 4, 'and the trip fills in: ' + JSON.stringify(later));
+  /* islands: a destination is a town, never a whole island */
+  { const { pg: pi, ctx: ci, errors: ei } = await open(b, { width: 390, height: 844 }); await exampleTrip(pi);
+    const lists = await pi.evaluate(() => {
+      const names = c => W.countryCities(c).map(x => x.name), isl = [];
+      Object.keys(TD).forEach(c => names(c).forEach(n => { if (W.isleOf(c, n) || W.findCity(c, n).whole) isl.push(c + ': ' + n); }));
+      const g = names('Greece'), f = W.findCity('Greece', 'Santorini');
+      return { isl, towns: ['Fira', 'Oia', 'Heraklion', 'Chania', 'Naxos Town', 'Corfu Town'].filter(n => !g.includes(n)), islands: ['Santorini', 'Crete', 'Naxos', 'Corfu'].filter(n => g.includes(n)),
+        palma: names('Spain').includes('Palma de Mallorca') && !names('Spain').includes('Mallorca'), patong: names('Thailand').includes('Patong'), italy: names('Italy').slice(0, 5),
+        whole: !!(f && f.whole && f.spots.length), spots: (W.findCity('Greece', 'Fira').spots || []).length, base: W.findCity('Greece', 'Fira').isl,
+        vancouver: !!W.isleOf('Canada', 'Vancouver'), vi: !!W.isleOf('Canada', 'Vancouver Island'), skye: !!W.isleOf('United Kingdom', 'skye'), typed: !!W.isleOf('Greece', 'the island of Santorini'), victoria: !!W.isleOf('Canada', 'Victoria') };
+    });
+    t.eq(lists.isl, [], 'no built-in destination is a whole island, in any country');
+    t.eq([lists.towns, lists.islands], [[], []], 'Greece offers Fira, Oia, Heraklion, Chania, Naxos Town and Corfu Town, and not Santorini, Crete, Naxos or Corfu');
+    t.ok(lists.palma && lists.patong, 'Mallorca gives way to Palma de Mallorca, Phuket & Krabi to its towns');
+    t.eq(lists.italy, ['Rome', 'Florence', 'Venice', 'Amalfi Coast', 'Lake Como'], 'a country with no island in its list is as it was');
+    t.ok(lists.whole && lists.spots >= 3 && lists.base === 'Santorini', 'an island can still be looked up (an older trip has one), and its towns carry its built-in ideas: ' + JSON.stringify(lists));
+    t.ok(!lists.vancouver && lists.vi && lists.skye && lists.typed && !lists.victoria, 'Vancouver is a city and Vancouver Island an island; Skye and "the island of Santorini" are islands; Victoria is a town');
+    /* a list Claude gave before this named islands: the ones we know give way to their towns at once, and a new answer
+       replaces the others without the towns already there shifting */
+    const old = await pi.evaluate(async () => {
+      const mk = (name, pop) => ({ name, region: 'Dalmatia', lat: 43.5, lng: 16.4, w: 2, pop, t: [], d: '' });
+      W.C.country.Croatia = { blurb: 'b', cities: [mk('Split', 5), mk('Hvar', 5), mk('Vis', 3), mk('Dubrovnik', 5)] };
+      const before = W.countryCities('Croatia').map(x => x.name);
+      const merged = W.islesInto(W.C.country.Croatia.cities, W.townsOnly([Object.assign(mk('Vis Town', 3), { isl: 'Vis' }), Object.assign(mk('Komiža', 2), { isl: 'Vis' }), Object.assign(mk('Vis', 3), { isl: 'Vis' }), mk('Zadar', 4), Object.assign(mk('Split', 1), { isl: '' })])).map(x => x.name + (x.pop === 5 ? '*' : ''));
+      const alone = W.townsOnly([Object.assign(mk('Hydra', 3), { isl: 'Hydra' }), mk('Nafplio', 4)]).map(x => x.name);
+      W.loadCountry('Croatia'); for (let i = 0; i < 40 && !(W.C.country.Croatia.v >= 2); i++) await new Promise(r => setTimeout(r, 150));
+      return { before, merged, alone, v: W.C.country.Croatia.v, kept: W.C.country.Croatia.cities.map(x => x.name) };
+    });
+    t.eq(old.before, ['Split', 'Hvar Town', 'Stari Grad', 'Jelsa', 'Vis', 'Dubrovnik'], 'an older list: Hvar gives way to its towns');
+    t.eq(old.merged, ['Split*', 'Hvar*', 'Dubrovnik*', 'Vis Town', 'Komiža'], 'a new answer swaps the island it names (Vis) for its towns and leaves the rest as it was, adding nothing else');
+    t.eq(old.alone, ['Hydra', 'Nafplio'], 'a small island named alone stays, as its one town');
+    t.ok(old.v === 2 && old.kept.slice(0, 4).join() === 'Split,Hvar,Vis,Dubrovnik', 'the older list is asked again once and keeps its towns: ' + JSON.stringify([old.v, old.kept.length]));
+    /* choosing places yourself: an island typed as a place offers its towns and adds nothing */
+    await pi.evaluate(() => { W.S.countries = [{ name: 'Greece', mode: 'manual', picked: ['Athens'] }]; W.S.cityDays = {}; W.S.days = 9; (W.S.stepClosed = W.S.stepClosed || {}).where = false; W.setView('setup'); W.changed(); });
+    await pi.waitForSelector('#cityIn0', { timeout: 15000 });
+    const ph = await pi.getAttribute('#cityIn0', 'placeholder');
+    await pi.fill('#cityIn0', 'crete'); await pi.click('[data-addcity="0"]'); await pi.waitForTimeout(400);
+    const ask = await pi.evaluate(() => { const e = document.querySelector('.country .isle-ask'); return { text: e && e.querySelector('p').textContent, towns: e ? [...e.querySelectorAll('.chip')].map(x => x.textContent) : [], picked: W.S.countries[0].picked.slice() }; });
+    t.ok(/Crete is a whole island/.test(ask.text || '') && ask.towns.slice(0, 3).join() === 'Heraklion,Chania,Rethymno' && ask.picked.join() === 'Athens' && !/island/.test(ph), 'typing Crete offers its towns and adds nothing: ' + JSON.stringify(ask) + ' ' + ph);
+    await pi.click('.isle-ask .chip[data-pick="Chania"]'); await pi.waitForTimeout(400);
+    const picked = await pi.evaluate(() => ({ picked: W.S.countries[0].picked.slice(), on: (document.querySelector('.isle-ask .chip[data-pick="Chania"]') || { getAttribute: () => null }).getAttribute('aria-pressed'), stops: W.P.stops.map(x => x.name) }));
+    t.eq(picked, { picked: ['Athens', 'Chania'], on: 'true', stops: ['Athens', 'Chania'] }, 'tapping a town adds it');
+    await pi.click('[data-isledone="0"]'); await pi.waitForTimeout(300);
+    t.ok(await pi.evaluate(() => !document.querySelector('.isle-ask')), 'Done puts the towns away');
+    /* an older trip with an island as a stop still plans, and offers the island's towns in its place */
+    await pi.evaluate(() => { W.S.countries[0].picked = ['Athens', 'Santorini']; W.S.cityDays = { 'Greece|Athens': 3, 'Greece|Santorini': 4 }; W.S.stays = { 'Greece|Santorini': { label: 'Hotel Caldera' } }; W.S.days = 7; W.changed(); });
+    await pi.waitForSelector('.stop .isle-ask', { timeout: 10000 });
+    const was = await pi.evaluate(() => ({ stops: W.P.stops.map(x => x.name + ' ' + x.days), towns: [...document.querySelectorAll('.stop .isle-ask .chip')].map(x => x.textContent) }));
+    t.ok(was.stops.join() === 'Athens 3,Santorini 4' && was.towns.includes('Oia'), 'an older trip with Santorini as a stop still plans, with its towns on offer: ' + JSON.stringify(was));
+    await pi.click('.stop .isle-ask .chip[data-town="Oia"]'); await pi.waitForTimeout(500);
+    const now = await pi.evaluate(() => ({ picked: W.S.countries[0].picked.slice(), days: W.S.cityDays['Greece|Oia'], gone: W.S.cityDays['Greece|Santorini'] === undefined, stay: (W.S.stays['Greece|Oia'] || {}).label, hint: !!document.querySelector('.stop .isle-ask'), stops: W.P.stops.map(x => x.name + ' ' + x.days) }));
+    t.eq(now, { picked: ['Athens', 'Oia'], days: 4, gone: true, stay: 'Hotel Caldera', hint: false, stops: ['Athens 3', 'Oia 4'] }, 'choosing a town puts it in the island\'s place, with its days and its lodging');
+    /* suggested places: towns only, and one base on a small island */
+    const sug = await pi.evaluate(() => {
+      W.S.countries = [{ name: 'Greece', mode: 'suggest', picked: [] }]; W.S.cityDays = { 'Greece|Santorini': 5 }; W.S.stays = {}; W.S.days = 21; W.changed();
+      const st = W.plan().stops, close = [];
+      st.forEach((a, i) => st.forEach((b2, j) => { if (j > i && a.c.isl && a.c.isl === b2.c.isl && W.km(a.c, b2.c) < 40) close.push(a.name + '+' + b2.name); }));
+      return { stops: st.map(x => x.name), isl: st.filter(x => W.isleOf('Greece', x.name)).map(x => x.name), close, moved: W.S.cityDays['Greece|Fira'], old: W.S.cityDays['Greece|Santorini'] };
+    });
+    t.ok(sug.stops.length >= 3 && !sug.isl.length && !sug.close.length, 'suggested places are towns, with no two on the same small island: ' + JSON.stringify(sug));
+    t.ok(sug.moved === 5 && sug.old === undefined, 'days once set for a suggested island go to its usual base');
+    /* quick start: an island named among the places is turned back with its towns */
+    await pi.evaluate(() => W.quickStart()); await pi.waitForTimeout(400);
+    await pi.fill('#qsWhere', 'Greece'); await pi.fill('#qsCities', 'Athens, Santorini'); await pi.click('[data-qs="go"]'); await pi.waitForTimeout(500);
+    const q1 = await pi.evaluate(() => ({ open: !!document.querySelector('.qs.sheet'), warn: (document.querySelector('.qs .warn') || {}).textContent, kept: (document.getElementById('qsCities') || {}).value, ph: (document.getElementById('qsCities') || {}).placeholder }));
+    t.ok(q1.open && /Santorini is a whole island/.test(q1.warn || '') && /Fira/.test(q1.warn) && q1.kept === 'Athens, Santorini' && !/Crete/.test(q1.ph), 'quick start turns an island back and names its towns: ' + JSON.stringify(q1));
+    await pi.fill('#qsCities', 'Athens, Fira'); await pi.click('[data-qs="go"]'); await pi.waitForTimeout(800);
+    t.eq(await pi.evaluate(() => W.S.countries[0].picked.slice()), ['Athens', 'Fira'], 'and takes the town');
+    t.eq(ei(), [], 'islands: no page errors');
+    await ci.close(); }
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

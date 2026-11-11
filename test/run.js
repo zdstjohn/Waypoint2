@@ -35,7 +35,12 @@
              screens listed in test/screens-expected.txt are expected (--expect, or SCREENS_EXPECT=<file> as GitHub sets
              it when the commit changed that file); any other changed screen fails. SHOT_SIZES=n,big,dark,wide,desk takes
              only those sizes (GitHub runs each size side by side)
-   --shard=k/n  one of n groups of suites balanced by time (GitHub runs three side by side) */
+   --shard=k/n  one of n groups of suites balanced by time (GitHub runs three side by side)
+   --jobs=n     how many suites run at once (JOBS=n too; 3 by default, 1 on GitHub, where the shards are the side by side).
+                The build and the test server are shared; each suite runs in a process of its own, the longest first.
+                The suites that time things (perf, vitals) run alone afterwards, and a suite that fails while others
+                were running is run once more alone: only a failure on its own counts (the report says "on a second
+                run, alone" when that happened) */
 const { spawn, spawnSync } = require('child_process'); const fs = require('fs'); const path = require('path');
 const ROOT = path.resolve(__dirname, '..'); const OUT = path.join(__dirname, 'out'); fs.mkdirSync(OUT, { recursive: true });
 const args = process.argv.slice(2); const flags = new Set(args.filter(a => a.startsWith('--'))); const pick = args.filter(a => !a.startsWith('--'));
@@ -63,29 +68,64 @@ async function serverUp() {
   throw new Error('test server did not start');
 }
 
-(async () => {
+/* one suite, in this process */
+async function runSuite(name) {
+  const file = path.join(__dirname, 'suites', name + '.js');
+  if (!fs.existsSync(file)) return [name, 'missing', ['no such suite'], 0, '0', []];
+  const t0 = Date.now(); const checks = []; const fails = [];
+  const t = {
+    ok: (cond, what) => { checks.push(what); if (!cond) fails.push(what); return !!cond; },
+    eq: (a, b, what) => { const c = JSON.stringify(a) === JSON.stringify(b); checks.push(what); if (!c) fails.push(`${what}: got ${JSON.stringify(a)}, wanted ${JSON.stringify(b)}`); return c; },
+    note: s => checks.push('(note) ' + s), flags, out: OUT, root: ROOT,
+    shot: async (pg, name) => { try { await pg.screenshot({ path: path.join(OUT, name + '.png') }); } catch (e) { } },
+  };
+  try { await require(file).run(t); } catch (e) { fails.push('crashed: ' + (e.stack || e).toString().split('\n').slice(0, 3).join(' ')); }
+  const secs = ((Date.now() - t0) / 1000).toFixed(0);
+  return [name, fails.length ? 'FAIL' : 'ok', fails, checks.length, secs, checks.filter(c => c.startsWith('(note) ')).map(c => c.slice(7))];
+}
+const line = r => `${r[1] === 'ok' ? '✓' : '✗'} ${r[0].padEnd(9)} ${String(r[3]).padStart(3)} checks  ${r[4]}s` + (r[2].length ? '\n    ' + r[2].join('\n    ') : '') + (r[5] && r[5].length ? '\n    ' + r[5].join('\n    ') : '');
+
+/* --child=<suite>: what the parent starts for each suite. The build and the server are the parent's; the result goes
+   to a file the parent reads */
+const child = [...flags].map(f => /^--child=(.+)$/.exec(f)).find(Boolean);
+if (child) {
+  flags.delete(child[0]);
+  runSuite(child[1]).then(r => { fs.writeFileSync(path.join(OUT, '.res-' + child[1] + '.json'), JSON.stringify(r)); process.exit(r[1] === 'ok' ? 0 : 1); });
+} else (async () => {
   await require('../build/bundle.js').build();   /* the page loads app.js; build it from the sources first */
   spawnSync('node', [path.join(ROOT, 'build', 'standalone.js')], { stdio: 'ignore' });   /* and the installable version (dist/) from that */
   const server = await serverUp();
-  const report = []; let failed = 0;
-  for (const name of suites) {
-    const file = path.join(__dirname, 'suites', name + '.js');
-    if (!fs.existsSync(file)) { report.push([name, 'missing', ['no such suite']]); failed++; continue; }
-    const t0 = Date.now(); const checks = []; const fails = [];
-    const t = {
-      ok: (cond, what) => { checks.push(what); if (!cond) fails.push(what); return !!cond; },
-      eq: (a, b, what) => { const c = JSON.stringify(a) === JSON.stringify(b); checks.push(what); if (!c) fails.push(`${what}: got ${JSON.stringify(a)}, wanted ${JSON.stringify(b)}`); return c; },
-      note: s => checks.push('(note) ' + s), flags, out: OUT, root: ROOT,
-      shot: async (pg, name) => { try { await pg.screenshot({ path: path.join(OUT, name + '.png') }); } catch (e) { } },
-    };
-    try { await require(file).run(t); } catch (e) { fails.push('crashed: ' + (e.stack || e).toString().split('\n').slice(0, 3).join(' ')); }
-    const secs = ((Date.now() - t0) / 1000).toFixed(0);
-    report.push([name, fails.length ? 'FAIL' : 'ok', fails, checks.length, secs]); if (fails.length) failed++;
-    const notes = checks.filter(c => c.startsWith('(note) ')).map(c => c.slice(7));
-    console.log(`${fails.length ? '✗' : '✓'} ${name.padEnd(9)} ${String(checks.length).padStart(3)} checks  ${secs}s` + (fails.length ? '\n    ' + fails.join('\n    ') : '') + (notes.length ? '\n    ' + notes.join('\n    ') : ''));
+  const jf = [...flags].map(f => /^--jobs=(\d+)$/.exec(f)).find(Boolean);
+  const jobs = Math.max(1, Math.min(8, jf ? +jf[1] : +process.env.JOBS || (process.env.CI ? 1 : 3)));
+  const results = {}; const started = Date.now();
+  if (jobs === 1 || suites.length === 1) {
+    for (const name of suites) { const r = await runSuite(name); results[name] = r; console.log(line(r)); }
+  } else {
+    /* a suite in a process of its own */
+    const one = name => new Promise(done => {
+      const rf = path.join(OUT, '.res-' + name + '.json'); try { fs.unlinkSync(rf); } catch (e) { }
+      const p = spawn(process.execPath, [__filename, '--child=' + name, ...[...flags].filter(f => !/^--(jobs|shard)=/.test(f))], { cwd: process.cwd(), stdio: ['ignore', 'ignore', 'pipe'], env: process.env });
+      let err = ''; p.stderr.on('data', d => { err = (err + d).slice(-600); });
+      p.on('close', () => { let r; try { r = JSON.parse(fs.readFileSync(rf, 'utf8')); fs.unlinkSync(rf); } catch (e) { r = [name, 'FAIL', ['crashed: the suite stopped without a result. ' + err.trim().split('\n').slice(-3).join(' ')], 0, '0', []]; } done(r); });
+    });
+    /* the ones that measure time wait until the others are done, so nothing else is using the machine */
+    const ALONE = new Set(['perf', 'vitals']);
+    const queue = suites.filter(s => !ALONE.has(s)).sort((a, b) => (SECS[b] || 15) - (SECS[a] || 15)), again = [];
+    await Promise.all(Array.from({ length: Math.min(jobs, queue.length) }, async () => {
+      for (let name; (name = queue.shift());) { const r = await one(name); results[name] = r; if (r[1] === 'ok') console.log(line(r)); else again.push(name); }
+    }));
+    /* failed while others were running: once more, alone. Only that result counts */
+    for (const name of again) {
+      const first = results[name], r = await one(name);
+      if (r[1] === 'ok') r[5] = (r[5] || []).concat('passed on a second run, alone (with others running: ' + String(first[2][0] || '').slice(0, 160) + ')');
+      results[name] = r; console.log(line(r));
+    }
+    for (const name of suites.filter(s => ALONE.has(s))) { const r = await one(name); results[name] = r; console.log(line(r)); }
   }
   if (server) server.kill();
-  console.log(failed ? `\n${failed} suite(s) failed` : '\nall suites passed');
-  fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(report, null, 1));
+  const report = suites.map(n => results[n]), failed = report.filter(r => r[1] !== 'ok').length;
+  const took = Math.round((Date.now() - started) / 1000);
+  console.log((failed ? `\n${failed} suite(s) failed: ${report.filter(r => r[1] !== 'ok').map(r => r[0]).join(', ')}` : '\nall suites passed') + ` (${suites.length} suites, ${Math.floor(took / 60)} min ${took % 60} s${jobs > 1 && suites.length > 1 ? ', ' + jobs + ' at a time' : ''})`);
+  fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(report.map(r => r.slice(0, 5)), null, 1));
   process.exit(failed ? 1 : 0);
 })();

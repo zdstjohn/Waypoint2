@@ -77,8 +77,11 @@
     var c = /** @type {Record<string, any>} */ (c0);
     var n = V.name(c.n != null ? c.n : c.name); if (!n) { V.stats.dropped++; return null; }
     var p = V.pin(c.lat, c.lng);
-    return { name: n, region: V.str(c.region, 60) || "Other", lat: p ? p.lat : null, lng: p ? p.lng : null,
-      w: V.clamp(c.w, 1, 4, 2), pop: V.clamp(c.pop, 1, 5, 2), t: V.tags(c.t), d: V.str(c.d, 120) };
+    var o = /** @type {BuiltCity} */ ({ name: n, region: V.str(c.region, 60) || "Other", lat: p ? p.lat : null, lng: p ? p.lng : null,
+      w: V.clamp(c.w, 1, 4, 2), pop: V.clamp(c.pop, 1, 5, 2), t: V.tags(c.t), d: V.str(c.d, 120) });
+    /* the island it is on, when it is on one */
+    var isl = V.str(c.isl, 60); if (isl) o.isl = isl;
+    return o;
   };
   /** a where-to-stay area */
   V.stayArea = function (x0, center) {
