@@ -1,7 +1,8 @@
 /* A stand-in for Waypoint's Supabase server, for the tests: sign-up (invited emails only), sign-in, token refresh and
    sign-out (GoTrue), and the documents table (PostgREST) with the same row-level rules as the real one (supabase/:
-   data/users/<id>/... only for that person; other paths shared among signed-in people; a row changed only by whoever
-   wrote it). Claude's function is not here: the test answers it in the page.
+   data/users/<id>/... only for that person; other paths read by every signed-in person; a row changed only by whoever
+   wrote it; and a person writes only their own data, shared trips (shared/...) and photo requests (wanted/...): the
+   nightly paths (photos, places, menus, links, maps, fx) are the nightly copy's alone, public.docs_write_ok). Claude's function is not here: the test answers it in the page.
      node test/lib/fake-supabase.js <port> <comma-separated invited emails> */
 const http = require('http'), crypto = require('crypto');
 const PORT = +process.argv[2] || 8775, INVITED = new Set((process.argv[3] || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
@@ -16,6 +17,7 @@ function session(u) {
 }
 function who(req) { const t = (req.headers.authorization || '').replace(/^Bearer\s+/i, ''); const s = tokens[t]; return s && s.exp > Date.now() ? s.uid : null; }
 const pathOk = (p, uid) => !p.startsWith('data/users/') || p.split('/')[2] === uid;
+const writeOk = (p, uid) => p.startsWith('data/users/') ? p.split('/')[2] === uid : (p.startsWith('shared/') || p.startsWith('wanted/'));
 function filters(u) {
   const f = []; for (const [k, v] of u.searchParams) {
     if (['select', 'order', 'limit', 'on_conflict'].includes(k)) continue;
@@ -61,7 +63,7 @@ http.createServer((req, res) => {
     if (req.method === 'POST') {
       const list = Array.isArray(b) ? b : [b];
       for (const r of list) {
-        if (!r || typeof r.path !== 'string' || !pathOk(r.path, uid)) return json(res, 403, { code: '42501', message: 'new row violates row-level security policy for table "docs"' });
+        if (!r || typeof r.path !== 'string' || !pathOk(r.path, uid) || !writeOk(r.path, uid)) return json(res, 403, { code: '42501', message: 'new row violates row-level security policy for table "docs"' });
         const cur = docs[r.path]; if (cur && cur.owner !== uid) return json(res, 403, { code: '42501', message: 'new row violates row-level security policy (USING expression) for table "docs"' });
       }
       list.forEach(r => { docs[r.path] = { owner: uid, data: r.data, updated_at: now() }; });

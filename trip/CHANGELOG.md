@@ -2,6 +2,15 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v136
+
+The database rule for the installable app's nightly paths (the audit's S4); the app itself is unchanged. A signed-in
+person may write their own data (data/users/<them>/...), shared trips (shared/...) and photo requests (wanted/...),
+and nothing else: photos, places, menus, morefood, links, maps and fx are written only by the nightly copy
+(public.docs_write_ok in the insert and update rules; supabase/migrations/20261111035806). Before, anyone invited could
+create a document on one of those paths ahead of the copy, and the copy never overwrites a document someone owns. The
+test stand-in (test/lib/fake-supabase.js) has the same rule, and test/suites/cloud.js checks it.
+
 ## v135
 
 A copy of your trips, a trace for swallowed errors, stricter types, and this changelog (the audit's O3, R3, Q3, Q6).

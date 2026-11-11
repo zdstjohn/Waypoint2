@@ -126,6 +126,17 @@ exports.run = async t => {
       await B.pg.waitForFunction(() => W.readOnly && W.P && W.P.stops.length === 2, null, { timeout: 15000 }).catch(() => {});
       t.ok(await B.pg.evaluate(() => !!W.readOnly && W.P.stops.map(s => s.name).join() === 'Madrid,Málaga'), 'Bob opens it with the code and sees her plan, read-only');
     }
+    /* 7b. the nightly paths are the nightly copy's alone: an invited person cannot put a document there (before, anyone
+       could, and the copy never overwrites a document someone owns); their own data and photo requests still go in */
+    const wr = await B.pg.evaluate(async () => {
+      const db = await window.claude.use('db'), uid = await (await window.claude.use('user')).id(), out = {};
+      for (const [k, p] of [['photos', 'photos/italy-rome'], ['places', 'places/italy-rome'], ['fx', 'fx/latest'], ['wanted', 'wanted/test-photo'], ['own', 'data/users/' + uid + '/diag/test']])
+        out[k] = await db.doc(p).set({ planted: 1 }).then(() => 'written', () => 'refused');
+      return out;
+    });
+    const after = await state();
+    t.ok(wr.photos === 'refused' && wr.places === 'refused' && wr.fx === 'refused' && wr.wanted === 'written' && wr.own === 'written' && !after.docs.includes('photos/italy-rome'),
+      'an invited person cannot write to the nightly paths; their own data and photo requests still save: ' + JSON.stringify(wr));
     /* 8. an expired sign-in renews by itself */
     await expire();
     const r8 = await A.pg.evaluate(async () => { const db = await window.claude.use('db'), me = await (await window.claude.use('user')).id(); try { const s = await db.collection('data/users/' + me + '/trips/t').get(); return 'ok ' + s.size; } catch (e) { return 'failed ' + e.code; } });
