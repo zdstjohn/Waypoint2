@@ -102,7 +102,9 @@
       if (!cities.length) { W.loadCountry(c.name); return; }
       var share = Math.floor(left / suggest.length) + (suggest.indexOf(c) < left % suggest.length ? 1 : 0);
       /* the best-fitting places, but only ones within an easy journey (under 5 hours) of another place on the trip */
-      var sorted = cities.slice().sort(function (a, b) { return cityScore(b, p) - cityScore(a, p); }), ranked = [];
+      /* a list that came best known first has its first places marked (top): the choice is made among them first, so a
+         plan started on them stands when the rest of the list arrives */
+      var sorted = cities.slice().sort(function (a, b) { return (b.top || 0) - (a.top || 0) || cityScore(b, p) - cityScore(a, p); }), ranked = [];
       /* one base on an island first; a second town on the same island only when the list would otherwise run short,
          and then only one a real journey away (Chania after Heraklion, never Oia after Fira) */
       for (var pass = 0; pass < 2 && ranked.length < Math.max(1, share); pass++) {

@@ -205,17 +205,47 @@
     if (a > -1 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch (e) {} }
     throw { code: "transform_error", message: "Claude's answer wasn't in the expected form.", text: t.slice(0, 400) };
   }
-  function ask(prompt, opts) {
+  function ask(prompt, opts, whole) {
     var input = typeof prompt === "string" ? prompt : (prompt || []).map(function (m) { return (m.role === "assistant" ? "Assistant: " : "") + m.content; }).join("\n\n");
     return authed(function (t) {
       return fetch(URL0 + "/functions/v1/claude", { method: "POST", headers: { apikey: KEY, Authorization: "Bearer " + t, "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: input, tier: (opts && opts.modelTier) || "default" }), signal: opts && opts.signal });
+        body: JSON.stringify({ prompt: input, tier: (opts && opts.modelTier) || "default", effort: opts && opts.effort || undefined, stream: (!whole && !!(opts && opts.onText)) || undefined }), signal: opts && opts.signal });
     }).then(function (r) {
+      /* a server that can send the answer as it is written does so (lines of "data: {...}": t = more text, then done);
+         one that cannot answers whole, as before. An answer that breaks off part-way is asked for once more, whole:
+         what had arrived is already on the page, and the whole answer completes it. */
+      if (r.ok && r.body && /text\/event-stream/.test(r.headers.get("Content-Type") || "")) return readStream(r, opts).catch(function (e) {
+        if (whole || (e && e.code === "rate_limited") || (opts && opts.signal && opts.signal.aborted)) throw e && e.code ? e : { code: "unavailable", message: "No connection." };
+        return ask(prompt, opts, 1);
+      });
       return r.json().catch(function () { return {}; }).then(function (j) {
         if (r.ok && typeof j.text === "string") return { text: j.text, truncated: !!j.truncated, model: j.model };
         throw { code: j.code || (r.status === 429 ? "rate_limited" : r.status === 401 ? "not_granted" : "unavailable"), message: j.error || "Claude didn't answer this time." };
       });
     }, function (e) { throw e && e.code ? e : { code: "unavailable", message: "No connection." }; });
+  }
+  function readStream(r, opts) {
+    var reader = r.body.getReader(), dec = new TextDecoder(), buf = "", text = "", end = /** @type {any} */ (null);
+    function pump() {
+      return reader.read().then(function (x) {
+        if (x.done) {
+          if (end && end.error) throw { code: end.code || "unavailable", message: end.error, text: text };
+          if (!end || !text) throw { code: "unavailable", message: "Claude's answer was cut off.", text: text };
+          return { text: text, truncated: !!end.truncated, model: end.model };
+        }
+        buf += dec.decode(x.value, { stream: true });
+        var i, delta = "";
+        while ((i = buf.indexOf("\n\n")) >= 0) {
+          var line = buf.slice(0, i); buf = buf.slice(i + 2);
+          if (line.indexOf("data: ") !== 0) continue;
+          var d = null; try { d = JSON.parse(line.slice(6)); } catch (e) { continue; }
+          if (typeof d.t === "string") delta += d.t; else if (d.done || d.error) end = d;
+        }
+        if (delta) { text += delta; if (opts && opts.onText) { try { opts.onText({ text: text, delta: delta }); } catch (e) {} } }
+        return pump();
+      });
+    }
+    return pump();
   }
   var SAMPLE = session && Object.assign(function (prompt, opts) { return ask(prompt, opts); }, {
     json: function (prompt, opts) { return ask(prompt, opts).then(function (r) { return parseJson(r.text); }); },

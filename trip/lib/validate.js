@@ -98,7 +98,7 @@
     var n = V.name(x.n); if (!n) { V.stats.dropped++; return null; }
     var p = V.pinNear(x.lat, x.lng, center); if (!p && (x.lat != null || x.lng != null)) V.stats.cleared++;
     return { n: n, d: V.str(x.d, 240), t: V.tags(x.t), k: /** @type {Kid} */ (V.intOf(x.k, KID, 0)), fame: V.fame(x.fame), rating: V.rating(x.rating),
-      s: V.oneOf(x.s, TIMES, /** @type {TimeOfDay} */ ("pm")), dur: V.str(x.dur, 24), ticket: V.str(x.ticket, 80), book: V.url(x.book), bookV: 2, pic: V.str(x.pic, 24),
+      s: V.oneOf(x.s, TIMES, /** @type {TimeOfDay} */ ("pm")), dur: V.str(x.dur, 24), ticket: V.str(x.ticket, 80), book: V.url(x.book), bookV: x.book === undefined ? undefined : 2, pic: V.str(x.pic, 24),
       place: V.str(x.place, 90), lat: p ? p.lat : null, lng: p ? p.lng : null };
   };
   /** a place to eat */
@@ -108,8 +108,9 @@
     var x = /** @type {Record<string, any>} */ (x0);
     var n = V.name(x.n); if (!n) { V.stats.dropped++; return null; }
     var p = V.pinNear(x.lat, x.lng, center); if (!p && (x.lat != null || x.lng != null)) V.stats.cleared++;
+    /* links the answer was not asked for stay open (undefined), so the later check of this place asks for them */
     return { n: n, d: V.str(x.d, 240), cuisine: V.str(x.cuisine, 40), price: V.str(x.price, 12), meal: V.oneOf(x.meal, MEALS, dflt.meal || /** @type {Meal} */ ("both")),
-      k: /** @type {Kid} */ (V.intOf(x.k, KID, 0)), fame: V.fame(x.fame), rating: V.rating(x.rating), reserve: x.reserve === true, book: V.url(x.book), menu: V.url(x.menu),
+      k: /** @type {Kid} */ (V.intOf(x.k, KID, 0)), fame: V.fame(x.fame), rating: V.rating(x.rating), reserve: x.reserve === true, book: x.book === undefined ? /** @type {any} */ (undefined) : V.url(x.book), menu: x.menu === undefined ? /** @type {any} */ (undefined) : V.url(x.menu),
       dur: V.str(x.dur, 24), fav: x.fav === true, pic: V.str(x.pic, 24) || dflt.pic || "", place: V.str(x.place, 90), lat: p ? p.lat : null, lng: p ? p.lng : null,
       fit: V.oneOf(x.fit, ["good", "ok", "poor"], ""), fitw: V.str(x.fitw, 120) };
   };

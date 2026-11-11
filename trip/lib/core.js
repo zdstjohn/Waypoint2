@@ -193,13 +193,61 @@
   } catch (e) { W.sampleState = "off"; }
   setTimeout(function () { if (W.sampleState === "waiting") { W.sampleState = "off"; changed(); } }, 12000);
 
-  function run(key, prompt, tier, onOk) {
+  /* The items of a list in an answer that is still being written: text = the answer so far, key = the list's name in
+     the JSON ("spots"), from = where the last call stopped. Gives the items completed since then, where to go on from,
+     and (head) the plain fields written before the list, such as the city's pin. A half-written item waits for its end. */
+  W.partialList = function (text, key, from) {
+    var start = from || 0, head = /** @type {any} */ (null);
+    if (!start) {
+      var m = new RegExp('"' + key + '"\\s*:\\s*\\[').exec(text); if (!m) return { items: [], next: 0, head: null };
+      start = m.index + m[0].length; head = {};
+      var pre = text.slice(0, m.index), la = /"lat"\s*:\s*(-?\d+(?:\.\d+)?)/.exec(pre), lo = /"lng"\s*:\s*(-?\d+(?:\.\d+)?)/.exec(pre), d = /"d"\s*:\s*("(?:[^"\\]|\\.)*")/.exec(pre);
+      if (la && lo) { head.lat = +la[1]; head.lng = +lo[1]; }
+      if (d) { try { head.d = JSON.parse(d[1]); } catch (e) {} }
+    }
+    var items = [], depth = 0, inStr = false, esc = false, obj = -1, next = start;
+    for (var i = start; i < text.length; i++) {
+      var ch = text.charAt(i);
+      if (inStr) { if (esc) esc = false; else if (ch === "\\") esc = true; else if (ch === '"') inStr = false; continue; }
+      if (ch === '"') inStr = true;
+      else if (ch === "{") { if (depth === 0) obj = i; depth++; }
+      else if (ch === "}") { depth--; if (depth === 0 && obj >= 0) { try { items.push(JSON.parse(text.slice(obj, i + 1))); } catch (e) {} next = i + 1; obj = -1; } }
+      else if (ch === "]" && depth === 0) { next = i; break; }   /* the list is complete */
+    }
+    return { items: items, next: next, head: head };
+  };
+  /** the options a request is made with: the model tier, and (W.EFFORT, by the request's kind) how much Claude thinks
+      first @param {string} key @param {string} [tier] */
+  W.askOpts = function (key, tier) {
+    var o = /** @type {any} */ ({ modelTier: tier || "default" }), e = W.EFFORT && W.EFFORT[String(key).split("|")[0]];
+    if (e) o.effort = e;
+    return o;
+  };
+  /* how much Claude thinks before writing, by kind of request ("spots", "food", "country"): empty = the platform's own
+     setting. Filled only after measuring (lib/speedtest.js) */
+  W.EFFORT = {};
+  /** @param {string} key @param {string} prompt @param {string} tier @param {(r: any) => void} onOk
+      @param {{ list: string, take: (items: any[], head: any) => void, min?: number }} [stream] a list in the answer
+      whose items are handed over as they are written (take), min at a time, before the whole answer comes (onOk) */
+  function run(key, prompt, tier, onOk, stream) {
     /* one request per key: a failed one waits for an explicit "Try again" instead of retrying on every redraw */
     if (W.status[key] || !W.SAMPLE || W.readOnly) return;
     W.status[key] = "loading";
     queue.push({ key: key, go: function () {
       running++;
-      W.SAMPLE.json(prompt, { modelTier: tier || "default" }).then(function (res) {
+      var opts = W.askOpts(key, tier);
+      if (stream) {
+        var at = 0, held = /** @type {any[]} */ ([]), last = 0, head = null;
+        opts.onText = function (u) {
+          try {
+            var got = W.partialList(u && u.text || "", stream.list, at); at = got.next; if (got.head) head = got.head;
+            held = held.concat(got.items);
+            var now = Date.now();
+            if (held.length >= (stream.min || 3) || (held.length && last && now - last > 2500)) { var batch = held; held = []; last = now; stream.take(batch, head || {}); arrived(); }
+          } catch (e) {}
+        };
+      }
+      W.SAMPLE.json(prompt, opts).then(function (res) {
         delete W.status[key]; onOk(res);
       }, function (err) {
         var code = err && err.code;

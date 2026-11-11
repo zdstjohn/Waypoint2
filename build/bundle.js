@@ -8,11 +8,11 @@ const esbuild = require('esbuild'); const fs = require('fs'); const path = requi
 const TRIP = path.resolve(__dirname, '..', 'trip');
 const ORDER = [
   'data/data1.js', 'data/data2.js',
-  'lib/validate.js', 'lib/core.js', 'lib/towns.js', 'lib/ideas.js', 'lib/stays.js', 'lib/asks.js', 'lib/icons.js', 'lib/patch.js', 'lib/eat.js', 'lib/links.js', 'lib/errlog.js', 'lib/later.js', 'lib/pwa.js', 'lib/classify.js', 'lib/photos.js', 'lib/places.js', 'lib/nightfood.js', 'lib/fx.js', 'lib/vtindex.js', 'lib/vtmap.js', 'lib/offline.js', 'lib/offcopy.js', 'lib/times.js', 'lib/holidays.js', 'lib/shape.js', 'lib/plan.js', 'lib/packing.js', 'lib/warm.js',
+  'lib/validate.js', 'lib/core.js', 'lib/towns.js', 'lib/ideas.js', 'lib/stays.js', 'lib/asks.js', 'lib/icons.js', 'lib/patch.js', 'lib/eat.js', 'lib/links.js', 'lib/errlog.js', 'lib/later.js', 'lib/pwa.js', 'lib/classify.js', 'lib/photos.js', 'lib/places.js', 'lib/nightfood.js', 'lib/fx.js', 'lib/vtindex.js', 'lib/vtmap.js', 'lib/offline.js', 'lib/offcopy.js', 'lib/speedtest.js', 'lib/times.js', 'lib/holidays.js', 'lib/shape.js', 'lib/plan.js', 'lib/packing.js', 'lib/warm.js',
   'screens/setup.js', 'lib/sync.js', 'lib/bookcore.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/route.js', 'lib/import.js', 'lib/prices.js', 'lib/watch.js', 'lib/search.js', 'lib/replan.js', 'lib/review.js',
   'screens/today.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/travel.js', 'screens/flow.js', 'screens/settings.js', 'screens/trip.js'
 ];
-const LATER = ['lib/import.js', 'screens/setup.js', 'lib/vtmap.js', 'lib/packing.js', 'lib/prices.js', 'lib/watch.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/search.js', 'lib/replan.js', 'lib/review.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/settings.js', 'lib/route.js', 'lib/offcopy.js'];
+const LATER = ['lib/import.js', 'screens/setup.js', 'lib/vtmap.js', 'lib/packing.js', 'lib/prices.js', 'lib/watch.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/search.js', 'lib/replan.js', 'lib/review.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/settings.js', 'lib/route.js', 'lib/offcopy.js', 'lib/speedtest.js'];
 module.exports.ORDER = ORDER; module.exports.LATER = LATER;
 
 async function build() {

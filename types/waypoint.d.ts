@@ -30,7 +30,7 @@ interface Pool extends LatLng { d?: string; spots: Spot[]; food: Food[]; stay?: 
   indoorAsked?: 1; fameAsked?: 0 | 1; cityLow?: string }
 /** a destination in a country list (built in, or from Claude) */
 /** isl = the island a town is on; whole = the entry is an island itself (kept only so an older trip that has one as a stop still works) */
-interface BuiltCity extends LatLng { name: string; region?: string; isl?: string; whole?: number; w?: number; pop?: number; t?: string[]; d?: string; spots?: Spot[] }
+interface BuiltCity extends LatLng { name: string; region?: string; isl?: string; whole?: number; top?: number; w?: number; pop?: number; t?: string[]; d?: string; spots?: Spot[] }
 interface Country { name: string; mode: "manual" | "suggest"; picked: string[] }
 interface Stay { label: string; lat?: number | null; lng?: number | null; live?: { total: number; cur: string; url: string; at: number; in: string; out: string; src: string } }
 /** the trip, as saved (localStorage "waypoint-v2" and the account) */
@@ -42,7 +42,7 @@ interface TripState { v: 2; algo?: number; tripId?: string; tripName?: string; s
   share?: any; imported?: any; bookings?: Booking[]; booked?: Record<string, any>; [k: string]: any }
 interface Booking { key?: string; kind: string; title?: string; day?: number; [k: string]: any }
 interface Costs { ages: string; cur?: string; breakfast?: number | null; lunch?: number | null; dinner?: number | null; transit?: number | null; lodge?: number | null; tickets: Record<string, number | null> }
-interface Cache { country: Record<string, { blurb: string; cities: BuiltCity[]; v?: number }>; city: Record<string, Pool>; geo: Record<string, LatLng & { area?: string }>;
+interface Cache { country: Record<string, { blurb: string; cities: BuiltCity[]; v?: number; part?: number }>; city: Record<string, Pool>; geo: Record<string, LatLng & { area?: string }>;
   range: Record<string, { s?: number; r?: number; sig: string }>; legs?: Record<string, any>; cost: Record<string, Costs>; tz: Record<string, string>; live?: any; area: Record<string, any>;
   /** holidays and festivals from Claude per city, for the dates asked about (lib/holidays.js) */
   events: Record<string, { v: number; from: string; to: string; items: CityEvent[] }> }
@@ -434,7 +434,11 @@ interface Waypoint {
   routeBody: any;
   routeCheck: any;
   routeClick: any;
-  run: (key: string, prompt: string, tier: "quick" | "default" | "complex", onOk: (r: any) => void) => void;
+  run: (key: string, prompt: string, tier: "quick" | "default" | "complex", onOk: (r: any) => void, stream?: { list: string; take: (items: any[], head: any) => void; min?: number }) => void;
+  partialList: (text: string, key: string, from?: number) => { items: any[]; next: number; head: any };
+  askOpts: (key: string, tier?: string) => any;
+  spotsAsk: (country: string, city: string, n: number) => string;
+  EFFORT: Record<string, string>;
   sampleState: "waiting" | "on" | "off";
   save: () => void;
   saveFold: any;

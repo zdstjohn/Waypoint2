@@ -95,8 +95,9 @@
   W.loadCountry = function (name) {
     var key = "country|" + name, had = W.C.country[name];
     if ((had && had.v >= W.COUNTRY_V) || W.status[key]) return;
+    if (had && had.part) had = undefined;   /* a list cut short last time (the app was closed while it came): asked whole */
     run(key, "List the cities, towns and areas that travelers visit in " + name +
-      ". Be thorough: 80 to 120 places covering every region, from major cities to small towns. Only real places.\n" +
+      ", the best known first. Be thorough: 80 to 120 places covering every region, from major cities to small towns. Only real places.\n" +
       "An island or a group of islands is never an entry. For an island, list its towns instead " +
       "(not \"Crete\" but Heraklion, Chania, Rethymno; for a small island its main town or port by its usual name, like \"Hydra Town\" or \"Naxos Town\"), each with the island's name in isl. " +
       "isl is \"\" for a place on the mainland or on the country's main island.\n" +
@@ -104,9 +105,21 @@
       "w = suggested days (1-4). pop = how popular with visitors, 1-5." + TAGRULE.split(" k:")[0],
       "quick", function (r) {
         var list = W.townsOnly(V.list(r && r.cities, V.city));
+        /* the places the plan started on (below) stay first, as they were */
+        var cur = W.C.country[name], top = cur && cur.part ? cur.cities : null;
+        if (top) { var tk = {}; top.forEach(function (c) { tk[W.norm(c.name)] = 1; }); list = top.concat(list.filter(function (c) { return !tk[W.norm(c.name)]; })); }
         /* keep even an empty answer so the page never asks again in a loop */
         W.C.country[name] = { blurb: String(r && r.blurb || "") || (had && had.blurb) || "", cities: had && had.cities.length ? W.islesInto(had.cities, list) : list, v: W.COUNTRY_V };
-      });
+      },
+      /* A country with no list yet: the plan starts as soon as the first eight places are written (the best known),
+         instead of waiting for all 80 to 120. They are marked (top) and the planner chooses among them first, so the
+         stops it picked do not change when the rest of the list arrives. */
+      { list: "cities", min: 8, take: function (items) {
+        if ((had && had.cities.length) || W.C.country[name]) return;
+        var first = W.townsOnly(V.list(items, V.city)).slice(0, 8); if (first.length < 5) return;
+        first.forEach(function (c) { c.top = 1; });
+        W.C.country[name] = { blurb: "", cities: first, part: 1 };
+      } });
   };
   /** an answer that still names an island as a place (its name is its own isl) loses it when the island's towns are
       there too; alone, it is that island's one town and stays @param {BuiltCity[]} list */
@@ -151,6 +164,18 @@
   W.ideasFull = function (pool) {
     return !!pool && !setAside(pool, "spots").length && !setAside(pool, "food").length && (pool.spots || []).length >= W.IDEA_CAP.spots && (pool.food || []).length >= W.IDEA_CAP.food;
   };
+  /** the first question about a place: its n best things to do, most important first, without booking links
+      (lib/speedtest.js asks the same) @param {string} country @param {string} city @param {number} n */
+  W.spotsAsk = function (country, city, n) {
+    var lean = W.S.styles.length ? " Lean toward the travelers' interests (" + W.S.styles.map(function (x) { return W.STYLE_NAME[x]; }).join(", ") + "): at least half should suit them, alongside the must-see sights." : "";
+    var focusSpots = W.focus() === "gems" ? " Lean toward places locals love and most visitors miss, each still well reviewed, alongside the few unmissable sights."
+      : W.focus() === "icons" ? " Lean toward the most popular, best-reviewed places."
+      : " Mostly the headline places most visitors come for, plus a few well-loved local favorites.";
+    return "List the " + n + " best things to do in and around " + city + ", " + country + ", most important first." + focusSpots + lean +
+      " Include at least 3 evening options (sunset spots, evening strolls, shows), at least 2 indoor options for a rainy or too-hot afternoon, and a day trip if there is a classic one." +
+      " If it is a large region or island, give options in each main area so a day can stay in one area. Do not include trains, transfers or transport as activities. " + who() +
+      "\nReply with JSON only: {\"d\":\"what " + city + " is known for, one sentence\",\"lat\":0,\"lng\":0,\"spots\":[" + SPOT_EX.replace("\"book\":\"\",", "") + "]}\n" + spotRules().replace(BOOKRULE + " ", "");
+  };
   W.loadCity = function (country, city, more, stayDays, nMore) {
     var ck = W.cityKey(country, city), cur = W.C.city[ck];
     if (!more && cur && cur.spots && cur.spots.length) return;
@@ -166,11 +191,13 @@
     var nearStay = more && st && st.label ? " Focus on places within an easy trip of " + st.label + "." : "";
     var lean = W.S.styles.length ? " Lean toward the travelers' interests (" + W.S.styles.map(function (x) { return W.STYLE_NAME[x]; }).join(", ") + "): at least half should suit them, alongside the must-see sights." : "";
     var EVE = " If it is a large region or island, give options in each main area so a day can stay in one area. Do not include trains, transfers or transport as activities. ";
-    var CITY = "\"d\":\"what " + city + " is known for, one sentence\",\"lat\":0,\"lng\":0,";
     var TRANSIT = "\"transit\":{\"system\":\"how public transit works and what a ticket costs, one sentence\",\"pass\":\"best pass or card for visitors\",\"airport\":\"how to get from the main airport or station to the center\",\"tip\":\"one practical tip\"},\"stay\":[{\"n\":\"neighborhood\",\"d\":\"why stay here, short\",\"lat\":0,\"lng\":0}],";
-    function foodAsk(what, extra) {
+    /* first = the first list: no booking or menu links (they come later, for the places a day uses) */
+    function foodAsk(what, extra, first) {
+      var ex = foodEx(), rules = foodRules();
+      if (first) { ex = ex.replace("\"book\":\"\",\"menu\":\"\",", ""); rules = rules.replace(MENURULE + " ", "").replace("; then book = its official website or reservation page if you are confident of the address, else an empty string", ""); }
       return what + " " + who() + W.eatAsk() + (exF.length ? " Do not repeat: " + exF.join("; ") + "." : "") +
-        "\nReply with JSON only: {" + (extra || "") + "\"food\":[" + foodEx() + "]}\n" + foodRules() + (extra ? " Give 4 stay neighborhoods." : "");
+        "\nReply with JSON only: {" + (extra || "") + "\"food\":[" + ex + "]}\n" + rules + (extra ? " Give 4 stay neighborhoods." : "");
     }
     if (more) {
       /* a few more at a time, up to the city's cap: the last ideas of a long list are the likeliest to be made up, and
@@ -196,21 +223,24 @@
     }
     /* the first lists: 15 things to do and 15 places to eat (more for a long stay: W.firstIdeas), one question each. More only when someone asks for them
        ("Find more"): long lists take minutes to write, and their last ideas are the likeliest to be made up */
-    var focusSpots = W.focus() === "gems" ? " Lean toward places locals love and most visitors miss, each still well reviewed, alongside the few unmissable sights."
-      : W.focus() === "icons" ? " Lean toward the most popular, best-reviewed places."
-      : " Mostly the headline places most visitors come for, plus a few well-loved local favorites.";
-    var nFirst = W.firstIdeas(stayDays != null ? stayDays : W.stayDays(country, city));
-    run("spots|" + ck, "List the " + nFirst + " best things to do in and around " + where + ", most important first." + focusSpots + lean +
-      " Include at least 3 evening options (sunset spots, evening strolls, shows), at least 2 indoor options for a rainy or too-hot afternoon, and a day trip if there is a classic one." + EVE + who() +
-      "\nReply with JSON only: {" + CITY + "\"spots\":[" + SPOT_EX + "]}\n" + spotRules(),
-      "default", function (r) { addSpots(ck, r, "head"); asked(ck, nFirst); });
-    run("food|" + ck, foodAsk("List " + nFirst + " places to eat in " + where + ": the best-loved local classics, casual and family-friendly spots, a couple of special dinners, and at least " + Math.max(4, Math.round(nFirst / 4)) + " breakfast cafés or bakeries, spread across the city or region." + (W.focus() === "gems" ? " Favor the places locals go." : ""), TRANSIT),
+    /* A long stay's quota (18 or more of each) is asked for in two goes: 12 first, so the days fill sooner, and the rest
+       in the background (W.growIdeas, after these arrive). The first lists leave the booking and menu links out; the
+       links come with the check of the places a day uses (W.loadBookLinks). Both lists are taken in as they are
+       written (stream): the days fill a few places at a time, and are planned afresh once the whole list is in. */
+    var nFirst = W.firstIdeas(stayDays != null ? stayDays : W.stayDays(country, city)), n0 = nFirst >= 18 ? 12 : nFirst;
+    var streamed = { spots: false, food: false };
+    /* planned afresh once, when both lists are whole (what was picked while they came was picked from a few) */
+    function settle() { if ((streamed.spots || streamed.food) && !W.cityBusy(ck) && W.freshPicks) W.freshPicks(country, city); }
+    run("spots|" + ck, W.spotsAsk(country, city, n0), "default", function (r) { addSpots(ck, r, "head"); asked(ck, n0); settle(); },
+      { list: "spots", take: function (items, head) { streamed.spots = true; addSpots(ck, { d: head.d, lat: head.lat, lng: head.lng, spots: items }, "head"); } });
+    run("food|" + ck, foodAsk("List " + n0 + " places to eat in " + where + ": the best-loved local classics, casual and family-friendly spots, a couple of special dinners, and at least " + Math.max(4, Math.round(n0 / 4)) + " breakfast cafés or bakeries, spread across the city or region." + (W.focus() === "gems" ? " Favor the places locals go." : ""), TRANSIT, true),
       "default", function (r) {
         var c0 = W.C.city[ck] || newPool();
         var tr = r && V.transit(r.transit); if (tr && !c0.transit) c0.transit = tr;
         if (r && Array.isArray(r.stay) && !c0.stay) c0.stay = V.list(r.stay, function (x) { return V.stayArea(x, centerOf(ck)); });
-        W.C.city[ck] = c0; addFood(ck, r, "head"); asked(ck, nFirst);
-      });
+        W.C.city[ck] = c0; addFood(ck, r, "head"); asked(ck, n0); settle();
+      },
+      { list: "food", take: function (items) { streamed.food = true; addFood(ck, { food: items }, "head"); } });
   };
   /* how many of each this city has been asked for (kept with its ideas): a longer stay later asks only for the difference */
   function asked(ck, n) { var c = W.C.city[ck]; if (c) c.askedN = Math.max(c.askedN || 0, n); }

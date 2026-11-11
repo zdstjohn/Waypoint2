@@ -105,6 +105,22 @@ web links or empty, long text and deep nesting cut) and V.pool (lists of named p
 the app uses them. Share codes are 10 characters from the browser's secure random source (codes of 6 still open). The
 PDF library is loaded with an integrity hash, so only the expected file can run. tools/release.sh does a release's
 mechanical steps; package.json's version follows the release (0.<N>.0).
+v130: the first ideas come sooner (the audit's P1 to P3). A city's first lists are taken in as Claude writes them:
+W.run(key, prompt, tier, onOk, stream) passes onText to the request, and W.partialList (lib/core.js) reads the places
+already complete in the unfinished answer, so a day fills from the first three instead of waiting for the whole list.
+The day says "More ideas for <city> are on the way" until both lists are whole; the picks are settled once then
+(W.freshPicks), and the follow-up questions (pins, links, eat-fit, fame, indoor) wait for that (W.cityBusy). A stay
+whose share is 18 or more asks for 12 of each first and the rest in the background (W.growIdeas). The first lists no
+longer ask for booking and menu links: a place from such a list has no bookV (V.spot) and its book and menu stay
+undefined (V.food), so the later link check fills them. A country's places are asked for best known first, and the plan
+starts on the first eight (each marked top, the record marked part) while the rest is written; they stay first in the
+planner's order, and a record still marked part is asked for again. The installable app's server
+(supabase/functions/claude, version 5) sends its answer as it is written when asked (stream: true, lines of
+"data: {...}": t = more text, then done) and takes an effort setting; lib/cloud.js reads that, and asks once more,
+whole, if a streamed answer breaks off. W.EFFORT (effort by kind of request, read by W.askOpts) is empty on purpose:
+lib/speedtest.js measures it first, once, on the owner's own device and trip (never under test, never in the
+installable app): the same list asked with the usual effort and with low, timed and compared with the ideas already
+checked, written to data/users/<id>/diag/effort. The quick starter list (the audit's option 4) is not built.
 v122: what Claude is asked first. W.run's queue (lib/core.js) no longer goes in the order things were asked: the city on
 screen (the selected day, and today's on a trip) comes first, its main lists (sights, places to eat, breakfast) before
 its second lists, then other cities' main lists, then the extras (hidden gems, rainy-day ideas, links, events, costs);
@@ -349,6 +365,8 @@ lib/              the shared library
                   check confirms it), merged into one list; a Google Maps search for the same words is one link away.
                   An added place joins the city's list as your own (S.imported, with the trip) and goes in the part of
                   the day you pick. The page can't reach the internet itself: the map comes through the connection.
+  speedtest.js    one measurement, once, for the artifact's owner: is a list asked with low effort faster and as good?
+                  (second script; writes data/users/<id>/diag/effort; W.EFFORT stays empty until that is read)
   offline.js      the trip without a signal: the photo index and photos kept on the phone (IndexedDB), map packs
                   warmed into the worker's cache, the offline note in Travel mode, and the "offline copy" (one HTML
                   file with the app, the trip and its photos inside, opened from the phone's files; made by

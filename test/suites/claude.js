@@ -83,6 +83,81 @@ exports.run = async t => {
   await pg.click('[data-sync="review"]');
   await pg.waitForFunction(() => window.__reviewAsked === 1 && !!document.querySelector('.pcheck .pcheck-l') && !document.querySelector('.pcheck-stale'), null, { timeout: 8000 }).catch(() => {});
   t.ok(await pg.evaluate(() => W.S.glanceOpen && window.__reviewAsked === 1 && !document.querySelector('.pcheck-stale')), 'from the menu it opens All days and checks the plan as it is now');
+  /* ---- the first ideas come sooner: lists taken in as they are written, a smaller first question, and a country's
+     best-known places before its whole list ---- */
+  { const { pg: ps, ctx: cs, errors: es } = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(ps);
+    /* a stand-in that writes its answer a piece at a time, as Claude does */
+    await ps.evaluate(() => {
+      window.__asked = []; window.__gate = {};
+      const real = W.SAMPLE.json.bind(W.SAMPLE);
+      W.SAMPLE.json = function (prompt, opts) {
+        window.__asked.push({ head: prompt.slice(0, 90), opts: Object.assign({}, opts, { onText: !!(opts && opts.onText) }), book: /"book"/.test(prompt), menu: /"menu"/.test(prompt) });
+        const m = /^List the (\d+) best things to do in and around ([^,]+), ([^,]+), most important first/.exec(prompt), c = /^List the cities, towns and areas that travelers visit in ([A-Za-z ]+), the best known first/.exec(prompt);
+        if (!(opts && opts.onText) || !(m || c)) return real(prompt, opts);
+        const n = m ? +m[1] : 20, name = m ? m[2] : c[1], list = m ? 'spots' : 'cities';
+        const item = i => m ? { n: name + ' written ' + i, d: 'A sight', t: ['culture'], k: 0, s: ['am', 'pm', 'eve'][i % 3], dur: '1-2h', ticket: i % 2 ? '€10, book ahead' : 'Free', pic: 'oldtown', place: 'Place ' + i, lat: 45.81 + i * 0.002, lng: 15.98 + i * 0.002 }
+          : { name: ['Zagreb', 'Split', 'Dubrovnik', 'Zadar', 'Rovinj', 'Pula', 'Plitvice', 'Trogir', 'Sibenik', 'Opatija', 'Makarska', 'Osijek', 'Varazdin', 'Rijeka', 'Porec', 'Motovun', 'Omis', 'Nin', 'Ston', 'Cavtat'][i], region: 'Region', isl: '', lat: 45.81 - i * 0.12, lng: 15.98 + i * 0.05, w: 2, pop: 5 - Math.floor(i / 5), t: i > 14 ? ['culture', 'food', 'relax'] : [], d: 'Known for ' + i };
+        const all = []; for (let i = 0; i < n; i++) all.push(item(i));
+        const whole = m ? { d: 'A city', lat: 45.81, lng: 15.98, spots: all } : { blurb: 'A coast of islands', cities: all }, text = JSON.stringify(whole);
+        /* written in three pieces: up to the middle of item 3 (or 9), then to the middle of a later item, then the rest when the test says so */
+        const cut = k => text.indexOf(JSON.stringify(all[k])) + 12;
+        return new Promise(res => {
+          setTimeout(() => opts.onText({ text: text.slice(0, cut(m ? 3 : 9)), delta: 'x' }), 150);
+          window.__gate[list] = () => { opts.onText({ text, delta: 'y' }); setTimeout(() => res(whole), 50); };
+        });
+      };
+    });
+    /* a long stay in a city with no ideas yet: 12 are asked for first, without links, and taken in as they are written */
+    const early = await ps.evaluate(async () => {
+      W.S.countries = [{ name: 'Croatia', mode: 'manual', picked: ['Zagreb'] }]; W.S.cityDays = { 'Croatia|Zagreb': 5 }; W.S.days = 5; W.S.picks = {}; W.S.mine = {}; W.S.day = 1; W.changed();
+      for (let i = 0; i < 40 && !((W.C.city['Croatia|Zagreb'] || {}).spots || []).length; i++) await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 300));
+      const pool = W.C.city['Croatia|Zagreb'] || {}, P = W.plan(), d1 = P.days[0];
+      const q = window.__asked.filter(x => /^List/.test(x.head) && /Zagreb/.test(x.head));
+      W.goView('trip'); W.S.tview = 'days'; W.render();
+      return { note: (document.querySelector('#viewTrip .arriving') || {}).textContent || '', got: (pool.spots || []).map(x => x.n), busy: W.status['spots|Croatia|Zagreb'], pin: pool.lat, planned: (d1.slots || []).filter(x => x.item && /written/.test(x.item.n)).length, bookV: (pool.spots[0] || {}).bookV,
+        first: q.map(x => x.head.replace(/ in (and around )?Zagreb.*/, '')), links: q.map(x => x.book || x.menu), streamed: q.map(x => x.opts.onText) };
+    });
+    t.eq(early.got, ['Zagreb written 0', 'Zagreb written 1', 'Zagreb written 2'], 'the places written so far are taken in while the rest is still being written (a half-written one waits)');
+    t.ok(early.busy === 'loading' && early.pin === 45.81 && early.planned >= 1, 'the city has its pin and the day already shows some of them: ' + JSON.stringify([early.busy, early.pin, early.planned]));
+    t.ok(/More ideas for Zagreb are on the way/.test(early.note), 'and the day says more ideas are on the way (' + early.note + ')');
+    t.eq([early.first, early.links, early.streamed], [['List the 12 best things to do', 'List 12 places to eat'], [false, false], [true, true]], 'a 5-day stay asks for 12 of each first, without booking or menu links, each taken in as it is written');
+    t.ok(early.bookV === undefined, 'a place from a list without links is left for the later check of its links');
+    const whole = await ps.evaluate(async () => {
+      window.__gate.spots(); await new Promise(r => setTimeout(r, 400));
+      for (let i = 0; i < 60 && W.cityBusy('Croatia|Zagreb'); i++) await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 1500));
+      const pool = W.C.city['Croatia|Zagreb'], more = window.__asked.filter(x => /MORE/.test(x.head) && /Zagreb/.test(x.head)).map(x => x.head.replace(/ in (and around )?Zagreb.*/, ''));
+      W.render();
+      return { note: !!document.querySelector('#viewTrip .arriving'), n: pool.spots.filter(x => /written/.test(x.n)).length, order: pool.spots.slice(0, 3).map(x => x.n.slice(-1)).join(''), asked: pool.askedN, more };
+    });
+    t.ok(whole.n === 12 && whole.order === '012' && !whole.note, 'when the whole list is in, each place is there once, in the list\'s own order, and the note is gone: ' + JSON.stringify(whole));
+    t.ok(whole.asked >= 12 && whole.more.some(h => /^List 11 MORE things to do/.test(h)) && whole.more.some(h => /^List 11 MORE places to eat/.test(h)), 'the rest of the stay\'s 23 come afterwards, in the background: ' + JSON.stringify(whole.more));
+    /* a short stay asks for its 15 at once */
+    const short = await ps.evaluate(async () => {
+      window.__asked.length = 0; W.S.countries[0].picked = ['Zagreb', 'Zadar']; W.S.cityDays = { 'Croatia|Zagreb': 5, 'Croatia|Zadar': 2 }; W.S.days = 7; W.changed();
+      for (let i = 0; i < 40 && !window.__asked.some(x => /Zadar/.test(x.head)); i++) await new Promise(r => setTimeout(r, 100));
+      return window.__asked.filter(x => /Zadar/.test(x.head) && /^List/.test(x.head)).map(x => x.head.replace(/ in (and around )?Zadar.*/, ''));
+    });
+    t.ok(short.includes('List the 15 best things to do') && short.includes('List 15 places to eat'), 'a 2-day stay asks for its 15 at once: ' + JSON.stringify(short));
+    /* suggested places in a country with no list: the plan starts on the first eight (the best known) and keeps them */
+    const cz = await ps.evaluate(async () => {
+      delete W.C.country.Croatia; Object.keys(W.status).forEach(k => { if (/^country\|/.test(k)) delete W.status[k]; });
+      W.S.countries = [{ name: 'Croatia', mode: 'suggest', picked: [] }]; W.S.cityDays = {}; W.S.days = 9; W.changed();
+      for (let i = 0; i < 40 && !(W.C.country.Croatia && W.C.country.Croatia.part); i++) await new Promise(r => setTimeout(r, 100));
+      const cc = W.C.country.Croatia || {}, part = { n: (cc.cities || []).length, top: (cc.cities || []).every(c => c.top === 1), busy: W.status['country|Croatia'], stops: W.plan().stops.map(s => s.name) };
+      window.__gate.cities(); for (let i = 0; i < 40 && !(W.C.country.Croatia.v >= 2); i++) await new Promise(r => setTimeout(r, 100));
+      const full = W.C.country.Croatia;
+      return { part, n: full.cities.length, first: full.cities.slice(0, 8).map(c => c.name), tops: full.cities.filter(c => c.top).length, isPart: !!full.part, stops: W.plan().stops.map(s => s.name), asked: window.__asked.filter(x => /^List the cities/.test(x.head)).length };
+    });
+    t.ok(cz.part.n === 8 && cz.part.top && cz.part.busy === 'loading' && cz.part.stops.length >= 2, 'the plan starts on the country\'s first eight places while the rest of its list is written: ' + JSON.stringify(cz.part));
+    t.ok(cz.n === 20 && cz.tops === 8 && !cz.isPart && cz.first.join() === 'Zagreb,Split,Dubrovnik,Zadar,Rovinj,Pula,Plitvice,Trogir' && cz.asked === 1, 'the whole list keeps those eight first, from one question: ' + JSON.stringify([cz.n, cz.tops, cz.asked]));
+    t.eq(cz.stops, cz.part.stops, 'and the stops chosen do not change when it arrives, though later places would score higher');
+    /* the options a request is made with */
+    const eo = await ps.evaluate(() => { const a = W.askOpts('spots|Italy|Rome', 'default'); W.EFFORT.spots = 'low'; const b2 = W.askOpts('spots|Italy|Rome', 'default'), c = W.askOpts('food|Italy|Rome'); W.EFFORT = {}; return [a, b2, c]; });
+    t.eq(eo, [{ modelTier: 'default' }, { modelTier: 'default', effort: 'low' }, { modelTier: 'default' }], 'how much Claude thinks first can be set by kind of request, and is left alone otherwise');
+    t.eq(es(), [], 'faster first ideas: no page errors');
+    await cs.close(); }
   t.eq(errors(), [], 'no page errors');
   await b.close();
 };

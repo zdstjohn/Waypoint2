@@ -84,7 +84,7 @@
      without one): Claude is asked once, for those names only, where each one is. A place the check took off the map
      on purpose (far out at sea) is not asked again; every answer must fall near the city like any other pin. */
   W.loadPins = function (country, city, names) {
-    var ck = W.cityKey(country, city), cur = W.C.city[ck]; if (!cur || !names || !names.length) return;
+    var ck = W.cityKey(country, city), cur = W.C.city[ck]; if (!cur || !names || !names.length || W.cityBusy(ck)) return;   /* (not while its lists are still being written) */
     var want = {}; names.forEach(function (n) { want[W.norm(n)] = 1; });
     var need = /** @type {(Spot | Food)[]} */ ([]).concat(cur.spots || [], cur.food || []).filter(function (x) {
       if (!x || !want[W.norm(x.n)] || x.lat != null || x.pinAsked) return false;
@@ -109,7 +109,7 @@
   /* official booking and menu links, and recommended visit times, for ideas saved before those existed.
      first = names to fill first (today's stops) */
   W.loadBookLinks = function (country, city, first) {
-    var ck = W.cityKey(country, city), cur = W.C.city[ck]; if (!cur) return;
+    var ck = W.cityKey(country, city), cur = W.C.city[ck]; if (!cur || W.cityBusy(ck)) return;   /* (not while its lists are still being written) */
     var spots = cur.spots || [], food = cur.food || [], isF = {};
     food.forEach(function (x) { isF[W.norm(x.n)] = 1; });
     function wantLink(x) { return isF[W.norm(x.n)] ? x.menu === undefined || (W.needsBooking(x) && x.book === undefined) : (W.isPaid(x) || W.needsBooking(x)) && x.bookV !== 2; }

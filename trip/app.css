@@ -107,6 +107,7 @@ a{color:var(--accent);text-underline-offset:3px}
 .seg button[aria-pressed="true"],.seg button[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:var(--sh-1)}
 .loading{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:var(--t-body)}
 .loading::before{content:"";width:16px;height:16px;border-radius:50%;box-shadow:inset -5px 0 0 0 var(--s-family);flex:0 0 auto;animation:spin 1.4s linear infinite}
+.arriving{margin:2px 0 10px}.arriving .loading{font-size:var(--t-sm)}
 .note{padding:12px 16px;font-family:var(--f-body);font-size:var(--t-body);font-weight:700;color:var(--note-text)}
 .note::before{background:var(--note-soft)!important;border-color:var(--note)!important}
 .note a{color:var(--note-text)}

@@ -27,12 +27,19 @@ exports.run = async t => {
     await pg.addInitScript(() => { window.__mockSample = window.claude.use('sample'); try { localStorage.setItem('waypoint-welcome', '1'); } catch (e) {} });
     await pg.route('**/functions/v1/claude', async route => {
       const rq = route.request(), auth = rq.headers().authorization || '', body = JSON.parse(rq.postData() || '{}');
-      asked.push({ tier: body.tier, head: String(body.prompt).slice(0, 40), auth: /^Bearer [0-9a-f]{32}$/.test(auth) });
+      asked.push({ tier: body.tier, head: String(body.prompt).slice(0, 40), auth: /^Bearer [0-9a-f]{32}$/.test(auth), stream: !!body.stream, effort: body.effort, key: String(body.prompt).slice(0, 200) });
       if (opts.limitAfter != null && asked.length > opts.limitAfter) return route.fulfill({ status: 429, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ error: "That's today's 200 questions to Claude. More tomorrow.", code: 'rate_limited' }) });
       flight.now++; flight.max = Math.max(flight.max, flight.now);
       const res = await pg.evaluate(([p, tier]) => window.__mockSample.then(s => s.json(p, { modelTier: tier })), [body.prompt, body.tier]).catch(() => ({}));
       await new Promise(r => setTimeout(r, 150)); flight.now--;   /* a moment's thinking, so requests overlap as they do for real */
-      route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ text: '```json\n' + JSON.stringify(res) + '\n```', model: 'test' }) });
+      const text = '```json\n' + JSON.stringify(res) + '\n```';
+      if (body.stream) {   /* asked to send the answer as it is written: lines of "data: {...}", the text in pieces, then "done" */
+        const cut = opts.cutFirst && !flight.cut; if (cut) flight.cut = 1;   /* the first such answer breaks off part-way */
+        const lines = []; for (let i = 0; i < text.length; i += 90) lines.push('data: ' + JSON.stringify({ t: text.slice(i, i + 90) }) + '\n\n');
+        if (cut) lines.length = Math.max(1, lines.length >> 1); else lines.push('data: ' + JSON.stringify({ done: true, truncated: false, model: 'test' }) + '\n\n');
+        return route.fulfill({ status: 200, contentType: 'text/event-stream', headers: { 'access-control-allow-origin': '*' }, body: lines.join('') });
+      }
+      route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ text, model: 'test' }) });
     });
     await pg.goto(URL + '#trip'); await pg.waitForTimeout(1500);
     return { ctx, pg, errs, asked, flight };
@@ -45,7 +52,7 @@ exports.run = async t => {
   };
   try {
     /* 1. the gate; an email that wasn't invited; then Ann makes her account */
-    const A = await phone('A');
+    const A = await phone('A', { cutFirst: 1 });
     t.ok(await A.pg.isVisible('.auth-gate .auth-card'), 'the first open asks you to sign in (or go without an account)');
     await A.pg.click('.auth-gate [data-auth="up"]'); await A.pg.fill('#authEmail', 'stranger@example.com'); await A.pg.fill('#authPw', 'longenough1'); await A.pg.click('.auth-go'); await A.pg.waitForTimeout(600);
     t.ok(/hasn't been invited/.test(await A.pg.textContent('.auth-err')), 'an email that was not invited cannot make an account');
@@ -74,6 +81,10 @@ exports.run = async t => {
     const more = A.asked.map(x => x.head).filter(h => / MORE /.test(h));
     t.ok(grow.after === grow.before + 3 && grow.asked === grow.want && grow.want > grow.a0 && more.length === 2 && more.every(h => new RegExp('^List ' + (grow.want - grow.a0) + ' MORE ').test(h)),
       'making a stay longer fetches the difference, once: ' + JSON.stringify(grow) + ' ' + JSON.stringify(more));
+    /* the first lists come as they are written; one that broke off part-way was asked for again, whole */
+    const st = A.asked.filter(x => x.stream), cutKey = st.length && st[0].key, again = A.asked.filter(x => x.key === cutKey).map(x => ({ head: x.head, stream: x.stream }));
+    t.ok(st.length >= 4 && st.every(x => /^List /.test(x.head)) && !A.asked.some(x => x.effort), `the first lists of each city are sent as they are written (${st.length} of ${A.asked.length} questions), with no effort setting`);
+    t.ok(again.length === 2 && again[0].stream && !again[1].stream, 'an answer that broke off part-way is asked for once more, whole: ' + JSON.stringify(again));
     t.ok(A.flight.max > 3 && A.flight.max <= 6, 'the installable app asks up to six things at once (three inside Claude): ' + A.flight.max);
     t.ok(A.asked.length > 5 && A.asked.every(x => x.auth) && A.asked.some(x => x.tier === 'quick') && A.asked.some(x => x.tier === 'default'), `each question goes to the function with her sign-in (${A.asked.length} questions)`);
     /* 3. saved to her account */

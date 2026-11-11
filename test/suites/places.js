@@ -10,8 +10,8 @@ exports.run = async t => {
       'rome cafe 3 0': { st: 'closed', note: 'Closed in 2025', replace: { n: 'Caffè Verifica', d: 'Family-run café by the piazza', cuisine: 'Cafe', price: '€', meal: 'breakfast', k: 1, lat: 41.9, lng: 12.48, site: 'https://caffeverifica.example' } },
       'rome cafe 3 1': { lat: 41.95, lng: 12.5, site: 'https://cafe1.example', hours: { o: 420, c: 780, closed: [] } },
       'rome cafe 3 2': { nopin: 1, checked: '2026-11-08' },
-      'rome cafe 3 3': { g: 'ChIJtest3', gpin: 1, gat: new Date().toISOString().slice(0, 10), lat: 41.9011, lng: 12.4722 },
-      'rome cafe 3 4': { g: 'ChIJtest4', gpin: 1, gat: new Date(Date.now() - 40 * 864e5).toISOString().slice(0, 10), lat: 41.7, lng: 12.7 },
+      'rome eatery 3 7': { g: 'ChIJtest3', gpin: 1, gat: new Date().toISOString().slice(0, 10), lat: 41.9011, lng: 12.4722 },
+      'rome eatery 3 8': { g: 'ChIJtest4', gpin: 1, gat: new Date(Date.now() - 40 * 864e5).toISOString().slice(0, 10), lat: 41.7, lng: 12.7 },
       'trastevere side streets': { lat: 41.8894, lng: 12.4698, approx: 1, stay: 1 },
     }, center: [41.8986, 12.4769] },
     'photos/italy-rome': { items: { 'piazza navona': { url: px + '#navona', credit: 'Test', page: 'x' } }, city: 'Rome', country: 'Italy' },
@@ -79,7 +79,8 @@ exports.run = async t => {
   /* Google: a place the nightly check found there carries its place ID, so every "Google Maps" link (the stop, the whole
      day) opens the exact listing; a pin taken from Google is used for 30 days only, and never drawn on the free street map */
   const gg = await pg.evaluate(() => {
-    const p = W.pool('Italy', 'Rome'), c3 = p.food.find(x => x.n === 'Rome cafe 3-3'), c4 = p.food.find(x => x.n === 'Rome cafe 3-4');
+    const p = W.pool('Italy', 'Rome'), all = p.food.concat((p.rest || {}).food || []),   /* on show or set aside (the city above holds more than it shows) */
+      c3 = all.find(x => x.n === 'Rome eatery 3-7'), c4 = all.find(x => x.n === 'Rome eatery 3-8');
     const d = W.P.days.find(x => x.city === 'Rome'), url = c3 && W.dayRouteUrl(d, [{ n: 'Somewhere', lat: 41.9, lng: 12.5 }, c3], { label: 'Hotel', lat: 41.9, lng: 12.48 });
     return { gid: c3 && c3.gid, link: c3 && W.gmapsPlace(c3, 'Rome'), plain: W.gmapsPlace('Rome eatery 3-9', 'Rome'), pin: c3 && [c3.lat, c3.lng], gpin: c3 && c3.gpin,
       stale: c4 && [c4.lat, c4.lng], staleG: c4 && c4.gpin, ids: url && decodeURIComponent((url.match(/waypoint_place_ids=([^&]*)/) || [])[1] || '') };

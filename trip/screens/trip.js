@@ -343,6 +343,9 @@
     }
     /* a public holiday or a festival on this day */
     if (!xp && W.holidayLine) h += W.holidayLine(day);
+    /* the city's first ideas are still being written: the day already shows the ones that are in, and says more are coming */
+    if (!xp && !day.loading && W.cityBusy(W.cityKey(day.country, day.city)) && (day.slots || []).some(function (x) { return x.item; }))
+      h += '<p class="small muted arriving" role="status"><span class="loading">More ideas for ' + esc(day.city) + " are on the way. This day may still change.</span></p>";
     if (day.farthest > 40 && !day.loading && !day.trip) {
       var mins = Math.round(day.farthest / 60 * 60 + 10);
       h += '<p class="scribble">' + (day.fullDay ? "day trip: about " : "far from your lodging today: about ") + esc(W.fmtMin(mins)) + " each way by car. Staying closer to this area would cut the drive.</p>";
