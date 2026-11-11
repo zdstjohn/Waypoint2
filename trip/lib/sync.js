@@ -133,8 +133,6 @@
      and sending those would overwrite what you just changed somewhere else */
   var touched = 0;
   ["click", "change", "input"].forEach(function (ev) { document.addEventListener(ev, function (e) { if (e.isTrusted !== false) touched = Date.now(); }, true); });
-  /* a change someone planning with you made counts as one you made (you let them): it is saved and shared back */
-  W.markTouched = function () { touched = Date.now(); };
   /* a new device waits a moment for your saved ideas before asking Claude for new ones */
   function release() { W.releaseLoads(); }
   var appliedAt = 0;   /* when another device's version last replaced this one */

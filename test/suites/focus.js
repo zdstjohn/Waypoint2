@@ -54,14 +54,13 @@ exports.run = async t => {
 
   /* the idea requests lean with the choice; a city whose list predates the ratings is rated once */
   const asks = await pg.evaluate(c => {
-    const pool = W.pool(c.country, c.name); pool.spots.forEach(x => { x.fame = 1; }); pool.gemsAsked = 0;
-    W.S.focus = 'gems'; W.loadGems(c.country, c.name);
+    W.S.focus = 'gems';
     const other = W.P.stops.find(s => s.name !== c.name), op = other && W.pool(other.country, other.name);
     if (op) { op.fameAsked = 0; (op.spots || []).forEach(x => { delete x.fame; }); W.loadFame(other.country, other.name); }
     const full = window.__full || [];
-    return { gems: full.some(p => /^List 14 hidden gems in and around/.test(p)), fame: !op || full.some(p => /^Rate how essential each of these places/.test(p)), lean: W.focusAsk() };
+    return { fame: !op || full.some(p => /^Rate how essential each of these places/.test(p)), lean: W.focusAsk() };
   }, city);
-  t.ok(asks.gems && /hidden gems/.test(asks.lean), 'Hidden gems asks for more hidden gems when a city has few, and leans every request that way');
+  t.ok(/hidden gems/.test(asks.lean), 'Hidden gems leans every request for ideas that way');
   t.ok(asks.fame, 'a list from before the ratings is rated once');
   await settle(pg, 4000);
   t.eq(errors(), [], 'no page errors');

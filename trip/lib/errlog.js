@@ -8,7 +8,6 @@
   var W = window.W;
   var BUILD = "__BUILD__";              /* the build time, filled in by build/bundle.js */
   var db = null, uid = null, buf = [], timer = null, busy = false, seen = {};
-  W.errBuild = BUILD;
   function short(s, n) { s = String(s == null ? "" : s); return s.length > n ? s.slice(0, n - 1) + "…" : s; }
   function browser() {
     var u = navigator.userAgent || "", os = /Android ([\d.]+)/.exec(u), ios = /OS (\d+)_\d+.*like Mac OS X/.exec(u), ch = /Chrome\/(\d+)/.exec(u), sf = /Version\/(\d+).*Safari/.exec(u), ff = /Firefox\/(\d+)/.exec(u);

@@ -71,7 +71,6 @@
     document.body.appendChild(p);
     p.click();
   }
-  W.journalPick = pick;
   document.addEventListener("click", function (e) {
     var b = e.target && e.target.closest && e.target.closest("[data-jadd]");
     if (b && !W.readOnly) { e.preventDefault(); pick(b.getAttribute("data-jadd") || ""); }

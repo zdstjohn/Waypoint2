@@ -27,7 +27,7 @@ interface Transit { system: string; pass: string; airport: string; tip: string }
 /** everything the app knows about one city: Claude's lists plus what the checks laid over them */
 interface Pool extends LatLng { d?: string; spots: Spot[]; food: Food[]; stay?: StayArea[]; lodging?: Lodging[]; lodgeFor?: string; lodgeAsked?: 1; transit?: Transit | null; fallback?: boolean;
   rest?: { spots: Spot[]; food: Food[] }; showN?: { spots?: number; food?: number }; askedN?: number;
-  styleAsked?: Record<string, 1>; indoorAsked?: 1; gemsAsked?: 0 | 1; fameAsked?: 0 | 1; cityLow?: string }
+  indoorAsked?: 1; fameAsked?: 0 | 1; cityLow?: string }
 /** a destination in a country list (built in, or from Claude) */
 /** isl = the island a town is on; whole = the entry is an island itself (kept only so an older trip that has one as a stop still works) */
 interface BuiltCity extends LatLng { name: string; region?: string; isl?: string; whole?: number; w?: number; pop?: number; t?: string[]; d?: string; spots?: Spot[] }
@@ -79,7 +79,7 @@ interface Photo { url: string; credit?: string; page?: string; near?: string | b
 /** a checked place record (places/<city> in the database) */
 /** g: Google's place ID (kept for good); gpin/gat: the pin came from Google on that day (kept 30 days, never on the free map) */
 interface PlaceRecord { lat?: number | null; lng?: number | null; g?: string; gpin?: 1; gat?: string; [k: string]: any; checked?: string; osm?: string; name?: string; st?: Spot["st"]; site?: string; hours?: Hours; k?: Kid; note?: string; place?: string; replace?: Partial<Food & Spot> & { n: string }; approx?: 1; nopin?: 1; ashore?: 1; stay?: 1; pin_tried?: string; area?: 1; was?: [number, number] }
-interface OfflineState { copyNote(P: Plan): string; cities?: Record<string, { photos: number; of: number; map: boolean }>; tripBlock(P: Plan): string; state: string; n: number; total: number; at: number; maps: any[]; err: string; off: boolean; copy: boolean; trip: any; copyState: string; copyErr: string; why: string; save(P: Plan, why?: string): void; tick(P: Plan): void; src(url: string): string; block(P: Plan): string; takeBlock(P: Plan): string; exportCopy(P: Plan): Promise<void>; click(d: DOMStringMap, P: Plan): boolean; [k: string]: any }
+interface OfflineState { planSig(P: Plan): string; takeBlock?(P: Plan): string; exportCopy?(P: Plan): Promise<any>; photoUrls(P: Plan): string[]; copyNote(P: Plan): string; cities?: Record<string, { photos: number; of: number; map: boolean }>; tripBlock(P: Plan): string; state: string; n: number; total: number; at: number; maps: any[]; err: string; off: boolean; copy: boolean; trip: any; copyState: string; copyErr: string; why: string; save(P: Plan, why?: string): void; tick(P: Plan): void; src(url: string): string; block(P: Plan): string; takeBlock(P: Plan): string; exportCopy(P: Plan): Promise<void>; click(d: DOMStringMap, P: Plan): boolean; [k: string]: any }
 interface ReadOnly { code: string; [k: string]: any }
 interface Milestone { key: string; title: string; text: string; also?: string[]; go?: View }
 interface Readiness { pct: number; [k: string]: any }
@@ -96,7 +96,6 @@ interface Waypoint {
   placeSearch: (q: string, country: string, city: string) => void;
   searchBlock: (day: Day, P: Plan) => string;
   searchClick: (d: DOMStringMap, day: Day, P: Plan) => boolean;
-  searchState: () => { q: string; n: number; busy: boolean };
   dayRouteUrl: (day: Day, stops: { n: string; lat: number | null; lng: number | null; gid?: string }[], home: { label?: string; n?: string; lat: number | null; lng: number | null }) => string;
   loadPins: (country: string, city: string, names: string[]) => void;
   $: (id: string) => HTMLElement | null;
@@ -131,6 +130,7 @@ interface Waypoint {
   badForDay: any;
   beachFit: any;
   bestOrder: any;
+  routeDist: (order: any[]) => number;
   betweenCities: any;
   bookClick: any;
   bookEnter: any;
@@ -156,7 +156,6 @@ interface Waypoint {
   closeTripMenu: any;
   confetti: any;
   countdown: (P: Plan) => Countdown;
-  countryBlurb: (name: string) => string;
   countryCities: (name: string) => BuiltCity[];
   countryName: any;
   dataV: number;
@@ -202,7 +201,6 @@ interface Waypoint {
   fxCollapse: any;
   fxExpand: any;
   fxFlip: (kind: string, dir: number, update: () => void, after?: (() => void) | null) => void;
-  fxFlipsOff: () => boolean;
   fxOff: any;
   /** a screen just opened: for a moment the page carries "view-enter" so what arrives moves in once */
   fxEnter: () => void;
@@ -261,7 +259,6 @@ interface Waypoint {
   loadEvents: (country: string, city: string, from: string, to: string) => void;
   easter: (y: number) => string;
   orthodoxEaster: (y: number) => string;
-  holidayCountries: string[];
   holidaysKnown: (country: string) => boolean;
   holidaySunday: (country: string) => boolean;
   holidaysOn: (country: string, iso: string) => Holiday[];
@@ -273,7 +270,6 @@ interface Waypoint {
   eventsTick: (P: Plan) => void;
   /** your own trip, or a shared one whose owner lets you plan together */
   canEdit: () => boolean;
-  markTouched: () => void;
   /* planning together (lib/together.js) */
   coPush: () => void;
   coReapply: (body: any) => void;
@@ -294,7 +290,6 @@ interface Waypoint {
   bagClick: (d: DOMStringMap) => boolean;
   awakeOn: () => boolean;
   awakeCan: () => boolean;
-  awakeRefused: () => boolean;
   awakeTick: (live: boolean) => void;
   /** the group's food needs (Plan, step 3; lib/core.js) */
   EAT_AL: string[][];
@@ -306,7 +301,6 @@ interface Waypoint {
   eatWhy: (it: any) => string;
   loadEatFit: (country: string, city: string) => void;
   /** open the photo picker for a day's journal (screens/journal.js) */
-  journalPick: (k: string) => void;
   /** Prices in: the currency costs are shown in (lib/bookcore.js) */
   fxDate: () => string;
   fxRate: (from: string, to: string) => number | null;
@@ -336,18 +330,15 @@ interface Waypoint {
   liveFares: any;
   liveStays: any;
   loadBookLinks: any;
-  loadBreakfast: any;
   loadCity: any;
   loadCosts: any;
   loadCountry: any;
   loadFame: any;
-  loadGems: any;
   loadIndoor: any;
   loadLeg: any;
   loadLodging: any;
   loadScript: any;
   loadStayRanges: any;
-  loadStyleIdeas: any;
   loadTz: any;
   lodgeList: any;
   lodgeReroll: any;
@@ -355,13 +346,11 @@ interface Waypoint {
   lodgeSig: any;
   mcpMsg: any;
   me: any;
-  mealLike: any;
   mealsFor: any;
   milestone: (P: Plan) => Milestone | null;
   minNights: any;
   modeName: any;
   modeOf: any;
-  modeSeg: any;
   money: any;
   moodRow: any;
   moveEvery: any;
@@ -370,8 +359,6 @@ interface Waypoint {
   newTripFrom: any;
   nextStep: any;
   norm: (s: unknown) => string;
-  normBeach: any;
-  normHours: any;
   notForLine: any;
   now: () => Date;
   nowMin: any;
@@ -383,7 +370,6 @@ interface Waypoint {
   openStop: any;
   packBlock: any;
   packClick: any;
-  packFacts: any;
   packReset: any;
   packing: (P: Plan) => PackLists;
   parseDur: (s: string) => number | null;
@@ -522,8 +508,6 @@ interface Waypoint {
   vtFor: any;
   vtLoadTest: any;
   vtMount: any;
-  vtPending: any;
-  vtReadParts: any;
   /** Simple view (this phone only): no photos, no street map, fewer words */
   simple: () => boolean;
   /** turn Simple view on or off (saved on this phone) and redraw */
@@ -531,7 +515,6 @@ interface Waypoint {
   /** the Simple view switch, as drawn in the trip menu and Settings */
   simpleSwitch: () => string;
   /** the street map's cover over the detailed tiles that loaded: tile keys "z/x/y" -> GeoJSON boxes at one zoom (for the tests) */
-  vtMask: (keys: string[], z: number) => { type: string; features: any[] };
   vtState: any;
   vtWarm: any;
   vtWorkerUsed: any;
@@ -543,7 +526,6 @@ interface Waypoint {
   logError: (msg: any, where: string, stack?: any) => void;
   currentView: () => string;
   flushErrors: () => void;
-  errBuild: string;
   placeKey: (it: { n: string; cuisine?: string; meal?: string; [k: string]: any } | null | undefined) => string;
   laterReady: boolean;
   laterLoading?: boolean;
@@ -567,6 +549,9 @@ interface Waypoint {
   icon: (name: string, weight?: number, cls?: string) => string;
   arrow: (dir?: string) => string;
   legIcon: (mode: string) => string;
+  routeHome: (home: { label: string }) => string;
+  routeLeg: (a: any, b: any, city: string, last?: boolean, note?: string) => string;
+  routeStop: (p: { it?: any; n: string; lat?: number | null; food?: boolean; slot: string; num: number }, city: string, when: string, cls?: string, key?: string) => string;
   kindIcon: (it: any, food: boolean, slot?: string) => string;
   stopTag: (n: number) => string;
   stopMark: (it: any, food: boolean, slot: string | undefined, n: number) => string;
@@ -588,6 +573,10 @@ interface Waypoint {
   watchList: any;
   weekday: (n: number) => number;
   who: () => string;
+  /** shared by the files that ask Claude (lib/ideas.js, lib/stays.js, lib/asks.js) */
+  arrived: () => void;
+  newPool: () => Pool;
+  centerOf: (cityKey: string) => LatLng | null;
   whoTags: (it: Spot | Food, food: boolean, cls: Classification | null) => string;
   withImported: any;
 }

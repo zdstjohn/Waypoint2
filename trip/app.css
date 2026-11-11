@@ -180,18 +180,6 @@ main[hidden]{display:none!important}
 @media (max-width:380px){.top{gap:8px}}
 @media (max-width:380px){.trip-sw{padding-right:2px}}
 @media (max-width:380px){.trip-sw b{font-size:var(--t-body)}}
-.tripbar .tm-sw{margin-left:auto;flex:none}
-.tm-sw{display:inline-flex;align-items:center;gap:8px;border:0;background:transparent;padding:6px 6px 6px 8px;border-radius:var(--r-sm);cursor:pointer;font:800 var(--t-ui)/1 var(--f-body);color:var(--muted);white-space:nowrap}
-@media (hover:hover){.tm-sw:hover{background:var(--sunk)}}
-.tm-k{width:36px;height:22px;border-radius:var(--r-pill);background:var(--soft);position:relative;flex:none;transition:background-color .2s}
-.tm-k i{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--surface);box-shadow:var(--sh-1);transition:transform .2s cubic-bezier(.2,.8,.2,1)}
-.tm-sw[aria-checked="true"]{color:var(--fg)}
-.tm-sw[aria-checked="true"] .tm-k{background:var(--accent)}
-.tm-sw[aria-checked="true"] .tm-k i{transform:translateX(14px)}
-.tm-sw .s{display:none}
-@media (max-width:420px){.tm-sw .l{display:none}}
-@media (max-width:420px){.tm-sw .s{display:inline}}
-@media (max-width:420px){.tm-sw{gap:6px;padding-inline:4px;font-size:var(--t-sm)}}
 
 /* ==================== Setup: the five steps, travellers, cities and where to stay, route check ==================== */
 .setup{max-width:740px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
@@ -1106,24 +1094,6 @@ table.budget tfoot th,table.budget tfoot td{border-top:2px solid var(--ink);font
 .go-rescue.done{grid-auto-flow:column;align-items:center;justify-content:space-between;text-align:left;background:var(--accent-soft)}
 .go-day,.go-tix,.go-eve{padding:14px 16px;display:grid;gap:10px}
 .go-day h3,.go-tix h3{font:400 var(--t-h4)/1.2 var(--f-display)}
-.go-tl{list-style:none;margin:0;padding:0;display:grid}
-.go-tl li{display:grid;grid-template-columns:66px 16px minmax(0,1fr);align-items:start;column-gap:8px;position:relative}
-.go-tl .t{font-size:var(--t-sm);font-weight:800;padding-top:11px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.go-tl .dot{width:10px;height:10px;border-radius:50%;border:2px solid var(--muted);background:var(--surface);margin:14px auto 0;position:relative;z-index:1}
-.go-tl li:not(:last-child)::after{content:"";position:absolute;left:calc(66px + 8px + 8px - 1px);top:26px;bottom:-12px;width:2px;background:var(--soft)}
-.go-tl .tl-b{display:grid;gap:1px;text-align:left;border:0;background:transparent;padding:8px 6px;border-radius:var(--r-sm);color:var(--fg);font:inherit;min-width:0}
-button.tl-b{cursor:pointer}
-@media (hover:hover){button.tl-b:hover{background:var(--sunk)}}
-.go-tl .tl-b b{font-size:var(--t-body);font-weight:800;line-height:1.3}
-.go-tl .tl-b .muted{font-size:var(--t-sm)}
-.go-tl .food .dot{border-color:var(--food)}
-.go-tl .done{opacity:.5}
-.go-tl .done .dot{background:var(--muted)}
-.go-tl .now .dot{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
-.go-tl .now .tl-b{background:var(--sunk)}
-.go-tl .tl-nap .tl-b b,.go-tl .tl-back .tl-b b,.go-tl .tl-trav .tl-b b{font-weight:700}
-.go-tl .ok{color:var(--accent);font-weight:800}
-.go-tl .warn-t{color:var(--note-text);font-weight:800}
 .gt-row,.ge-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center}
 .gt-row + .gt-row,.ge-row + .ge-row{border-top:var(--hair);padding-top:10px}
 .gt-row > div,.ge-row > div{display:grid;gap:1px;min-width:0}
@@ -1271,7 +1241,7 @@ html.offline .brand::after{content:"Offline";position:absolute;right:-6px;top:-8
 .dl-row b{font-size:var(--t-body)}
 .dl-row.done b::after{content:" \2713";color:#2f7a4a}
 .dl-trip .row{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
-.dl-trip + .take-it,.dl-trip + *{margin-top:16px}
+.dl-trip + *{margin-top:16px}
 .take-off{margin-top:14px;padding-top:12px;border-top:var(--hair)}
 .take-off .k{display:block;font:600 var(--t-cap)/1 var(--f-display,var(--f-body));letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
 .take-off .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
@@ -1712,7 +1682,7 @@ button.menu-btn{border:0;background:transparent;font:inherit;font-weight:800;col
 }
 
 /* the offline copy: nothing that needs the live app is offered */
-html.copy #tabSetup,html.copy [data-sync="new"],html.copy [data-sync="del"],html.copy [data-sync="settings"],html.copy .tmenu .share,html.copy .share,html.copy [data-live],html.copy [data-cal],html.copy [data-pdf],html.copy [data-gostay]{display:none!important}
+html.copy #tabSetup,html.copy [data-sync="new"],html.copy [data-sync="del"],html.copy [data-sync="settings"],html.copy .share,html.copy [data-live],html.copy [data-cal],html.copy [data-pdf],html.copy [data-gostay]{display:none!important}
 .go-off.copy .small{margin:6px 0 0;color:var(--muted)}
 .sa-note{margin:4px 0 0}
 /* on its own (no Claude): what needs Claude or the shared database isn't offered */
@@ -1869,7 +1839,7 @@ svg.arr.arr-r{margin:0 0 0 .35em}
 .go-route .rc-gm{margin:6px 0 2px}
 .go-route button.rc-b{border:0;background:transparent;padding:4px 6px;margin:-4px -6px;border-radius:var(--r-sm);color:var(--fg);font:inherit;text-align:left;cursor:pointer;flex:1}
 .go-route .rc-b .t{font-weight:800;color:var(--fg);font-variant-numeric:tabular-nums}
-.go-route .rc-find{flex:none;font-weight:800;text-align:right;max-width:96px}
+.rc-find{flex:none;font-weight:800;text-align:right;max-width:96px;margin-left:auto}
 .go-route .rc-stop.done{opacity:.5}
 .go-route .rc-stop.now > .rc-b{background:var(--sunk)}
 .go-route .rc-stop.now > .num,.go-route .rc-stop.now > .rc-hi{box-shadow:0 0 0 4px var(--accent-soft)}

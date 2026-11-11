@@ -49,7 +49,6 @@
   function lset(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   W.awakeOn = function () { return lget("waypoint-awake") !== "0"; };
   W.awakeCan = function () { return !!(navigator.wakeLock && navigator.wakeLock.request); };
-  W.awakeRefused = function () { return refused; };
   function sync() {
     var on = want && W.awakeOn() && W.awakeCan() && document.visibilityState === "visible" && W.view && W.view() === "go";
     if (on && !lock && !asking && !refused) {

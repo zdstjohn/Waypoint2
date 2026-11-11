@@ -4,29 +4,8 @@
 (function () {
   "use strict";
   var W = window.W, esc = W.esc;
-  function at(s) { return W.stopAt(s); }
-  function dist(order) { var t = 0; for (var i = 1; i < order.length; i++) t += W.km(at(order[i - 1]), at(order[i])) || 0; return t; }
-  function permute(a, cb) {
-    /* Heap's algorithm: every order of a (up to 7 places, 5040 orders) */
-    var c = a.map(function () { return 0; }), x = a.slice(), i = 0; cb(x.slice());
-    while (i < x.length) {
-      if (c[i] < i) { var j = i % 2 ? c[i] : 0, t = x[j]; x[j] = x[i]; x[i] = t; cb(x.slice()); c[i]++; i = 0; }
-      else { c[i] = 0; i++; }
-    }
-  }
-  /* the shortest route that starts where you start */
-  function bestOrder(stops) {
-    if (stops.length < 3) return stops.slice();
-    var first = stops[0], rest = stops.slice(1), best = null, bd = Infinity;
-    if (rest.length <= 7) {
-      permute(rest, function (p) { var o = [first].concat(p), d = dist(o); if (d < bd - 0.01) { bd = d; best = o; } });
-      return best;
-    }
-    var out = [first], left = rest.slice();
-    while (left.length) { var cur = out[out.length - 1]; left.sort(function (a, b) { return (W.km(at(cur), at(a)) || 0) - (W.km(at(cur), at(b)) || 0); }); out.push(left.shift()); }
-    return out;
-  }
-  W.bestOrder = bestOrder;
+  /* the shortest order and the length of a route are the planner's too (lib/shape.js, in the first script) */
+  var at = W.stopAt, dist = W.routeDist, bestOrder = W.bestOrder;
   function plural(n, w) { return n + " " + w + (n === 1 ? "" : "s"); }
 
   /* everything worth a second look; each item: {ok, t (text), act: {label, data}} */

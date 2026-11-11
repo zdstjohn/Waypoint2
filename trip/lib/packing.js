@@ -66,7 +66,6 @@
     f.stays = Object.keys(S.stays || {}).length;
     return f;
   }
-  W.packFacts = facts;
 
   /* the lists. who: "all" | "kids" | "grandparents". why: the fact that asked for it. */
   function build(P) {

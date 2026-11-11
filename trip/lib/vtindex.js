@@ -58,6 +58,5 @@
   W.vtState = function () { return S.engine; };
   W.vtActive = function () { return !!(S.map && S.ready && S.el && document.body.contains(S.el)); };
   /* still finding out whether this city has a detailed map (the list of map packs is on its way) */
-  W.vtPending = function () { return S.engine !== "off" && S.idxState !== "ready"; };
   loadIndex();   /* ask for the list straight away, so the first screen already knows */
 })();

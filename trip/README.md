@@ -87,6 +87,17 @@ shifts. On Plan, typing an island offers its towns and adds nothing until one is
 island shows its towns, and choosing one puts it in the island's place with its days and lodging (W.isleSwap). Quick
 start turns an island back and names its towns. Suggested places keep to one base on an island unless the list would
 run short, and then only a town a real journey away (lib/plan.js).
+v128: a clean-up, with nothing new to see. lib/core.js (1,030 lines) is now five files: core.js keeps the trip's
+state, the helpers and the queue to Claude; towns.js has the destinations and the islands, ideas.js what is asked
+about a place and how many ideas are on show, stays.js how long and where to stay, asks.js the smaller questions (the
+code moved as it was). Today's route and the route beside the day on a big screen share one set of rows (W.routeHome,
+W.routeLeg, W.routeStop in screens/travel.js). Gone: nineteen functions nothing called (among them the loaders for
+hidden gems, trip-style ideas and extra breakfast places, without a caller since v122 ended background top-ups) and
+the styles of the old Today timeline. The check of the trip's shape (lib/route.js) and the maker of the offline copy
+(lib/offcopy.js) come with the second script; the shortest order of places it shared with the planner is in
+lib/shape.js. The first script is 381 KB (was 402). The tests run three suites at a time (test/run.js --jobs; the
+ones that time things run alone afterwards): a full run takes under 7 minutes instead of 17. The readable sources
+published with the app are one file, src/waypoint-source.txt (tools/src_pack.py packs and unpacks it), instead of 108.
 v122: what Claude is asked first. W.run's queue (lib/core.js) no longer goes in the order things were asked: the city on
 screen (the selected day, and today's on a trip) comes first, its main lists (sights, places to eat, breakfast) before
 its second lists, then other cities' main lists, then the extras (hidden gems, rainy-day ideas, links, events, costs);
@@ -199,7 +210,10 @@ fonts/            Nunito, Dela Gothic One and Patrick Hand SC as woff2, served b
                   letters in separate files the browser fetches only when a label needs them)
 data/             built-in destinations (data1: Europe, data2: the rest, plus airports)
 lib/              the shared library
-  core.js         state, caches, helpers, Claude-powered data loading. "Find more" asks for 10 more things to do (at
+  core.js         state, caches, helpers and the queue to Claude. What is asked lives in towns.js (destinations, always
+                  towns, never whole islands), ideas.js (things to do, places to eat, how many are on show), stays.js
+                  (how long, and where to stay) and asks.js (beaches, getting between stops, food needs, events, costs,
+                  the time zone, addresses). In ideas.js: "Find more" asks for 10 more things to do (at
                   least 3 for the evening) and 8 more places to eat, and stops offering once a city has 60 things to do
                   and 40 places to eat (W.IDEA_CAP, W.ideasFull): past that the planner has plenty and the nightly checks
                   and photos keep up. A city's list keeps a fixed order whichever answer comes in first (the planner
@@ -315,7 +329,7 @@ lib/              the shared library
                   first. Places to stay, dates, bookings and the route stay yours. They need edit access to the page.
                   The shared copy says which picks a person made (S.mine), so a place someone chose stands on every
                   phone, also where the planner wouldn't have picked it.
-  route.js        trip shape check (and its one-tap fixes)   import.js  paste an itinerary   prices.js  live prices and booking sites
+  route.js        (second script) trip shape check (and its one-tap fixes)   import.js  paste an itinerary   prices.js  live prices and booking sites
   watch.js        price watches   sync.js  saved and shared trips   fx.js  motion   vtindex.js/vtmap.js  the street map (cities with a map pack)
   storage.js      (second script) Settings > Storage, for people who can edit the app: finds stored files nothing points
                   at (every 32-character id in the app's lists photos, maps, links, places, wanted, shared, your saved
@@ -330,7 +344,8 @@ lib/              the shared library
                   the day you pick. The page can't reach the internet itself: the map comes through the connection.
   offline.js      the trip without a signal: the photo index and photos kept on the phone (IndexedDB), map packs
                   warmed into the worker's cache, the offline note in Travel mode, and the "offline copy" (one HTML
-                  file with the app, the trip and its photos inside, opened from the phone's files). Both keep the photo
+                  file with the app, the trip and its photos inside, opened from the phone's files; made by
+                  offcopy.js, in the second script with Prepare's Take along blocks). Both keep the photo
                   of every idea in the trip's cities, not only the planned stops (Explore, the swap choices and a stop's
                   panel show them): planned stops and the journal first, six at a time, up to 60 MB in the copy. Street
                   maps need a connection in the copy. Prepare > Take
@@ -457,6 +472,8 @@ Version control
   any version can be restored by republishing those files.
 
 Source
-  src/            the readable sources behind app.js (lib/, screens/ as .js.txt), the type declarations (waypoint.d.ts.txt) and both tsconfig
-                  files, the test suites and the bundler: everything needed to rebuild and check the app, published with
-                  it so the code is never only in one session's workspace. Strip .txt to use them.
+  src/            waypoint-source.txt: every source file behind the app in one file (the page, the styles, data/, lib/,
+                  screens/, the type declarations, both tsconfig files, the test suites, the bundler and the workflows):
+                  everything needed to rebuild and check the app, published with it so the code is never only in one
+                  place. Each file starts at a line "=====8<===== <path>"; python3 tools/src_pack.py --unpack
+                  waypoint-source.txt writes them back out (src_pack.py is the last file in it).

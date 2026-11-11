@@ -37,7 +37,7 @@ async function allDetails(pg) {
        which can move it once they're in, so the last plan is made knowing them, and the pictures depend only on the code
        and the data, never on timing */
     await settle(pg, 30000); await pg.evaluate(() => { W.resetPicks(); W.replan(); W.render(); }); await settle(pg, 30000); await quietly(pg);
-    await pg.evaluate(() => { ['loadCity', 'loadStyleIdeas', 'loadFame', 'loadGems', 'loadBreakfast', 'loadIndoor'].forEach(k => { if (typeof W[k] === 'function') W[k] = function () {}; }); });
+    await pg.evaluate(() => { ['loadCity', 'loadFame', 'loadIndoor'].forEach(k => { if (typeof W[k] === 'function') W[k] = function () {}; }); });
     await allDetails(pg);
     for (let k = 0, last = ''; k < 5; k++) {
       await pg.evaluate(() => { W.resetPicks(); W.replan(); W.render(); }); await settle(pg, 10000); await quietly(pg, 2000, 30000);

@@ -22,7 +22,6 @@
       return parsePack(all);
     });
   }
-  W.vtReadParts = readParts;   /* (for the tests) */
   W.vtLoadTest = function (k, v, src) { return load(k, v, src); }; W.vtWorkerUsed = function () { return !!pw; };
   function parsePack(u8) {
       /* packs travel inside a WebAssembly file's custom section (a file type the app host serves untouched): unwrap it */
@@ -249,7 +248,6 @@
       var q = k.split("/").map(Number); return { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [tileBox(q[0], q[1], q[2])] } };
     }) };
   }
-  W.vtMask = mask;   /* (for the tests) */
   function coverSoon() {
     if (S.coverT) return;
     S.coverT = requestAnimationFrame(function () {

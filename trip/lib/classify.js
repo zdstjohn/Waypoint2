@@ -59,10 +59,6 @@
     [/wine|enoteca|bar\b|cocktail|tavern(?!a)|pub\b/, "wine"],
     [/taverna|greek|cretan|home ?cook|family/, "taverna"]
   ];
-  /* an outing that is really about food ("Roman Cooking Class", "Bakery and fresh naan tour") */
-  var MEAL = /\b(breakfast|brunch|lunch|dinner|supper|meals?|tavernas?|restaurants?|trattoria|osteria|ristorante|pizzeria|bakery|bakeries|pastry|pastries|caf[eé]s?|caff[eè]|coffee|tea ?house|cooking|food tour|street food|meze|ouzeri|sweets|gelato|ice cream|chocolate|churros|aperitivo|chiringuito)\b/;
-  var NOT_MEAL = /\b(beach|playa|gorge|hike|walk|drive|monastery|castle|fortress|museum|boat|cruise|kayak\w*|island|cave|lake|park|ruins|palace|church|cathedral|trail|waterfall|viewpoint|stroll|promenade|harbou?r)\b/;
-  W.mealLike = function (it) { var n = String(it && it.n || "").toLowerCase(); return !!n && MEAL.test(n) && !NOT_MEAL.test(n); };
 
   /* ---------- what a place is: a classification used by the planner, the clock and the pictures ----------
      A suggestion's name is read in three steps: first what you DO there if it is an experience (a cooking class,

@@ -196,5 +196,4 @@
     e.preventDefault();
     var b = document.querySelector('[data-psearch="1"]'); if (b) /** @type {HTMLElement} */ (b).click();
   });
-  W.searchState = function () { return { q: st.q, n: st.local.length + st.mb.length, busy: st.busyMb }; };
 })();

@@ -79,7 +79,6 @@
     "United States": { sunday: false, list: [["01-01", "New Year's Day", 1], ["n:1:1:3", "Martin Luther King Jr. Day", 1], ["n:2:1:3", "Presidents' Day", 1], ["n:5:1:-1", "Memorial Day", 1], ["06-19", "Juneteenth", 1],
       ["07-04", "Independence Day", 1], ["n:9:1:1", "Labor Day", 1], ["n:10:1:2", "Columbus Day / Indigenous Peoples' Day", 1], ["11-11", "Veterans Day", 1], ["n:11:4:4", "Thanksgiving", 2], ["12-25", "Christmas Day", 2]] }
   };
-  W.holidayCountries = Object.keys(NAT);
   W.holidaysKnown = function (country) { return !!NAT[country]; };
   /* whether a place that shuts on Sundays shuts on this country's public holidays too */
   W.holidaySunday = function (country) { var c = NAT[country]; return c ? c.sunday : true; };

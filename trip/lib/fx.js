@@ -72,7 +72,6 @@
      tap feel sluggish, so: a modest phone (4 GB or 4 cores or less) never turns pages, and any phone that takes over
      120 ms to the first frame of a turn changes pages plainly from then on. The decoration gives way to the response. */
   var flipping = false, slowFlips = (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ? 1 : 0;
-  W.fxFlipsOff = function () { return slowFlips >= 1; };
   /* after (optional) runs once the new page is in place and done moving: the place to scroll to a spot on it */
   W.fxFlip = function (kind, dir, update, after) {
     if (off() || flipping) { update(); if (after) after(); return; }

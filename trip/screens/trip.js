@@ -206,28 +206,21 @@
   }
 
   W.legIcon = function (mode) { return LEG_IC[mode] || LEG_IC.transit; };
-  /* ---------- today's route (beside the day on a big screen; the Today tab draws its own: screens/travel.js) ---------- */
+  /* ---------- today's route beside the day on a big screen (its rows are the ones Today uses: screens/travel.js) ---------- */
   /** today's stops as a route from where you stay and back: the way between each (walk, transit, drive) with its
       directions, the whole day in Google Maps, and the real street map on top where the city has one */
   function routeCard(day, P, T, home, pts, gm, mapBox, zoomBtns) {
     if (!pts.length) return '<aside class="explorer rcard sk"><div class="explorer-h"><h3>Today\'s route</h3></div><p class="small muted rc-empty">Nothing planned yet today. Add a place with the search, or from the ideas below.</p></aside>';
     var prev = home, rows = "", city = day.city;
-    function legRow(a, b, last) {
-      var lg = W.leg(a, b);
-      var to = b.lat != null ? b : { n: b.n + ", " + city, lat: null, lng: null };
-      var dir = link(W.gmapsDir(a.lat != null ? a : { label: (a.label || a.n) + ", " + city, lat: null }, to, lg ? lg.mode : "walking"), "Directions");
-      return '<li class="rc-leg' + (last ? " last" : "") + '">' + (lg ? (LEG_IC[lg.mode] || LEG_IC.transit) + "<span>" + esc(W.fmtMin(lg.min) + " " + lg.label) + "</span>" : "<span>Find it on the map</span>") + dir + "</li>";
-    }
     pts.forEach(function (p) {
-      rows += legRow(prev, p, false);
+      rows += W.routeLeg(prev, p, city, false);
       var R = T && T.rows[p.slot], when = [R && R.start != null && !R.skip ? W.clock(R.start) : "", (R && R.label) || W.SLOT_NAME[p.slot]].filter(Boolean).join(" · ");
-      rows += '<li class="rc-stop">' + W.stopMark(p.it || {}, !!p.food, p.slot, p.num) + '<span class="rc-b"><b>'  + esc(p.n) + '</b><span class="small muted">' + esc(when) +
-        (p.lat == null ? " · " + link(W.gmapsPlace(p, city), "find on Google Maps") : "") + "</span></span></li>";
+      rows += W.routeStop(p, city, esc(when));
       if (p.lat != null) prev = p;
     });
-    if (prev !== home) rows += legRow(prev, home, true);
+    if (prev !== home) rows += W.routeLeg(prev, home, city, true);
     return '<aside class="explorer rcard sk"><div class="explorer-h"><h3>Today\'s route</h3>' + zoomBtns + "</div>" + mapBox +
-      '<ol class="rc-list"><li class="rc-home">' + W.homeMark() + '<span class="rc-b"><b>' + esc(home.label) + '</b><span class="small muted">where you\'re staying</span></span></li>' + rows + "</ol>" +
+      '<ol class="rc-list">' + W.routeHome(home) + rows + "</ol>" +
       (gm ? '<a class="btn rc-gm" href="' + esc(gm) + '" target="_blank" rel="noopener">Open the whole day in Google Maps ↗</a>' : "") +
       (mapBox && mapBox.indexOf("vt-slot") > -1 ? '<p class="map-note">© OpenMapTiles © OpenStreetMap contributors</p>' : "") + "</aside>";
   }
