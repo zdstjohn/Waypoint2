@@ -1925,8 +1925,10 @@ svg.arr.arr-r{margin:0 0 0 .35em}
 
 /* A place's name is what you look for on the street, so it is never cut to a few letters: it runs to two lines
    ("Sant'Eustachio Il Caffè", not "Sant'Eustach…"), and only a name longer than that is shortened at the end */
-.slot.slim .nm,.g-main,.dn-b b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:break-word}
-.slot.slim .sl-l{align-items:flex-start}
+.g-main,.dn-b b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+/* on a meal card the time and the name are one line of text, so a long name wraps between words, never inside one */
+.slot.slim .sl-l{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.slot.slim .sl-l .tm,.slot.slim .sl-l .nm{display:inline}
 
 /* ---------- Prepare: the tabs on a phone, the two columns on a big screen, the budget's flights ----------
    On a phone the five tabs are equal: a picture over a short name, the count a small badge on the picture, so

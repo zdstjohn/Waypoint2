@@ -2,6 +2,12 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v145
+
+- A meal card's time and name are one line of text that wraps between words (v144 put them side by side, so a long
+  word could be split: "Sant'Eustach / io Il Caffè"). Two lines at most, as before. look checks every name on the
+  day for a word split in two (a hyphen is a fair place to wrap).
+
 ## v144
 
 Four of the reviews' suggestions, as you chose them (4A, 6A, 9A + 9C, 10A + 10B).

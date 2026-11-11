@@ -1,9 +1,9 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v144: Prepare's phone tabs (pictures over names) and, on a big screen, the budget beside To book; the budget's
-# flights estimate and card; place names on two lines in the day, All days and the next-day bar.
-book-*
-book-add-*
+# v145: meal cards: the time and the name are one wrapping line (no word split in two).
 trip-*
-recap-*
 menu-*
+swap-*
+stop-panel-*
+meal-panel-*
+recap-*
