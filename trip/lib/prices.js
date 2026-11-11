@@ -64,7 +64,7 @@
       first = P.days.filter(function (d) {
         return d.stop === si;
       })[0];
-    var nights = s.days - (si === P.stops.length - 1 ? 1 : 0),
+    var nights = W.nightsAt(P, si),
       a = first && W.dateOf(first.n);
     if (!a || nights < 1) return null;
     var b = new Date(a);
@@ -179,35 +179,143 @@
     });
   }
 
-  /* ---------- places to stay, live from Booking.com ---------- */
+  /* ---------- places to stay: a Booking.com search in the stay panel ---------- */
+  /* What you type (an area, a hotel, or what you need) and the filters you tick, for each place. In Claude the search
+     runs through your Booking.com connection and the places come back here with today's prices for your nights; in
+     the installable app it opens Booking.com's own search, with your place, dates, party and filters filled in. */
+  /** @type {Record<string, {q: string, f: Record<string, number>}>} */
+  var find = {};
+  function findOf(ck) {
+    return find[ck] || (find[ck] = { q: "", f: {} });
+  }
+  /* each filter: its words here, what the connection takes, and Booking.com's own filter in a search link */
+  /** @type {[string, string, Record<string, any>, string][]} */
+  var SF = [
+    ["fam", "Family rooms", { facilities: ["FAMILY_ROOMS"] }, "hotelfacility=28"],
+    ["apt", "Apartments", { accommodation_types: ["APARTMENT", "HOLIDAY_HOME"] }, "ht_id=201"],
+    ["fc", "Free cancellation", { cancellation_type: "free_cancellation" }, "fc=2"],
+    ["bf", "Breakfast included", { meal_plan: "breakfast_included" }, "mealplan=1"],
+    ["pool", "Pool", { facilities: ["SWIMMING_POOL"] }, "hotelfacility=433"],
+    ["r8", "Rated 8+", { minimum_review_score: 8 }, "review_score=80"]
+  ];
+  /* a name that reads like one place to stay ("Hotel Raphael", "Residenza Monti") is looked up by name */
+  var HOTELISH = /\b(hotel|hostel|residen\w*|palazzo|b ?& ?b|bed and breakfast|inn|suites?|resort|albergo|locanda|pensione|casa|villa)\b/i;
+  function sigOf(F) {
+    return (
+      F.q.trim().toLowerCase() +
+      "|" +
+      SF.filter(function (x) {
+        return F.f[x[0]];
+      })
+        .map(function (x) {
+          return x[0];
+        })
+        .join(",")
+    );
+  }
+  function party() {
+    var k = kidsAges(),
+      a = adults();
+    return (
+      a +
+      " adult" +
+      (a > 1 ? "s" : "") +
+      (k.length ? ", " + k.length + " child" + (k.length > 1 ? "ren" : "") + " (" + k.join(", ") + ")" : "")
+    );
+  }
+  /* Booking.com's own search page for this place, these nights and this party, with what you typed and ticked */
+  W.bookingSearchUrl = function (s, P, F) {
+    var dt = stayDates(s, P),
+      kids = kidsAges(),
+      q = (F && F.q.trim()) || "",
+      nf = SF.filter(function (x) {
+        return F && F.f[x[0]];
+      }).map(function (x) {
+        return x[3];
+      });
+    return (
+      "https://www.booking.com/searchresults.html?ss=" +
+      encodeURIComponent((q ? q + ", " : "") + s.name + ", " + s.country) +
+      (dt ? "&checkin=" + dt.in + "&checkout=" + dt.out : "") +
+      "&group_adults=" +
+      adults() +
+      "&group_children=" +
+      kids.length +
+      kids
+        .map(function (a) {
+          return "&age=" + a;
+        })
+        .join("") +
+      "&no_rooms=1" +
+      (nf.length ? "&nflt=" + encodeURIComponent(nf.join(";")) : "")
+    );
+  };
+  function connected() {
+    return !!(window.claude && window.claude.use) && !W.standalone;
+  }
   W.liveStays = function (s, P) {
     if (W.readOnly) return "";
     var ck = W.cityKey(s.country, s.name),
       dt = stayDates(s, P),
+      F = findOf(ck),
       L = live().stay[ck],
-      key = "stay|" + ck;
-    if (!dt) return '<p class="small muted live-note">Add your start date under How long? to see live prices for your nights.</p>';
-    var fresh = L && L.in === dt.in && L.out === dt.out && L.ages === W.ages().join(",");
+      key = "stay|" + ck,
+      here = connected();
+    var fresh = !!dt && L && L.in === dt.in && L.out === dt.out && L.ages === W.ages().join(",") && (L.sig || "|") === sigOf(F);
     var h =
-      '<div class="live"><div class="live-h"><span><b>Live prices</b> <span class="small muted">· ' +
+      '<div class="live sfind"><div class="live-h"><span><b>Search Booking.com</b> <span class="small muted">· ' +
       esc(
-        dt.nights +
-          " night" +
-          (dt.nights > 1 ? "s" : "") +
-          " from " +
-          new Date(dt.in + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
-          " · Booking.com" +
+        (dt
+          ? dt.nights +
+            " night" +
+            (dt.nights > 1 ? "s" : "") +
+            " from " +
+            new Date(dt.in + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
+            " · "
+          : "") +
+          party() +
           (fresh ? " · " + ago(L.at) : "")
       ) +
-      "</span></span>" +
-      (busy[key]
-        ? '<span class="loading">Checking…</span>'
-        : '<button type="button" class="btn quiet sm" data-live="stay" data-ck="' +
+      "</span></span></div>" +
+      '<div class="sf-row"><input class="field" type="search" enterkeyhint="search" data-sfq="' +
+      esc(ck) +
+      '" aria-label="Search Booking.com in ' +
+      esc(s.name) +
+      '" placeholder="An area, a hotel, or what you need" value="' +
+      esc(F.q) +
+      '">' +
+      (here
+        ? busy[key]
+          ? '<span class="loading">Searching…</span>'
+          : '<button type="button" class="btn" data-sfgo="' + esc(ck) + '">' + "Search" + "</button>"
+        : '<a class="btn" data-sfout="' +
           esc(ck) +
+          '" href="' +
+          esc(W.bookingSearchUrl(s, P, F)) +
+          '" target="_blank" rel="noopener">Search</a>') +
+      "</div>" +
+      '<div class="sf-chips" role="group" aria-label="Only show">' +
+      SF.map(function (x) {
+        return (
+          '<button type="button" class="chip" data-sf="' +
+          x[0] +
+          '" data-ck="' +
+          esc(ck) +
+          '" aria-pressed="' +
+          !!F.f[x[0]] +
           '">' +
-          (fresh ? "Refresh" : "See prices") +
-          "</button>") +
+          esc(x[1]) +
+          "</button>"
+        );
+      }).join("") +
       "</div>";
+    if (!dt)
+      h +=
+        '<p class="small muted live-note">Add your start date under How long? to search ' +
+        (here ? "with prices for your nights." : "your nights.") +
+        "</p>";
+    else if (!here)
+      h += '<p class="small muted live-note">Opens Booking.com with ' + esc(s.name) + ", your dates and everyone filled in.</p>";
     if (msg[key]) h += '<p class="warn">' + esc(msg[key]) + "</p>";
     if (fresh && L.items.length) {
       var cur = S.stays[ck];
@@ -243,10 +351,50 @@
             );
           })
           .join("") +
-        "</ul>";
-    } else if (fresh) h += '<p class="small muted">Nothing available for these dates. Try other dates or check Booking.com directly.</p>';
+        "</ul>" +
+        '<p class="small sf-all">' +
+        link(W.bookingSearchUrl(s, P, F), "See every result on Booking.com ↗") +
+        "</p>";
+    } else if (fresh)
+      h +=
+        '<p class="small muted">Nothing on Booking.com for this search on your dates. Try fewer filters, or ' +
+        link(W.bookingSearchUrl(s, P, F), "search Booking.com itself ↗") +
+        ".</p>";
     return h + "</div>";
   };
+  /* typing is kept as you go, so a redraw keeps it; in the installable app the Search link follows it */
+  document.addEventListener("input", function (e) {
+    var t = /** @type {HTMLInputElement} */ (e.target);
+    if (!t || !t.matches || !t.matches("[data-sfq]")) return;
+    var ck = (t.dataset && t.dataset.sfq) || "",
+      F = findOf(ck);
+    F.q = t.value.slice(0, 120);
+    var a = /** @type {HTMLAnchorElement | null} */ (t.parentNode && t.parentNode.querySelector("[data-sfout]"));
+    var s = a && stopOf(ck, W.P);
+    if (a && s) a.href = W.bookingSearchUrl(s, W.P, F);
+  });
+  document.addEventListener("keydown", function (e) {
+    var t = /** @type {HTMLInputElement} */ (e.target);
+    if (e.key !== "Enter" || !t || !t.matches || !t.matches("[data-sfq]")) return;
+    e.preventDefault();
+    var ck = (t.dataset && t.dataset.sfq) || "";
+    findOf(ck).q = t.value.slice(0, 120);
+    if (connected()) {
+      fetchStays(ck, W.P);
+      return;
+    }
+    var a = /** @type {HTMLAnchorElement | null} */ (t.parentNode && t.parentNode.querySelector("[data-sfout]"));
+    if (a) a.click();
+  });
+  function stopOf(ck, P) {
+    return (
+      (P &&
+        P.stops.filter(function (x) {
+          return W.cityKey(x.country, x.name) === ck;
+        })[0]) ||
+      null
+    );
+  }
   /* the Booking.com search for a place's nights (shared with the price watch) */
   W.stayInput = function (ck, P, hotel) {
     var s = P.stops.filter(function (x) {
@@ -276,17 +424,33 @@
   function fetchStays(ck, P) {
     var I = W.stayInput(ck, P),
       key = "stay|" + ck,
-      dt = I && I.dt;
+      dt = I && I.dt,
+      F = findOf(ck),
+      sig = sigOf(F),
+      q = F.q.trim();
     if (!I || busy[key]) return;
     busy[key] = true;
     msg[key] = "";
     W.render();
     var input = I.input;
+    /* what you typed: a place to stay by its name, or an area or a need, in your words; the filters you ticked */
+    if (q && HOTELISH.test(q)) {
+      input.hotel_names = [q];
+      input.user_query = q + " in " + I.s.name;
+    } else if (q) input.user_query = I.input.user_query + ": " + q;
+    SF.forEach(function (x) {
+      if (!F.f[x[0]]) return;
+      Object.keys(x[2]).forEach(function (k) {
+        var v = x[2][k];
+        input[k] = Array.isArray(v) ? (input[k] || []).concat(v) : v;
+      });
+    });
     call("Booking.com", "accommodations_search", input)
       .then(
         function (r) {
           var list = (r && r.payload && r.payload.accommodations) || [];
           live().stay[ck] = {
+            sig: sig,
             in: dt.in,
             out: dt.out,
             ages: W.ages().join(","),
@@ -577,8 +741,20 @@
       ss[d.site] = !ss[d.site];
       return true;
     }
-    if (d.live === "stay") {
-      fetchStays(d.ck, P);
+    if (d.live === "stay" || d.sfgo) {
+      var ck = d.sfgo || d.ck,
+        inp = /** @type {HTMLInputElement | null} */ (document.querySelector('[data-sfq="' + CSS.escape(ck) + '"]'));
+      if (inp) findOf(ck).q = inp.value.slice(0, 120);
+      fetchStays(ck, P);
+      return true;
+    }
+    if (d.sf && d.ck) {
+      var F = findOf(d.ck),
+        inp2 = /** @type {HTMLInputElement | null} */ (document.querySelector('[data-sfq="' + CSS.escape(d.ck) + '"]'));
+      if (inp2) F.q = inp2.value.slice(0, 120);
+      F.f[d.sf] = F.f[d.sf] ? 0 : 1;
+      /* with places already found, a filter searches again at once */
+      if (connected() && live().stay[d.ck]) fetchStays(d.ck, P);
       return true;
     }
     if (d.live === "fare") {

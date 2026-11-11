@@ -1114,9 +1114,13 @@
     c.forEach(function (q) {
       b.extend(q);
     });
-    var w = S.el.clientWidth || 340;
+    /* centred on the stops, all of them in view: room for a pin on every side, and on a wide screen, where each pin
+       carries its name to the right, room for the name too (the stops then sit a little left, the names fill the rest) */
+    var w = S.el.clientWidth || 340,
+      named = window.innerWidth > 920 /* (as .vt-pin span in app.css) */,
+      side = Math.min(40, w * 0.1);
     S.map.fitBounds(b, {
-      padding: { top: 36, bottom: 30, left: 26, right: Math.min(110, w * 0.3) },
+      padding: { top: 40, bottom: 34, left: side, right: named ? Math.min(170, w * 0.3) : side },
       maxZoom: 16.2,
       duration: animate ? 600 : 0
     });

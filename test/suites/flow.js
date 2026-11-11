@@ -47,10 +47,30 @@ exports.run = async t => {
   await pg.click(`[data-reroll="${sl}"]`); await pg.waitForTimeout(700);
   const sw = await pg.evaluate(() => ({ cards: document.querySelectorAll('.swapcards .scard').length, list: document.querySelectorAll('.swap .opt').length }));
   t.ok(sw.cards === 3, 'three swap cards: ' + JSON.stringify(sw));
+  /* a card opens the idea up close, with Add and Skip: nothing is swapped in until Add */
+  const nowN = () => pg.evaluate(k => W.P.days[W.S.day - 1].slots.find(x => x.key === k).item.n, k0);
+  const was = await nowN();
   const pickN = await pg.evaluate(() => document.querySelector('.scard').dataset.name);
-  await pg.click('.scard'); await pg.waitForTimeout(700);
-  t.eq(await pg.evaluate(k => W.P.days[W.S.day - 1].slots.find(x => x.key === k).item.n, k0), pickN, 'tapping a card uses that place');
-  t.ok(await pg.evaluate(() => !!document.querySelector('[data-undo]')), 'and can be undone');
+  await pg.click('.scard'); await pg.waitForTimeout(600);
+  const pk = await pg.evaluate(() => { const p = document.querySelector('.swap .sw-peek'); return p ? { n: (p.querySelector('.swp-n') || {}).textContent, add: (p.querySelector('.swp-act [data-use]') || {}).textContent, skip: !!p.querySelector('[data-peekskip]'), back: !!p.querySelector('[data-peekback]'), d: !!p.querySelector('.sd-d'), links: p.querySelectorAll('.links a').length, of: (p.querySelector('.swp-top .muted') || {}).textContent } : null; });
+  t.ok(pk && pk.n === pickN && /^Add for /.test(pk.add || '') && pk.skip && pk.back && pk.d && pk.links >= 2 && /^1 of \d+$/.test(pk.of || ''), 'tapping a card shows it up close: what it is, Add, Skip, and its links: ' + JSON.stringify(pk));
+  t.eq(await nowN(), was, 'and the plan has not changed yet');
+  await pg.click('.swap [data-peekskip]'); await pg.waitForTimeout(500);
+  const sk = await pg.evaluate(() => ({ n: (document.querySelector('.swap .swp-n') || {}).textContent, of: (document.querySelector('.swap .swp-top .muted') || {}).textContent }));
+  t.ok(sk.n && sk.n !== pickN && /^2 of /.test(sk.of || ''), 'Skip shows the next idea: ' + JSON.stringify(sk));
+  t.eq(await nowN(), was, 'still nothing swapped');
+  await pg.click('.swap [data-peekback]'); await pg.waitForTimeout(400);
+  t.ok(await pg.evaluate(() => !document.querySelector('.swap .sw-peek') && document.querySelectorAll('.swapcards .scard').length === 3), 'All ideas goes back to the list');
+  await pg.click('.scard'); await pg.waitForTimeout(500);
+  await pg.click('.swap .swp-act [data-use]'); await pg.waitForTimeout(700);
+  t.eq(await nowN(), pickN, 'Add puts that place in');
+  t.ok(await pg.evaluate(() => !!document.querySelector('[data-undo]') && !document.querySelector('.swap')), 'and can be undone, the swap closed');
+  /* Next suggestion shows the best idea up close too, rather than swapping it in */
+  await pg.click(`[data-reroll="${sl}"]`); await pg.waitForTimeout(600);
+  await pg.click('.swap [data-next]'); await pg.waitForTimeout(500);
+  t.ok(await pg.evaluate(() => !!document.querySelector('.swap .sw-peek .swp-act [data-use]')), 'Next suggestion shows the idea up close, with Add');
+  t.eq(await nowN(), pickN, 'and changes nothing until Add');
+  await pg.click('.swap [data-swapclose]'); await pg.waitForTimeout(500);
 
   /* the header banner: the trip name, and how far off it is (or where in it you are) */
   const cdn = await pg.evaluate(() => {
@@ -75,11 +95,36 @@ exports.run = async t => {
   /* each of the three goes straight to its view */
   await pg.click('#viewTrip [data-vsw="all"]'); await pg.waitForTimeout(500);
   t.ok(await pg.evaluate(() => W.S.glanceOpen && W.S.tview === 'days' && document.querySelectorAll('#viewTrip .g-day').length === W.P.N && document.querySelector('#viewTrip [data-vsw="all"]').getAttribute('aria-selected') === 'true'), 'All days from Explore, in one tap');
+  /* nights: All days, the stay bar and To book give each place the same count (the last place loses the day you fly home) */
+  const nights = await pg.evaluate(() => W.P.stops.map((s, si) => {
+    const sec = document.querySelector('#viewTrip .g-sec[data-stop="' + si + '"] .g-sm'), seg = document.querySelectorAll('#viewTrip .sb-seg')[si];
+    const book = W.checklist(W.P).find(x => x.group === 'stay' && x.title.indexOf('Where to stay in ' + s.name + ' (') === 0);
+    const num = x => { const m = /(\d+) nights?/.exec(x || ''); return m ? +m[1] : 0; };
+    return { all: num(sec && sec.textContent), bar: seg ? num(seg.getAttribute('aria-label')) : -1, book: book ? num(book.title) : 0, days: s.days, last: si === W.P.stops.length - 1 };
+  }));
+  t.ok(nights.length > 1 && nights.every(n => n.all === n.book && (n.bar === -1 || n.bar === n.all) && n.all === n.days - (n.last ? 1 : 0)), 'All days, the stay bar and To book agree on nights, the last place one fewer than its days: ' + JSON.stringify(nights));
   await pg.click('#viewTrip [data-vsw="map"]'); await pg.waitForTimeout(600);
   t.ok(await pg.evaluate(() => W.S.tview === 'map' && !W.S.glanceOpen && document.querySelector('#viewTrip [data-vsw="map"]').getAttribute('aria-selected') === 'true'), 'Explore from All days, in one tap');
   await pg.click('#viewTrip [data-vsw="all"]'); await pg.waitForTimeout(500);
   await pg.click('#viewTrip [data-vsw="days"]'); await pg.waitForTimeout(500);
   t.ok(await pg.evaluate(() => !W.S.glanceOpen && !!document.querySelector('#viewTrip .day-h')), 'and Day goes back to the day');
+  /* the way to each stop, between the cards: Navigate opens Google Maps directions to it */
+  const nav = await pg.evaluate(() => { const L = [...document.querySelectorAll('#viewTrip .nav-leg')], cards = [...document.querySelectorAll('#viewTrip article.slot:not(.free)')];
+    const before = cards.filter(c => { let p = c.previousElementSibling; while (p && !p.matches('article.slot, .nav-leg')) p = p.previousElementSibling; return p && p.matches('.nav-leg'); }).length;
+    return { n: L.length, cards: cards.length, before, hrefs: L.every(a => /^https:\/\/www\.google\.com\/maps\/dir\/\?api=1(&origin=[^&]+)?&destination=/.test(a.href) && a.target === '_blank'), text: L[0] && L[0].textContent.replace(/\s+/g, ' ').trim(), inCard: document.querySelectorAll('#viewTrip article.slot .leg').length }; });
+  t.ok(nav.n >= nav.cards && nav.before === nav.cards && nav.hrefs && /^Navigate\s*·.*\d+ min/.test(nav.text || '') && nav.inCard === 0, 'each stop has "Navigate · 19 min" on the way to it, opening Google Maps directions, and the card no longer repeats the time: ' + JSON.stringify(nav));
+  /* back to the top: a round button once you are most of a screen down, above the tab bar; one tap goes up */
+  await pg.evaluate(() => { scrollTo(0, 0); W.upCheck(); }); await pg.waitForTimeout(300);
+  const up0 = await pg.evaluate(() => { const u = document.getElementById('totop'); return !u || !u.classList.contains('on'); });
+  /* (All days is long enough to scroll; a short day may not be) */
+  await pg.evaluate(() => { W.S.glanceOpen = true; W.render(); }); await pg.waitForTimeout(400);
+  await pg.evaluate(() => { scrollTo(0, document.documentElement.scrollHeight); W.upCheck(); }); await pg.waitForTimeout(400);
+  const up1 = await pg.evaluate(() => { const u = document.getElementById('totop'), tb = document.querySelector('.tabs'); if (!u) return null; const r = u.getBoundingClientRect(), t = tb.getBoundingClientRect(), cs = getComputedStyle(u);
+    return { on: u.classList.contains('on'), above: r.bottom <= t.top, right: innerWidth - r.right, w: Math.round(r.width), ring: /gradient/.test(cs.backgroundImage), name: u.getAttribute('aria-label') }; });
+  t.ok(up0 && up1 && up1.on && up1.above && up1.right >= 15 && up1.w >= 48 && up1.ring && up1.name === 'Back to the top', 'a back-to-top button shows once you scroll down, above the tab bar, with a gradient ring: ' + JSON.stringify(up1));
+  await pg.click('#totop'); await pg.waitForFunction(() => scrollY < 5, null, { timeout: 4000 }).catch(() => {});
+  t.ok(await pg.evaluate(() => scrollY < 5), 'and one tap goes back to the top');
+  await pg.evaluate(() => { W.S.glanceOpen = false; W.render(); }); await pg.waitForTimeout(300);
   /* the storybook is gone: no way in, and a trip saved on it opens on the day */
   t.ok(await pg.evaluate(() => { W.S.tview = 'story'; W.render(); return W.S.tview === 'days' && !document.querySelector('[data-story], [data-sync="story"], .story') && !!document.querySelector('#viewTrip .day-h'); }), 'there is no storybook, and a trip left on it opens on the day');
   /* a travel day with long car-rental text stays inside its card on a phone */

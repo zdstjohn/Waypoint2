@@ -225,7 +225,7 @@
           .map(function (/** @type {any} */ i) {
             var d = P.days[i.day - 1];
             return (
-              '<li class="pcheck-i k-' +
+              '<li class="pcheck-i pc-' /* (pc-: k- is the kids' corner's prefix, and .k-book is its storybook page) */ +
               esc(i.kind) +
               '"><span class="pcheck-k">' +
               esc(KINDS[i.kind] || KINDS.other) +

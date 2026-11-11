@@ -64,5 +64,29 @@ exports.run = async t => {
   const vt = await pg.evaluate(() => fetch('lib/vtmap.js').then(r => r.text()));
   t.ok(vt.length > 20000 && !/id: "route/.test(vt) && !/route: \{ type: "geojson"/.test(vt) && !/getSource\("route"\)/.test(vt) && /pinEl\(/.test(vt), 'the street map draws the day\'s pins and no line between them (no route layer, no route source)');
   t.eq(errors(), [], 'no page errors');
-  await ctx.close(); await b.close();
+  await ctx.close();
+
+  /* near you, on Today: the closest ideas to where the plan has you; in the installed app, to your phone's location */
+  {
+    const { pg: p2, ctx: c2, errors: e2 } = await open(b, { width: 390, height: 844, init: () => { try { localStorage.setItem('waypoint-now', '2027-06-08T12:10:00'); } catch (e) {} } });
+    await exampleTrip(p2); await p2.evaluate(() => W.goView('go')); await settle(p2, 3000);
+    const n1 = await p2.evaluate(() => { const c = document.querySelector('#viewGo .go-near'); if (!c) return null; const rows = [...c.querySelectorAll('.nr')];
+      return { h: c.querySelector('h3').textContent, loc: !!c.querySelector('[data-nearme]'), food: c.querySelector('[data-neartab="food"]').getAttribute('aria-pressed'), n: rows.length, go: rows.every(r => /^https:\/\/www\.google\.com\/maps\/dir\//.test(r.querySelector('.nr-go').href)), dist: rows.map(r => parseFloat(r.querySelector('.small').textContent) * (/ km/.test(r.querySelector('.small').textContent) ? 1000 : 1)) }; });
+    t.ok(n1 && /^Near /.test(n1.h) && !n1.loc && n1.food === 'true' && n1.n >= 3 && n1.go && n1.dist.every((d, i) => !i || d >= n1.dist[i - 1]), 'Today shows food near where the plan has you at lunchtime, closest first, each with Go (no location button inside Claude): ' + JSON.stringify(n1));
+    await p2.click('#viewGo [data-neartab="do"]'); await p2.waitForTimeout(300);
+    t.ok(await p2.evaluate(() => document.querySelector('#viewGo [data-neartab="do"]').getAttribute('aria-pressed') === 'true' && document.querySelectorAll('#viewGo .go-near .nr').length > 0), 'and things to do one tap away');
+    /* the installed app: your phone's location */
+    await c2.grantPermissions(['geolocation']); await c2.setGeolocation({ latitude: 41.8986, longitude: 12.4769 });
+    await p2.evaluate(() => { W.standalone = true; W.render(); }); await p2.waitForTimeout(300);
+    await p2.click('#viewGo [data-nearme]'); await p2.waitForFunction(() => /^Near you/.test((document.querySelector('#viewGo .go-near h3') || {}).textContent || ''), null, { timeout: 8000 }).catch(() => {});
+    const n2 = await p2.evaluate(() => { const c = document.querySelector('#viewGo .go-near'); const r = c.querySelector('.nr'); return { h: c.querySelector('h3').textContent, note: c.textContent.indexOf('used on this phone only') > -1, first: r && r.querySelector('.small').textContent, href: r && r.querySelector('.nr-go').href, add: !!c.querySelector('[data-nearadd]') }; });
+    t.ok(/^Near you/.test(n2.h) && n2.note && /\d+ m · \d+ min walk/.test(n2.first || '') && !/origin=/.test(n2.href || ''), 'the installed app finds you: ideas near your phone, Go starts where you are, and it says the location stays on the phone: ' + JSON.stringify(n2));
+    /* Add puts it in a free part of today */
+    const ad = await p2.evaluate(async () => { { const d = W.P.days[W.S.day - 1], x = d.slots.find(y => y.slot === 'dinner'); (W.S.free = W.S.free || {})[x.key] = 1; delete (W.S.picks || {})[x.key]; W.render(); await new Promise(r => setTimeout(r, 300)); }
+      const b = document.querySelector('#viewGo [data-nearadd]'); if (!b) return null; const slot = b.dataset.nearadd, name = b.dataset.name; b.click(); await new Promise(r => setTimeout(r, 400)); const d = W.P.days[W.S.day - 1]; const x = d.slots.find(y => y.slot === slot); return { name, got: x && x.item && x.item.n, undo: !!document.querySelector('[data-undo]') }; });
+    t.ok(ad && ad.got === ad.name && ad.undo, 'Add puts it in today\'s free time, with undo: ' + JSON.stringify(ad));
+    t.eq(e2(), [], 'no page errors on Today\'s near you');
+    await c2.close();
+  }
+  await b.close();
 };

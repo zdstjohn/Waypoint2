@@ -70,7 +70,7 @@ exports.run = async t => {
   const rt = await pg.evaluate(async () => {
     W.goView('go'); await new Promise(r => setTimeout(r, 400));
     const d = W.P.days[W.S.day - 1], stops = (d.slots || []).filter(x => x.item).map(x => x.item);
-    const rows = [...document.querySelectorAll('#viewGo .rc-stop:not(.rc-nap):not(.rc-trav)')], gm = (document.querySelector('#viewGo .rc-gm') || {}).href || '';
+    const rows = [...document.querySelectorAll('#viewGo .rc-stop:not(.rc-nap):not(.rc-trav)')], gm = (document.querySelector('#viewGo .gm-row a[aria-label="Open the whole route in Google Maps"]') || {}).href || '';
     const wp = decodeURIComponent((gm.match(/waypoints=([^&]*)/) || [])[1] || '').split('|').filter(Boolean);
     return { n: rows.length, stops: stops.length, noLL: stops.filter(it => it.lat == null).length, byName: rows.filter(r => /find on Google Maps/.test(r.textContent)).length, wp: wp.length };
   });

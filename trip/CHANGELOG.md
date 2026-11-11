@@ -2,6 +2,49 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v146
+
+Your list from the third round of reviews, with the layouts you picked (navigate C, Google Maps D3, back to top A).
+- Restaurant swap: tapping a suggestion (a card, a row of the longer list, or "Next suggestion") shows it up close
+  inside the swap: photo, cuisine, price, distance, how long, the notes, what reviewers love it for, the menu, and
+  links. "Add for lunch" puts it in; "Skip" shows the next idea; nothing changes on the plan until Add. "Not for us"
+  sits at the foot, apart from Add and Skip. screens/trip.js (swapPeekHtml, swapPeek); the place facts that a stop's
+  panel and this close-up share are one set of helpers (placeNotes, placeRev, placeLinks).
+- Booking.com search in Where to stay: type an area, a hotel or what you need, and tick filters (family rooms,
+  apartments, free cancellation, breakfast, pool, rated 8+). In Claude it searches through your Booking.com
+  connection with your nights and everyone's ages, and the places come back with prices and "Stay here"; a hotel's
+  name is looked up by name, and a filter searches again. In the installable app it opens Booking.com's own search
+  with all of that filled in. lib/prices.js (W.liveStays, W.bookingSearchUrl); new suite stays.
+- Near you, on Today: the closest things to do or places to eat (food first at meal times), open now where the hours
+  are known, never one you said no to or already planned, each with the walk, Go (directions) and Add (into a free
+  part of today, with undo). In the installable app "Use my location" asks the phone where you are (used on the
+  phone only, never kept); in Claude, which has no location, it is near where the plan has you. screens/near.js.
+- Navigate on each stop (C): the way to each stop is a line between the cards, "Navigate · 19 min", opening Google
+  Maps directions from the stop before (from where you are, when no stay is picked). The card no longer repeats the
+  time; the way back to your stay is the same kind of line.
+- Google Maps under the day's stops (D3): one row of three round buttons, Maps (the whole route), Save as list (the
+  day's places as a list in Google Maps, with your connection; it becomes "Open the list") and About times (where
+  the times come from). Today and the Day tab share it (W.gmRow); the stacked buttons, the "Make a Google Maps list"
+  button and the ↗ are gone.
+- Back to the top (A): a round ↑ with a gradient ring in the bottom corner once you have scrolled most of a screen,
+  above the tab bar on a phone (lib/warm.js).
+- Today's map frames the day's stops in the middle (it kept room on the right for buttons that are no longer over
+  the map), and Today and the Day tab each frame their own stops.
+- Nights: one calculation (W.nightsAt, lib/times.js) for All days, the stay bar, To book, the budget and live prices.
+  All days counted the last place's days as nights (Venice "3 nights" where To book said 2).
+- No stay picked yet: "Tonight: no Rome stay picked yet" and "nap back at your stay", no Directions to the city's
+  middle and no house pin there (the placeholder read like a real address).
+- Two class names that collided: the forecast's temperatures took the stop letter's badge style and stuck out past
+  the edge; the plan check's cards took the kids' storybook paper. Both renamed (wx-t, pc-).
+- A ticket link three or more places share is no one place's page, so it is cleared (V.oneEach, lib/validate.js); a
+  stop's ticket tag is cut at a word ("On the Colosseum…", W.clip).
+- The review screenshots' stand-in now uses each place's real spot and ticket price (evo/v141/realnames.js), so the
+  pins and prices in them are the real ones.
+- The first load stays under its 520 KB budget (519 KB): how ready you are and the trip's memories (the mood row,
+  the highlight reel, "one year ago today") move from lib/warm.js to a new lib/memories.js, and Near you
+  (screens/near.js) comes with the second script, as do their styles (build/bundle.js LATER and LATER_CSS). The
+  Prepare section heading in app.css was two lines, so the stylesheet splitter never saw it; it is one line now.
+
 ## v145
 
 - A meal card's time and name are one line of text that wraps between words (v144 put them side by side, so a long

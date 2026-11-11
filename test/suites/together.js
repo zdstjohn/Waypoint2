@@ -30,8 +30,8 @@ exports.run = async t => {
   /* Sam swaps a stop */
   const before = await B.pg.evaluate(() => { const r = document.querySelector('#viewTrip [data-reroll="am"]') || document.querySelector('#viewTrip [data-reroll]'); const slot = r.dataset.reroll, day = W.P.days[W.S.day - 1], x = day.slots.find(y => y.slot === slot); return { slot, key: x.key, was: x.item && x.item.n, day: day.n }; });
   await B.pg.click(`#viewTrip [data-reroll="${before.slot}"]`); await B.pg.waitForTimeout(700);
-  const pick = await B.pg.evaluate(() => { const o = document.querySelector('.swap [data-use][data-name]'); return o && o.dataset.name; });
-  if (pick) await B.pg.click('.swap [data-use][data-name]', { timeout: 5000 });
+  const pick = await B.pg.evaluate(() => { const o = document.querySelector('.swap [data-peek][data-name]'); return o && o.dataset.name; });
+  if (pick) { await B.pg.click('.swap [data-peek][data-name]', { timeout: 5000 }); await B.pg.click('.swap .swp-act [data-use]', { timeout: 5000 }); }
   const ed = await until(async () => { const d = await peek(B.pg, code, '/edits/u-two'); return d && d.ops && Object.keys(d.ops).length ? d : null; });
   t.ok(pick && ed && ed.who === 'Sam' && ed.ops && ed.ops['picks|' + before.key] && ed.ops['picks|' + before.key].v === pick, 'their change goes to their own list of changes: ' + JSON.stringify({ pick, was: before.was, ops: ed && Object.keys(ed.ops || {}) }));
   /* the owner's app takes it, logs it, saves it and shares it back */
@@ -53,8 +53,8 @@ exports.run = async t => {
   await A.pg.evaluate(() => { const m = document.querySelector('.trip-menu'); if (m) document.querySelector('[data-sync="menu"]').click(); });
   await A.pg.evaluate(d => { W.S.day = d; W.render(); }, before.day); await A.pg.waitForTimeout(300);
   await A.pg.click(`#viewTrip [data-reroll="${before.slot}"]`); await A.pg.waitForTimeout(700);
-  const own = await A.pg.evaluate(p => { const o = [...document.querySelectorAll('.swap [data-use][data-name]')].find(x => x.dataset.name && x.dataset.name !== p); return o && o.dataset.name; }, pick);
-  if (own) await A.pg.click(`.swap [data-use][data-name="${own}"]`, { timeout: 5000 });
+  const own = await A.pg.evaluate(p => { const o = [...document.querySelectorAll('.swap [data-peek][data-name]')].find(x => x.dataset.name && x.dataset.name !== p); return o && o.dataset.name; }, pick);
+  if (own) { await A.pg.click(`.swap [data-peek][data-name="${own}"]`, { timeout: 5000 }); await A.pg.click('.swap .swp-act [data-use]', { timeout: 5000 }); }
   await A.pg.waitForTimeout(3000);
   const st = await A.pg.evaluate(k => W.S.picks[k], before.key);
   t.ok(own && st === own, 'a later change of the owner\'s to the same slot stands: ' + JSON.stringify({ own, st }));

@@ -70,6 +70,13 @@ exports.run = async t => {
   t.eq(sh.pool, [null, 1, 'Colosseum', [], false, '', 0, 1, '', 0], 'shared ideas: only named places, pins on Earth or none, fields of the wrong kind dropped');
   t.eq(sh.none, [null, null, null], 'something that is not a city\'s ideas is refused');
   t.ok(sh.menu && sh.book === '', 'a planted link is never drawn: the menu falls back to a search, the ticket link is left out');
+  /* a link several places share is no one place's page; two sharing one (a combined ticket) is real */
+  const one = await pg.evaluate(() => {
+    const L = [{ n: 'A', book: 'https://www.colosseo.it/en/tickets?1' }, { n: 'B', book: 'https://colosseo.it/en/tickets/?2' }, { n: 'C', book: 'http://www.colosseo.it/en/tickets#x' },
+      { n: 'Colosseum', book: 'https://parcocolosseo.it/en/' }, { n: 'Roman Forum', book: 'https://parcocolosseo.it/en/' }, { n: 'D', book: '' }, { n: 'E', book: 'https://www.museivaticani.va/' }];
+    return W.V.oneEach(L, 'book').map(x => x.book);
+  });
+  t.eq(one, ['', '', '', 'https://parcocolosseo.it/en/', 'https://parcocolosseo.it/en/', '', 'https://www.museivaticani.va/'], 'a ticket link three places share is cleared on all three; a combined ticket for two stays: ' + JSON.stringify(one));
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

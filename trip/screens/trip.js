@@ -403,9 +403,9 @@
       '<div class="day-end sk"><span class="de-i" aria-hidden="true">' +
       W.icon("bed", 2.2) +
       "</span>" +
-      '<div><span class="small muted">Staying at</span><b>' +
-      esc(home.label) +
-      "</b>" +
+      (home.none
+        ? '<div><span class="small muted">Tonight</span><b>No ' + esc(day.city) + " stay picked yet</b>"
+        : '<div><span class="small muted">Staying at</span><b>' + esc(home.label) + "</b>") +
       (geoBusy ? '<span class="small muted">locating…</span>' : "") +
       "</div>" +
       '<div class="de-a">' +
@@ -550,7 +550,7 @@
       W.routeHome(home) +
       rows +
       "</ol>" +
-      (gm ? '<a class="btn rc-gm" href="' + esc(gm) + '" target="_blank" rel="noopener">Open the whole day in Google Maps ↗</a>' : "") +
+      W.gmRow(day, gm, 0, true) +
       (mapBox && mapBox.indexOf("vt-slot") > -1 ? '<p class="map-note">© OpenMapTiles © OpenStreetMap contributors</p>' : "") +
       "</aside>"
     );
@@ -598,6 +598,8 @@
   /* ---------- trip view ---------- */
   var swapOpen = null,
     swapAll = false,
+    /* the idea the swap is showing up close (its name), or null for the list: nothing is swapped in until you say Add */
+    swapPeek = null,
     tab = "do",
     showAll = false;
   var CHEV =
@@ -640,15 +642,15 @@
               .filter(Boolean)
               .join(" · ");
           return (
-            '<div class="scard-w"><button type="button" class="scard" data-use="' +
+            '<div class="scard-w"><button type="button" class="scard" data-peek="' +
             x.slot +
             '" data-name="' +
             esc(it.n) +
-            '" aria-label="Use ' +
+            '" aria-label="' +
             esc(it.n) +
-            " for " +
+            ": more about it, then add it for " +
             nm +
-            '">' +
+            ' or skip it">' +
             /* no photo yet: the same space with a plain outline icon, so every card's name and distance line up (never a drawing) */
             (ph
               ? '<span class="sc-pic">' + ph + "</span>"
@@ -666,6 +668,72 @@
       "</div>"
     );
   }
+  /* one idea up close, inside the swap: its photo, what it is (the cuisine and price for a meal, the ticket for a
+     sight), how far and how long, the notes, then Add or Skip; the menu, reviews and links below for a longer look.
+     Skip shows the next idea; nothing changes on the plan until Add. */
+  function swapPeekHtml(day, x, P, opts, i) {
+    var o = opts[i],
+      it = o.it,
+      food = W.isFood(x.slot),
+      nm = W.SLOT_NAME[x.slot].toLowerCase(),
+      ph = W.picture(it, food, day.country, day.city, { credit: true }),
+      facts = [
+        food ? it.cuisine : "",
+        food ? it.price : W.priceText(it.ticket, W.curOf(day.country)),
+        o.km != null ? W.fmtKm(o.km) + " away" : "",
+        W.stayText(it, food, x.slot)
+      ].filter(Boolean),
+      notes = placeNotes(it, food, P, ""),
+      book = food ? "" : W.bookLink(it, day.city, false, day.country);
+    return (
+      '<div class="sw-peek" role="group" aria-label="' +
+      esc(it.n) +
+      '">' +
+      '<div class="swp-top"><button type="button" class="linkish" data-peekback="1">' +
+      W.arrow() +
+      "All ideas</button>" +
+      '<span class="small muted">' +
+      (i + 1) +
+      " of " +
+      opts.length +
+      "</span></div>" +
+      (ph ? '<div class="sd-pic">' + ph + "</div>" : "") +
+      '<h4 class="swp-n">' +
+      esc(it.n) +
+      "</h4>" +
+      (facts.length ? '<p class="swp-f">' + esc(facts.join(" · ")) + "</p>" : "") +
+      (it.d ? '<p class="sd-d">' + esc(it.d) + "</p>" : "") +
+      (notes ? '<div class="slot-notes sd-notes">' + notes + "</div>" : "") +
+      placeRev(it) +
+      '<div class="swp-act"><button type="button" class="btn" data-use="' +
+      x.slot +
+      '" data-name="' +
+      esc(it.n) +
+      '">Add for ' +
+      nm +
+      '</button><button type="button" class="btn quiet" data-peekskip="' +
+      x.slot +
+      '">Skip</button>' +
+      "</div>" +
+      (x.item ? '<p class="small muted swp-was">Adding it takes the place of ' + esc(x.item.n) + ".</p>" : "") +
+      (book ? '<div class="slot-act">' + book + "</div>" : "") +
+      (food && W.menuBlock ? W.menuBlock(it, day) : "") +
+      placeLinks(it, day, "") +
+      /* (at the foot, apart from Add and Skip, so a thumb can't take it for Skip) */
+      (W.canEdit()
+        ? '<div class="swp-out"><button type="button" class="linkish sw-no" data-nope="' +
+          x.slot +
+          '" data-name="' +
+          esc(it.n) +
+          '" aria-label="Not for us: ' +
+          esc(it.n) +
+          '">' +
+          ICON_NO +
+          "Not for us, don't suggest it again</button></div>"
+        : "") +
+      "</div>"
+    );
+  }
   /* swap a slot: the next suggestion, or pick from the best options for that time of day */
   function swapPanel(day, x, P) {
     var opts = W.slotOptions(day, x.slot, P),
@@ -675,6 +743,19 @@
     var busy = W.cityBusy(ck),
       pool = W.pool(day.country, day.city);
     var nm = W.SLOT_NAME[x.slot].toLowerCase();
+    var pi = swapPeek == null ? -1 : peekIndex(opts, swapPeek);
+    if (pi < 0) swapPeek = null; /* (it was said no to, or added elsewhere: back to the list) */
+    if (pi > -1)
+      return (
+        '<div class="swap sk peek" role="region" aria-label="Swap ' +
+        nm +
+        '"><div class="swap-h"><b class="swap-l">A closer look for ' +
+        nm +
+        "</b>" +
+        '<button type="button" class="icon-btn" data-swapclose="1" aria-label="Close"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></div>' +
+        swapPeekHtml(day, x, P, opts, pi) +
+        "</div>"
+      );
     return (
       '<div class="swap sk" role="region" aria-label="Swap ' +
       nm +
@@ -716,15 +797,15 @@
                   .filter(Boolean)
                   .join(" · ");
               return (
-                '<div class="opt-w"><button type="button" class="opt" data-use="' +
+                '<div class="opt-w"><button type="button" class="opt" data-peek="' +
                 x.slot +
                 '" data-name="' +
                 esc(it.n) +
-                '" aria-label="Use ' +
+                '" aria-label="' +
                 esc(it.n) +
-                " for " +
+                ": more about it, then add it for " +
                 nm +
-                '"><span class="nm">' +
+                ' or skip it"><span class="nm">' +
                 esc(it.n) +
                 '</span><span class="desc">' +
                 esc(it.d) +
@@ -888,8 +969,7 @@
             W.fmtMin(rb.min) +
             " " +
             rb.label +
-            " " +
-            link(W.gmapsDir(prevPt, home, rb.mode), "Directions") +
+            (home.none ? "" : " " + link(W.gmapsDir(prevPt, home, rb.mode), "Directions")) +
             "</div>";
         prevPt = home;
         wasOut = false;
@@ -911,6 +991,21 @@
             "</span>"
           : "";
         if (it.lat != null) prevPt = it;
+        /* the way there, between the cards: "Navigate · 19 min" opens Google Maps directions to this stop from the one
+           before (from wherever you are when it's the first stop and no stay is picked yet) */
+        if (lg)
+          list +=
+            '<a class="travel-note nav-leg" href="' +
+            esc(W.gmapsDir(from === home && home.none ? null : from, it, lg.mode)) +
+            '" target="_blank" rel="noopener" aria-label="Navigate to ' +
+            esc(it.n) +
+            ": " +
+            esc(W.fmtMin(lg.min) + " " + lg.label) +
+            '">' +
+            W.icon("dir", 2.2) +
+            '<b>Navigate</b><span aria-hidden="true">·</span>' +
+            legTag +
+            '<span class="nl-c" aria-hidden="true">›</span></a>';
         var open = false;
         /* closed: what, when, how long, and the one link you need (tickets or menu). Open: everything else. */
         var main = food ? W.menuBtn(x.key) + W.bookLink(it, day.city, true, day.country) : W.bookLink(it, day.city, false, day.country);
@@ -931,13 +1026,7 @@
         if (it.st === "unfound") notes = '<span class="warn">Couldn\'t find this place</span>' + notes;
         if (it.st === "unverified" && food) notes = '<span class="warn">Not checked yet</span>' + notes;
         if (!food) notes = beachNote(it, P) + notes;
-        var rev =
-          it.love || it.gripe
-            ? '<div class="rev">' +
-              (it.love ? "<span><b>Loved for</b> " + esc(it.love) + "</span>" : "") +
-              (it.gripe ? "<span><b>Watch for</b> " + esc(it.gripe) + "</span>" : "") +
-              "</div>"
-            : "";
+        var rev = placeRev(it);
         var more = open
           ? '<div class="slot-more">' +
             (metaHtml ? '<div class="meta">' + metaHtml + "</div>" : "") +
@@ -945,12 +1034,7 @@
             rev +
             (it.st === "unsure" ? "<p class=\"small muted\">Couldn't confirm it's still open. Worth a quick check.</p>" : "") +
             (W.altLinksFor ? W.altLinksFor("activity", { it: it, food: food, day: day }) : "") +
-            '<div class="links">' +
-            link(W.reviewsUrl(it.n, day.city), "Reviews") +
-            W.iconLink(W.photosUrl(it.n, day.city), "photos", "Photos of " + it.n) +
-            W.iconLink(W.gmapsPlace(it, day.city), "map", it.n + " in Google Maps") +
-            (lg ? link(W.gmapsDir(from, it, lg.mode), "Directions") : "") +
-            "</div>" +
+            placeLinks(it, day, "") +
             (W.familyActs ? W.familyActs(it, day, x) : "") +
             "</div>"
           : "";
@@ -965,12 +1049,7 @@
             '<span class="gt' +
             (W.isPaid(it) ? "" : " free") +
             '">' +
-            esc(
-              String(W.priceText(it.ticket, W.curOf(day.country)))
-                .split(/[,;(·]/)[0]
-                .trim()
-                .slice(0, 18)
-            ) +
+            esc(W.clip(String(W.priceText(it.ticket, W.curOf(day.country))).split(/[,;(·]/)[0], 18)) +
             "</span>";
         if (bkd || (bkG && bkG.done)) tags += '<span class="gt ok">Booked</span>';
         else if (bkG && bkG.by)
@@ -1008,7 +1087,6 @@
             "</b></span>" +
             '<span class="when">' +
             label +
-            (legTag ? " · " + legTag : "") +
             "</span></button>" +
             (notes ? '<div class="slot-notes">' + notes + "</div>" : "") +
             "</div>" +
@@ -1043,7 +1121,7 @@
             glance +
             "</button>" +
             (main || booked ? '<div class="slot-act">' + booked + main + "</div>" : "") +
-            (notes || legTag ? '<div class="slot-notes">' + legTag + notes + "</div>" : "") +
+            (notes ? '<div class="slot-notes">' + notes + "</div>" : "") +
             "</div>" +
             (th || W.canEdit() ? '<div class="slot-btns">' + th + (W.canEdit() ? rr : "") + "</div>" : "") +
             "</article>";
@@ -1081,22 +1159,30 @@
           (T && T.nap ? '<b class="tm">' + W.clock(T.nap.start) + "–" + W.clock(T.nap.end) + "</b> " : "") +
           (T.nap.away
             ? "Nap in the stroller or the car: you're out in " + esc(day.trip ? day.trip.name : day.city) + " for the day"
-            : "Nap or rest break back at " + esc(home.label)) +
+            : "Nap or rest break back at " + (home.none ? "your stay" : esc(home.label))) +
           "</div>";
     });
     var back = W.leg(prevPt, home);
+    /* the way back, like the way to each stop; no stay picked yet: no walk to a made-up address, and no directions */
     if (back && prevPt !== home)
-      list +=
-        '<div class="travel-note">Back to ' +
-        esc(home.label) +
-        " · " +
-        W.fmtMin(back.min) +
-        " " +
-        back.label +
-        (T && T.back ? ", about " + W.clock(T.back) : "") +
-        " " +
-        link(W.gmapsDir(prevPt, home, back.mode), "Directions") +
-        "</div>";
+      list += home.none
+        ? '<div class="travel-note">Back to your stay' + (T && T.back ? ", about " + W.clock(T.back) : "") + "</div>"
+        : '<a class="travel-note nav-leg" href="' +
+          esc(W.gmapsDir(prevPt, home, back.mode)) +
+          '" target="_blank" rel="noopener" aria-label="Navigate back to ' +
+          esc(home.label) +
+          ": " +
+          esc(W.fmtMin(back.min) + " " + back.label) +
+          '">' +
+          W.icon("dir", 2.2) +
+          "<b>Back to " +
+          esc(home.label) +
+          '</b><span aria-hidden="true">·</span><span class="leg">' +
+          (LEG_IC[back.mode] || LEG_IC.transit) +
+          esc(W.fmtMin(back.min)) +
+          "</span>" +
+          (T && T.back ? '<span class="nl-t">about ' + W.clock(T.back) + "</span>" : "") +
+          '<span class="nl-c" aria-hidden="true">›</span></a>';
     if (day.tripLast && day.n > 1) list += flightCard(P, day);
     return { list: list, pts: pts, T: T };
   }
@@ -1493,7 +1579,6 @@
             '">Example trip · change anything under <a href="#plan" data-view="setup">Plan</a></div>'
           : "") +
         "</div></div>";
-      h += "<!--day-gm-->"; /* the whole route in Google Maps goes here, once the day's stops are known (below) */
     }
     /* a public holiday or a festival on this day */
     if (!xp && W.holidayLine) h += W.holidayLine(day);
@@ -1642,28 +1727,23 @@
           '"><div class="vt-slot"></div>' +
           (vtOn ? "" : '<p class="loading map-wait">Loading the street map…</p>') +
           "</div>";
-        vtWant = { slug: vtSlug, key: day.n + "|" + day.city, pts: pts, home: home, animate: true, city: day.city };
+        vtWant = {
+          slug: vtSlug,
+          key: "day|" + day.n + "|" + day.city,
+          pts: pts,
+          home: home.none ? null : home,
+          animate: true,
+          city: day.city
+        };
       }
       var zoomBtns = mapBox
         ? '<div class="zoom" role="group" aria-label="Map zoom"><button type="button" class="icon-btn" data-zoom="out" aria-label="Zoom out">−</button>' +
           '<button type="button" class="icon-btn" data-zoom="in" aria-label="Zoom in">+</button>' +
           '<button type="button" class="icon-btn fit" data-zoom="fit" aria-label="Fit today\'s stops"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4"/></svg></button></div>'
         : "";
-      /* the Day tab: the whole route in Google Maps, top right under the header */
-      h = h.replace(
-        "<!--day-gm-->",
-        !xp && gm
-          ? '<div class="day-gm"><a class="btn sm" href="' +
-              esc(gm) +
-              '" target="_blank" rel="noopener">' +
-              W.icon("dir", 2.2) +
-              "Open the whole route in Google Maps ↗</a>" +
-              (W.gmListHtml ? W.gmListHtml(day) : "") +
-              "</div>"
-          : ""
-      );
       if (!xp) {
-        list += W.legNote(lr0) + dayEnd(day, P, home, geoBusy);
+        /* the Day tab: Google Maps under the day's stops, as on Today */
+        list += W.gmRow(day, gm, lr0) + dayEnd(day, P, home, geoBusy);
         if (!W.readOnly)
           list +=
             '<button type="button" class="add-place" data-addplace="1"><span aria-hidden="true">+</span> Add a place of your own</button>';
@@ -1711,7 +1791,7 @@
     /* the same day on the same screen is edited in place (lib/patch.js); another day or view is drawn afresh */
     W.draw(
       el,
-      h.replace("<!--day-gm-->", "") + (xpCols ? "</div>" : "") + "</div>",
+      h + (xpCols ? "</div>" : "") + "</div>",
       "day|" + S.tripId + "|" + S.day + "|" + (xp ? "map" : "list") + "|" + (W.simple() ? 1 : 0)
     );
     /* on a phone in list view the map is hidden: don't run it in the background */
@@ -1844,6 +1924,9 @@
       W.readOnly.edit &&
       (d.reroll ||
         d.next ||
+        d.peek ||
+        d.peekskip ||
+        d.peekback ||
         d.use ||
         d.swapall ||
         d.rest ||
@@ -1909,6 +1992,7 @@
           S.day = nd;
           swapOpen = null;
           swapAll = false;
+          swapPeek = null;
           showAll = false;
           W.render();
           window.scrollTo(0, 0);
@@ -1924,6 +2008,7 @@
         S.day = nd;
         swapOpen = null;
         swapAll = false;
+        swapPeek = null;
         showAll = false;
         W.render();
       });
@@ -1966,21 +2051,45 @@
         W.fxCollapse(sw, function () {
           swapOpen = null;
           swapAll = false;
+          swapPeek = null;
           W.render();
         });
         return;
       }
       swapOpen = d.reroll;
       swapAll = false;
+      swapPeek = null;
       W.fxAfter(function () {
         W.fxExpand(".swap");
       });
-    } else if (d.next) {
-      W.reroll(day, d.next, P);
-      var ns = d.next;
+    } else if (d.next || d.peek || d.peekskip) {
+      /* the next suggestion, an idea tapped, or Skip: shown up close in the swap, with Add and Skip; nothing is
+         swapped in yet. With no other idea nearby, the next suggestion looks farther and puts it in (undo is offered) */
+      var ps = d.next || d.peek || d.peekskip,
+        po = W.slotOptions(day, ps, P);
+      if (d.next && !po.length) {
+        W.reroll(day, d.next, P);
+        W.fxAfter(function () {
+          W.fxPulse(slotEl(ps));
+        });
+      } else {
+        var at = d.peek ? peekIndex(po, d.name) : d.peekskip && swapPeek != null ? peekIndex(po, swapPeek) + 1 : 0;
+        swapOpen = ps;
+        swapPeek = at > -1 && at < po.length ? po[at].it.n : null;
+        W.fxAfter(function () {
+          var sw = document.querySelector(".swap");
+          if (!sw) return;
+          /* (from Free time today the slot's swap can be far down the day: bring it into view) */
+          var top = sw.getBoundingClientRect().top;
+          if (top < 60 || top > window.innerHeight * 0.6) sw.scrollIntoView({ block: "start" });
+          var f = sw.querySelector(swapPeek ? ".swp-act [data-use]" : "[data-peek]");
+          if (f && f.focus) f.focus({ preventScroll: true });
+        });
+      }
+    } else if (d.peekback) {
+      swapPeek = null;
       W.fxAfter(function () {
-        W.fxPulse(slotEl(ns));
-        W.fxStagger(".swap .opt", { y: 6, step: 20 });
+        W.fxStagger(".swap .scard-w, .swap .opt-w", { y: 6, step: 20 });
       });
     } else if (d.use) {
       var us = d.use,
@@ -1990,6 +2099,7 @@
         W.useIdea(day, us, un, P);
         swapOpen = null;
         swapAll = false;
+        swapPeek = null;
         W.fxAfter(function () {
           W.fxPulse(slotEl(us));
         });
@@ -2150,6 +2260,46 @@
     view = hashView();
     W.render();
   });
+  /* what is known about a place, planned or not, shared by a stop's panel and the swap's closer look: the warnings
+     (not for small children, closed, not found, not checked), what it is listed as, the beach, then `mid` (the
+     day's own notes) in the middle */
+  function placeNotes(it, food, P, mid) {
+    var notes = mid || "";
+    if (P.p.kid && it.k === -1)
+      notes = '<span class="warn">' + (P.p.toddler ? "Not ideal for toddlers" : "Not ideal for kids") + "</span>" + notes;
+    if (it.st === "closed") notes = '<span class="warn">May have closed for good. Check before you go</span>' + notes;
+    if (it.st === "unfound") notes = '<span class="warn">Couldn\'t find a place by this name. It may not exist</span>' + notes;
+    if (it.st === "unverified" && food) notes = '<span class="warn">Not checked yet. Look it up before you go</span>' + notes;
+    if (it.place && W.norm(it.place) !== W.norm(it.n)) notes += "<span>Listed as " + esc(it.place) + "</span>";
+    if (it.note) notes += "<span>" + esc(it.note) + "</span>";
+    if (!food) notes = beachNote(it, P) + notes;
+    return notes;
+  }
+  /* what reviewers love it for, and what to watch for */
+  function placeRev(it) {
+    return it.love || it.gripe
+      ? '<div class="rev">' +
+          (it.love ? "<span><b>Loved for</b> " + esc(it.love) + "</span>" : "") +
+          (it.gripe ? "<span><b>Watch for</b> " + esc(it.gripe) + "</span>" : "") +
+          "</div>"
+      : "";
+  }
+  /* reviews, photos and the place in Google Maps (between `pre` and `post`) */
+  function placeLinks(it, day, pre, post) {
+    return (
+      '<div class="links">' +
+      (pre || "") +
+      link(W.reviewsUrl(it.n, day.city), "Reviews") +
+      W.iconLink(W.photosUrl(it.n, day.city), "photos", "Photos of " + it.n) +
+      W.iconLink(W.gmapsPlace(it, day.city), "map", it.n + " in Google Maps") +
+      (post || "") +
+      "</div>"
+    );
+  }
+  function peekIndex(opts, name) {
+    for (var i = 0; i < opts.length; i++) if (opts[i].it.n === name) return i;
+    return -1;
+  }
   /* a stop's panel: the photo, when, the full notes, booking, reviews and links */
   W.stopDetails = function (P, day, x) {
     var it = x.item;
@@ -2159,26 +2309,23 @@
       R = T && T.rows[x.slot],
       label = (R && R.label) || W.SLOT_NAME[x.slot];
     var ph = W.picture(it, food, day.country, day.city, { credit: true });
-    var notes = R
-      ? R.warn
-          .map(function (w) {
-            return '<span class="warn">' + esc(w) + "</span>";
-          })
-          .join("") +
-        R.info
-          .map(function (w) {
-            return "<span>" + esc(w) + "</span>";
-          })
-          .join("")
-      : "";
-    if (P.p.kid && it.k === -1)
-      notes = '<span class="warn">' + (P.p.toddler ? "Not ideal for toddlers" : "Not ideal for kids") + "</span>" + notes;
-    if (it.st === "closed") notes = '<span class="warn">May have closed for good. Check before you go</span>' + notes;
-    if (it.st === "unfound") notes = '<span class="warn">Couldn\'t find a place by this name. It may not exist</span>' + notes;
-    if (it.st === "unverified" && food) notes = '<span class="warn">Not checked yet. Look it up before you go</span>' + notes;
-    if (it.place && W.norm(it.place) !== W.norm(it.n)) notes += "<span>Listed as " + esc(it.place) + "</span>";
-    if (it.note) notes += "<span>" + esc(it.note) + "</span>";
-    if (!food) notes = beachNote(it, P) + notes;
+    var notes = placeNotes(
+      it,
+      food,
+      P,
+      R
+        ? R.warn
+            .map(function (w) {
+              return '<span class="warn">' + esc(w) + "</span>";
+            })
+            .join("") +
+            R.info
+              .map(function (w) {
+                return "<span>" + esc(w) + "</span>";
+              })
+              .join("")
+        : ""
+    );
     var meta = (food ? [it.cuisine, it.price] : [W.priceText(it.ticket, W.curOf(day.country))])
       .filter(Boolean)
       .map(function (m) {
@@ -2193,13 +2340,7 @@
     var main = food
       ? W.bookLink(it, day.city, true, day.country)
       : W.bookLink(it, day.city, false, day.country); /* the menu itself is below */
-    var rev =
-      it.love || it.gripe
-        ? '<div class="rev">' +
-          (it.love ? "<span><b>Loved for</b> " + esc(it.love) + "</span>" : "") +
-          (it.gripe ? "<span><b>Watch for</b> " + esc(it.gripe) + "</span>" : "") +
-          "</div>"
-        : "";
+    var rev = placeRev(it);
     var when = [R && R.start != null && !R.skip ? W.clock(R.start) : "", label, W.stayText(it, food, x.slot)].filter(Boolean).join(" · ");
     return (
       '<div class="sd">' +
@@ -2216,18 +2357,17 @@
       (food && W.menuBlock ? W.menuBlock(it, day) : "") +
       (it.st === "unsure" ? "<p class=\"small muted\">Couldn't confirm it's still open. Worth a quick check.</p>" : "") +
       (W.altLinksFor ? W.altLinksFor("activity", { it: it, food: food, day: day }) : "") +
-      '<div class="links">' +
-      (bkE
-        ? '<button type="button" class="linkish" data-gobook="' +
-          esc(bkE.key) +
-          '">' +
-          (bkE.done ? "Booked · see Prepare" : "On your To book list") +
-          "</button>"
-        : "") +
-      link(W.reviewsUrl(it.n, day.city), "Reviews") +
-      W.iconLink(W.photosUrl(it.n, day.city), "photos", "Photos of " + it.n) +
-      W.iconLink(W.gmapsPlace(it, day.city), "map", it.n + " in Google Maps") +
-      "</div>" +
+      placeLinks(
+        it,
+        day,
+        bkE
+          ? '<button type="button" class="linkish" data-gobook="' +
+              esc(bkE.key) +
+              '">' +
+              (bkE.done ? "Booked · see Prepare" : "On your To book list") +
+              "</button>"
+          : ""
+      ) +
       (W.familyActs ? W.familyActs(it, day, x) : "") +
       "</div>"
     );

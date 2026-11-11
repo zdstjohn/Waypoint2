@@ -1133,7 +1133,8 @@
       P.stops
         .map(function (s, si) {
           var r = rangeOf(P, si),
-            n = s.days;
+            n = s.days /* (the segment's width: its share of the days) */,
+            nt = W.nightsText(P, si);
           return (
             '<button type="button" class="sb-seg' +
             (si === 0 ? " on" : "") +
@@ -1145,13 +1146,13 @@
             '"' +
             (si === 0 ? ' aria-current="true"' : "") +
             ' aria-label="' +
-            esc(s.name + ", " + n + " night" + (n === 1 ? "" : "s") + (r ? ", " + r : "")) +
+            esc(s.name + ", " + nt + (r ? ", " + r : "")) +
             '" title="' +
             esc(s.name + (r ? " · " + r : "")) +
             '"><b>' +
             esc(s.name) +
             "</b><span>" +
-            esc(r || n + " night" + (n === 1 ? "" : "s")) +
+            esc(r || nt) +
             "</span></button>"
           );
         })
@@ -1330,11 +1331,7 @@
             esc(s.name) +
             '</span><span class="g-sm">' +
             esc(
-              [
-                r,
-                n + " night" + (n === 1 ? "" : "s"),
-                trips.length ? "day trip" + (trips.length > 1 ? "s" : "") + " to " + trips.join(", ") : ""
-              ]
+              [r, W.nightsText(P, si), trips.length ? "day trip" + (trips.length > 1 ? "s" : "") + " to " + trips.join(", ") : ""]
                 .filter(Boolean)
                 .join(" · ")
             ) +

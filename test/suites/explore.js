@@ -6,11 +6,11 @@ exports.run = async t => {
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, db: mkdb() }); await exampleTrip(pg);
   await pg.evaluate(() => { W.S.day = 3; W.S.tview = 'map'; W.render(); }); await settle(pg, 4000);
   const first = await pg.evaluate(() => ({ search: !!document.getElementById('placeQ'), route: !!document.querySelector('.rcard, .rc-list'), sketch: !!document.querySelector('svg.map'),
-    gm: (() => { W.S.tview = 'days'; W.render(); const a = document.querySelector('#viewTrip .day-gm a'), h = a ? a.href : ''; W.S.tview = 'map'; W.render(); return h; })(), groups: [...document.querySelectorAll('.idea-group.near-g')].map(h => h.textContent), near: document.querySelectorAll('.idea .near').length,
+    gm: (() => { W.S.tview = 'days'; W.render(); const a = document.querySelector('#viewTrip .gm-row a[aria-label="Open the whole route in Google Maps"]'), h = a ? a.href : ''; W.S.tview = 'map'; W.render(); return h; })(), groups: [...document.querySelectorAll('.idea-group.near-g')].map(h => h.textContent), near: document.querySelectorAll('.idea .near').length,
     label: document.querySelector('[data-vsw="map"]').textContent.trim() }));
   t.eq(first.label, 'Explore', 'the tab is called Explore');
   t.ok(first.search && !first.route && !first.sketch, 'Explore has the search, and neither the route (that is on Today) nor a sketch map');
-  t.ok(/^https:\/\/www\.google\.com\/maps\/dir\/\?api=1&origin=/.test(first.gm) && /waypoints=/.test(first.gm), 'one button on the Day tab, under the header, opens the whole route in Google Maps');
+  t.ok(/^https:\/\/www\.google\.com\/maps\/dir\/\?api=1&origin=/.test(first.gm) && /waypoints=/.test(first.gm), 'the Google Maps row under the day\'s stops opens the whole route');
   t.ok(first.groups.length >= 2 && first.groups.some(g => /^Near /.test(g)) && first.near > 0, 'ideas are grouped by the stop they are near, with the time to get there: ' + first.groups.slice(0, 4).join(' / '));
 
 

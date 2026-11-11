@@ -425,7 +425,8 @@
     var bits = [
       esc(r.x),
       r.pop >= 20 ? r.pop + "% chance of " + r.pt : "",
-      '<span class="nb">' + deg(r.lo) + "–" + deg(r.hi) + (F ? "°F" : "°C") + "</span>"
+      /* (wx-t, not nb: .nb is the stop letter's badge, pinned to a corner, and took the temperatures out past the edge) */
+      '<span class="wx-t">' + deg(r.lo) + "–" + deg(r.hi) + (F ? "°F" : "°C") + "</span>"
     ].filter(Boolean);
     return (
       '<p class="day-wx' +
@@ -604,32 +605,33 @@
   function listKey(day) {
     return day.country + "|" + day.city + "|" + dayNames(day).join("|");
   }
-  /** under "Open the whole route in Google Maps": the day's places as a list to keep there @param {Day} day */
-  W.gmListHtml = function (day) {
-    if (G.state !== "on" || dayNames(day).length < 2) return "";
+  /** the day's places as a list to keep in Google Maps: a cell of the Google Maps row (W.gmRow; %I is where its
+      picture and label go), and a line to say what came of it. Only with a Google Maps connection and two places or
+      more. @param {Day} day @returns {{cell: string, label: string, msg: string} | null} */
+  W.gmListCell = function (day) {
+    if (G.state !== "on" || dayNames(day).length < 2) return null;
     var s = lists[listKey(day)];
     if (s && s.url)
-      return (
-        '<div class="gm-list">' +
-        W.extLink(
-          s.url,
-          "Open " + (s.found === s.total ? "these " + s.total : s.found + " of these " + s.total) + " places as a list in Google Maps ↗",
-          "btn sm quiet"
-        ) +
-        (s.missing.length ? '<span class="small muted">Google Maps didn\'t find: ' + esc(s.missing.join(", ")) + "</span>" : "") +
-        "</div>"
-      );
-    return (
-      '<div class="gm-list"><button type="button" class="btn sm quiet" data-gmlist="' +
-      day.n +
-      '"' +
-      (s && s.busy ? " disabled" : "") +
-      ">" +
-      (s && s.busy ? "Making the list…" : "Make a Google Maps list of these places") +
-      "</button>" +
-      (s && s.msg ? '<span class="small muted" role="status">' + esc(s.msg) + "</span>" : "") +
-      "</div>"
-    );
+      return {
+        cell:
+          '<a class="gmr" href="' +
+          esc(s.url) +
+          '" target="_blank" rel="noopener" aria-label="Open ' +
+          (s.found === s.total ? "these " + s.total : s.found + " of these " + s.total) +
+          ' places as a list in Google Maps">%I</a>',
+        label: "Open the list",
+        msg: s.missing.length ? "Google Maps didn't find: " + esc(s.missing.join(", ")) : ""
+      };
+    return {
+      cell:
+        '<button type="button" class="gmr" data-gmlist="' +
+        day.n +
+        '"' +
+        (s && s.busy ? ' disabled aria-busy="true"' : "") +
+        ' aria-label="Save these places as a list in Google Maps">%I</button>',
+      label: s && s.busy ? "Saving…" : "Save as list",
+      msg: s && s.msg ? esc(s.msg) : ""
+    };
   };
   function makeList(day) {
     var k = listKey(day),

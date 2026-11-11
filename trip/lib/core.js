@@ -57,6 +57,15 @@
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   };
+  /** text at most `n` letters long, cut at a word with "…" ("On the Colosseum…", never "On the Colosseum t")
+      @param {string} s @param {number} n */
+  W.clip = function (s, n) {
+    var t = String(s == null ? "" : s).trim();
+    if (t.length <= n) return t;
+    var cut = t.slice(0, n - 1),
+      sp = cut.lastIndexOf(" ");
+    return (sp > n * 0.4 ? cut.slice(0, sp) : cut).replace(/[\s,;:·–-]+$/, "") + "…";
+  };
   /* called for every name on every redraw; the last few thousand answers are kept */
   var normCache = Object.create(null),
     normN = 0;
@@ -313,12 +322,13 @@
     if (d < 1500) return "short flight or ferry";
     return "~" + W.flightHrs(d) + "h flight";
   };
+  /** directions in Google Maps from a to b; with no a (no stay picked yet), from wherever you are */
   W.gmapsDir = function (a, b, mode) {
-    var o = a.lat != null ? a.lat + "," + a.lng : a.label;
+    var o = !a ? "" : a.lat != null ? a.lat + "," + a.lng : a.label;
     var d = b.lat != null ? b.lat + "," + b.lng : b.n;
     return (
-      "https://www.google.com/maps/dir/?api=1&origin=" +
-      encodeURIComponent(o) +
+      "https://www.google.com/maps/dir/?api=1" +
+      (o ? "&origin=" + encodeURIComponent(o) : "") +
       "&destination=" +
       encodeURIComponent(d) +
       "&travelmode=" +

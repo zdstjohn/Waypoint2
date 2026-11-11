@@ -65,7 +65,7 @@ exports.run = async t => {
     t.ok(vsw && vsw.w >= vsw.inner - 2 && Math.max(...vsw.bw) - Math.min(...vsw.bw) <= 2, `@${width}: the Day / All days / Explore switch spans the page (${vsw && vsw.w} of ${vsw && vsw.inner} px; buttons ${vsw && vsw.bw.join('/')})`);
     /* a big screen keeps the day's own title and the greeting in the banner (the day in the banner is a phone's) */
     const big = await pg.evaluate(() => { W.S.tview = 'days'; W.S.glanceOpen = false; W.render(); const h = document.querySelector('#viewTrip .day-h'), tl = document.querySelector('#topline .tl-day'); scrollTo(0, 500);
-      return { h: Math.round(h.getBoundingClientRect().height), day: tl ? getComputedStyle(tl).display : 'none', greet: getComputedStyle(document.querySelector('#topline .tl-hi')).display, pin: getComputedStyle(document.querySelector('#pin')).display, gm: !!document.querySelector('#viewTrip .day-gm a') && getComputedStyle(document.querySelector('#viewTrip .day-gm a')).display !== 'none' }; });
+      return { h: Math.round(h.getBoundingClientRect().height), day: tl ? getComputedStyle(tl).display : 'none', greet: getComputedStyle(document.querySelector('#topline .tl-hi')).display, pin: getComputedStyle(document.querySelector('#pin')).display, gm: !!document.querySelector('#viewTrip .gm-row .gmr') && getComputedStyle(document.querySelector('#viewTrip .gm-row .gmr')).display !== 'none' }; });
     await pg.evaluate(() => scrollTo(0, 0));
     t.ok(big.h > 40 && big.day === 'none' && big.greet !== 'none' && big.pin === 'none' && big.gm, `@${width}: the day keeps its title, the banner its greeting, and nothing is pinned on scroll`);
     /* Explore on a big screen: the search across the top, the route on the right below */

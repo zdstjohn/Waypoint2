@@ -71,6 +71,9 @@ exports.run = async t => {
   await pg.evaluate(() => { W.setAppMode && W.view() === 'go' && W.setAppMode('plan'); }); await pg.waitForTimeout(600);
   await pg.evaluate(() => { W.S.tview = 'days'; W.S.glanceOpen = true; W.setView('trip'); W.render(); }); 
   await pg.waitForFunction(() => !!document.querySelector('.pcheck .pcheck-l'), null, { timeout: 8000 }).catch(() => {});
+  /* each card has the page's card colour, not the kids' storybook page (.k-book once matched a "Book ahead" card) */
+  const pcBg = await pg.evaluate(() => { const card = getComputedStyle(document.querySelector('.pcheck')).backgroundColor; return [...document.querySelectorAll('.pcheck-i')].map(li => { const c = getComputedStyle(li); return { bg: c.backgroundColor, img: c.backgroundImage, cls: li.className }; }).concat([{ card }]); });
+  t.ok(pcBg.slice(0, -1).every(x => x.img === 'none' && !/(^|\s)k-/.test(x.cls)), 'the plan check\'s cards have their own plain background, none of the kids\' storybook paper: ' + JSON.stringify(pcBg.slice(0, 2)));
   t.ok(await pg.evaluate(() => document.querySelectorAll('.pcheck-i').length === 3 && !window.__reviewAsked), 'the check is still there after a reload, without asking again');
   await pg.evaluate(() => { const d = W.P.days[3] || W.P.days[0], x = d.slots.find(y => y.item && !W.isFood(y.slot)); W.reroll(d, x.slot, W.P); W.render(); }); await pg.waitForTimeout(500);
   t.ok(await pg.evaluate(() => !!document.querySelector('.pcheck-stale')), 'after the plan changes the card says the check is out of date');

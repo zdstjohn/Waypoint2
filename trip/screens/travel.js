@@ -152,14 +152,16 @@
   /* ---------- the rows of a route list ----------
      One definition for Today's route (below) and for the route beside the day on a big screen (screens/trip.js):
      where you're staying, the way from one stop to the next with its directions, and a stop. */
-  /** @param {{ label: string }} home */
+  /** @param {{ label: string, none?: boolean }} home */
   W.routeHome = function (home) {
     return (
       '<li class="rc-home">' +
       W.homeMark() +
       '<span class="rc-b"><b>' +
-      esc(home.label) +
-      '</b><span class="small muted">where you\'re staying</span></span></li>'
+      (home.none ? "Your stay" : esc(home.label)) +
+      '</b><span class="small muted">' +
+      (home.none ? "none picked yet" : "where you're staying") +
+      "</span></span></li>"
     );
   };
   /** the way from a to b: how, how long, and directions (by name when either has no pin)
@@ -167,10 +169,14 @@
   W.routeLeg = function (a, b, city, last, note) {
     var lg = W.leg(a, b),
       to = b.lat != null ? b : { n: (b.n || b.label) + ", " + city, lat: null, lng: null };
-    var dir = W.extLink(
-      W.gmapsDir(a.lat != null ? a : { label: (a.label || a.n) + ", " + city, lat: null }, to, lg ? lg.mode : "walking"),
-      "Directions"
-    );
+    /* (to or from a stay not picked yet: no directions, since there is no address) */
+    var dir =
+      a.none || b.none
+        ? ""
+        : W.extLink(
+            W.gmapsDir(a.lat != null ? a : { label: (a.label || a.n) + ", " + city, lat: null }, to, lg ? lg.mode : "walking"),
+            "Directions"
+          );
     return (
       '<li class="rc-leg' +
       (last ? " last" : "") +
@@ -213,10 +219,10 @@
       '<section class="go-eve sk"><div class="ge-row"><span class="gt-i">' +
       IC.bed +
       '</span><div><span class="small muted">Tonight</span><b>' +
-      esc(home.label) +
+      (home.none ? "No " + esc(day.city) + " stay picked yet" : esc(home.label)) +
       "</b></div>" +
       '<div class="g-acts">' +
-      (home.set || home.lat != null
+      (!home.none && home.lat != null
         ? '<a class="chip-a" href="' +
           esc(W.gmapsDir(live ? lastPlace(list, nm, home) : home, { n: home.label, lat: home.lat, lng: home.lng }, "transit")) +
           '" target="_blank" rel="noopener">Directions</a>'
@@ -308,7 +314,7 @@
     var legRow = function (a, b2, last, note) {
       return W.routeLeg(a, b2, day.city, last, note);
     };
-    var homePt = { n: home.label, label: home.label, lat: home.lat, lng: home.lng };
+    var homePt = { n: home.label, label: home.label, lat: home.lat, lng: home.lng, none: home.none };
     list.forEach(function (e) {
       var st = !live ? "" : e.end <= nm && e.k !== "back" ? " done" : e === cur ? " now" : e === nxt ? " next" : "";
       var tm = '<span class="t">' + W.clock(e.start) + "</span>";
@@ -381,9 +387,7 @@
       (pts.length || rows
         ? '<ol class="rc-list go-rt">' + W.routeHome(home) + rows + "</ol>"
         : '<p class="small muted">Nothing planned for this day yet.</p>') +
-      (gm ? '<a class="btn rc-gm" href="' + esc(gm) + '" target="_blank" rel="noopener">Open the whole route in Google Maps ↗</a>' : "") +
-      (W.gmListHtml ? W.gmListHtml(day) : "") +
-      W.legNote(lr0) +
+      W.gmRow(day, gm, lr0) +
       "</section>";
     return h;
   }
@@ -515,7 +519,16 @@
         (vtOn ? "" : '<p class="loading map-wait">Loading the street map…</p>') +
         "</div>" +
         '<p class="map-note">© OpenMapTiles © OpenStreetMap contributors</p></div>';
-      vtWant = { slug: vtSlug, key: day.n + "|" + day.city, pts: mapPts, home: home, animate: true, city: day.city };
+      /* (its own key: coming from the Trip tab's map of the same day frames the stops again for this one; no stay
+         picked yet, no house pin at the city's middle) */
+      vtWant = {
+        slug: vtSlug,
+        key: "go|" + day.n + "|" + day.city,
+        pts: mapPts,
+        home: home.none ? null : home,
+        animate: true,
+        city: day.city
+      };
     }
 
     /* now, and what's next */
@@ -561,11 +574,14 @@
         esc(home.label) +
         "</h2>" +
         (bk ? '<p class="muted">About ' + W.clock(bk.start) + "</p>" : "") +
-        '<div class="gh-act"><a class="btn" href="' +
-        esc(W.gmapsDir(lastPlace(list, nm, home), { n: home.label, lat: home.lat, lng: home.lng }, "transit")) +
-        '" target="_blank" rel="noopener">' +
-        IC.dir +
-        "Directions back</a></div></div></section>";
+        (home.none
+          ? ""
+          : '<div class="gh-act"><a class="btn" href="' +
+            esc(W.gmapsDir(lastPlace(list, nm, home), { n: home.label, lat: home.lat, lng: home.lng }, "transit")) +
+            '" target="_blank" rel="noopener">' +
+            IC.dir +
+            "Directions back</a></div>") +
+        "</div></section>";
     }
     if (second) h += nextCard(second, day, P, hero && hero.k === "stop" ? hero.x.item : home, live);
 
@@ -599,6 +615,9 @@
           (W.replanBlock ? W.replanBlock(day) : "") +
           "</div>";
     }
+
+    /* ideas near where you are now (your phone's location, or where the plan has you), on the day itself */
+    if (live && W.nearCard) h += W.nearCard(day, P, { from: from, nm: nm, live: live });
 
     h += goRoute(P, day, list, home, live, cur, nxt, nm, mapBtn, mapIn);
 
@@ -684,11 +703,14 @@
             "</p>"
           : "") +
         (isNow && e.k === "nap" ? '<p class="muted">Nap until ' + W.clock(e.end) + ", then the afternoon starts.</p>" : "") +
-        '<div class="gh-act"><a class="btn" href="' +
-        esc(W.gmapsDir(from, { n: home.label, lat: home.lat, lng: home.lng }, "transit")) +
-        '" target="_blank" rel="noopener">' +
-        IC.dir +
-        "Directions</a></div></div></section>"
+        (home.none
+          ? ""
+          : '<div class="gh-act"><a class="btn" href="' +
+            esc(W.gmapsDir(from, { n: home.label, lat: home.lat, lng: home.lng }, "transit")) +
+            '" target="_blank" rel="noopener">' +
+            IC.dir +
+            "Directions</a></div>") +
+        "</div></section>"
       );
     }
     if (e.k === "travel") {
@@ -912,6 +934,53 @@
       });
     else W.render();
   };
+  /* Google Maps under a day's stops: one row of round, labelled buttons. Maps opens the whole route; Save as list
+     makes the day's places a list in Google Maps (with your Google Maps connection; it then says the list is ready to
+     open); About times shows where the times between stops come from (when they are Google's). Shared by Today and
+     the Day tab; `lean` is Maps alone (the route beside the day on a big screen, which has the full row under it). */
+  var gmNote = false;
+  W.gmRow = function (day, gm, n0, lean) {
+    var note = lean ? "" : W.legNote(n0),
+      L = !lean && W.gmListCell ? W.gmListCell(day) : null;
+    if (!gm && !note && !L) return "";
+    var cell = function (inner, label) {
+      return '<span class="gmr-i">' + inner + "</span><span>" + label + "</span>";
+    };
+    return (
+      '<div class="gm-row" role="group" aria-label="Google Maps">' +
+      (gm
+        ? '<a class="gmr" href="' +
+          esc(gm) +
+          '" target="_blank" rel="noopener" aria-label="Open the whole route in Google Maps">' +
+          '<span class="gmr-i g mono">' +
+          W.icon("dir", 2.2) +
+          "</span><span>Maps</span></a>"
+        : "") +
+      (L ? L.cell.replace("%I", cell(W.icon("bookmark", 2.1), L.label)) : "") +
+      (note
+        ? '<button type="button" class="gmr" data-gmnote="1" aria-expanded="' +
+          gmNote +
+          '">' +
+          cell(W.icon("info", 2.1), "About times") +
+          "</button>"
+        : "") +
+      "</div>" +
+      (L && L.msg ? '<p class="small muted gm-msg" role="status">' + L.msg + "</p>" : "") +
+      (note ? note.replace('class="small muted gm-note"', 'class="small muted gm-note"' + (gmNote ? "" : " hidden")) : "")
+    );
+  };
+  document.addEventListener("click", function (e) {
+    var t = /** @type {HTMLElement | null} */ (e.target),
+      b = t && t.closest ? /** @type {HTMLElement | null} */ (t.closest("[data-gmnote]")) : null;
+    if (!b) return;
+    gmNote = !gmNote;
+    document.querySelectorAll("[data-gmnote]").forEach(function (x) {
+      x.setAttribute("aria-expanded", String(gmNote));
+    });
+    document.querySelectorAll(".gm-row ~ .gm-note").forEach(function (p) {
+      /** @type {HTMLElement} */ (p).hidden = !gmNote;
+    });
+  });
   /* while Today is drawn, a hop that has no real time yet is asked of Google (W.legWant, lib/core.js) */
   var drawGo = W.renderGo;
   W.renderGo = function (P) {

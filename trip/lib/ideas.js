@@ -832,7 +832,7 @@
       return V.food(x, ctr);
     });
     W.eatMark(add);
-    c0.food = merge(c0.food || [], add, kind);
+    c0.food = V.oneEach(V.oneEach(merge(c0.food || [], add, kind), "menu"), "book");
     W.C.city[ck] = c0;
   }
   /* A city's list is in a fixed order, whichever answer comes in first: the planner gives a list's first places a boost,
@@ -913,7 +913,7 @@
       });
     /* the headline half always leads the list (the planner gives the first few a boost), whichever half arrives first */
     var before = (c0.spots || []).length;
-    c0.spots = merge(c0.spots || [], add, kind);
+    c0.spots = V.oneEach(merge(c0.spots || [], add, kind), "book");
     W.C.city[ck] = c0;
     if (kind !== "head" && kind !== "more") bumpShown(ck, c0, "spots", c0.spots.length - before);
     return c0;

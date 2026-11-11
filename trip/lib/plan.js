@@ -98,10 +98,14 @@
         lo = pool && pool.lng != null ? pool.lng : c && c.lng;
       return { label: st.label, lat: la == null ? null : la, lng: lo == null ? null : lo, set: true };
     }
+    /* no stay picked: the plan still starts and ends the day at the city's centre (so the times hold), but nothing on
+       screen calls that an address: it is "your stay" (none: true), with no directions to it */
     var lat = pool && pool.lat != null ? pool.lat : c && c.lat,
       lng = pool && pool.lng != null ? pool.lng : c && c.lng;
     return {
-      label: st && st.label ? st.label : city + " center",
+      label: st && st.label ? st.label : "your stay",
+      none: !(st && st.label),
+      city: city,
       lat: lat == null ? null : lat,
       lng: lng == null ? null : lng,
       set: false,

@@ -151,6 +151,37 @@
     return p;
   };
 
+  /** A link that three or more different places in one list share is no one place's page (a search, a reseller's
+      front page, one museum's tickets handed to every sight): it is cleared on all of them, so none of them sends a
+      family to the wrong ticket office. Two may share one, as a combined ticket does (Colosseum, Forum and Palatine).
+      Compared without the query, so "tickets?1" and "tickets?2" are one page. @template T @param {T[]} list
+      @param {string} key @returns {T[]} */
+  V.oneEach = function (list, key) {
+    /** @type {Record<string, any[]>} */ var by = {};
+    list.forEach(function (x) {
+      var u = x && /** @type {any} */ (x)[key];
+      if (!u) return;
+      var k = String(u)
+        .toLowerCase()
+        .replace(/^https?:\/\/(www\.)?/, "")
+        .replace(/[?#].*$/, "")
+        .replace(/\/+$/, "");
+      (by[k] = by[k] || []).push(x);
+    });
+    Object.keys(by).forEach(function (k) {
+      /** @type {Record<string, number>} */ var names = {};
+      by[k].forEach(function (x) {
+        names[String(x.n).toLowerCase()] = 1;
+      });
+      if (Object.keys(names).length >= 3)
+        by[k].forEach(function (x) {
+          x[key] = "";
+          V.stats.cleared++;
+        });
+    });
+    return list;
+  };
+
   /* ---- the shapes the lists are made of ---- */
   /** @type {readonly TimeOfDay[]} */ var TIMES = ["am", "pm", "eve", "any"];
   /** @type {readonly Meal[]} */ var MEALS = ["breakfast", "lunch", "dinner", "both", "all"];

@@ -14,6 +14,8 @@ into each redrawn screen, and a WebGL picture that moves is blank (black) until 
 when moved, resized (a ResizeObserver) or shown again. Touch-first phones use two fingers on the map (the page scrolls
 with one); with a mouse or trackpad the wheel zooms and dragging moves it. The postcards and
 greetings (lib/warm.js) stay in the first script: they are on the first screen, and arriving later would move it.
+How ready you are and the trip's memories (lib/memories.js) and Near you on Today (screens/near.js) come with the
+second: none is on a first screen before the second script is in.
 The offline copy carries both scripts and both stylesheets.
 Travel mode stays in the first script on purpose: on the trip it is the first screen, often on a weak signal. What the
 first screen reads from Prepare (the book-by checklist, the budget, which booking belongs to a stop) is lib/bookcore.js,
@@ -191,8 +193,10 @@ lib/              the shared library
                   the days hold, the season, the plugs); ticks, removals and your own items stay with the trip
   warm.js         the warm touches: the family by name (typed in Plan; "Great for Mila & Leo", "Easy for Joe", a kid's
                   pick), the banner's greeting and the time where you're going (one gradient at every hour),
-                  milestones that cheer once (with confetti, never under reduced motion), friendlier ticks, how ready
-                  you are on Prepare, a day's mood in the journal, the recap's highlight reel and "one year ago today"
+                  milestones that cheer once (with confetti, never under reduced motion), friendlier ticks, and the
+                  back-to-top button
+  memories.js     (second script) how ready you are on Prepare, a day's mood in the journal, the recap's highlight
+                  reel and "one year ago today"
   autopilot.js    the book-by list kept for the morning helper (reads your inbox, writes calendar reminders, never books),
                   what it found, and the deadline timeline on Bookings. Both live in your private corner of the database:
                   data/users/<you>/bookby/t/<trip> and data/users/<you>/autopilot/t/<trip> (a document's path has an
@@ -211,7 +215,10 @@ screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.
                   in the page (it may only load from its own server, and Google's terms don't allow keeping its map
                   pictures), so Google Maps is always one tap away instead. All days groups the days by place under a stay bar that sticks to
                   the top and lights the place you've scrolled to; the storybook opens from the trip menu and All days), Prepare (book.js: To book · Booked · Budget ·
-                  Pack · Take along) and Today (travel.js: Travel mode, also the storybook). flow.js has the next-step
+                  Pack · Take along) and Today (travel.js: Travel mode, also the storybook; near.js: Near you, the
+                  closest ideas to your phone's location or to where the plan has you, with Go and Add; travel.js also
+                  draws the Google Maps row, W.gmRow: Maps, Save as list, About times, shared with the Day tab). On the
+                  Day tab the way to each stop is a "Navigate" line between the cards. flow.js has the next-step
                   bar, undo, the stop sheet and the quick start (shown on the very first open; a stop's sheet keeps
                   "Leave free" and "Not for us" at its foot, apart from its links, and "Not for us" asks once); journal, family;
                   settings.js is "Import a plan" and Storage (sharing lives in the trip menu); kids.js is "For the kids"

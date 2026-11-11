@@ -89,22 +89,35 @@ exports.run = async t => {
   t.ok(wxCalls.length >= 1 && wxCalls.every(c => c.capabilities.join() === 'WEATHER' && c.date && c.date.year === 2027 && c.date.month === 6 && c.date.day >= 8 && c.date.day <= 17), 'only days inside Google\'s ten are asked for, weather only: ' + JSON.stringify(wxCalls.map(c => c.date.day)));
   const farDay = await pg.evaluate(async () => { const n = window.__mcp.length; W.wxLine(W.P.days[W.P.days.length - 1]); localStorage.setItem('waypoint-now', '2027-05-01T10:00:00'); const none = W.wxLine(W.P.days[1]); await new Promise(r => setTimeout(r, 900)); localStorage.setItem('waypoint-now', '2027-06-08T10:30:00'); return { asked: window.__mcp.length - n, none, days: W.P.days.length }; });
   t.ok(farDay.none === '' && (farDay.days <= 10 || farDay.asked === 0), 'a day further off shows no forecast and asks for none');
-  const tripWx = await pg.evaluate(async () => { W.goView('trip'); W.S.tview = 'days'; W.S.day = 3; W.render(); for (let i = 0; i < 40 && !document.querySelector('#viewTrip .day-wx'); i++) await new Promise(r => setTimeout(r, 150)); const p = document.querySelector('#viewTrip .day-wx'); return p ? { text: p.textContent, chip: !!p.querySelector('[data-rescue]') } : null; });
+  const tripWx = await pg.evaluate(async () => { W.goView('trip'); W.S.tview = 'days'; W.S.day = 3; W.render(); for (let i = 0; i < 40 && !document.querySelector('#viewTrip .day-wx'); i++) await new Promise(r => setTimeout(r, 150)); const p = document.querySelector('#viewTrip .day-wx'); if (!p) return null; const r = p.getBoundingClientRect(), tt = p.querySelector('.wx-t'), q = tt && tt.getBoundingClientRect();
+    return { text: p.textContent, chip: !!p.querySelector('[data-rescue]'), inside: !!q && getComputedStyle(tt).position === 'static' && q.right <= r.right + 0.5 && q.top >= r.top - 0.5 && q.bottom <= r.bottom + 0.5 }; });
   t.ok(tripWx && /^Forecast: Rain/.test(tripWx.text) && !tripWx.chip, 'the Trip screen shows a coming day\'s forecast (no rescue there): ' + (tripWx && tripWx.text));
+  t.ok(tripWx && tripWx.inside, 'the temperatures sit in the forecast line, not pinned past its edge (they once took the stop badge\'s style)');
+
+  /* ---- Google Maps under the day's stops: one row (Maps, Save as list, About times), nothing stacked ---- */
+  const row = await pg.evaluate(async () => {
+    W.goView('trip'); W.S.tview = 'days'; W.S.day = 3; W.render(); await new Promise(r => setTimeout(r, 300));
+    const g = document.querySelector('#viewTrip .gm-row'); if (!g) return null;
+    const cells = [...g.querySelectorAll('.gmr')], tops = cells.map(c => Math.round(c.getBoundingClientRect().top)), note = g.parentNode.querySelector('.gm-row ~ .gm-note');
+    const before = !!note && note.hidden; g.querySelector('[data-gmnote]').click(); const after = !note.hidden && g.querySelector('[data-gmnote]').getAttribute('aria-expanded') === 'true'; g.querySelector('[data-gmnote]').click();
+    return { labels: cells.map(c => c.textContent.trim()), oneRow: new Set(tops).size === 1, arrows: /↗/.test(g.textContent), before, after, old: !!document.querySelector('.day-gm, .rc-gm, .gm-list') };
+  });
+  t.ok(row && row.labels.join('|') === 'Maps|Save as list|About times' && row.oneRow && !row.arrows && !row.old, 'Google Maps is one row under the stops: Maps, Save as list, About times: ' + JSON.stringify(row));
+  t.ok(row && row.before && row.after, 'About times shows where the times come from, and hides it again');
 
   /* ---- a day's places as a list in Google Maps ---- */
   const list = await pg.evaluate(async () => {
-    const btn = document.querySelector('#viewTrip .day-gm [data-gmlist]'); if (!btn) return null; const total = new Set(W.P.days[2].slots.filter(x => x.item).map(x => x.item.n)).size;
-    btn.click(); for (let i = 0; i < 40 && !document.querySelector('#viewTrip .gm-list a'); i++) await new Promise(r => setTimeout(r, 100));
-    const a2 = document.querySelector('#viewTrip .gm-list a'); return { href: a2 && a2.href, text: a2 && a2.textContent, total, q: window.__mcp.filter(c => c[1] === 'resolve_names').map(c => c[2]) };
+    const btn = document.querySelector('#viewTrip .gm-row [data-gmlist]'); if (!btn) return null; const total = new Set(W.P.days[2].slots.filter(x => x.item).map(x => x.item.n)).size;
+    btn.click(); for (let i = 0; i < 40 && !document.querySelector('#viewTrip .gm-row a[aria-label*="as a list"]'); i++) await new Promise(r => setTimeout(r, 100));
+    const a2 = document.querySelector('#viewTrip .gm-row a[aria-label*="as a list"]'); return { href: a2 && a2.href, text: a2 && a2.getAttribute('aria-label') + ' / ' + a2.textContent, total, q: window.__mcp.filter(c => c[1] === 'resolve_names').map(c => c[2]) };
   });
-  t.ok(list && /^https:\/\/www\.google\.com\/maps\/@\?api=1&map_action=shortlist&place_ids=/.test(list.href) && list.text.indexOf('these ' + list.total + ' places') > -1, 'one tap makes a Google Maps list of the day\'s places, and the button becomes its link: ' + (list && list.text));
+  t.ok(list && /^https:\/\/www\.google\.com\/maps\/@\?api=1&map_action=shortlist&place_ids=/.test(list.href) && list.text.indexOf('these ' + list.total + ' places') > -1 && /Open the list$/.test(list.text), 'one tap on Save as list makes a Google Maps list of the day\'s places, and the button becomes its link: ' + (list && list.text));
   t.ok(list && list.q.length === 1 && list.q[0].queries.length === list.total && list.q[0].queries.every(x => /, Rome, Italy$/.test(x.text)) && list.q[0].locationBias, 'asked once, each place by its name and town');
   const unsure = await pg.evaluate(async () => {
     const d = W.P.days[2], it = d.slots.find(x => x.item).item, old = it.n; it.n = 'Nowhere Cafe'; W.render(); await new Promise(r => setTimeout(r, 200));
-    const n0 = window.__mcp.filter(c => c[1] === 'resolve_names').length; document.querySelector('#viewTrip .day-gm [data-gmlist]').click();
-    for (let i = 0; i < 40 && !document.querySelector('#viewTrip .gm-list a'); i++) await new Promise(r => setTimeout(r, 100));
-    const box = document.querySelector('#viewTrip .gm-list'), qs = window.__mcp.filter(c => c[1] === 'resolve_names').slice(n0).map(c => c[2].queries.map(x => x.text));
+    const n0 = window.__mcp.filter(c => c[1] === 'resolve_names').length; document.querySelector('#viewTrip .gm-row [data-gmlist]').click();
+    for (let i = 0; i < 40 && !document.querySelector('#viewTrip .gm-row a[aria-label*="as a list"]'); i++) await new Promise(r => setTimeout(r, 100));
+    const row = document.querySelector('#viewTrip .gm-row'), box = { textContent: (row.nextElementSibling && row.nextElementSibling.classList.contains('gm-msg') ? row.nextElementSibling.textContent : ''), querySelector: s => row.querySelector('a[aria-label*="as a list"]') }, qs = window.__mcp.filter(c => c[1] === 'resolve_names').slice(n0).map(c => c[2].queries.map(x => x.text));
     const out = { text: box.textContent, href: (box.querySelector('a') || {}).href || '', qs }; it.n = old; W.render(); return out;
   });
   t.ok(unsure.qs.length === 2 && unsure.qs[0].some(x => /Nowhere Cafe/.test(x)) && !unsure.qs[1].some(x => /Nowhere Cafe/.test(x)) && /didn't find: Nowhere Cafe/.test(unsure.text) && unsure.href.split(',').length === unsure.qs[1].length,

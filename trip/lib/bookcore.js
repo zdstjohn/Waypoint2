@@ -615,7 +615,7 @@
     P.stops.forEach(function (s, si) {
       var ck = W.cityKey(s.country, s.name),
         st = S.stays[ck],
-        nights = s.days - (si === P.stops.length - 1 ? 1 : 0),
+        nights = W.nightsAt(P, si),
         fd = stopDay(P, si);
       if (si > 0) {
         var L = W.legFor(P, si),
@@ -654,10 +654,10 @@
           key: "stay|" + ck,
           kind: "Stay",
           group: "stay",
-          title: "Where to stay in " + s.name + " (" + nights + " night" + (nights > 1 ? "s" : "") + ")",
+          title: "Where to stay in " + s.name + " (" + W.nightsText(P, si) + ")",
           lead: 90,
           day: fd.n,
-          short: s.name + " · " + nights + " night" + (nights > 1 ? "s" : ""),
+          short: s.name + " · " + W.nightsText(P, si),
           sub: st && st.label ? st.label + (st.live && st.live.total ? " · " + W.money(st.live.total, st.live.cur) : "") : "Not picked yet",
           url:
             st && st.live && st.live.url
@@ -777,7 +777,7 @@
       var ck = W.cityKey(s.country, s.name),
         c = W.C.cost[ck],
         cur = c && c.cur,
-        nights = s.days - (si === P.stops.length - 1 ? 1 : 0);
+        nights = W.nightsAt(P, si);
       W.loadCosts(s.country, s.name);
       /* lodging: booked, else your chosen place's price, else a typical mid-range price */
       if (nights > 0 && !stayBooking(s, P)) {

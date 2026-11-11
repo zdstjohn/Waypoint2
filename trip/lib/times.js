@@ -450,6 +450,17 @@
     return s.c && s.c.lat != null ? s.c : W.homebase(s.country, s.name);
   }
   W.stopAt = at;
+  /** The nights a stop has: its days, less the last day of the trip (you leave that day). One answer for All days,
+      the stay bar, To book, the budget and the live prices. @param {Plan} P @param {number} si */
+  W.nightsAt = function (P, si) {
+    var s = P.stops[si];
+    return s ? Math.max(0, s.days - (si === P.stops.length - 1 ? 1 : 0)) : 0;
+  };
+  /** "4 nights", "1 night", or for a last stop of one day, "the last day" @param {Plan} P @param {number} si */
+  W.nightsText = function (P, si) {
+    var n = W.nightsAt(P, si);
+    return n ? n + " night" + (n === 1 ? "" : "s") : "the last day";
+  };
   /* the journey into a stop on its first day: the best option Claude found, or a rough guess */
   W.legSig = function (o) {
     return W.norm(o.mode + " " + (o.op || "") + " " + (o.from || ""));

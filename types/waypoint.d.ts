@@ -63,7 +63,8 @@ interface MealGap { country: string; city: string; breakfast: number; lunch: num
   /** each empty meal: its day, and the stop it should be near (n: "" when there is none), within about km of it */
   at: { meal: string; day: number; n: string; lat: number | null; lng: number | null; km: number }[] }
 interface Plan { stops: Stop[]; days: Day[]; N: number; p: Party; ap: Airport | null; gaps?: Record<string, MealGap> }
-interface Homebase extends LatLng { label: string; set: boolean; pending?: boolean }
+/** where the day starts and ends: your stay, or (none: no stay picked yet) the city centre, never shown as an address */
+interface Homebase extends LatLng { label: string; set: boolean; pending?: boolean; none?: boolean; city?: string }
 interface Profile { act?: string; min: number; intensity: number; indoor?: boolean; weather?: boolean; adults?: boolean; slots: string[] }
 interface Classification { kind: string; act: string | null; min: number; intensity: number; indoor: boolean; weather: boolean; adults: boolean; slots: string[]; stroller?: boolean }
 interface TimeRow { start?: number; end?: number; skip?: boolean; late?: boolean; free?: boolean; label?: string; warn: string[]; info: string[] }
@@ -95,6 +96,7 @@ interface Readiness { pct: number; [k: string]: any }
 interface Validators { stats: { dropped: number; cleared: number; farPins: number }; str(x: unknown, max?: number): string; name(x: unknown): string | null; num(x: unknown): number | null; clamp(x: unknown, lo: number, hi: number, dflt: number): number;
   web(x: unknown): string; shared(x: unknown, depth?: number): any; pool(p: unknown): Pool | null;
   oneOf<T extends string>(x: unknown, list: readonly T[], dflt: T): T; intOf<T extends number>(x: unknown, set: readonly T[], dflt: T | undefined): T | undefined; fame(x: unknown): Fame | undefined; rating(x: unknown): number | undefined; tags(t: unknown): string[]; url(x: unknown): string;
+  oneEach<T>(list: T[], key: string): T[];
   pin(lat: unknown, lng: unknown): { lat: number; lng: number } | null; pinNear(lat: unknown, lng: unknown, center: LatLng | null | undefined, km?: number): { lat: number; lng: number } | null;
   spot(x: unknown, center: LatLng | null): Spot | null; food(x: unknown, center: LatLng | null, dflt?: { meal?: Meal; pic?: string }): Food | null; city(c: unknown): BuiltCity | null; stayArea(x: unknown, center: LatLng | null): StayArea | null;
   lodging(x: unknown, center: LatLng | null, tiers: readonly Tier[], tier?: Tier): Lodging | null; transit(t: unknown): Transit | null; hours(h: unknown): Hours | null; beach(b: unknown): BeachFacts; status(x: unknown): "open" | "closed" | "unsure"; lead(x: unknown): number;
@@ -272,7 +274,10 @@ interface Waypoint {
   gmCard: (card: (title: string, sub: string, body: string, id?: string) => string) => string;
   gmFromLink: (u: string, c: LatLng, city: string, country: string) => Promise<any>;
   gmIsLink: (q: string) => string;
-  gmListHtml: (day: Day) => string;
+  gmListCell: (day: Day) => { cell: string; label: string; msg: string } | null;
+  gmRow: (day: Day, gm: string, n0: number, lean?: boolean) => string;
+  nearCard: (day: Day, P: Plan, ctx: { from: any; nm: number; live: boolean }) => string;
+  nearIdeas: (day: Day, P: Plan, at: LatLng, food: boolean, nm: number) => { it: any; km: number; open: boolean | null; city: string; country: string }[];
   gmOn: () => boolean;
   gmSearch: (q: string, c: LatLng, city: string, country: string) => Promise<any[]>;
   gmState: () => { state: string; why: string; left: number };
@@ -353,6 +358,7 @@ interface Waypoint {
   liveClick: (d: any, P: Plan) => any;
   liveFares: any;
   liveStays: any;
+  bookingSearchUrl: (s: Stop, P: Plan, F?: { q: string; f: Record<string, number> }) => string;
   loadBookLinks: any;
   loadCity: (country: string, city: string, more?: any, stayDays?: number, nMore?: number) => void;
   loadCosts: any;
@@ -397,6 +403,10 @@ interface Waypoint {
   bannerDay: (P: Plan) => { city: string; date: string; level: string } | null;
   bannerRoute: (url: string) => void;
   pinBar: (P: Plan) => void;
+  clip: (s: string, n: number) => string;
+  upCheck: () => void;
+  nightsAt: (P: Plan, si: number) => number;
+  nightsText: (P: Plan, si: number) => string;
   /** a typical fare for a flight from home (one way, the whole group), from Claude; null until known (lib/prices.js) */
   fareGuess: (dir: "out" | "home", P: Plan) => { cur: string; total: number } | null;
   fareGuessBusy: () => boolean;
