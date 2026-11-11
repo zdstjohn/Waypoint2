@@ -4,15 +4,19 @@
    to do) is asked twice, one after the other, at the platform's usual setting and at low effort. The answers are
    measured and thrown away, never shown or planned with: the time to the first words and to the end, how many places
    pass the checks every answer goes through, how many pins were refused, how many places the two answers share and
-   how far apart their pins are. The result is kept in the owner's own space (data/users/<you>/diag/effort), so it can
-   be read back and the setting decided on (W.EFFORT, lib/core.js). Never runs in a test browser or the installable app. */
+   how far apart their pins are. The result is kept in the owner's own space (data/users/<you>/diag/d/effort), so it can
+   be read back and the setting decided on (W.EFFORT, lib/core.js). Never runs in the installable app, and in a test
+   browser only when the test asks for it (window.__WP_SPEEDTEST: the answers are the stand-in's, the path is real).
+   v139: the first version (v130) wrote to data/users/<you>/diag/effort, which is not a document's path (an odd number
+   of parts names a collection), so the result was refused and the phone marked it "failed": hence the new key below. */
 (function () {
   "use strict";
   var W = window.W,
     V = W.V,
-    KEY = "waypoint-speedtest-v1";
+    KEY = "waypoint-speedtest-v2",
+    TEST = !!window.__WP_SPEEDTEST;
   var BUILD = "__BUILD__"; /* the build time, filled in by build/bundle.js */
-  if (W.standalone || navigator.webdriver || !window.claude || !window.claude.use) return;
+  if (W.standalone || (navigator.webdriver && !TEST) || !window.claude || !window.claude.use) return;
   try {
     if (localStorage.getItem(KEY)) return;
   } catch (e) {
@@ -20,7 +24,7 @@
   }
   var started = false,
     checks = 0,
-    timer = setInterval(check, 30000);
+    timer = setInterval(check, TEST ? 500 : 30000);
   function stop(mark) {
     clearInterval(timer);
     if (mark) {
@@ -87,8 +91,9 @@
       names: list.map(function (x) {
         return x.n;
       }),
+      /* (as "lat,lng" text: a list inside a list is not something every document store keeps) */
       pins: list.map(function (x) {
-        return x.lat != null ? [x.lat, x.lng] : null;
+        return x.lat != null ? x.lat + "," + x.lng : "";
       })
     };
   }
@@ -106,56 +111,72 @@
       .then(function (r) {
         var user = r[0],
           db = r[1];
-        if (!user || !db || !user.isOwner()) {
+        if (!user || !db) {
           stop("not-owner");
           return null;
         }
-        return user.id().then(function (uid) {
-          var prompt = W.spotsAsk(c.country, c.city, 12);
-          return ask(prompt, "").then(function (a) {
-            return ask(prompt, "low").then(function (b) {
-              var A = measure(a, c.center),
-                B = measure(b, c.center),
-                by = {},
-                shared = 0,
-                far = 0,
-                km = [];
-              A.names.forEach(function (n, i) {
-                by[W.norm(n)] = A.pins[i] || 0;
-              });
-              B.names.forEach(function (n, i) {
-                var p = by[W.norm(n)];
-                if (p === undefined) return;
-                shared++;
-                var q = B.pins[i];
-                if (p && q) {
-                  var d = W.km({ lat: p[0], lng: p[1] }, { lat: q[0], lng: q[1] }) || 0;
-                  km.push(Math.round(d * 100) / 100);
-                  if (d > 1) far++;
-                }
-              });
-              var out = {
-                at: new Date().toISOString(),
-                build: BUILD,
-                city: c.city + ", " + c.country,
-                usual: A,
-                low: B,
-                shared: shared,
-                pinsOver1km: far,
-                pinKm: km
-              };
-              return db
-                .doc("data/users/" + uid + "/diag/effort")
-                .set(out)
-                .then(function () {
-                  stop("done");
-                });
-            });
+        /* (isOwner may answer at once or as a promise: either way, only a yes goes on) */
+        return Promise.resolve(user.isOwner())
+          .then(function (own) {
+            if (own) return user.id();
+            stop("not-owner");
+            return null;
+          })
+          .then(function (uid) {
+            if (!uid) return null;
+            return measureFor(uid, db);
           });
-        });
       })
-      .then(null, function () {
-        stop("failed");
+      .then(null, function (e) {
+        stop("failed: " + String((e && (e.code || e.message)) || e).slice(0, 80));
+        if (W.caught) W.caught(e, "the speed measurement");
       });
+    function measureFor(uid, db) {
+      var prompt = W.spotsAsk(c.country, c.city, 12);
+      return ask(prompt, "").then(function (a) {
+        return ask(prompt, "low").then(function (b) {
+          var A = measure(a, c.center),
+            B = measure(b, c.center),
+            by = {},
+            shared = 0,
+            far = 0,
+            km = [];
+          A.names.forEach(function (n, i) {
+            by[W.norm(n)] = A.pins[i] || "";
+          });
+          B.names.forEach(function (n, i) {
+            var p = by[W.norm(n)];
+            if (p === undefined) return;
+            shared++;
+            var q = B.pins[i];
+            if (p && q) {
+              var pa = p.split(","),
+                qa = q.split(",");
+              var d = W.km({ lat: +pa[0], lng: +pa[1] }, { lat: +qa[0], lng: +qa[1] }) || 0;
+              km.push(Math.round(d * 100) / 100);
+              if (d > 1) far++;
+            }
+          });
+          var out = {
+            at: new Date().toISOString(),
+            build: BUILD,
+            city: c.city + ", " + c.country,
+            usual: A,
+            low: B,
+            shared: shared,
+            pinsOver1km: far,
+            pinKm: km
+          };
+          return db
+            .doc("data/users/" + uid + "/diag")
+            .collection("d")
+            .doc("effort")
+            .set(out)
+            .then(function () {
+              stop("done");
+            });
+        });
+      });
+    }
   }
 })();

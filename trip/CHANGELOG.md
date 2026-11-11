@@ -2,6 +2,17 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v139
+
+The one-time speed measurement can save its result. Since v130 it wrote to data/users/<you>/diag/effort, which is not
+a document's path (an odd number of parts names a collection): the database refused it, the phone marked the
+measurement "failed", and nothing was kept, so low effort was never measured. lib/speedtest.js now saves to
+data/users/<you>/diag/d/effort, keeps pins as text (a list inside a list is not something every store keeps), uses a
+new key so a phone that had given up tries again, waits for the owner check whether it answers at once or later, and
+sends a failure to the error log. It can now run in a test browser when the test asks (window.__WP_SPEEDTEST), and
+test/suites/claude.js checks that it measures both settings and saves at a path the database accepts; the first
+version never ran under test, which is how the path went unnoticed.
+
 ## v138
 
 A tap that a redraw lands on is no longer lost, more types, shorter test waits, three named colours (the audit's T3,

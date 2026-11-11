@@ -160,5 +160,17 @@ exports.run = async t => {
     t.eq(es(), [], 'faster first ideas: no page errors');
     await cs.close(); }
   t.eq(errors(), [], 'no page errors');
+  /* the one-time speed measurement (lib/speedtest.js): the same list asked at the usual setting and at low effort, the
+     result kept where it can be read back. Here with the stand-in's answers: what is checked is that it runs, measures
+     both, and saves at a path the database accepts (the first version's path was refused, and nothing was saved). */
+  { const S2 = await open(b, { width: 390, height: 844, db: mkdb(), init: 'window.__WP_SPEEDTEST = 1;' }); await exampleTrip(S2.pg);
+    await S2.pg.evaluate(() => W.needLater());
+    const doc = await S2.pg.evaluate(async () => { for (let i = 0; i < 150; i++) { const d = await window.__dbOp('get', 'data/users/u-test/diag/d/effort', null); if (d) return JSON.parse(d); await new Promise(r => setTimeout(r, 200)); } return null; });
+    const mark = await S2.pg.evaluate(() => ({ key: localStorage.getItem('waypoint-speedtest-v2'), bad: window.__badPaths || [] }));
+    t.ok(doc && doc.usual && doc.low && doc.usual.ok >= 8 && doc.low.ok >= 8 && doc.usual.ms >= 0 && doc.shared >= 8 && typeof doc.usual.pins[0] === 'string' && /Italy/.test(doc.city),
+      'the speed measurement asks the list twice and saves what it measured: ' + JSON.stringify(doc && { city: doc.city, usual: [doc.usual.ms, doc.usual.ok], low: [doc.low.ms, doc.low.ok], shared: doc.shared, far: doc.pinsOver1km }));
+    t.ok(mark.key === 'done' && !mark.bad.length, 'at a path the database accepts, once: ' + JSON.stringify(mark));
+    t.eq(S2.errors(), [], 'no page errors during the measurement');
+    await S2.ctx.close(); }
   await b.close();
 };
