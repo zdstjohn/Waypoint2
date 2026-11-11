@@ -1554,14 +1554,14 @@
       !dpool.fallback &&
       !W.ideasFull(dpool) &&
       (day.slots || []).some(function (x) {
-        return !x.item && x.slot !== "eve" && !x.cut && !x.free && !x.rest && !x.trip && !x.loading;
+        return W.slotShort(x) && x.slot !== "eve" && !x.trip;
       })
     ) {
       var shortBusy = W.cityBusy(W.cityKey(day.country, day.city));
       h +=
         '<p class="small muted short-note">' +
         esc(day.city) +
-        "'s first ideas don't fill this day. " +
+        "'s ideas don't fill this day. " +
         (shortBusy
           ? '<span class="loading">Finding more…</span>'
           : '<button type="button" class="linkish" data-more="1">Find more ideas</button>') +

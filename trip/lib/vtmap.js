@@ -931,7 +931,7 @@
         return l.type === "symbol";
       });
     }
-    /* order: coarse map, a cover where detailed tiles exist (so streets never double up), detailed map, the day's route, then all names on top */
+    /* order: coarse map, a cover where detailed tiles exist (so streets never double up), detailed map, then all names on top */
     /** @type {any[]} */ var layers = /** @type {any[]} */ ([{ id: "bg", type: "background", paint: { "background-color": C.land } }])
       .concat(shapes(lo))
       .concat([
@@ -946,22 +946,6 @@
         { id: "mask14", type: "fill", source: "mask14", minzoom: 14, paint: { "fill-color": C.land, "fill-antialias": false } }
       ])
       .concat(shapes(hi))
-      .concat([
-        {
-          id: "route-case",
-          type: "line",
-          source: "route",
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": C.halo, "line-width": 6, "line-opacity": 0.85 }
-        },
-        {
-          id: "route",
-          type: "line",
-          source: "route",
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": C.dark ? "#AEB6FF" : "#3F4682", "line-width": 3, "line-dasharray": [1.2, 1.6] }
-        }
-      ])
       .concat(names(lo))
       .concat(names(hi));
     var b = hdr.b;
@@ -972,8 +956,7 @@
         lo: { type: "vector", tiles: [url], minzoom: hdr.zmin || 8, maxzoom: 12, bounds: b },
         hi: { type: "vector", tiles: [url], minzoom: 13, maxzoom: 14, bounds: b },
         mask13: { type: "geojson", data: NONE },
-        mask14: { type: "geojson", data: NONE },
-        route: { type: "geojson", data: { type: "FeatureCollection", features: [] } }
+        mask14: { type: "geojson", data: NONE }
       },
       layers: layers
     };
@@ -1085,18 +1068,8 @@
       S.markers.push(new ML.Marker({ element: pinEl({ home: 1 }) }).setLngLat([home.lng, home.lat]).addTo(S.map));
     S.pinPts = all;
     groupPins();
-    var line = (home && home.lat != null ? [[home.lng, home.lat]] : []).concat(
-      all.map(function (p) {
-        return [p.lng, p.lat];
-      })
-    );
-    if (home && home.lat != null && all.length) line.push([home.lng, home.lat]);
-    var src = S.map.getSource("route");
-    if (src)
-      src.setData({
-        type: "FeatureCollection",
-        features: line.length > 1 ? [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: line } }] : []
-      });
+    /* (no line between the stops: a straight line from pin to pin is a flight path, not the way you would walk or
+       ride; the lettered pins say the order, and the list beside the map gives each hop's real way and time) */
   }
   /* how far out the map goes: the town the pack is made for (its "places" frame) with a margin, stretched to take in
      the day's own stops, and no further. Zooming out stops there (MapLibre keeps the view inside these bounds), so the

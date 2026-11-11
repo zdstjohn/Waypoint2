@@ -6,5 +6,6 @@
     const W = window.W; if (!W || !W.loadCity) return;
     clearInterval(t);
     const city = W.loadCity; W.loadCity = function (country, name, more) { if (more) return; return city.apply(this, arguments); };
+    W.mealIdeas = function () { return ''; };   /* (places for a meal left empty: test/suites/meals.js) */
   }, 0);
 })();

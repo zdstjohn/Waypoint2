@@ -36,13 +36,9 @@
         host = new URL(own).hostname.replace(/^www\./, "");
       } catch (e) {}
     }
-    return (
-      '<a class="menu-btn" href="' +
-      esc(url) +
-      '" target="_blank" rel="noopener" title="' +
-      esc(host ? "Menu on " + host : "Search for the menu") +
-      '">Menu</a>'
-    );
+    /* the same menu picture as on a day's meal (W.menuBtn), here as a link out: an idea is not on the day yet, so it
+       has no sheet to open */
+    return W.iconLink(url, "menu", host ? "Menu of " + it.n + " on " + host : "Search for the menu of " + it.n);
   };
   /* tickets: straight to the place's own official site, never a reseller or a search page.
      Verified links (checked against Wikidata) win; otherwise Claude's official link if it passes the reseller filter; otherwise nothing. */
@@ -127,10 +123,11 @@
   /* ---------- small pictures instead of words (v118) ---------- */
   var PIC = {
     photos: W.icon("photo", 2),
-    map: W.icon("map", 2)
-  }; /* a photo: a frame with a sun and hills; a map: a folded map with a pin (no company's logo) */
+    map: W.icon("map", 2),
+    menu: W.icon("menu", 2)
+  }; /* a photo: a frame with a sun and hills; a map: a folded map with a pin (no company's logo); a menu: the card a meal's own button shows */
 
-  /** an outside link drawn as a picture; the words go to screen readers and the tooltip @param {string} url @param {"photos"|"map"} kind @param {string} label */
+  /** an outside link drawn as a picture; the words go to screen readers and the tooltip @param {string} url @param {"photos"|"map"|"menu"} kind @param {string} label */
   W.iconLink = function (url, kind, label) {
     return (
       '<a class="ilink ilink-' +

@@ -925,7 +925,8 @@
       "Booked amounts from your bookings; the rest estimated from typical prices for your group" +
         (costBusy ? ' <span class="loading">working out prices…</span>' : "") +
         ".",
-      '<div class="tbl"><table class="budget"><thead><tr><th scope="col"></th><th scope="col">Booked</th><th scope="col">Still to pay</th></tr></thead><tbody>' +
+      (W.curPicker ? W.curPicker(P) : "") +
+        '<div class="tbl"><table class="budget"><thead><tr><th scope="col"></th><th scope="col">Booked</th><th scope="col">Still to pay</th></tr></thead><tbody>' +
         tb +
         '</tbody><tfoot><tr><th scope="row">Total</th><td>' +
         sumText(bud.tot.booked) +
@@ -1228,11 +1229,10 @@
       ["pack", "Pack", nPack],
       ["take", "Take along", 0]
     ];
+    /* above the tabs: the readiness card and nothing else, so the tabs sit in the same place whichever one is open
+       (the "Prices in" choice used to be here on three tabs of five, and the tabs jumped when it came and went; it is
+       in the Budget section now, and in Settings) */
     if (W.readyRing) h += W.readyRing(P);
-    /* the currency picker sits beside the readiness card on a wide screen; on Pack and Take along an empty stand-in holds
-       its place, so the tabs never jump to the other column */
-    if (W.curPicker && (seg === "tobook" || seg === "booked" || seg === "budget")) h += W.curPicker(P);
-    else h += '<div class="cur-pick cur-none" aria-hidden="true"></div>';
     h +=
       '<div class="prep-seg" role="tablist" aria-label="Prepare">' +
       SEGS.map(function (g) {

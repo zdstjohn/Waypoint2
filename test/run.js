@@ -46,7 +46,7 @@
 const { spawn, spawnSync } = require('child_process'); const fs = require('fs'); const path = require('path');
 const ROOT = path.resolve(__dirname, '..'); const OUT = path.join(__dirname, 'out'); fs.mkdirSync(OUT, { recursive: true });
 const args = process.argv.slice(2); const flags = new Set(args.filter(a => a.startsWith('--'))); const pick = args.filter(a => !a.startsWith('--'));
-const ALL = ['smoke', 'layout', 'planner', 'shape', 'flow', 'bookings', 'travel', 'claude', 'draw', 'look', 'airplane', 'standalone', 'cloud', 'tickets', 'holidays', 'firstview', 'together', 'share', 'kept', 'copy', 'tools', 'nope', 'eat', 'money', 'menus', 'storage', 'pdf', 'simple', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'fuzz', 'vitals', 'desktop', 'explore', 'gmaps'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
+const ALL = ['smoke', 'layout', 'planner', 'shape', 'flow', 'bookings', 'travel', 'claude', 'draw', 'look', 'airplane', 'standalone', 'cloud', 'tickets', 'holidays', 'firstview', 'together', 'share', 'kept', 'copy', 'tools', 'nope', 'eat', 'money', 'menus', 'storage', 'pdf', 'simple', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'fuzz', 'vitals', 'desktop', 'explore', 'gmaps', 'meals'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
 let suites = pick.length ? pick : ALL;
 /* --cov: also collect which code ran (test/lib/cov.js); the suites that time things are left out of such a run */
 const COV = flags.has('--cov') || !!process.env.WP_COV;

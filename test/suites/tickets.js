@@ -42,5 +42,44 @@ exports.run = async t => {
     else t.note('the chosen way (' + rr.mode + ') has no Rome2Rio route in the mock');
   }
   t.eq(errors(), [], 'no page errors');
-  await ctx.close(); await b.close();
+  await ctx.close();
+
+  /* ---- a way of travelling picked and unpicked leaves the day as it was (lib/plan.js: under) ---- */
+  const c2 = await open(b, { width: 390, height: 844, db: mkdb() }); const p2 = c2.pg; await exampleTrip(p2); await settle(p2, 4000);
+  await p2.evaluate(() => { W.S.day = 5; W.render(); }); await settle(p2, 6000);
+  const names = () => p2.evaluate(() => W.plan().days.map(d => (d.slots || []).map(x => x.item ? x.item.n : '').join('|')));
+  const LG = await p2.evaluate(() => { const P = W.plan(), d = P.days[4], L = W.legFor(P, d.stop), lg = W.C.legs[L.key]; lg.opts[1].dur = '6h 30m'; return { key: L.key, sigs: lg.opts.map(o => W.legSig(o)), n: lg.opts.length }; });
+  const way = async i => { await p2.evaluate(a => { (W.S.legPick || (W.S.legPick = {}))[a[0]] = a[1]; W.changed(); }, [LG.key, LG.sigs[i]]); await settle(p2, 3000); };
+  t.ok(LG.n >= 2, 'the travel day offers more than one way to go');
+  await way(0); const planA = await names();
+  await way(1);
+  const slowDay = await p2.evaluate(() => {
+    const P = W.plan(), d = P.days[4], U = W.S.under || {}, lost = d.slots.filter(x => !x.item && U[x.key]).map(x => ({ slot: x.slot, was: U[x.key][0], now: U[x.key][1] }));
+    /* the place a slot lost is kept for it: no other slot of the day is offered it */
+    const offered = d.slots.filter(x => x.item && !W.isFood(x.slot) === !W.isFood((lost[0] || {}).slot || 'lunch')).map(x => (W.slotOptions(d, x.slot, P) || []).map(o => (o.it || o).n));
+    return { lost, offered: [].concat(...offered), names: d.slots.map(x => x.item ? x.item.n : '') };
+  });
+  const planSlow = await names();
+  t.ok(slowDay.lost.length >= 1 && planSlow[4] !== planA[4], 'a much slower way takes something off the travel day, and the plan remembers what stood there: ' + JSON.stringify(slowDay.lost));
+  t.ok(slowDay.lost.every(l => !slowDay.offered.includes(l.was)), 'while it is off, that place is kept for its slot: no other slot is offered it');
+  await way(0); const planBack = await names();
+  t.eq(planBack, planA, 'picking the first way again puts every day back exactly as it was');
+  t.ok(await p2.evaluate(() => { const d = W.plan().days[4], U = W.S.under || {}; return !d.slots.some(x => x.item && U[x.key]); }), 'and a slot that has its place back is no longer remembered');
+  await way(1); t.eq(await names(), planSlow, 'the slower way again gives the same day as it did the first time');
+  await way(0);
+  /* a place that was swapped (not just taken off) comes back the same way; a pick changed by any other hand, or a memory more than a few days old, is left alone */
+  const swap = await p2.evaluate(async () => {
+    const P = W.plan(), d = P.days[5], x = d.slots.find(y => y.slot === 'pm' && y.item), X = x.item.n, used = {}; P.days.forEach(y => (y.slots || []).forEach(z => { if (z.item) used[z.item.n] = 1; }));
+    const Y = W.pool(d.country, d.city).spots.find(q => !used[q.n]).n, day = Math.floor(Date.now() / 864e5), at = () => { const z = W.plan().days[5].slots.find(y => y.slot === 'pm'); return z.item ? z.item.n : ''; };
+    W.S.picks[x.key] = Y; W.S.under = W.S.under || {}; W.S.under[x.key] = [X, Y, day]; W.changed(); const back = at(), cleared = !W.S.under[x.key], pick = W.S.picks[x.key];
+    W.S.picks[x.key] = Y; W.S.under[x.key] = [X, 'Something else', day]; W.changed(); const other = at(), gone = !W.S.under[x.key];
+    W.S.picks[x.key] = Y; W.S.under[x.key] = [X, Y, day - 9]; W.changed(); const old = at(), gone2 = !W.S.under[x.key];
+    W.S.picks[x.key] = X; W.changed();
+    return { X, Y, back, cleared, pick, other, gone, old, gone2 };
+  });
+  t.ok(swap.back === swap.X && swap.cleared && swap.pick === swap.X, 'a place the fit pass had swapped out comes back once it fits again: ' + swap.back);
+  t.ok(swap.other === swap.Y && swap.gone, 'not when the stop has been changed by anything else since');
+  t.ok(swap.old === swap.Y && swap.gone2, 'and not after more than a few days');
+  t.eq(c2.errors(), [], 'no page errors on the second trip');
+  await c2.ctx.close(); await b.close();
 };

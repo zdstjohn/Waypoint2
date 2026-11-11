@@ -2,6 +2,51 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v141
+
+Seven things you asked for, and one structural change they led to.
+- Prepare no longer jumps. "Prices in" sat in the header above the tabs on Budget, To book and Booked only, so the
+  whole screen moved up when you tapped Pack or Take along (82 px on a phone). It is now the first line of the Budget
+  section itself (screens/book.js) and stays in Settings; the header above the tabs is the readiness ring alone and is
+  the same height on every tab. The empty stand-in that used to hold its place (.cur-none) is gone, with its styles.
+- No sideways shift on a desktop. A long tab has a scrollbar and a short one (Booked, Budget) has none, so the page
+  was 15 px wider on some tabs and everything moved left and right as you changed tab. The page now always keeps
+  the scrollbar's gutter (html{scrollbar-gutter:stable}, with a mouse only: a phone's scrollbar floats over the
+  page and takes no room; browsers without the property show the scrollbar track always). This holds for every screen, not only Prepare.
+- Changing how you travel and changing it back gives you the day you had (lib/plan.js). A slower way of getting
+  there leaves less of the arrival day, so the planner takes stops off it; the old code then forgot them, the place
+  became free for any other day, and choosing the first way again planned the day afresh from what was left. The
+  planner now remembers a pick of its own that it had to take off (S.under: the pick, what stands in its place, the
+  day), keeps the place reserved, and puts it back the moment the day has room again. It forgets after three days, when
+  you or anyone else changed that stop in between, when the place has closed, and it never touches a stop you chose.
+- Explore: a place to eat's menu link shows the menu picture the One day view uses (W.menuLink in lib/links.js now
+  draws W.icon("menu"), the same as W.menuBtn), not a second magnifying glass.
+- Plan, "Where to": the number of days sits midway between − and +. On a desktop the browser drew its own little up
+  and down arrows inside the box when the mouse was over it, which pushed the digits about 7 px to the left; the
+  arrows and the browser's own padding are off (.stepper input).
+- Today's map and the Day tab's map show the lettered pins only (lib/vtmap.js). The dashed line from pin to pin is
+  gone: it was a straight line, which is how a plane goes, not how you walk or ride. The order is the letters; each
+  hop's real way and time are in the list beside the map.
+- Enough places to eat for the days (new: mealGaps in lib/plan.js, W.mealIdeas in lib/ideas.js). A town could list
+  twenty places to eat and still leave a dinner as free time. The reason, found while doing this: a meal is only ever
+  put near the stop before it (never across town), and nothing asked for places near that day's stops. After each
+  planning the app now counts the meals left without a place in every town (a breakfast, a lunch, a dinner; never one
+  the clock leaves out, one you freed, or a rest day's), and brings places in for exactly those: first the ones the
+  town had set aside that serve such a meal, then one question to Claude that names each meal and the stop it should
+  be near ("2 for dinner near Castel Sant'Angelo, no more than about 4 km from it"), with the children's dinner time
+  when they eat earlier than the locals, one place to spare per meal, twelve places at most. At most three such
+  questions per town for a given stay and lodging; a meal still empty after that says so on its day ("Find more
+  ideas", as before). While it is asking, the day says "Finding more…".
+- Structure: the question for a list of places to eat was written inside W.loadCity; it is now one function
+  (foodAsk) that the first list, "Find more", a longer stay and the meal fill all use, with the names not to repeat
+  and the lodging to stay near as shared helpers (namesOf, nearStay). "Is this part of the day unfilled?" was written
+  out on the Day screen; it is W.slotShort, used by the screen's note and the planner's count alike.
+- Tests: a new suite, meals (22 checks: the question, the fill, places set aside first, three tries and stop, a freed
+  meal, a new lodging, a read-only trip); tickets gains the travel change and back (7 checks); desktop measures the
+  digits between − and + from a picture, the Prepare tabs' position on all five tabs and the page width with and
+  without a scrollbar; money checks the tabs on a phone; look checks the menu picture; travel checks the map draws no
+  line. 46 suites.
+
 ## v140
 
 Google Maps, through the viewer's own Google Maps connection in Claude (lib/gmaps.js, in the second script). The page

@@ -14,6 +14,16 @@ exports.run = async t => {
         tap: ilinks.every(a => { const q = a.getBoundingClientRect(); return q.width >= 40 && q.height >= 40; }) };
     });
     t.ok(r.rows > 3 && !r.words && r.marks === 0, 'an idea\'s row is just its links: no "checked" mark, no kids mark, no "Not for us" button');
+    /* a place to eat's menu link is the menu picture the One day view uses for a meal's menu, not a second "search" glass */
+    const things = await pg.evaluate(() => [...document.querySelectorAll('#viewTrip .idea')].filter(c => c.querySelector('.ilink[aria-label*="menu" i]')).length);
+    await pg.click('#viewTrip [data-tab="eat"]'); await pg.waitForTimeout(500);
+    const menu = await pg.evaluate(() => { const all = [...document.querySelectorAll('#viewTrip .idea')], eat = all.filter(c => c.querySelector('.ilink[aria-label*="menu" i]')), a = eat[0] && eat[0].querySelector('.ilink[aria-label*="menu" i]');
+      const tmp = document.createElement('div'); tmp.innerHTML = W.icon('menu', 2);   /* (read back through the page, as the link's own picture is) */
+      const pic = a ? a.querySelector('svg').innerHTML : '', day = tmp.querySelector('svg').innerHTML, glass = (document.querySelector('#viewTrip .idea .ilink-map') || document.createElement('i')).innerHTML;
+      return { n: eat.length, all: all.length, same: !!pic && pic === day, label: a ? a.getAttribute('aria-label') : '', other: a ? [...a.parentNode.querySelectorAll('.ilink')].filter(x => x !== a).every(x => x.querySelector('svg').innerHTML !== pic) : false, glass: glass.length }; });
+    t.ok(menu.n >= 3 && menu.n === menu.all && menu.same && menu.other, 'Explore: every place to eat has a menu link with the menu picture of the One day view (' + menu.n + ' of ' + menu.all + ' places; "' + menu.label + '")');
+    t.ok(things === 0, 'and things to do have none');
+    await pg.click('#viewTrip [data-tab="do"]'); await pg.waitForTimeout(300);
     t.ok(r.links && r.maps && r.tap, 'photos and map are picture links, named for screen readers, open outside, and big enough to tap');
     /* photo credits: text, not links */
     const cr = await pg.evaluate(() => ({ links: document.querySelectorAll('a.credit').length, spans: document.querySelectorAll('span.credit').length, pe: [...document.querySelectorAll('span.credit')].every(s => getComputedStyle(s).pointerEvents === 'none') }));

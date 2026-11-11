@@ -339,6 +339,16 @@
             ? 1
             : 0;
   }
+  /** does this place serve that meal? (lib/ideas.js brings in places for the meals a stay leaves empty)
+      @param {Food} item @param {string} meal */
+  W.mealFits = function (item, meal) {
+    return W.isFood(meal) && !!fits(item, meal);
+  };
+  /** a part of a day the ideas did not fill: nothing on it, and not left open by the clock (cut), by you (free), by a
+      rest day, or because the lists are still on their way @param {SlotEntry} x */
+  W.slotShort = function (x) {
+    return !x.item && !x.cut && !x.free && !x.rest && !x.loading;
+  };
   /* Geography. Each city gets a "day radius" sized to how spread out its places are:
      about 2 km in a compact city, up to ~25 km on a big island or region. A day's first stop is
      picked close to your lodging; every later stop has to sit near the stops already chosen that day. */
@@ -887,20 +897,47 @@
           if (d.rest && x.slot === "pm" && !mine()[x.key]) return; /* its one outing is chosen fresh: something easy nearby */
           var pl = dayPool(d, x, s),
             nm = S.picks[x.key],
-            list = W.isFood(x.slot) ? pl.pool.food || [] : pl.pool.spots || [];
-          var it = nm && (byName(list, nm) || (W.fromRest && !pl.pool.fallback ? W.fromRest(pl.pool, nm, W.isFood(x.slot)) : null));
+            food = W.isFood(x.slot),
+            list = food ? pl.pool.food || [] : pl.pool.spots || [];
+          var find = function (n) {
+            return n ? byName(list, n) || (W.fromRest && !pl.pool.fallback ? W.fromRest(pl.pool, n, food) : null) : null;
+          };
           /* a pick the planner made (not you) that turns out to be shut that day, or a dinner that opens too late for the kids, is replanned */
-          if (
-            it &&
-            !mine()[x.key] &&
-            (W.badForDay(it, W.weekday(d.n), x.slot, W.kidDinner()) ||
-              (W.holidayShut && W.holidayShut(it, d)) ||
-              (W.isFood(x.slot) && W.eatFit && W.eatFit(it) === "poor"))
-          )
-            it = null;
+          var fine = function (y) {
+            return !(
+              W.badForDay(y, W.weekday(d.n), x.slot, W.kidDinner()) ||
+              (W.holidayShut && W.holidayShut(y, d)) ||
+              (food && W.eatFit && W.eatFit(y) === "poor")
+            );
+          };
+          var it = find(nm);
+          if (it && !mine()[x.key] && !fine(it)) it = null;
+          /* what the fit pass moved aside here (under(), below) is where this slot starts again, with the place that
+             stood in for it kept for the slot too. Not once the pick has changed by any other hand since. */
+          var un = under()[x.key];
+          if (un && (mine()[x.key] || pl.pool.fallback || (nm || "") !== un[1] || today() - (un[2] || 0) > UNDER_DAYS)) {
+            delete under()[x.key];
+            un = null;
+          }
+          var own = un ? find(un[0]) : null;
+          if (own && W.gone && W.gone(own)) {
+            delete under()[x.key]; /* it has closed since: nothing to go back to */
+            un = own = null;
+          }
+          if (own && fine(own) && !isUsed(used, own)) {
+            if (it && !isUsed(used, it)) {
+              x.alt = it;
+              mark(used, it, x.key);
+            }
+            x.item = own;
+            x.stood = true;
+            mark(used, own, x.key);
+            return;
+          }
           /* a place you chose yourself stays even if an earlier stop had it; one the planner chose doesn't */
           if (it && (mine()[x.key] ? !usedHere(used, it) : !isUsed(used, it))) {
             x.item = it;
+            x.stood = true; /* it was on the plan as last made (a place tried and taken off within one plan never is) */
             mark(used, it, x.key);
           }
         });
@@ -967,30 +1004,69 @@
       });
       s.used = used;
       before.push({ city: W.cityKey(s.country, s.name), home: home, used: used });
-      /* no top-ups in the background: a city keeps its first ideas (15 of each, more for a longer stay) until someone
-         taps "Find more" (a day they don't fill says so: screens/trip.js). Only a stay made longer grows them */
+      /* a city keeps its first ideas (15 of each, more for a longer stay) until someone taps "Find more". Two things grow
+         them without being asked: a stay made longer, and a meal left without a place (mealGaps, below) */
       if (!pool.fallback) {
         var stay = st.reduce(function (a, o) {
           return a + (o.country === s.country && o.name === s.name ? o.days || 0 : 0);
         }, 0);
-        if (!fitted[before[before.length - 1].city]) {
-          fitted[before[before.length - 1].city] = 1;
-          W.fitIdeas(s.country, s.name, stay);
-        }
+        if (!fitted[before[before.length - 1].city])
+          fitted[before[before.length - 1].city] = W.fitIdeas(s.country, s.name, stay) ? 2 : 1; /* (2: its lists changed) */
         W.growIdeas(s.country, s.name, stay);
       }
     });
     /* a place visited only as a day trip shows a day's worth of ideas */
     days.forEach(function (d) {
       var k = d.trip && W.cityKey(d.trip.country, d.trip.name);
-      if (k && !fitted[k]) {
-        fitted[k] = 1;
-        W.fitIdeas(d.trip.country, d.trip.name, 1);
-      }
+      if (k && !fitted[k]) fitted[k] = W.fitIdeas(d.trip.country, d.trip.name, 1) ? 2 : 1;
     });
-    var P = { stops: st, days: days, N: N, p: p, ap: ap };
+    var P = /** @type {Plan} */ ({ stops: st, days: days, N: N, p: p, ap: ap });
     fitDays(P);
+    mealGaps(P, fitted);
     return P;
+  }
+
+  /* ---------- enough places to eat for the days ----------
+     The meals the finished plan leaves without a place (a breakfast, a lunch, a dinner; never one the clock cut, one you
+     freed, or a rest day's) are counted for each town, a day trip's town too, and handed to the ideas (W.mealIdeas,
+     lib/ideas.js), which bring in places for exactly those meals; the planning that follows their arrival fills them.
+     Each one says where it is needed: a meal goes near the stop before it (geoPenalty leaves a meal free rather than
+     send you across town), so the usual reason a meal stays empty in a town with plenty of places to eat is that none
+     of them is near that day's stops. The count stays on the plan (P.gaps). A town whose lists changed under this very
+     plan (moved[ck] = 2: places brought out or set aside by W.fitIdeas) waits for the planning that follows */
+  function mealGaps(P, moved) {
+    /** @type {Record<string, MealGap>} */ var gaps = {};
+    P.days.forEach(function (d) {
+      (d.slots || []).forEach(function (x, i) {
+        if (!W.isFood(x.slot) || !W.slotShort(x)) return;
+        var pc = poolCity(d, x),
+          ck = W.cityKey(pc[0], pc[1]),
+          px = dayPool(d, x, P.stops[d.stop]),
+          g = gaps[ck] || (gaps[ck] = { country: pc[0], city: pc[1], breakfast: 0, lunch: 0, dinner: 0, at: [] });
+        g[x.slot]++;
+        /* where the planner would look for it (ctxFor): the stop before it on the day, else where you are staying; back
+           at your lodging after a full day out */
+        /** @type {{ n: string, lat: number | null, lng: number | null } | null} */ var by = null;
+        if (!(d.fullDay && x.slot === "dinner"))
+          d.slots.forEach(function (o, j) {
+            if (j < i && o.item && o.item.lat != null && !!o.trip === !!x.trip) by = o.item;
+          });
+        if (!by && px.home && px.home.lat != null && !px.trip) by = { n: px.home.label, lat: px.home.lat, lng: px.home.lng };
+        g.at.push({
+          meal: x.slot,
+          day: d.n,
+          n: by ? by.n : "",
+          lat: by ? by.lat : null,
+          lng: by ? by.lng : null,
+          km: Math.max(1, Math.round(2 * ((px.geo && px.geo.R) || 2)))
+        });
+      });
+    });
+    P.gaps = gaps;
+    if (W.mealIdeas && !W.readOnly)
+      Object.keys(gaps).forEach(function (ck) {
+        if (moved[ck] !== 2) W.mealIdeas(gaps[ck].country, gaps[ck].city, gaps[ck]);
+      });
   }
 
   /* Only plans that fit. The planner's own picks that the day's clock can't fit (no time after a long journey, shut by the
@@ -1009,12 +1085,68 @@
       return y.slot === sl;
     })[0];
   }
+  /* When the fit pass takes off or swaps a place that stood on the plan as last made, it is remembered:
+     S.under[slot] = [that place, what stands there now ("" when nothing does), the day it happened]. The place stays
+     reserved for its slot, and the next plan starts from it again (the reserve step in planNow). So a change that
+     comes and goes (a slower way of travelling picked and unpicked, dates moved and moved back, a heavy day made
+     lighter and heavy again) leaves the day as it was, instead of whatever the planner would choose afresh once the
+     first place had gone to another slot. Kept for a few days, so a place is not held back for good by a change that
+     stays. A place the planner tries and takes off within one plan never stood, and is not remembered; places you
+     chose yourself are never moved at all. */
+  var UNDER_DAYS = 3;
+  function under() {
+    return W.S.under || (W.S.under = {});
+  }
+  function today() {
+    return Math.floor(Date.now() / 864e5);
+  }
   function drop(d, x, P) {
-    var used = P.stops[d.stop].used || {};
-    if (x.item) unmark(used, x.item, x.key);
+    var s = P.stops[d.stop],
+      used = s.used || {};
+    if (x.item) {
+      var pl = dayPool(d, x, s),
+        u = under()[x.key],
+        keep = false;
+      if (!mine()[x.key] && pl.pool && !pl.pool.fallback) {
+        if (u) keep = W.norm(u[0]) === W.norm(x.item.n);
+        else if (x.stood) {
+          under()[x.key] = [x.item.n, "", today()];
+          keep = true;
+        }
+      }
+      if (!keep) unmark(used, x.item, x.key);
+    }
     x.item = null;
+    x.stood = false;
     x.cut = true;
     delete W.S.picks[x.key];
+  }
+  /* after the fit pass: a slot whose own pick stands again is no longer remembered; the others note what stands now */
+  function settleUnder(P) {
+    var U = under(),
+      towns = {};
+    P.stops.forEach(function (s) {
+      towns[s.country + "|" + s.name + "|"] = 1;
+    });
+    P.days.forEach(function (d) {
+      if (d.trip) towns[d.trip.country + "|" + d.trip.name + "|"] = 1;
+      (d.slots || []).forEach(function (x) {
+        var u = U[x.key];
+        if (x.alt) {
+          unmark(P.stops[d.stop].used || {}, x.alt, x.key);
+          x.alt = null;
+        }
+        if (!u) return;
+        if (x.item && W.norm(x.item.n) === W.norm(u[0])) {
+          delete U[x.key];
+          W.S.picks[x.key] = x.item.n;
+        } else u[1] = W.S.picks[x.key] || "";
+      });
+    });
+    /* (a town no longer on the trip takes its entries with it) */
+    Object.keys(U).forEach(function (k) {
+      if (!towns[k.split("|").slice(0, 2).join("|") + "|"]) delete U[k];
+    });
   }
   /* another idea for this slot that fits the clock, or none */
   function refit(d, x, P, avoid) {
@@ -1026,9 +1158,26 @@
     var used = s.used || (s.used = {}),
       home = pl.home,
       tried = {};
-    var was = x.item;
+    var was = x.item,
+      alt = x.alt;
     drop(d, x, P);
     if (was) tried[W.norm(was.n)] = 1; /* not the one that didn't fit */
+    /* the place that stood in for it last time comes first, so the day does not change from one plan to the next */
+    x.alt = null;
+    if (alt && !(avoid && avoid[W.norm(alt.n)])) {
+      x.item = alt;
+      x.cut = false;
+      var Ta = W.dayTimes(d, P);
+      if (Ta && !conflict(Ta.rows[x.slot])) {
+        mark(used, alt, x.key);
+        if (!pool.fallback) W.S.picks[x.key] = alt.n;
+        return true;
+      }
+      unmark(used, alt, x.key);
+      tried[W.norm(alt.n)] = 1;
+      x.item = null;
+      x.cut = true;
+    }
     for (var i = 0; i < 4; i++) {
       var u = Object.assign({}, used, tried, avoid || {});
       var it = choose(pool, x.slot, u, W.S.seen[x.key] || [], ctxFor(d, x, home, pl.geo, false), P.p);
@@ -1092,14 +1241,17 @@
         if (!pool || !s.geo) continue;
         var home = pl.home,
           was = x.item,
+          alt = x.alt,
           used = s.used || {};
         drop(d, x, P);
+        x.alt = null;
         var cx = ctxFor(d, x, home, pl.geo, false);
         cx.light = true;
         if (st === "pmEasy") cx.rest = true;
         var av = Object.assign({}, used);
         av[W.norm(was.n)] = 1;
-        var it = choose(pool, sl, av, W.S.seen[x.key] || [], cx, P.p);
+        /* (the lighter place it gave way to last time, when there was one: see under()) */
+        var it = alt || choose(pool, sl, av, W.S.seen[x.key] || [], cx, P.p);
         if (it) {
           x.item = it;
           x.cut = false;
@@ -1115,7 +1267,43 @@
       } else drop(d, x, P);
     }
   }
+  /* The fit pass. It starts from the planner's own picks (the reserve step put back what an earlier pass had moved),
+     takes off or swaps what does not fit, then gives each slot it left empty one more try with a different place and
+     runs once more over the result; last, it notes what it moved (settleUnder). */
   function fitDays(P) {
+    fitOnce(P);
+    if (refill(P)) fitOnce(P);
+    settleUnder(P);
+  }
+  /* a slot the pass emptied, whose own pick is remembered: another place that might fit, as a fresh plan would try */
+  function refill(P) {
+    CUR = P;
+    var any = false,
+      U = under();
+    P.days.forEach(function (d) {
+      if (!d.slots || !d.slots.length || d.loading) return;
+      var s = P.stops[d.stop],
+        used = s.used || (s.used = {}),
+        /** @type {any} */ T = null;
+      d.slots.forEach(function (x) {
+        if (x.item || !x.cut || x.rest || x.free || x.loading || !U[x.key] || W.S.picks[x.key] || mine()[x.key]) return;
+        T = T || W.dayTimes(d, P);
+        var R = T && T.rows[x.slot];
+        if (!R || R.skip) return; /* no time at all: nothing else would fit either */
+        var pl = dayPool(d, x, s);
+        if (!pl.pool || pl.pool.fallback || !s.geo) return;
+        var it = choose(pl.pool, x.slot, used, W.S.seen[x.key] || [], ctxFor(d, x, pl.home, pl.geo, false), P.p);
+        if (!it) return;
+        x.item = it;
+        x.cut = false;
+        mark(used, it, x.key);
+        W.S.picks[x.key] = it.n;
+        any = true;
+      });
+    });
+    return any;
+  }
+  function fitOnce(P) {
     P.days.forEach(function (d) {
       if (d.slots && d.slots.length && !d.loading) fitDay(d, P);
     });

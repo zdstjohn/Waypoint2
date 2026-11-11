@@ -26,6 +26,12 @@ exports.run = async t => {
   const bud = await pg.evaluate(() => ({ view: W.curView(), txt: document.querySelector('#viewBook').textContent, note: (document.querySelector('#viewBook .cur-pick .small') || {}).textContent || '' }));
   t.ok(bud.view === 'USD' && /≈\$/.test(bud.txt) && /European Central Bank/.test(bud.note), 'choosing dollars shows the budget in dollars, with where the rate comes from: ' + bud.note);
   t.ok(await pg.evaluate(() => localStorage.getItem('waypoint-cur') === 'USD' && !('cur' in W.S)), 'the choice is this phone\'s own, not part of the trip');
+  /* it lives inside Budget: the header above the tabs is the same height on every tab, so nothing jumps when you change tab */
+  const tabsY = [];
+  for (const seg of ['budget', 'pack', 'take', 'tobook', 'booked']) { await pg.evaluate(s => document.querySelector('#viewBook [data-prep="' + s + '"]').click(), seg); await pg.waitForTimeout(350);
+    tabsY.push(await pg.evaluate(() => { const r = document.querySelector('#viewBook .prep-seg').getBoundingClientRect(), c = document.querySelector('#viewBook .cur-pick'); return Math.round(r.top + scrollY) + (c ? (c.getBoundingClientRect().top > r.bottom ? ' below' : ' ABOVE') : ''); })); }
+  t.ok(new Set(tabsY.map(v => parseInt(v, 10))).size === 1 && tabsY[0].endsWith('below') && tabsY.slice(1).every(v => !/below|ABOVE/.test(v)), 'on a phone the tabs stay put from Budget to Pack, Take along, To book and Booked ("Prices in" sits below them, on Budget only): ' + tabsY.join(', '));
+  await pg.evaluate(() => document.querySelector('#viewBook [data-prep="budget"]').click()); await pg.waitForTimeout(300);
   /* and in Settings */
   await pg.evaluate(() => W.goView('settings')); await pg.waitForTimeout(500);
   t.ok(await pg.evaluate(() => document.querySelector('#set-cur [data-curpick]').value === 'USD'), 'Settings has the same choice');

@@ -57,6 +57,10 @@
   --grain:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 .95  0 0 0 0 .85  0 0 0 .06 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
   color-scheme:dark }
 *{box-sizing:border-box}
+/* the page keeps room for its scrollbar whether or not it needs one: a short screen and a long one then sit in the
+   same place (on a desktop the whole page used to step sideways between Prepare's tabs as the bar came and went) */
+@media (hover:hover) and (pointer:fine){html{scrollbar-gutter:stable}}
+@supports not (scrollbar-gutter:stable){@media (hover:hover) and (pointer:fine){html{overflow-y:scroll}}}
 body{background:var(--bg) var(--grain);color:var(--fg);font:16px/1.5 var(--f-body);
   padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:8px 64px}
 h1,h2,h3,h4{text-wrap:balance;margin:0;line-height:1.15}
@@ -234,6 +238,10 @@ details.step > summary:focus-visible{outline:2px solid var(--ink);outline-offset
 @media (hover:hover){.stepper button:not(:disabled):hover{background:var(--sunk)}}
 .stepper input{width:56px;border:0;border-inline:var(--hair);background:transparent;text-align:center;height:38px;font-family:var(--f-display);font-size:var(--t-lead)}
 .stepper button:disabled{opacity:.35;cursor:default}
+/* the number sits exactly between − and +: a desktop browser's own little up/down arrows inside a number box take room
+   on one side and push the figure off centre, and the stepper already has its buttons */
+.stepper input{appearance:textfield;-moz-appearance:textfield;padding:0;margin:0}
+.stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button{-webkit-appearance:none;appearance:none;margin:0}
 .stepper.sm button{width:36px;height:34px;font-size:var(--t-h4)}
 .stepper.sm input{width:46px;height:34px;font-size:var(--t-body)}
 .total-days{min-width:60px;height:42px;display:grid;place-items:center;font:400 20px var(--f-display);background:var(--sunk);border-radius:var(--r-md);padding:0 10px}
@@ -1620,11 +1628,10 @@ html.simple #topline,html.simple .kids-chip,html.simple .slot .desc,html.simple 
 .btn.danger{background:var(--note-text);color:var(--surface);border-color:var(--note-text);box-shadow:none}
 
 /* ==================== Prices in: the currency costs are shown in ==================== */
-.cur-pick{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:4px 0 12px}
+.cur-pick{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0}
 .cur-pick label{font-weight:800;font-size:var(--t-ui)}
 .cur-pick select{flex:1 1 200px;max-width:320px;min-height:40px}
 .cur-pick .small{flex-basis:100%}
-.set-c .cur-pick{margin:0}
 
 /* ==================== a restaurant's menu, in its panel ==================== */
 .menu-b{display:grid;gap:6px;margin-top:12px;border-top:var(--hair);padding-top:12px}
@@ -1682,13 +1689,10 @@ button.menu-btn{border:0;background:transparent;font:inherit;font-weight:800;col
 .dsw button svg{width:15px;height:15px;flex:none}
 .vsw + .dsw{margin-top:6px}
 
-/* Prepare on a wide screen: the readiness card and "Prices in" on top, the tabs across the full width below them, then
-   the sections; the same places on every tab */
-.cur-none{display:none}
+/* Prepare on a wide screen: the readiness card on top, the tabs across the full width below it, then the sections;
+   the same places on every tab */
 @media (min-width:1100px){
-  .bookview > .ready{grid-column:1;grid-row:1}
-  .bookview > .cur-pick{grid-column:2;grid-row:1;align-self:center;margin:0}
-  .bookview > .cur-none{display:block}
+  .bookview > .ready{grid-column:1/-1;grid-row:1}
   .bookview > .prep-seg{grid-column:1/-1;grid-row:2;margin:0}
 }
 

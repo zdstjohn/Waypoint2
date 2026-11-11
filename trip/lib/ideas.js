@@ -329,6 +329,46 @@
       spotRules().replace(BOOKRULE + " ", "")
     );
   };
+  /* the names a city already has (on show or set aside): no list repeats them */
+  function namesOf(cur, list) {
+    return cur && cur[list]
+      ? cur[list].concat(setAside(cur, list)).map(function (x) {
+          return x.n;
+        })
+      : [];
+  }
+  /* the question for a list of places to eat. what = the list wanted, in words; have = the names not to repeat;
+     extra = other fields asked for in the same answer (the first list brings transit and where to stay); first = the
+     first list: no booking or menu links (they come later, for the places a day uses) */
+  function foodAsk(what, have, extra, first) {
+    var ex = foodEx(),
+      rules = foodRules();
+    if (first) {
+      ex = ex.replace('"book":"","menu":"",', "");
+      rules = rules
+        .replace(MENURULE + " ", "")
+        .replace("; then book = its official website or reservation page if you are confident of the address, else an empty string", "");
+    }
+    return (
+      what +
+      " " +
+      who() +
+      W.eatAsk() +
+      (have.length ? " Do not repeat: " + have.join("; ") + "." : "") +
+      "\nReply with JSON only: {" +
+      (extra || "") +
+      '"food":[' +
+      ex +
+      "]}\n" +
+      rules +
+      (extra ? " Give 4 stay neighborhoods." : "")
+    );
+  }
+  /* when you've set your lodging, extra ideas come from around it */
+  function nearStay(ck) {
+    var st = W.S.stays[ck];
+    return st && st.label ? " Focus on places within an easy trip of " + st.label + "." : "";
+  }
   W.loadCity = function (country, city, more, stayDays, nMore) {
     var ck = W.cityKey(country, city),
       cur = W.C.city[ck];
@@ -347,22 +387,10 @@
     var tk = ck + (more ? "|more" : "");
     tries[tk] = (tries[tk] || 0) + 1;
     if (!more && tries[tk] > 3) return;
-    var ex =
-      cur && cur.spots
-        ? cur.spots.concat(setAside(cur, "spots")).map(function (x) {
-            return x.n;
-          })
-        : [];
-    var exF =
-      cur && cur.food
-        ? cur.food.concat(setAside(cur, "food")).map(function (x) {
-            return x.n;
-          })
-        : [];
-    var where = city + ", " + country,
-      st = W.S.stays[ck];
-    /* when you've set your lodging, extra ideas come from around it */
-    var nearStay = more && st && st.label ? " Focus on places within an easy trip of " + st.label + "." : "";
+    var ex = namesOf(cur, "spots"),
+      exF = namesOf(cur, "food"),
+      where = city + ", " + country,
+      near = more ? nearStay(ck) : "";
     var lean = W.S.styles.length
       ? " Lean toward the travelers' interests (" +
         W.S.styles
@@ -376,31 +404,6 @@
       " If it is a large region or island, give options in each main area so a day can stay in one area. Do not include trains, transfers or transport as activities. ";
     var TRANSIT =
       '"transit":{"system":"how public transit works and what a ticket costs, one sentence","pass":"best pass or card for visitors","airport":"how to get from the main airport or station to the center","tip":"one practical tip"},"stay":[{"n":"neighborhood","d":"why stay here, short","lat":0,"lng":0}],';
-    /* first = the first list: no booking or menu links (they come later, for the places a day uses) */
-    function foodAsk(what, extra, first) {
-      var ex = foodEx(),
-        rules = foodRules();
-      if (first) {
-        ex = ex.replace('"book":"","menu":"",', "");
-        rules = rules
-          .replace(MENURULE + " ", "")
-          .replace("; then book = its official website or reservation page if you are confident of the address, else an empty string", "");
-      }
-      return (
-        what +
-        " " +
-        who() +
-        W.eatAsk() +
-        (exF.length ? " Do not repeat: " + exF.join("; ") + "." : "") +
-        "\nReply with JSON only: {" +
-        (extra || "") +
-        '"food":[' +
-        ex +
-        "]}\n" +
-        rules +
-        (extra ? " Give 4 stay neighborhoods." : "")
-      );
-    }
     if (more) {
       /* a few more at a time, up to the city's cap: the last ideas of a long list are the likeliest to be made up, and
          every one of them waits for a nightly check and a photo */
@@ -434,7 +437,7 @@
             Math.max(1, Math.min(3, Math.round(askS / 4))) +
             " evening options (sunset spots, evening strolls, shows, night markets)." +
             EVE +
-            nearStay +
+            near +
             " " +
             who() +
             (ex.length ? " Do not repeat any of these: " + ex.join("; ") + "." : "") +
@@ -457,7 +460,8 @@
               where +
               ": breakfast cafés and bakeries, local classics, casual spots and markets, spread across the city or region." +
               focusAsk() +
-              nearStay
+              near,
+            exF
           ),
           "default",
           function (r) {
@@ -507,6 +511,7 @@
           Math.max(4, Math.round(n0 / 4)) +
           " breakfast cafés or bakeries, spread across the city or region." +
           (W.focus() === "gems" ? " Favor the places locals go." : ""),
+        exF,
         TRANSIT,
         true
       ),
@@ -551,6 +556,116 @@
       if (W.status[p + ck] !== "loading") delete W.status[p + ck];
     });
     W.loadCity(country, city, true, stayDays, want - had);
+  };
+  /* ---------- enough places to eat for every meal of the stay ----------
+     The first lists are sized by the days (W.firstIdeas), yet a meal can still be left without a place: none of the
+     places is near that day's stops (the usual reason: the planner leaves a meal free rather than send you across
+     town), too few breakfast cafés for a long stay, kitchens that open after the children's dinner time, places shut on
+     the day, ones the group can't eat at, ones you said no to. After each planning, lib/plan.js counts the meals left
+     empty in a town (short: how many breakfasts, lunches and dinners, and which stop each should be near) and this
+     brings in places for exactly those: first the ones set aside that serve such a meal (pool.rest), then one question
+     to Claude for the meals still missing, each near its stop, with one to spare so the day has a choice. At most
+     MEAL_ASKS questions per town for a given stay and lodging (the count is kept with its ideas), MEAL_LIST places a
+     question, never while its lists are still arriving, never past the town's cap. A meal that stays empty after that
+     says so on its day, with "Find more ideas". Returns what it did: "out" (brought places out), "ask" (asked), or "" */
+  var MEAL_ASKS = 3,
+    MEAL_LIST = 12;
+  function hhmm(m) {
+    return Math.floor(m / 60) + ":" + ("0" + (m % 60)).slice(-2);
+  }
+  /** @param {string} country @param {string} city @param {MealGap} short */
+  W.mealIdeas = function (country, city, short) {
+    var ck = W.cityKey(country, city),
+      cur = W.C.city[ck],
+      at = short.at || [];
+    if (!at.length || !cur || cur.fallback || W.readOnly || !W.SAMPLE || !(cur.food || []).length) return "";
+    if (W.cityBusy(ck) || W.status["food|" + ck]) return "";
+    var stay = W.stayDays(country, city) || 1,
+      sh = cur.showN || (cur.showN = {}),
+      aside = setAside(cur, "food");
+    /* set aside, and right for a meal that is missing: out first (the planning that follows counts again) */
+    if (aside.length && cur.rest && W.mealFits) {
+      var serves = function (x) {
+        return at.some(function (a) {
+          return W.mealFits(x, a.meal) && !W.gone(x);
+        });
+      };
+      var hit = aside.filter(serves);
+      if (hit.length) {
+        cur.rest.food = hit.concat(
+          aside.filter(function (x) {
+            return !serves(x);
+          })
+        );
+        sh.food = Math.max(W.ideaLimit(cur, "food", stay), cur.food.length) + Math.min(hit.length, at.length * 2);
+        if (W.fitIdeas(country, city, stay)) return "out";
+      }
+    }
+    /* a new stay or a new lodging starts the count again: the meals are somewhere else now */
+    var st = W.S.stays[ck],
+      sig = stay + "|" + ((st && st.label) || "");
+    if (cur.mealFor !== sig) {
+      cur.mealFor = sig;
+      cur.mealAsks = 0;
+    }
+    var room = Math.min(MEAL_LIST, W.IDEA_CAP.food - cur.food.length - aside.length);
+    if ((cur.mealAsks || 0) >= MEAL_ASKS || room <= 0) return "";
+    /* the same meal near the same stop is one line: as many places as it is missing, and one more */
+    var kd = W.kidDinner(),
+      lines = /** @type {{ meal: string, n: string, lat: number | null, lng: number | null, km: number, c: number }[]} */ ([]),
+      byKey = /** @type {Record<string, number>} */ ({});
+    at.forEach(function (a) {
+      var k = a.meal + "|" + a.n;
+      if (byKey[k] == null) byKey[k] = lines.push({ meal: a.meal, n: a.n, lat: a.lat, lng: a.lng, km: a.km, c: 0 }) - 1;
+      lines[byKey[k]].c++;
+    });
+    var total = 0,
+      parts = /** @type {string[]} */ ([]);
+    lines.forEach(function (l) {
+      var n = Math.min(l.c + 1, room - total);
+      if (n <= 0) return;
+      total += n;
+      parts.push(
+        n +
+          " for " +
+          l.meal +
+          (l.n && l.lat != null && l.lng != null
+            ? " near " + l.n + " (" + l.lat.toFixed(3) + ", " + l.lng.toFixed(3) + "), no more than about " + l.km + " km from it"
+            : "") +
+          (l.meal === "breakfast"
+            ? " (a café or bakery open in the morning)"
+            : l.meal === "dinner" && kd != null
+              ? " (kitchen open by " + hhmm(kd) + ": the children eat early)"
+              : "")
+      );
+    });
+    if (!total) return "";
+    cur.mealAsks = (cur.mealAsks || 0) + 1;
+    run(
+      "food|" + ck,
+      foodAsk(
+        "List " +
+          total +
+          " MORE places to eat in " +
+          city +
+          ", " +
+          country +
+          ", for the meals this trip has no place for yet: " +
+          parts.join("; ") +
+          ". Each must really serve that meal: set its meal field to it (or to both or all when it serves more). Where a meal names a spot, the place must really be that close to it." +
+          focusAsk(),
+        namesOf(cur, "food")
+      ),
+      "default",
+      function (r) {
+        var c0 = W.C.city[ck],
+          before = c0 ? (c0.food || []).length : 0;
+        addFood(ck, r, "more");
+        c0 = W.C.city[ck];
+        bumpShown(ck, c0, "food", c0.food.length - before);
+      }
+    );
+    return "ask";
   };
   /* ---------- no more ideas on show than the stay calls for ----------
      A city shows 15 things to do and 15 places to eat (more for a longer stay: W.firstIdeas), plus what you asked for

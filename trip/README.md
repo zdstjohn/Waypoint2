@@ -19,7 +19,7 @@ Travel mode stays in the first script on purpose: on the trip it is the first sc
 first screen reads from Prepare (the book-by checklist, the budget, which booking belongs to a stop) is lib/bookcore.js,
 with W.money and "Prices in": each phone shows costs as listed or all in one currency (localStorage "waypoint-cur"),
 converted at the European Central Bank's rates in fx/latest (refreshed nightly) and marked "≈" (W.priceText converts
-prices written in text, like "€15, book ahead"; a currency with no rate stays as listed); Prepare and Settings offer it.
+prices written in text, like "€15, book ahead"; a currency with no rate stays as listed); Prepare's Budget and Settings offer it.
 What changed in each version is in CHANGELOG.md (newest first); this file says how the code is laid out.
 
 ```
@@ -112,9 +112,15 @@ lib/              the shared library
                   holiday or festival is
   shape.js        the trip as a whole: nights per base, day trips instead of hotel moves, the way between bases,
                   what the group (toddlers, grandparents) can take
-  plan.js         which cities, how many days each, what to do each day (the chooser and its shape rules). A city
-                  short of ideas for its days is topped up in the background (up to three times, and breakfast places
-                  once), judged only once its first lists are all in and counted only when actually asked for. Above the
+  plan.js         which cities, how many days each, what to do each day (the chooser and its shape rules). A city keeps
+                  its first ideas until you tap "Find more"; two things grow them unasked: a stay made longer
+                  (W.growIdeas) and a meal the finished plan leaves without a place (mealGaps counts them per town on
+                  P.gaps, each with the stop it should be near; W.mealIdeas in ideas.js brings places in for exactly
+                  those: the ones set aside first, then one question to Claude, three per town at most for a stay and
+                  lodging). A pick of the planner's own that a day had to give up (a slower way there leaves less of
+                  the day) is remembered in S.under and put back when the day has room again, so changing how you
+                  travel and changing it back gives the day you had; forgotten after three days or once anyone
+                  changed that stop. Above the
                   interests sits the trip's feel (S.focus, Plan step 1): Must-sees (the default: the famous places first),
                   Hidden gems (where locals go) or Best of both (famous and hidden in turn). Every idea is rated when it is
                   asked for (fame 2/1/0, a review score; older lists are rated once by W.loadFame), only well-reviewed
@@ -253,7 +259,11 @@ Checks (node test/run.js, from the folder above trip/)
                 tick), carried by every restaurant request, places checked, poor fits never
                 planned, the meal's notes, Explore's tags, a new city's lists asked for with them.
   money         Prices in: as listed by default; dollars converted with "≈"; text prices ("€15, book ahead", "£8–12");
-                no rate stays as listed; the choice on Prepare and Settings, kept on the phone, not in the trip.
+                no rate stays as listed; the choice in Prepare's Budget and in Settings, kept on the phone, not in the
+                trip; Prepare's tabs stay in one place whichever tab is open.
+  meals         enough places to eat for the days: a meal the plan leaves without a place is asked for by name, near
+                the stop before it (one question, a place to spare, the children's dinner time); places set aside come
+                out first; three questions per town and no more; never for a meal you freed or a trip you only read.
   menus         the nightly places join Rome's list once (no name or markup: dropped); a planned meal's Menu opens its
                 panel at the menu (dishes, prices in the chosen currency, kids', source and date, Google Maps photos).
   storage       Settings > Storage: of ten stored files it finds only the three old ones nothing points at (a place
@@ -283,7 +293,9 @@ Checks (node test/run.js, from the folder above trip/)
                 scrolls sideways, and what a phone lets you swipe is reachable without swiping: stays shrink to fit and
                 then wrap to an even second row, the Prepare tabs wrap, the previous/next day arrows stay at every width,
                 the trip menu opens under the trip's name wherever the banner puts it, and the kids' corner stays
-                picture-book sized and centred on a big screen.
+                picture-book sized and centred on a big screen. At 1440 px: the day count between − and + is
+                measured from a picture (centred, also under the mouse), Prepare's tabs sit in one place on all five
+                tabs, and the page is as wide with a scrollbar as without.
 
 Version control
   The code lives at github.com/zdstjohn/Waypoint2: trip/, test/, tools/, types/, build/, the test server, package.json.

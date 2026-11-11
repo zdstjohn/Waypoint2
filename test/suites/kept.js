@@ -24,7 +24,7 @@ exports.run = async t => {
   await pg.reload(); await pg.waitForFunction(() => window.W && W.P && W.ideaStore, null, { timeout: 15000 }); await settle(pg);
   const r2 = await pg.evaluate(async () => {
     const start = { rome: !!(W.C.city['Italy|Rome'] && W.C.city['Italy|Rome'].spots.length), madrid: !!W.C.city['Spain|Madrid'] };
-    window.__askedMadrid = 0; const real = W.SAMPLE.json.bind(W.SAMPLE); W.SAMPLE.json = function (p, o) { if (/Madrid|Portugal/.test(p) && /^List /.test(p)) window.__askedMadrid++; return real(p, o); };
+    window.__askedMadrid = 0; const real = W.SAMPLE.json.bind(W.SAMPLE); W.SAMPLE.json = function (p, o) { if (/Madrid|Portugal/.test(p) && /^List /.test(p) && !/for the meals this trip has no place for yet/.test(p)) window.__askedMadrid++;   /* (the kept list has no breakfast places: asking for those is the meal fill, test/suites/meals.js) */ return real(p, o); };
     W.S.countries = [{ name: 'Spain', mode: 'manual', picked: ['Madrid'] }]; W.S.cityDays = { 'Spain|Madrid': 3 }; W.S.days = 3; W.S.picks = {}; W.S.day = 1; W.changed(); W.loadCountry('Portugal');
     for (let i = 0; i < 60 && !(W.C.city['Spain|Madrid'] && W.C.country['Portugal']); i++) await new Promise(r => setTimeout(r, 100));
     await new Promise(r => setTimeout(r, 1200));

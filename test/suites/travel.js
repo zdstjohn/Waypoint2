@@ -50,6 +50,9 @@ exports.run = async t => {
   if (await pg.$('.go-eve [data-goprev]')) { await pg.click('.go-eve [data-goprev]'); await pg.waitForTimeout(800); t.ok(await pg.evaluate(() => !!document.querySelector('[data-gotoday]')), 'another day shows a way back to today'); await pg.click('[data-gotoday]'); await pg.waitForTimeout(400); }
   await pg.click('.go-foot [data-appmode="plan"]'); await pg.waitForTimeout(900);
   t.ok(await pg.evaluate(() => !document.documentElement.classList.contains('travel')), 'the Today footer can turn Travel mode off');
+  /* Today's map: the lettered pins only. No line from pin to pin (a straight line is a flight path, not the way you walk) */
+  const vt = await pg.evaluate(() => fetch('lib/vtmap.js').then(r => r.text()));
+  t.ok(vt.length > 20000 && !/id: "route/.test(vt) && !/route: \{ type: "geojson"/.test(vt) && !/getSource\("route"\)/.test(vt) && /pinEl\(/.test(vt), 'the street map draws the day\'s pins and no line between them (no route layer, no route source)');
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

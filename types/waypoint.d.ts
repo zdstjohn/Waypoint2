@@ -26,7 +26,7 @@ interface Lodging extends LatLng { n: string; tier: Tier; type: string; area: st
 interface Transit { system: string; pass: string; airport: string; tip: string }
 /** everything the app knows about one city: Claude's lists plus what the checks laid over them */
 interface Pool extends LatLng { d?: string; spots: Spot[]; food: Food[]; stay?: StayArea[]; lodging?: Lodging[]; lodgeFor?: string; lodgeAsked?: 1; transit?: Transit | null; fallback?: boolean;
-  rest?: { spots: Spot[]; food: Food[] }; showN?: { spots?: number; food?: number }; askedN?: number;
+  rest?: { spots: Spot[]; food: Food[] }; showN?: { spots?: number; food?: number }; askedN?: number; mealAsks?: number; mealFor?: string;
   indoorAsked?: 1; fameAsked?: 0 | 1; cityLow?: string }
 /** a destination in a country list (built in, or from Claude) */
 /** isl = the island a town is on; whole = the entry is an island itself (kept only so an older trip that has one as a stop still works) */
@@ -39,7 +39,7 @@ interface TripState { v: 2; algo?: number; tripId?: string; tripName?: string; s
   cityDays: Record<string, number>; day: number; tview?: "days" | "map"; glanceOpen?: boolean; allPref?: boolean; stepClosed?: Record<string, boolean>; prepTab?: string; transitOpen?: unknown; jetOpen?: unknown; nextHide?: unknown; tripFolded?: any; mapZoom?: number; late?: any;
   appMode?: string; appModeAt?: string; exF?: unknown; exSort?: unknown; pack?: Record<string, unknown>; packHide?: Record<string, 1>; packOwn?: PackItem[]; journal?: Record<string, { mood?: number; note?: string; photos?: { id: string; [k: string]: any }[] }>;
   kidPicks?: Record<string, string[]>; hunt?: Record<string, Record<string, 1>>; stamps?: Record<string, string>; celebrated?: Record<string, string>; warmSeen?: string; lodge?: Record<string, string>; lodgeSeen?: Record<string, string[]>;
-  share?: any; imported?: any; bookings?: Booking[]; booked?: Record<string, any>; rl?: Record<string, number[]>; [k: string]: any }
+  share?: any; imported?: any; bookings?: Booking[]; booked?: Record<string, any>; rl?: Record<string, number[]>; under?: Record<string, [string, string, number]>; [k: string]: any }
 interface Booking { key?: string; kind: string; title?: string; day?: number; [k: string]: any }
 interface Costs { ages: string; cur?: string; breakfast?: number | null; lunch?: number | null; dinner?: number | null; transit?: number | null; lodge?: number | null; tickets: Record<string, number | null> }
 interface Cache { country: Record<string, { blurb: string; cities: BuiltCity[]; v?: number; part?: number }>; city: Record<string, Pool>; geo: Record<string, LatLng & { area?: string }>;
@@ -56,7 +56,11 @@ interface SlotEntry { slot: Slot; key: string; item: Spot | Food | null; rest?: 
 interface Day { n: number; country: string; city: string; dayInCity: number; stop: number; tripFirst: boolean; tripLast: boolean; moveFrom: string | null; jet: boolean; rest?: boolean; loading?: boolean; slots: SlotEntry[]; trip?: { name: string; [k: string]: any } | null; fullDay?: boolean; [k: string]: any }
 /** the plan the planner returns (memoized until the trip or the data changes) */
 interface Airport { code: string; name: string; lat: number; lng: number }
-interface Plan { stops: Stop[]; days: Day[]; N: number; p: Party; ap: Airport | null }
+/** the meals a town's ideas leave without a place, as the plan stands (lib/plan.js mealGaps) */
+interface MealGap { country: string; city: string; breakfast: number; lunch: number; dinner: number;
+  /** each empty meal: its day, and the stop it should be near (n: "" when there is none), within about km of it */
+  at: { meal: string; day: number; n: string; lat: number | null; lng: number | null; km: number }[] }
+interface Plan { stops: Stop[]; days: Day[]; N: number; p: Party; ap: Airport | null; gaps?: Record<string, MealGap> }
 interface Homebase extends LatLng { label: string; set: boolean; pending?: boolean }
 interface Profile { act?: string; min: number; intensity: number; indoor?: boolean; weather?: boolean; adults?: boolean; slots: string[] }
 interface Classification { kind: string; act: string | null; min: number; intensity: number; indoor: boolean; weather: boolean; adults: boolean; slots: string[]; stroller?: boolean }
@@ -579,6 +583,10 @@ interface Waypoint {
   /** a stay made longer: fetch the difference */
   growIdeas: (country: string, city: string, stayDays: number) => void;
   fitIdeas: (country: string, city: string, stayDays: number, quiet?: boolean) => boolean;
+  /** brings in places to eat for the meals a town's days have no place for; returns "out", "ask" or "" (lib/ideas.js) */
+  mealIdeas: (country: string, city: string, short: MealGap) => string;
+  mealFits: (item: Food, meal: string) => boolean;
+  slotShort: (x: SlotEntry) => boolean;
   ideaLimit: (c: Pool | null | undefined, list: "spots" | "food", stayDays: number) => number;
   fromRest: (pool: Pool, name: string, food: boolean) => Spot | Food | null;
   /** the icon set (lib/icons.js): name to its drawing on a 24 grid */
