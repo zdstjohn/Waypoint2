@@ -195,7 +195,7 @@
     var h = "";
     if (st.phase === "idle")
       h =
-        '<p class="small muted">Find stored files that nothing in the app uses any more (old copies of photos, replaced maps). You see them before anything is deleted.</p><div><button type="button" class="btn" data-store="find">Find unused files</button></div>';
+        '<p class="small muted">Find stored files that nothing in the app uses any more (old copies of photos, replaced maps). You see them before anything is deleted.</p><div><button type="button" class="btn quiet" data-store="find">Find unused files</button></div>';
     else if (st.phase === "scan") h = '<p class="loading">Checking every list and trip…</p>';
     else if (st.phase === "list") {
       var r = st.r,

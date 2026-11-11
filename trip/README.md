@@ -228,9 +228,11 @@ screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.
                   one line for what is on now (today.js, W.todayRow), dims what is over and opens at the stop you are
                   at; Today shows Now and Next in one card with the way to what is next as its one main button, the
                   route under it, and the day bag and journal folded to a line outside their time of day. flow.js has
-                  the next-step bar, undo and the stop sheet; quickstart.js (second script) the three questions for a
+                  the next-step bar, undo and drag to reorder; sheet.js (second script) is a stop's sheet (Directions,
+                  tickets, Swap and "⋯" first, then the facts); setup.js also draws where to stay as a sheet over any
+                  screen (W.staySheet); quickstart.js (second script) the three questions for a
                   new trip (shown on the very first open; a stop's sheet keeps
-                  "Leave free" and "Not for us" at its foot, apart from its links, and "Not for us" asks once); journal, family;
+                  "Leave free" and "Not for us" behind "⋯", and "Not for us" asks once); journal, family;
                   settings.js is "Import a plan" and Storage (sharing lives in the trip menu); kids.js is "For the kids"
                   (from the trip menu and Today): today's outings in big photo cards with a heart per kid, a passport
                   that stamps each place, and a treasure hunt per town

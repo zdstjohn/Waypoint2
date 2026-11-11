@@ -86,6 +86,16 @@ exports.run = async t => {
   /* Prepare: how ready you are */
   const ready = await pg.evaluate(() => { W.goView('book'); const r = document.querySelector('.ready'); return r ? r.textContent.replace(/\s+/g, ' ') : ''; });
   t.ok(/\d+% ready/.test(ready), `Prepare shows how ready you are (${ready.slice(0, 40)})`);
+  /* v149: Prepare shows the list first: readiness is a line and a thin bar, the autopilot's explanation is behind an (i),
+     and a deadline is plain words, not a pill that looks like a button */
+  const prep = await pg.evaluate(async () => { W.S.prepTab = 'tobook'; W.goView('book'); W.render(); await new Promise(r => setTimeout(r, 500));
+    const r = document.querySelector('#viewBook .ready'), bar = r && r.querySelector('.rd-bar'), by = document.querySelector('#viewBook .chk .by'), ab = document.querySelector('#viewBook .auto-about'), i = document.querySelector('#viewBook [data-autoabout]');
+    const o = { h: r ? Math.round(r.getBoundingClientRect().height) : 0, bar: bar ? Math.round(bar.getBoundingClientRect().height) : 0, ring: !!(r && r.querySelector('.ring')), by: by ? getComputedStyle(by).backgroundColor : '', hidden: ab ? ab.hidden : null, i: !!i };
+    if (i) { i.click(); await new Promise(r2 => setTimeout(r2, 300)); const ab2 = document.querySelector('#viewBook .auto-about'); o.shown = !!ab2 && !ab2.hidden && /never books or pays/.test(ab2.textContent); o.exp = document.querySelector('#viewBook [data-autoabout]').getAttribute('aria-expanded'); }
+    return o; });
+  t.ok(prep.h > 0 && prep.h <= 64 && prep.bar > 0 && prep.bar <= 8 && !prep.ring, 'how ready you are is one line and a thin bar above the tabs (' + prep.h + 'px, was a card with a ring)');
+  t.ok(prep.by === '' || /rgba\(0, 0, 0, 0\)|transparent/.test(prep.by), 'a booking\'s deadline is plain words, not a pill');
+  t.ok(!prep.i || (prep.hidden === true && prep.shown && prep.exp === 'true'), 'what the autopilot does is behind an (i): ' + JSON.stringify(prep));
 
   /* during the trip: a great day is saved and the recap counts it */
   await pg.evaluate(() => { localStorage.setItem('waypoint-now', '2027-04-26T19:30'); W.S.appMode = 'plan'; W.S.appModeAt = '2027-04-26'; W.S.day = 4; W.goView('trip'); }); await pg.waitForTimeout(700);

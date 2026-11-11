@@ -86,7 +86,7 @@
   W.viewSwitch = function () {
     var now = S.tview === "map" ? "map" : S.glanceOpen ? "all" : "days";
     return (
-      '<div class="vsw" role="tablist" aria-label="How to see the trip">' +
+      '<div class="vsw-row"><div class="vsw" role="tablist" aria-label="How to see the trip">' +
       [
         ["days", "Day"],
         ["all", "All days"],
@@ -106,6 +106,11 @@
           );
         })
         .join("") +
+      "</div>" +
+      /* adding a place is always within reach: it opens Explore with the search ready */
+      (W.canEdit() && now !== "map"
+        ? '<button type="button" class="vsw-add" data-addplace="1" aria-label="Add a place: search in Explore"><span aria-hidden="true">+</span> Add</button>'
+        : "") +
       "</div>"
     );
   };
@@ -1193,6 +1198,8 @@
             ? "Nap in the stroller or the car: you're out in " + esc(day.trip ? day.trip.name : day.city) + " for the day"
             : "Nap or rest break back at " + (home.none ? "your stay" : esc(home.label))) +
           "</div>";
+      /* (after a nap back at your stay, the way to the next stop starts there, not at the lunch place) */
+      if (x.slot === "lunch" && P.p.toddler && T && T.nap && !T.nap.away && !home.none) prevPt = home;
     });
     var back = W.leg(prevPt, home);
     /* the way back, like the way to each stop; no stay picked yet: no walk to a made-up address, and no directions */
@@ -1393,7 +1400,10 @@
         "</div>" +
         ((on && on.n === day.n) || !free.length
           ? ""
-          : '<div class="use">' +
+          : /* "Add to Day 2:" then a row for each part of the day, saying what it would take the place of */
+            '<div class="use"><span class="use-l">Add to Day ' +
+            day.n +
+            ":</span>" +
             free
               .map(function (x) {
                 return (
@@ -1401,13 +1411,21 @@
                   x.slot +
                   '" data-name="' +
                   esc(it.n) +
-                  '" aria-label="Put ' +
+                  '" aria-label="Add ' +
                   esc(it.n) +
-                  " in " +
+                  " to Day " +
+                  day.n +
+                  ", " +
                   W.SLOT_NAME[x.slot].toLowerCase() +
-                  '">' +
+                  (x.item ? ", in place of " + esc(x.item.n) : "") +
+                  '"><span class="use-p" aria-hidden="true">+ </span>' +
                   W.SLOT_NAME[x.slot] +
-                  "</button>"
+                  /* each says what it costs: the stop it would take the place of, or that the time is free */
+                  '<span class="use-x' +
+                  (x.item ? "" : " free") +
+                  '" aria-hidden="true"> · ' +
+                  (x.item ? "replaces " + esc(x.item.n) : "free now") +
+                  "</span></button>"
                 );
               })
               .join("") +
@@ -1727,11 +1745,15 @@
       /* (the hops of the day on show are the ones worth asking Google for: W.legWant, lib/core.js) */
       W.legWant++;
       var lr0 = W.legReal,
-        stops = dayStops(P, day, home, pool, short),
-        pts = stops.pts,
+        /** @type {{pts: any[], list: string, T: any}} */ stops;
+      try {
+        stops = dayStops(P, day, home, pool, short);
+      } finally {
+        W.legWant--; /* (always: a fault while drawing must not leave every later hop asking Google) */
+      }
+      var pts = stops.pts,
         list = stops.list,
         T = stops.T;
-      W.legWant--;
 
       var stopsLL = pts.filter(function (p) {
         return p.lat != null;
@@ -2151,8 +2173,23 @@
       var us = d.use,
         un = d.name,
         sw2 = document.querySelector(".swap");
+      /* say what happened, with Undo; from Explore also the way to the day it went to */
+      var inSwap = !!(sw2 && b.closest(".swap")),
+        was = day.slots.filter(function (y) {
+          return y.slot === us;
+        })[0],
+        b4 = W.snapState ? W.snapState() : null,
+        said = inSwap
+          ? "Changed a stop"
+          : "Added to Day " +
+            day.n +
+            " " +
+            (W.SLOT_NAME[us] || "").toLowerCase() +
+            (was && was.item && was.item.n !== un ? ", in place of " + W.clip(was.item.n, 26) : "");
       var apply = function () {
         W.useIdea(day, us, un, P);
+        W.save();
+        if (W.undoPoint) W.undoPoint(b4, said, inSwap || S.tview !== "map" ? 0 : day.n);
         swapOpen = null;
         swapAll = false;
         swapPeek = null;
@@ -2161,7 +2198,7 @@
         });
         W.render();
       };
-      if (sw2 && b.closest(".swap")) {
+      if (inSwap) {
         W.fxCollapse(sw2, apply, { dur: 200 });
         return;
       }
@@ -2185,18 +2222,6 @@
         W.fxAfter(function () {
           W.fxStagger(Array.prototype.slice.call(document.querySelectorAll(".swap .opt"), 5), { y: 6, step: 20 });
         });
-    } else if (d.gostay != null) {
-      /* lodging lives on the Setup page: open that city's "where to stay" */
-      var gs = P.stops[+d.gostay];
-      if (!gs) return;
-      W.fxFlip("page", -1, function () {
-        W.openStay[W.cityKey(gs.country, gs.name)] = true;
-        W.scrollToStop = +d.gostay;
-        view = "setup";
-        W.navTo("#plan", true);
-        W.render();
-      });
-      return;
     } else if (d.zoom) {
       if (W.vtActive && W.vtActive()) W.vtZoom(d.zoom);
       return;
@@ -2341,12 +2366,27 @@
   }
   /* reviews, photos and the place in Google Maps (between `pre` and `post`) */
   function placeLinks(it, day, pre, post) {
+    /* three buttons that say what they open (two of them were bare pictures) */
+    var b = function (url, icon, text, label) {
+      return (
+        '<a class="pl-a" href="' +
+        esc(url) +
+        '" target="_blank" rel="noopener" aria-label="' +
+        esc(label) +
+        '">' +
+        W.icon(icon, 2) +
+        text +
+        "</a>"
+      );
+    };
     return (
       '<div class="links">' +
       (pre || "") +
-      link(W.reviewsUrl(it.n, day.city), "Reviews") +
-      W.iconLink(W.photosUrl(it.n, day.city), "photos", "Photos of " + it.n) +
-      W.iconLink(W.gmapsPlace(it, day.city), "map", it.n + " in Google Maps") +
+      '<span class="pl-b">' +
+      b(W.reviewsUrl(it.n, day.city), "star", "Reviews", "Reviews of " + it.n) +
+      b(W.photosUrl(it.n, day.city), "photo", "Photos", "Photos of " + it.n) +
+      b(W.gmapsPlace(it, day.city), "map", "Map", it.n + " in Google Maps") +
+      "</span>" +
       (post || "") +
       "</div>"
     );
@@ -2356,7 +2396,7 @@
     return -1;
   }
   /* a stop's panel: the photo, when, the full notes, booking, reviews and links */
-  W.stopDetails = function (P, day, x) {
+  W.stopDetails = function (P, day, x, opt) {
     var it = x.item;
     if (!it) return "";
     var food = W.isFood(x.slot),
@@ -2392,9 +2432,8 @@
     var booked = bk
       ? '<span class="booked-tag" title="' + esc(bk.title || "") + '">✓ Booked' + (bk.ref ? " · " + esc(bk.ref) : "") + "</span>"
       : "";
-    var main = food
-      ? W.bookLink(it, day.city, true, day.country)
-      : W.bookLink(it, day.city, false, day.country); /* the menu itself is below */
+    /* (the sheet shows the tickets or the table as a button of its own, above: then not again here) */
+    var main = opt && opt.noMain ? "" : W.bookLink(it, day.city, food, day.country); /* the menu itself is below */
     var rev = placeRev(it);
     var when = [R && R.start != null && !R.skip ? W.clock(R.start) : "", label, W.stayText(it, food, x.slot)].filter(Boolean).join(" · ");
     return (

@@ -58,9 +58,10 @@ exports.run = async t => {
     /* the Day / Explore / All days switch runs the full width of the page, in three equal parts */
     const vsw = await pg.evaluate(() => {
       const v = [...document.querySelectorAll('#viewTrip .vsw')].find(e => e.getBoundingClientRect().width > 0); if (!v) return null;
-      const p = v.parentElement, cs = getComputedStyle(p), inner = p.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      /* (the switch and "+ Add" share one row: the row spans the page) */
+      const row = v.closest('.vsw-row') || v, p = row.parentElement, cs = getComputedStyle(p), inner = p.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
       const bw = [...v.querySelectorAll('button')].map(b => Math.round(b.getBoundingClientRect().width));
-      return { w: Math.round(v.getBoundingClientRect().width), inner: Math.round(inner), bw };
+      return { w: Math.round(row.getBoundingClientRect().width), inner: Math.round(inner), bw };
     });
     t.ok(vsw && vsw.w >= vsw.inner - 2 && Math.max(...vsw.bw) - Math.min(...vsw.bw) <= 2, `@${width}: the Day / All days / Explore switch spans the page (${vsw && vsw.w} of ${vsw && vsw.inner} px; buttons ${vsw && vsw.bw.join('/')})`);
     /* a big screen keeps the day's own title and the greeting in the banner (the day in the banner is a phone's) */

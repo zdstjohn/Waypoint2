@@ -27,21 +27,61 @@
     return isToday(day) ? (W.S.late || {})[lateKey(day)] || 0 : 0;
   };
 
-  /* running late: everything that hasn't started yet moves back */
+  /** Running late: what had not started when you said so moves `min` minutes later (0: back on time). The moment is
+      kept with it, so a stop stays moved once the clock passes its old time (it used to slip back then, stop by stop). */
+  W.lateAdd = function (day, min) {
+    var L = W.S.late || (W.S.late = {}),
+      A = W.S.lateAt || (W.S.lateAt = {}),
+      k = lateKey(day),
+      today = W.isoDay(W.now());
+    if (!min) {
+      delete L[k];
+      delete A[k];
+    } else {
+      /* each time you say so is kept with its minutes: a second "+15" moves only what has not started by then */
+      var room = Math.min(240, (L[k] || 0) + min) - (L[k] || 0);
+      if (!L[k] || !Array.isArray(A[k])) A[k] = [];
+      if (room > 0) A[k].push([nowMin(), room]);
+      L[k] = (L[k] || 0) + room;
+    }
+    /* forget older days */
+    [L, A].forEach(function (M) {
+      Object.keys(M).forEach(function (x) {
+        if (x.slice(-10) !== today) delete M[x];
+      });
+    });
+  };
+  /* running late: everything that hadn't started yet when you said so moves back */
   W.lateShift = function (day, out) {
     var late = W.lateFor(day);
     if (!late) return;
-    var nm = nowMin();
+    var kept = (W.S.lateAt || {})[lateKey(day)],
+      /** @type {number[][]} */ steps = Array.isArray(kept) && kept.length ? kept : [[nowMin(), late]],
+      sum = steps.reduce(function (a, s) {
+        return a + s[1];
+      }, 0);
+    /* (the total was changed elsewhere, by a rescue undone: one move, from when the first was made) */
+    if (sum !== late) steps = [[steps[0][0], late]];
+    /* how far something that began at `t` has moved: each step moves what had not started when it was made */
+    var moved = function (t) {
+      var s = t;
+      steps.forEach(function (st) {
+        if (s >= st[0] - 5) s += st[1];
+      });
+      return s - t;
+    };
     Object.keys(out.rows).forEach(function (k) {
-      var r = out.rows[k];
-      if (r.start != null && r.start >= nm - 5) {
-        r.start += late;
-        if (r.end != null) r.end += late;
+      var r = out.rows[k],
+        m = r.start != null ? moved(r.start) : 0;
+      if (m) {
+        r.start += m;
+        if (r.end != null) r.end += m;
       }
     });
-    if (out.nap && out.nap.start >= nm - 5) {
-      out.nap.start += late;
-      out.nap.end += late;
+    if (out.nap) {
+      var nmv = moved(out.nap.start);
+      out.nap.start += nmv;
+      out.nap.end += nmv;
     }
     if (out.back) out.back += late;
     out.late = late;
@@ -97,17 +137,15 @@
     if (d.late == null || !W.P) return false;
     var day = W.P.days[(W.S.day || 1) - 1];
     if (!day) return true;
-    var L = W.S.late || (W.S.late = {}),
-      k = lateKey(day);
-    if (+d.late === 0) delete L[k];
-    else L[k] = Math.min(240, (L[k] || 0) + +d.late);
-    /* forget older days */
-    Object.keys(L).forEach(function (x) {
-      if (x.slice(-10) !== W.isoDay(W.now())) delete L[x];
-    });
+    W.lateAdd(day, +d.late);
     return true;
   };
 
+  /** a link led to one particular day: the Trip tab opens on that day, not on today (it opens on today only when
+      you arrive there by yourself, the first time each visit) */
+  W.keepDay = function () {
+    if (W.S.start) W.jumpToToday.done = (W.S.tripId || "") + "|" + W.S.start;
+  };
   /* during the trip, open on today the first time each visit, and keep the card fresh */
   W.jumpToToday = function (P) {
     if (!W.S.start) return;

@@ -1637,9 +1637,7 @@
         setFree(x, "tired");
       });
     } else if (mode === "behind") {
-      var L = S.late || (S.late = {}),
-        lk = W.restKey(day) + "|" + W.isoDay(W.now());
-      L[lk] = Math.min(240, (L[lk] || 0) + 45);
+      W.lateAdd(day, 45);
       var T2 = W.dayTimes(day, P);
       (T2.order || []).forEach(function (sl) {
         var x = day.slots.filter(function (y) {
@@ -1761,7 +1759,10 @@
     var lk = W.restKey(day) + "|" + W.isoDay(W.now());
     if (S.late) {
       if (u.late) S.late[lk] = u.late;
-      else delete S.late[lk];
+      else {
+        delete S.late[lk];
+        if (S.lateAt) delete S.lateAt[lk];
+      }
     }
     delete S.rescueUndo[W.restKey(day)];
     if (S.rescued) delete S.rescued[lk];

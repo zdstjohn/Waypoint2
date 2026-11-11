@@ -3,7 +3,9 @@
 const { launch, open, exampleTrip, settle, calm } = require('../lib/page');
 exports.run = async t => {
   /* the very first open asks where you're headed, over the example trip; the sheet can be put aside */
-  { const b0 = await launch(); const { pg: p0, ctx: c0 } = await open(b0, { width: 390, firstRun: true }); await p0.waitForTimeout(800);
+  { const b0 = await launch(); const { pg: p0, ctx: c0 } = await open(b0, { width: 390, firstRun: true });
+    /* (the questions come with the second script: they appear as soon as it is in, usually under a second) */
+    await p0.waitForFunction(() => !!document.querySelector('.qs.sheet'), null, { timeout: 6000 }).catch(() => {});
     const fr = await p0.evaluate(() => ({ sheet: !!document.querySelector('.qs.sheet'), title: (document.getElementById('qsT') || {}).textContent, look: !!document.querySelector('[data-qs="close"].linkish') }));
     t.ok(fr.sheet && /headed/.test(fr.title || '') && fr.look, 'the first open asks where you are headed: ' + JSON.stringify(fr));
     await p0.click('[data-qs="close"].linkish'); await p0.waitForTimeout(400);
@@ -18,9 +20,15 @@ exports.run = async t => {
 
   /* the actions sheet */
   await pg.evaluate(k => W.openStop(k), k0); await pg.waitForTimeout(400);
-  const sheet = await pg.evaluate(() => ({ acts: [...document.querySelectorAll('.sheet .sh-act')].map(a => a.textContent.trim()), title: (document.querySelector('.sheet .sh-top b') || {}).textContent }));
-  t.ok(sheet.acts.length >= 4, 'the actions sheet offers directions, swap, move, reorder and leave free: ' + sheet.acts.join(' | '));
-  t.ok(sheet.title === name0, 'the sheet is for the stop that was opened');
+  const sheet = await pg.evaluate(() => { const s = document.querySelector('.sheet'), main = s.querySelector('.sh-main'), det = s.querySelector('.sd');
+    return { acts: [...main.children].map(a => a.textContent.trim() || a.getAttribute('aria-label')), title: (s.querySelector('.sh-top b') || {}).textContent, first: main.getBoundingClientRect().bottom <= det.getBoundingClientRect().top + 1, dirMain: !main.querySelector('.sh-dir').classList.contains('quiet') && main.querySelectorAll('.btn:not(.quiet)').length === 1, menu: !!s.querySelector('.sh-menu'), focus: document.activeElement === s,
+      links: [...s.querySelectorAll('.links .pl-a')].map(a => a.textContent.trim()) }; });
+  t.ok(sheet.acts[0] === 'Directions' && sheet.acts.includes('Swap') && /^More/.test(sheet.acts[sheet.acts.length - 1]) && sheet.first && sheet.dirMain && !sheet.menu, 'a stop\'s sheet leads with what you do: Directions (the one main button), Swap and "⋯", above the facts: ' + sheet.acts.join(' | '));
+  t.ok(sheet.title === name0 && sheet.focus, 'the sheet is for the stop that was opened, and the keyboard is in it');
+  t.eq(sheet.links, ['Reviews', 'Photos', 'Map'], 'Reviews, Photos and Map are buttons that say what they open');
+  await pg.click('.sheet [data-sheetact="more"]'); await pg.waitForTimeout(200);
+  const more = await pg.evaluate(() => [...document.querySelectorAll('.sheet .sh-menu [data-sheetact]')].map(b2 => b2.dataset.sheetact));
+  t.eq(more, ['move', 'reorder', 'remove', 'nope'], '"⋯" holds the rest: move to another day, reorder today, leave it free, not for us');
 
   /* move to another day, then undo */
   await pg.click('[data-sheetact="move"]'); await pg.waitForTimeout(250);
@@ -37,6 +45,7 @@ exports.run = async t => {
 
   /* leave it free, then undo */
   await pg.evaluate(k => W.openStop(k), k0); await pg.waitForTimeout(300);
+  await pg.click('.sheet [data-sheetact="more"]'); await pg.waitForTimeout(200);
   await pg.click('[data-sheetact="remove"]'); await pg.waitForTimeout(500);
   t.ok(await pg.evaluate(k => !!(W.S.free || {})[k], k0), 'the slot is now free time');
   await pg.click('[data-undo]'); await pg.waitForTimeout(500);
@@ -129,6 +138,19 @@ exports.run = async t => {
   await pg.click('#totop'); await pg.waitForFunction(() => scrollY < 5, null, { timeout: 4000 }).catch(() => {});
   t.ok(await pg.evaluate(() => scrollY < 5), 'and one tap goes back to the top');
   await pg.evaluate(() => { W.S.glanceOpen = false; W.render(); }); await pg.waitForTimeout(300);
+  /* v149: Explore's add buttons say what they do and what they replace; the toast leads to the day; "+ Add" is beside the switch */
+  const addBtn = await pg.evaluate(() => { const a = document.querySelector('#viewTrip .vsw-row .vsw-add'); return a ? a.textContent.replace(/\s+/g, ' ').trim() : ''; });
+  await pg.click('#viewTrip .vsw-add'); await pg.waitForTimeout(700);
+  const ex = await pg.evaluate(() => { const u = document.querySelector('#viewTrip .idea .use'), bs = u ? [...u.querySelectorAll('button')] : [];
+    return { tview: W.S.tview, add: !!document.querySelector('#viewTrip .vsw-add'), focus: (document.activeElement || {}).id, label: u ? u.querySelector('.use-l').textContent : '', btns: bs.map(b2 => b2.textContent.replace(/\s+/g, ' ').trim()), h: bs.length ? Math.round(bs[0].getBoundingClientRect().height) : 0, aria: bs.length ? bs[0].getAttribute('aria-label') : '', day: W.S.day }; });
+  t.ok(addBtn === '+ Add' && ex.tview === 'map' && !ex.add && ex.focus === 'placeQ', '"+ Add" beside the Day · All days · Explore switch opens Explore with the search ready (and is not shown on Explore itself)');
+  t.ok(ex.label === 'Add to Day ' + ex.day + ':' && ex.btns.length >= 2 && ex.btns.every(x => /^\+ \w+ · (replaces .+|free now)$/.test(x)) && ex.h >= 40 && /^Add .+ to Day \d+, /.test(ex.aria || ''), 'an idea\'s buttons say "Add to Day N", and each names what it would replace or that the time is free: ' + ex.btns.join(' | '));
+  const tgt = await pg.evaluate(() => { const b2 = document.querySelector('#viewTrip .idea .use button'); return { slot: b2.dataset.use, name: b2.dataset.name }; });
+  await pg.click('#viewTrip .idea .use button'); await pg.waitForTimeout(700);
+  const toast = await pg.evaluate(([slot, name]) => { const u = document.querySelector('#undohost .undo'), x = W.P.days[W.S.day - 1].slots.find(y => y.slot === slot); return { text: u ? u.querySelector('span').textContent : '', see: !!(u && u.querySelector('[data-undosee]')), undo: !!(u && u.querySelector('[data-undo]')), on: !!x.item && x.item.n === name }; }, [tgt.slot, tgt.name]);
+  t.ok(toast.on && /^Added to Day \d+ \w+/.test(toast.text) && toast.see && toast.undo, 'adding says what happened ("' + toast.text + '"), with "See day" and Undo');
+  await pg.click('#undohost [data-undosee]'); await pg.waitForTimeout(600);
+  t.ok(await pg.evaluate(() => W.S.tview === 'days' && W.view() === 'trip' && !document.querySelector('#undohost .undo')), '"See day" goes to the day it was added to');
   /* the storybook is gone: no way in, and a trip saved on it opens on the day */
   t.ok(await pg.evaluate(() => { W.S.tview = 'story'; W.render(); return W.S.tview === 'days' && !document.querySelector('[data-story], [data-sync="story"], .story') && !!document.querySelector('#viewTrip .day-h'); }), 'there is no storybook, and a trip left on it opens on the day');
   /* a travel day with long car-rental text stays inside its card on a phone */

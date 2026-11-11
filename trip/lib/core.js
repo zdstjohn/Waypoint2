@@ -342,10 +342,18 @@
       return p.lat != null ? p.lat + "," + p.lng : (p.n || p.label) + ", " + day.city;
     }
     var nine = stops.slice(0, 9),
-      ids = nine.map(function (p) {
+      /* no stay picked yet: the route runs from the first stop to the last (the middle of the town is nobody's address) */
+      open = !!(home && home.none) && nine.length > 0,
+      mid = open ? nine.slice(1, -1) : nine,
+      ids = mid.map(function (p) {
         return p.gid || "";
       });
-    var o = home && home.lat != null ? home.lat + "," + home.lng : (home && home.label ? home.label : day.city) + ", " + day.city;
+    var o = open
+        ? at(nine[0])
+        : home && home.lat != null
+          ? home.lat + "," + home.lng
+          : (home && home.label ? home.label : day.city) + ", " + day.city,
+      end = open ? at(nine[nine.length - 1]) : o;
     var prev = home,
       far = false;
     stops.forEach(function (p) {
@@ -357,8 +365,8 @@
       "https://www.google.com/maps/dir/?api=1&origin=" +
       encodeURIComponent(o) +
       "&destination=" +
-      encodeURIComponent(o) +
-      (stops.length ? "&waypoints=" + encodeURIComponent(nine.map(at).join("|")) : "") +
+      encodeURIComponent(end) +
+      (mid.length ? "&waypoints=" + encodeURIComponent(mid.map(at).join("|")) : "") +
       /* Google's own IDs for the stops it knows, so each stop opens as the real listing (one per waypoint, blanks for the rest) */
       (ids.some(Boolean) ? "&waypoint_place_ids=" + encodeURIComponent(ids.join("|")) : "") +
       "&travelmode=" +

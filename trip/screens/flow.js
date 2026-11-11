@@ -159,10 +159,10 @@
     var P = W.P,
       s = P.stops[si];
     if (!s) return;
-    W.openStay[W.cityKey(s.country, s.name)] = true;
-    W.scrollToStop = si;
-    W.setView("setup");
-    W.render();
+    /* where to stay, as a sheet over the screen you are on (it comes with the second script) */
+    W.whenLater(function () {
+      W.staySheet(si);
+    });
   }
   function goBook(key) {
     /* Prepare comes with the second script: show it loading, and finish the jump once it has come */
@@ -193,6 +193,7 @@
     }, 80);
   }
   function goDay(n, open) {
+    if (W.keepDay) W.keepDay(); /* (a link to a day opens that day, even the first time on the Trip tab during the trip) */
     W.S.day = +n;
     W.setView("trip");
     W.render();
@@ -201,7 +202,7 @@
       setTimeout(function () {
         var t = document.querySelector('[data-open="' + CSS.escape(open) + '"]');
         if (t) t.scrollIntoView({ block: "center" });
-        openSheet(open);
+        W.openStop(open);
       }, 80);
   }
   /* the Book ahead entry for a stop on the trip, if it needs booking */
@@ -229,14 +230,12 @@
   var LABELS = {
     reroll: "",
     next: "Swapped",
-    use: "Changed a stop",
+    use: "" /* (says what it did itself: screens/trip.js) */,
     tick: "Updated a booking",
     rest: "Changed the rest day",
     routeorder: "Changed the order",
     livepick: "Changed where you stay",
     legpick: "Changed how you travel",
-    sheetmove: "Moved a stop",
-    sheetremove: "Removed a stop",
     style: "Changed the trip style",
     cdays: "Changed the days",
     late: "Moved today's plan",
@@ -287,11 +286,12 @@
       return null;
     }
   }
-  W.undoPoint = function (before, label) {
+  /** @param {string | null} before @param {string} [label] @param {number} [seeDay] a day to offer "See day" for */
+  W.undoPoint = function (before, label, seeDay) {
     if (!before || W.readOnly) return;
     var now = snap();
     if (!now || now === before) return;
-    undo = { before: before, label: label || "Changed", trip: W.S.tripId };
+    undo = { before: before, label: label || "Changed", trip: W.S.tripId, see: seeDay || 0 };
     showUndo();
   };
   function showUndo() {
@@ -302,7 +302,12 @@
       document.body.appendChild(host);
     }
     host.innerHTML = undo
-      ? '<div class="undo" role="status"><span>' + esc(undo.label) + '</span><button type="button" data-undo="1">Undo</button></div>'
+      ? '<div class="undo" role="status"><span>' +
+        esc(undo.label) +
+        "</span>" +
+        /* (added from Explore: the way to the day it went to) */
+        (undo.see ? '<button type="button" class="undo-see" data-undosee="' + undo.see + '">See day</button>' : "") +
+        '<button type="button" data-undo="1">Undo</button></div>'
       : "";
     clearTimeout(undoTimer);
     if (undo)
@@ -338,258 +343,19 @@
     W.changed();
   }
 
-  /* ======================= stop actions sheet, and drag to reorder ======================= */
-  var sheet = null;
+  /* ======================= a stop's sheet (screens/sheet.js), and drag to reorder ======================= */
   function slotsOf(day) {
     return (day && day.slots) || [];
   }
-  function prevPoint(day, slot) {
-    var P = W.P,
-      T = W.dayTimes(day, P),
-      order =
-        (T && T.order) ||
-        slotsOf(day).map(function (x) {
-          return x.slot;
-        }),
-      prev = W.homebase(day.country, day.city);
-    for (var i = 0; i < order.length && order[i] !== slot; i++) {
-      var x = slotsOf(day).filter(function (y) {
-        return y.slot === order[i];
-      })[0];
-      if (x && x.item && x.item.lat != null) prev = x.item;
-    }
-    return prev;
-  }
+  /* the sheet comes with the second script: asked for here, opened when it has arrived (at once, nearly always) */
   W.openStop = function (key) {
-    openSheet(key);
+    W.whenLater(function () {
+      W.sheetOpen(key);
+    });
   };
   W.closeStop = function () {
-    if (sheet) {
-      sheet = null;
-      drawSheet();
-    }
+    return !!(W.sheetClose && W.sheetClose());
   };
-  function openSheet(key) {
-    var P = W.P,
-      day = P.days[W.S.day - 1],
-      x = slotsOf(day).filter(function (y) {
-        return y.key === key;
-      })[0];
-    if (!x || !x.item) return;
-    sheet = { key: key, slot: x.slot, mode: "acts" };
-    drawSheet();
-  }
-  /* taking a stop off the plan: at the foot of its panel, well apart from its links (menu, photos, Google Maps) so a
-     thumb can't hit it by mistake, each saying what it does; "Not for us" asks once before it acts */
-  function outBlock(it, x, day, nm) {
-    var city = x.trip && day.trip ? day.trip.name : day.city,
-      slot = nm.toLowerCase();
-    if (sheet.ask === "nope")
-      return (
-        '<div class="sh-out ask" role="alert"><p><b>Not for us?</b> ' +
-        esc(it.n) +
-        " comes off your plan and won't be suggested in " +
-        esc(city) +
-        ' again. You can bring it back from Explore.</p><div class="sh-out-b"><button type="button" class="btn danger" data-sheetact="nopeyes">Yes, not for us</button>' +
-        '<button type="button" class="btn quiet" data-sheetact="nopeno">Keep it</button></div></div>'
-      );
-    return (
-      '<div class="sh-out"><p class="sh-out-h">Don\'t want this one?</p>' +
-      '<button type="button" class="sh-out-r" data-sheetact="remove"><span class="ic">' +
-      IC.free +
-      "</span><span><b>Leave the " +
-      esc(slot) +
-      ' free</b><span class="small muted">Nothing planned then. You can undo it.</span></span></button>' +
-      '<button type="button" class="sh-out-r danger" data-sheetact="nope"><span class="ic">' +
-      IC.no +
-      '</span><span><b>Not for us</b><span class="small muted">Take it off and never suggest it in ' +
-      esc(city) +
-      " again</span></span></button></div>"
-    );
-  }
-  function drawSheet() {
-    var host = $("sheethost");
-    if (!host) {
-      host = document.createElement("div");
-      host.id = "sheethost";
-      document.body.appendChild(host);
-    }
-    if (!sheet) {
-      host.innerHTML = "";
-      if (!(W.qsIsOpen && W.qsIsOpen())) document.documentElement.classList.remove("modal-open");
-      W.backShut("stop");
-      return;
-    }
-    var P = W.P,
-      day = P.days[W.S.day - 1],
-      x = slotsOf(day).filter(function (y) {
-        return y.key === sheet.key;
-      })[0];
-    if (!x || !x.item) {
-      sheet = null;
-      return drawSheet();
-    }
-    var it = x.item,
-      food = W.isFood(x.slot),
-      nm = W.SLOT_NAME[x.slot];
-    var h =
-      '<div class="sheet-back" data-sheetclose="1"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="' +
-      esc(it.n) +
-      '"><div class="grab" aria-hidden="true"></div>' +
-      '<div class="sh-top"><div><b>' +
-      esc(it.n) +
-      '</b><span class="small muted">Day ' +
-      day.n +
-      " · " +
-      esc(day.city) +
-      "</span></div>" +
-      '<button type="button" class="icon-btn" data-sheetclose="1" aria-label="Close">' +
-      XI +
-      "</button></div>";
-    if (sheet.mode === "move") {
-      var cands = P.days.filter(function (d) {
-        return (
-          d.stop === day.stop &&
-          d.n !== day.n &&
-          d.slots &&
-          d.slots.some(function (y) {
-            return y.slot === x.slot && !y.rest;
-          })
-        );
-      });
-      h +=
-        '<p class="small muted">Swap it with the ' +
-        esc(nm.toLowerCase()) +
-        " on another day in " +
-        esc(day.city) +
-        ".</p>" +
-        (cands.length
-          ? '<div class="sh-list">' +
-            cands
-              .map(function (d) {
-                var y = d.slots.filter(function (z) {
-                  return z.slot === x.slot;
-                })[0];
-                return (
-                  '<button type="button" class="sh-row" data-sheetmove="' +
-                  d.n +
-                  '"><b>Day ' +
-                  d.n +
-                  "</b><span>" +
-                  esc(fmt(W.dateOf(d.n), { weekday: "short", month: "short", day: "numeric" })) +
-                  "</span>" +
-                  '<span class="muted">' +
-                  (y && y.item ? "now: " + esc(y.item.n) : "free") +
-                  "</span></button>"
-                );
-              })
-              .join("") +
-            "</div>"
-          : '<p class="small">There are no other days in ' + esc(day.city) + " to move it to.</p>") +
-        '<button type="button" class="linkish" data-sheetback="1">' +
-        W.arrow() +
-        "Back</button>";
-    } else {
-      var dir = W.gmapsDir(prevPoint(day, x.slot), it, "walk");
-      /* everything about the stop, then what you can do with it */
-      h +=
-        (W.stopDetails ? W.stopDetails(P, day, x) : "") +
-        '<div class="sh-acts">' +
-        '<a class="sh-act" href="' +
-        esc(dir) +
-        '" target="_blank" rel="noopener"><span class="ic">' +
-        IC.dir +
-        "</span>Directions</a>" +
-        (!W.canEdit()
-          ? ""
-          : '<button type="button" class="sh-act" data-sheetact="swap"><span class="ic">' +
-            IC.swap +
-            "</span>Swap</button>" +
-            '<button type="button" class="sh-act" data-sheetact="move"><span class="ic">' +
-            IC.move +
-            "</span>Move to another day</button>" +
-            '<button type="button" class="sh-act" data-sheetact="reorder"><span class="ic">' +
-            IC.order +
-            "</span>Reorder today</button>") +
-        "</div>" +
-        (!W.canEdit() ? "" : '<p class="small muted sh-tip">Tip: press and hold a photo to swap two stops.</p>' + outBlock(it, x, day, nm));
-    }
-    host.innerHTML = h + "</div>";
-    document.documentElement.classList.add("modal-open");
-    W.backOpen("stop", W.closeStop); /* (Back closes it: lib/back.js) */
-  }
-  function dayList(then) {
-    then();
-  }
-  function sheetAct(a) {
-    var P = W.P,
-      day = P.days[W.S.day - 1],
-      x = slotsOf(day).filter(function (y) {
-        return y.key === sheet.key;
-      })[0],
-      S = W.S;
-    if (!x) {
-      sheet = null;
-      return drawSheet();
-    }
-    if (a === "swap") {
-      sheet = null;
-      drawSheet();
-      dayList(function () {
-        var r = document.querySelector('[data-reroll="' + x.slot + '"]');
-        if (r) r.click();
-      });
-      return;
-    }
-    if (a === "move") {
-      sheet.mode = "move";
-      return drawSheet();
-    }
-    if (a === "reorder") {
-      var lk = sheet.key;
-      sheet = null;
-      drawSheet();
-      dayList(function () {
-        startLift(lk);
-      });
-      return;
-    }
-    if (a === "nope") {
-      sheet.ask = "nope";
-      drawSheet();
-      var q = document.querySelector("#sheethost .sh-out.ask");
-      if (q && q.scrollIntoView) q.scrollIntoView({ block: "nearest" });
-      return;
-    }
-    if (a === "nopeno") {
-      delete sheet.ask;
-      return drawSheet();
-    }
-    if (a === "nopeyes") {
-      /* never this place again in this city: the slot gets a new suggestion */
-      var b4 = snap(),
-        pc = x.trip && day.trip ? [day.trip.country, day.trip.name] : [day.country, day.city];
-      W.sayNo(pc[0], pc[1], x.item, P);
-      sheet = null;
-      drawSheet();
-      W.undoPoint(b4, "We won't suggest it again");
-      W.save();
-      W.changed();
-      return;
-    }
-    if (a === "remove") {
-      var before = snap();
-      (S.free || (S.free = {}))[x.key] = 1;
-      delete S.picks[x.key];
-      if (S.mine) delete S.mine[x.key];
-      sheet = null;
-      drawSheet();
-      W.undoPoint(before, "Left it free");
-      W.save();
-      W.changed();
-      return;
-    }
-  }
   /* exchange two stops (both stay where you put them) */
   function exchange(ka, kb) {
     var S = W.S,
@@ -613,30 +379,6 @@
       delete S.picks[ka];
       f[ka] = 1;
     }
-  }
-  function sheetMove(n) {
-    var P = W.P,
-      day = P.days[W.S.day - 1],
-      x = slotsOf(day).filter(function (y) {
-        return y.key === sheet.key;
-      })[0],
-      d = P.days[+n - 1];
-    var y =
-      d &&
-      slotsOf(d).filter(function (z) {
-        return z.slot === x.slot;
-      })[0];
-    if (!x || !y) return;
-    var before = snap();
-    /* make sure both names are stored, then swap */
-    if (x.item) W.S.picks[x.key] = x.item.n;
-    if (y.item) W.S.picks[y.key] = y.item.n;
-    exchange(x.key, y.key);
-    sheet = null;
-    drawSheet();
-    W.undoPoint(before, "Moved to Day " + d.n);
-    W.save();
-    W.changed();
   }
   /* reorder a day. With a mouse: drag a stop by its photo onto another one. On a phone: press and hold a photo
      (or pick "Swap with another stop today"), then tap the stop to trade places with. */
@@ -721,8 +463,13 @@
       if (W.view() !== "trip") lift = null;
       paintLift();
     }
-    if (sheet && sheet.mode !== "move") drawSheet();
+    if (W.sheetRedraw) W.sheetRedraw();
+    if (W.staySheetRedraw) W.staySheetRedraw();
   };
+  /* (for the stop's sheet, which swaps and reorders through these) */
+  W.exchangeStops = exchange;
+  W.liftStart = startLift;
+  W.snapState = snap;
 
   var drag = null;
   function arm() {
@@ -1163,7 +910,7 @@
       if (!b) {
         var card = e.target.closest && e.target.closest(".slots .slot[data-slotkey]:not(.free):not(.skel)");
         if (card && !e.target.closest(".swap, .slot-notes a")) {
-          openSheet(card.dataset.slotkey);
+          W.openStop(card.dataset.slotkey);
         }
         return;
       }
@@ -1172,10 +919,7 @@
         e.preventDefault();
         e.stopPropagation();
       }
-      if (d.comment && sheet) {
-        sheet = null;
-        drawSheet();
-      }
+      if (d.comment) W.closeStop();
       if (d.quick) {
         stop();
         W.quickStart();
@@ -1184,6 +928,15 @@
       if (d.undo) {
         stop();
         doUndo();
+        return;
+      }
+      if (d.undosee) {
+        stop();
+        undo = null;
+        showUndo();
+        W.S.tview = "days";
+        W.S.glanceOpen = false;
+        goDay(+d.undosee);
         return;
       }
       if (d.nextstep) {
@@ -1202,31 +955,11 @@
       }
       if (d.sheet) {
         stop();
-        openSheet(d.sheet);
+        W.openStop(d.sheet);
         return;
       }
-      if (d.sheetclose) {
-        stop();
-        sheet = null;
-        drawSheet();
-        return;
-      }
-      if (d.sheetback) {
-        stop();
-        sheet.mode = "acts";
-        drawSheet();
-        return;
-      }
-      if (d.sheetact) {
-        stop();
-        sheetAct(d.sheetact);
-        return;
-      }
-      if (d.sheetmove) {
-        stop();
-        sheetMove(d.sheetmove);
-        return;
-      }
+      /* (the sheet's own buttons are its own: screens/sheet.js) */
+      if (d.sheetclose || d.sheetback || d.sheetact || d.sheetmove) return;
       if (d.staygo != null) {
         stop();
         stayGo(+d.staygo);
@@ -1244,10 +977,7 @@
       }
       if (d.gobook) {
         stop();
-        if (sheet) {
-          sheet = null;
-          drawSheet();
-        }
+        W.closeStop();
         goBook(d.gobook);
         return;
       }
@@ -1256,7 +986,7 @@
         goDay(d.goday, d.goopen);
         return;
       }
-      if (d.gostay != null && W.view() !== "trip") {
+      if (d.gostay != null) {
         stop();
         goStay(+d.gostay);
         return;
@@ -1287,10 +1017,8 @@
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Escape") return;
     if (lift) endLift();
-    else if (sheet) {
-      sheet = null;
-      drawSheet();
-    } else if (W.qsClose && W.qsClose()) return;
+    else if (W.closeStop()) return;
+    else if (W.qsClose && W.qsClose()) return;
     else if (W.closeTripMenu) W.closeTripMenu();
   });
   /* the side-by-side map appears above 920px wide: redraw when the window crosses that */

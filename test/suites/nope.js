@@ -40,9 +40,10 @@ exports.run = async t => {
   /* 3. the stop's menu */
   const pm0 = await pg.evaluate(() => { const d = W.P.days[W.S.day - 1], x = d.slots.find(y => y.slot === 'pm' && y.item); W.openStop(x.key); return x.item.n; });
   await pg.waitForTimeout(300);
-  /* it sits apart at the foot, below the links and the other actions, says what it does, and asks once */
-  t.ok(await pg.evaluate(() => { const o = document.querySelector('#sheethost .sh-out'), g = document.querySelector('#sheethost .sh-acts'), n = document.querySelector('#sheethost .sh-out [data-sheetact="nope"]');
-    return !!o && !!g && !!n && !g.querySelector('[data-sheetact="nope"]') && o.getBoundingClientRect().top - g.getBoundingClientRect().bottom >= 24 && /never suggest it/.test(n.textContent); }), 'the stop menu\'s "Not for us" sits apart at the foot and says what it does');
+  /* it is behind "⋯", away from Directions and Swap, says what it does, and asks once */
+  t.ok(await pg.evaluate(() => !document.querySelector('#sheethost [data-sheetact="nope"]') && !!document.querySelector('#sheethost .sh-main [data-sheetact="more"]')), 'a stop\'s sheet keeps "Not for us" out of the way, behind "⋯"');
+  await pg.click('#sheethost [data-sheetact="more"]'); await pg.waitForTimeout(250);
+  t.ok(await pg.evaluate(() => { const n = document.querySelector('#sheethost .sh-menu [data-sheetact="nope"]'); return !!n && /never suggest it/.test(n.textContent) && n === n.parentNode.lastElementChild; }), 'there it is the last row, and says what it does');
   await pg.click('#sheethost [data-sheetact="nope"]'); await pg.waitForTimeout(300);
   t.ok(await pg.evaluate(name => { const x = W.P.days[W.S.day - 1].slots.find(y => y.slot === 'pm'); return x.item && x.item.n === name && /won't be suggested/.test((document.querySelector('#sheethost .sh-out.ask') || {}).textContent || ''); }, pm0), 'one tap only asks (nothing is taken off yet)');
   await pg.click('#sheethost [data-sheetact="nopeno"]'); await pg.waitForTimeout(300);

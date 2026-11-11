@@ -139,6 +139,30 @@
     W.pushBookBy(P);
   };
 
+  /* what the autopilot is, one tap away behind an (i): the list comes first */
+  var aboutOpen = false;
+  function aboutBtn() {
+    return (
+      ' <button type="button" class="icon-btn auto-i" data-autoabout="1" aria-expanded="' +
+      aboutOpen +
+      '" aria-label="What the autopilot does">' +
+      W.icon("info", 2) +
+      "</button>"
+    );
+  }
+  function aboutText() {
+    return (
+      '<p class="small muted auto-about"' +
+      (aboutOpen ? "" : " hidden") +
+      ">Every morning the autopilot reads your inbox for confirmations and puts the next deadlines on your Google Calendar. It never books or pays for anything.</p>"
+    );
+  }
+  document.addEventListener("click", function (e) {
+    var t = /** @type {HTMLElement | null} */ (e.target);
+    if (!t || !t.closest || !t.closest("[data-autoabout]")) return;
+    aboutOpen = !aboutOpen;
+    W.render();
+  });
   /* the line under "Book ahead": when the helper last looked, what it found, where the reminders are */
   W.autoLine = function (list) {
     if (W.readOnly) return "";
@@ -146,8 +170,7 @@
         return c.autopilot;
       }).length,
       cal = Object.keys(auto.cal || {}).length;
-    if (!auto.checked)
-      return '<p class="small muted auto-line">Every morning the autopilot reads your inbox for confirmations and puts the next deadlines on your Google Calendar. It never books or pays for anything.</p>';
+    if (!auto.checked) return '<p class="small muted auto-line">Autopilot is watching your inbox.' + aboutBtn() + "</p>" + aboutText();
     var when = new Date(auto.checked),
       ago = isNaN(when.getTime())
         ? ""
@@ -160,7 +183,9 @@
       (n ? " · " + n + " booking" + (n === 1 ? "" : "s") + " found" : " · nothing new") +
       (cal ? " · " + cal + " reminder" + (cal === 1 ? "" : "s") + " on your calendar" : "") +
       (auto.note ? " · " + W.esc(auto.note) : "") +
-      "</p>"
+      aboutBtn() +
+      "</p>" +
+      aboutText()
     );
   };
 

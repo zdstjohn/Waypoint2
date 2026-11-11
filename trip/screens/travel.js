@@ -759,6 +759,28 @@
       "</a></div>"
     );
   }
+  /* a starting point for directions: a real place, never a stay that isn't picked yet (that is only the middle of
+     the town; with none, the maps app starts where the phone is) */
+  function known(p) {
+    return p && p.none ? null : p;
+  }
+  /** the one link that matters for a stop: a table to book or the menu for a meal, the tickets for a sight (Today's
+      card and the stop's sheet show the same one) @returns {{url: string, t: string} | null} */
+  W.stopLink = function (it, food, day, P) {
+    var off = !food && W.officialUrl ? W.officialUrl(it, food, day.country, day.city) : null,
+      bk = W.bookEntryFor ? W.bookEntryFor(P, day, it) : null,
+      l = food
+        ? it.book
+          ? { url: it.book, t: "Book a table" }
+          : it.menu
+            ? { url: it.menu, t: "Menu" }
+            : null
+        : off
+          ? { url: off.url, t: bk && bk.done ? "Your tickets" : "Tickets" }
+          : null,
+      u = l && W.safeUrl(l.url);
+    return l && u ? { url: u, t: l.t } : null;
+  };
   function heroCard(e, isNow, day, P, from, live, nm, home, nextHtml) {
     if (e.k === "nap" && e.away) {
       return (
@@ -841,17 +863,8 @@
       : live
         ? "Next · " + W.clock(e.start) + " " + slotName(e)
         : "First up · " + W.clock(e.start) + " " + slotName(e);
-    var off = W.officialUrl ? W.officialUrl(it, food, day.country, day.city) : null,
-      bk = W.bookEntryFor ? W.bookEntryFor(P, day, it) : null;
-    var tix = food
-      ? it.book
-        ? { url: it.book, t: "Book a table" }
-        : it.menu
-          ? { url: it.menu, t: "Menu" }
-          : null
-      : off
-        ? { url: off.url, t: bk && bk.done ? "Your tickets" : "Tickets" }
-        : null;
+    var bk = W.bookEntryFor ? W.bookEntryFor(P, day, it) : null,
+      tix = W.stopLink(it, food, day, P);
     var sub = [isNow ? "" : W.stayText(it, food, e.x.slot), bk ? (bk.done ? "Booked" : "Not booked yet") : ""].filter(Boolean).join(" · ");
     return (
       '<section class="go-hero sk' +
@@ -875,13 +888,11 @@
       (isNow
         ? ""
         : '<a class="btn" href="' +
-          esc(W.gmapsDir(live ? null : from, it, lg ? lg.mode : "walk")) +
+          esc(W.gmapsDir(live ? null : known(from), it, lg ? lg.mode : "walk")) +
           '" target="_blank" rel="noopener">' +
           IC.dir +
           "Directions</a>") +
-      (tix && W.safeUrl(tix.url)
-        ? '<a class="btn quiet" href="' + esc(W.safeUrl(tix.url)) + '" target="_blank" rel="noopener">' + IC.ticket + esc(tix.t) + "</a>"
-        : "") +
+      (tix ? '<a class="btn quiet" href="' + esc(tix.url) + '" target="_blank" rel="noopener">' + IC.ticket + esc(tix.t) + "</a>" : "") +
       (W.readOnly
         ? ""
         : '<button type="button" class="icon-btn gh-more" data-sheet="' +
@@ -924,7 +935,7 @@
       (lg ? '<span class="small muted">' + esc(W.fmtMin(lg.min) + " " + lg.label) + "</span>" : "") +
       "</div>" +
       '<a class="btn quiet sm gn-go" href="' +
-      esc(W.gmapsDir(from, it, lg ? lg.mode : "walk")) +
+      esc(W.gmapsDir(known(from), it, lg ? lg.mode : "walk")) +
       '" target="_blank" rel="noopener" aria-label="Directions to ' +
       esc(it.n) +
       '">' +

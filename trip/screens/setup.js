@@ -118,10 +118,7 @@
       return k.indexOf("geo|" + ck) === 0 && W.status[k] === "loading";
     });
     var sub = [from ? (from === to ? from : from + " – " + to) : "", (info && info.d) || ""].filter(Boolean).join(" · ");
-    if (!hb.set && W.sampleState !== "off") {
-      var cur = W.C.city[ck];
-      if (!cur || cur.lodgeFor !== W.lodgeSig() || !cur.lodgeAsked) W.loadLodging(s.country, s.name);
-    }
+    wantLodging(s, hb);
     return (
       '<div class="stop" id="stop-' +
       i +
@@ -193,22 +190,154 @@
       '">' +
       X_ICON +
       "</button></div>" +
-      (open
-        ? '<div class="stay-panel"><div class="row"><input class="field" id="stayIn' +
-          i +
-          '" placeholder="Already booked? Hotel name or address" value="' +
-          esc((S.stays[ck] || {}).label || "") +
-          '"><button type="button" class="btn quiet" data-setstay="' +
-          i +
-          '">Set</button></div>' +
-          (W.liveStays ? W.liveStays(s, W.P) : "") +
-          lodgeCards(s, i) +
-          (W.altLinksFor ? W.altLinksFor("stay", { s: s, dates: stayDatesFor(s) }) : "") +
-          "</div>"
-        : "") +
+      (open ? stayPanel(s, i) : "") +
       "</div>"
     );
   }
+  /* suggestions for where to stay are asked for once per place and party, while no stay is set */
+  function wantLodging(s, hb) {
+    if (hb.set || W.sampleState === "off") return;
+    var cur = W.C.city[W.cityKey(s.country, s.name)];
+    if (!cur || cur.lodgeFor !== W.lodgeSig() || !cur.lodgeAsked) W.loadLodging(s.country, s.name);
+  }
+  /* where to stay in one place: a stay you booked already, a search on Booking.com, the suggested areas and hotels,
+     and other sites. In Plan it opens under the place's row; from any other screen it is a sheet (W.staySheet) */
+  function stayPanel(s, i) {
+    return (
+      '<div class="stay-panel"><div class="row"><input class="field" id="stayIn' +
+      i +
+      '" placeholder="Already booked? Hotel name or address" value="' +
+      esc((S.stays[W.cityKey(s.country, s.name)] || {}).label || "") +
+      '"><button type="button" class="btn quiet" data-setstay="' +
+      i +
+      '">Set</button></div>' +
+      (W.liveStays ? W.liveStays(s, W.P) : "") +
+      lodgeCards(s, i) +
+      (W.altLinksFor ? W.altLinksFor("stay", { s: s, dates: stayDatesFor(s) }) : "") +
+      "</div>"
+    );
+  }
+
+  /* ---------- pick a stay without leaving the screen you are on ----------
+     "Pick a place" on Today, in Prepare and on the Trip tab opens the same panel as a sheet over that screen; picking
+     one (or ×, Escape, a tap beside it, Back) closes it and you are where you were. */
+  /** @type {number | null} */ var staySi = null,
+    stayDrawn = "",
+    stayWas = "";
+  var X16 =
+    '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
+  function fmtIso(iso) {
+    var d = new Date(iso + "T12:00:00");
+    return isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+  function stayLabel(s) {
+    return ((S.stays[W.cityKey(s.country, s.name)] || {}).label || "") + "";
+  }
+  function drawStay() {
+    var host = $("stayhost");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "stayhost";
+      document.body.appendChild(host);
+    }
+    var P = W.P,
+      s = staySi != null && P ? P.stops[staySi] : null;
+    /* (a stay picked: the sheet has done its job) */
+    if (s && stayLabel(s) && stayLabel(s) !== stayWas) s = null;
+    if (!s) {
+      staySi = null;
+      stayDrawn = "";
+      host.innerHTML = "";
+      if (!document.querySelector("#sheethost .sheet, #qshost .sheet")) document.documentElement.classList.remove("modal-open");
+      W.backShut("stay");
+      return;
+    }
+    wantLodging(s, W.homebase(s.country, s.name));
+    var dates = stayDatesFor(s),
+      h =
+        '<div class="sheet-back" data-stayclose="1"></div><div class="sheet stay-sheet" role="dialog" aria-modal="true" tabindex="-1" aria-label="Where to stay in ' +
+        esc(s.name) +
+        '"><div class="grab" aria-hidden="true"></div><div class="sh-top"><div><b>Where to stay in ' +
+        esc(s.name) +
+        '</b><span class="small muted">' +
+        esc(
+          [W.nightsText(P, /** @type {number} */ (staySi)), dates.in && dates.out ? fmtIso(dates.in) + " to " + fmtIso(dates.out) : ""]
+            .filter(Boolean)
+            .join(" · ")
+        ) +
+        '</span></div><button type="button" class="icon-btn" data-stayclose="1" aria-label="Close">' +
+        X16 +
+        '</button></div><div class="stop" id="stop-' +
+        staySi +
+        '">' +
+        stayPanel(s, /** @type {number} */ (staySi)) +
+        "</div></div>";
+    if (h === stayDrawn) return;
+    var first = !stayDrawn;
+    stayDrawn = h;
+    W.keepInputs(host, function () {
+      var sc = host.querySelector(".sheet"),
+        y = sc ? sc.scrollTop : 0;
+      host.innerHTML = h;
+      var now = /** @type {HTMLElement | null} */ (host.querySelector(".sheet"));
+      if (now && first) now.focus({ preventScroll: true });
+      else if (now) now.scrollTop = y;
+    });
+    document.documentElement.classList.add("modal-open");
+    W.backOpen("stay", closeStay);
+  }
+  function closeStay() {
+    if (staySi == null) return false;
+    staySi = null;
+    drawStay();
+    return true;
+  }
+  /** open the stay panel for a place as a sheet over the screen you are on (in Plan, its own row opens instead) */
+  W.staySheet = function (si) {
+    var P = W.P,
+      s = P && P.stops[si];
+    if (!s) return;
+    /* (Plan's own copy of this place's row would share the panel's ids: Plan is drawn afresh when you go there) */
+    var vs = /** @type {any} */ ($("viewSetup"));
+    if (vs && vs.hidden) {
+      vs.innerHTML = "";
+      vs._sig = vs._html = null;
+    }
+    staySi = si;
+    stayWas = stayLabel(s);
+    stayDrawn = "";
+    drawStay();
+  };
+  W.staySheetRedraw = function () {
+    if (staySi != null) drawStay();
+  };
+  W.stayClose = closeStay;
+  /* the sheet's buttons are Plan's own (W.setupClick), whatever screen is under it */
+  document.addEventListener(
+    "click",
+    function (e) {
+      if (staySi == null) return;
+      var t = /** @type {HTMLElement | null} */ (e.target);
+      if (!t || !t.closest || !t.closest("#stayhost")) return;
+      if (t.closest("[data-stayclose]")) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeStay();
+        return;
+      }
+      var b = /** @type {HTMLElement | null} */ (t.closest("button, a"));
+      /* (a plain link out, to Booking.com or a map, is just a link) */
+      if (!b || (b.tagName === "A" && !Object.keys(b.dataset).length)) return;
+      if (b.tagName !== "A") e.preventDefault();
+      e.stopPropagation();
+      W.setupClick(b, b.dataset, W.P);
+      W.save();
+    },
+    false
+  );
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && staySi != null && !document.querySelector("#sheethost .sheet")) closeStay();
+  });
 
   /* suggested stay for one place: enough to see the sights, or a relaxed pace */
   function paceRow(s, i) {

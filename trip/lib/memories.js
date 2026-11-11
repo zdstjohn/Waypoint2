@@ -34,34 +34,18 @@
   };
   W.readyRing = function (P) {
     if (W.readOnly || !P || !P.stops.length) return "";
-    var r = W.readiness(P),
-      C = 2 * Math.PI * 21,
-      off = C * (1 - r.pct / 100);
+    var r = W.readiness(P);
     var parts = [r.book ? r.book + " to book" : "", r.pack ? r.pack + " to pack" : "", r.todo ? r.todo + " to do" : ""].filter(Boolean);
-    var line =
-      r.pct >= 100
-        ? "Ready to go. Have a wonderful trip!"
-        : r.pct >= 75
-          ? "Nearly there!"
-          : r.pct >= 40
-            ? "Coming along nicely."
-            : r.pct > 0
-              ? "A good start."
-              : "Let's get going.";
+    /* one line and a thin bar: the list under the tabs is what you came for (it was a card with a ring, a quarter of
+       a phone's screen) */
     return (
-      '<div class="ready sk"><svg viewBox="0 0 50 50" class="ring" aria-hidden="true"><circle cx="25" cy="25" r="21" class="trk"/><circle cx="25" cy="25" r="21" class="bar" style="--ring-c:' +
-      C.toFixed(1) +
-      '" stroke-dasharray="' +
-      C.toFixed(1) +
-      '" stroke-dashoffset="' +
-      off.toFixed(1) +
-      '"/></svg>' +
-      "<div><b>" +
+      '<div class="ready"><div class="rd-t"><b>' +
       r.pct +
       "% ready</b><span>" +
-      esc(line) +
-      (parts.length ? " " + parts.join(" · ") + "." : "") +
-      "</span></div></div>"
+      esc(r.pct >= 100 ? "Ready to go. Have a wonderful trip!" : parts.join(" · ")) +
+      '</span></div><div class="rd-bar" aria-hidden="true"><i style="width:' +
+      Math.max(2, Math.min(100, r.pct)) +
+      '%"></i></div></div>'
     );
   };
 

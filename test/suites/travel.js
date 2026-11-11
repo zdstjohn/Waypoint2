@@ -117,6 +117,30 @@ exports.run = async t => {
     t.ok(dv.dpill >= 44 && dv.sn !== false, 'day numbers are 44px on a touch screen');
     await o.pg.evaluate(() => scrollTo(0, 0)); await o.pg.click('#viewTrip .today-row'); await o.pg.waitForTimeout(900);
     t.ok(await o.pg.evaluate(() => W.view() === 'go'), 'the line opens Today');
+    /* v149: a stop's sheet opened on Today: Swap takes you to the day with the swap open (it used to do nothing there) */
+    await o.pg.evaluate(() => scrollTo(0, 0)); await o.pg.click('#viewGo .go-hero .gh-more'); await o.pg.waitForTimeout(400);
+    const sh0 = await o.pg.evaluate(() => ({ open: !!document.querySelector('#sheethost .sheet'), dir: (document.querySelector('#sheethost .sh-dir') || {}).href || '', acts: [...document.querySelectorAll('#sheethost .sh-main > *')].length }));
+    await o.pg.click('#sheethost [data-sheetact="swap"]'); await o.pg.waitForTimeout(900);
+    const sw = await o.pg.evaluate(() => ({ view: W.view(), tview: W.S.tview, sheet: !!document.querySelector('#sheethost .sheet'), swap: !!document.querySelector('#viewTrip .swap') }));
+    t.ok(sh0.open && sh0.acts >= 3 && !/origin=/.test(sh0.dir) && sw.view === 'trip' && sw.tview === 'days' && !sw.sheet && sw.swap, 'from Today, a stop\'s sheet gives directions from where you are, and Swap opens the swap on the Day view: ' + JSON.stringify(sw));
+    /* "Pick a place" opens where to stay as a sheet over Today; picking one closes it and you are still on Today */
+    await o.pg.evaluate(() => { const c = document.querySelector('#viewTrip .swap [data-swapclose]'); if (c) c.click(); W.goView('go'); }); await o.pg.waitForTimeout(900);
+    await o.pg.click('#viewGo [data-gostay]'); await o.pg.waitForFunction(() => !!document.querySelector('#stayhost .stay-sheet [data-lstay]'), null, { timeout: 8000 }).catch(() => {});
+    const st1 = await o.pg.evaluate(() => { const s = document.querySelector('#stayhost .stay-sheet'); return { open: !!s, view: W.view(), title: s ? s.querySelector('.sh-top b').textContent : '', picks: s ? s.querySelectorAll('[data-lstay]').length : 0, search: !!(s && s.querySelector('[data-sfq]')), hash: location.hash }; });
+    t.ok(st1.open && st1.view === 'go' && /^Where to stay in /.test(st1.title) && st1.picks > 0 && st1.search && st1.hash === '#today', '"Pick a place" opens where to stay as a sheet over Today, with the Booking.com search and the suggestions: ' + JSON.stringify(st1));
+    await o.pg.click('#stayhost .stay-sheet [data-lstay]'); await o.pg.waitForFunction(() => !document.querySelector('#stayhost .stay-sheet'), null, { timeout: 5000 }).catch(() => {});
+    const st2 = await o.pg.evaluate(() => { const d = W.P.days[W.S.day - 1], st = W.S.stays[W.cityKey(d.country, d.city)]; return { open: !!document.querySelector('#stayhost .stay-sheet'), view: W.view(), stay: st && st.label, undo: !!document.querySelector('[data-undo]'), modal: document.documentElement.classList.contains('modal-open') }; });
+    t.ok(!st2.open && st2.view === 'go' && st2.stay && st2.undo && !st2.modal, 'picking one closes it, with Undo, and you are still on Today: ' + JSON.stringify(st2));
+    /* running late stays late: a stop moved 30 minutes is still moved once the clock passes its old time */
+    const lt = await o.pg.evaluate(async () => {
+      const P = W.plan(), d = P.days[1], rowsOf = () => { const T = W.dayTimes(d, W.P || P); return T.order.map(sl => ({ sl, R: T.rows[sl], x: d.slots.find(y => y.slot === sl) })).filter(r => r.x && r.x.item && r.R && !r.R.skip && r.R.start != null); };
+      W.lateAdd(d, 0); const nm = W.nowMin(), nxt = rowsOf().find(r => r.R.start > nm + 10); if (!nxt) return null; const old = nxt.R.start;
+      W.lateAdd(d, 30); const moved = rowsOf().find(r => r.sl === nxt.sl).R.start;
+      const two = v => String(v).padStart(2, '0'), at = old + 10; localStorage.setItem('waypoint-now', W.isoDay(W.dateOf(2)) + 'T' + two(Math.floor(at / 60)) + ':' + two(at % 60) + ':00');
+      const later = rowsOf().find(r => r.sl === nxt.sl).R.start; W.lateAdd(d, 0); const back = rowsOf().find(r => r.sl === nxt.sl).R.start;
+      return { old, moved, later, back };
+    });
+    t.ok(lt && lt.moved === lt.old + 30 && lt.later === lt.old + 30 && lt.back === lt.old, 'running late holds: 30 minutes later is still 30 minutes later after the stop\'s old time has passed (it used to slip back): ' + JSON.stringify(lt));
     t.eq(o.errors(), [], 'no page errors (now and next)');
     await o.ctx.close();
   }

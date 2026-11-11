@@ -15,6 +15,7 @@
     "mapZoom",
     "jetOpen",
     "late",
+    "lateAt",
     "glanceOpen",
     "nextHide",
     "appMode",

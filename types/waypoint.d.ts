@@ -107,7 +107,7 @@ interface Waypoint {
   placeSearch: (q: string, country: string, city: string) => void;
   searchBlock: (day: Day, P: Plan) => string;
   searchClick: (d: DOMStringMap, day: Day, P: Plan) => boolean;
-  dayRouteUrl: (day: Day, stops: { n: string; lat: number | null; lng: number | null; gid?: string }[], home: { label?: string; n?: string; lat: number | null; lng: number | null }) => string;
+  dayRouteUrl: (day: Day, stops: { n: string; lat: number | null; lng: number | null; gid?: string }[], home: { label?: string; n?: string; lat: number | null; lng: number | null; none?: boolean }) => string;
   loadPins: (country: string, city: string, names: string[]) => void;
   $: (id: string) => HTMLElement | null;
   C: Cache;
@@ -163,7 +163,7 @@ interface Waypoint {
   cityKey: (country: string, city: string) => string;
   classify: (it: Spot | Food, food: boolean) => Classification;
   clock: (m: number) => string;
-  closeStop: any;
+  closeStop: () => boolean;
   closeTripMenu: () => void;
   confetti: any;
   countdown: (P: Plan) => Countdown;
@@ -262,6 +262,10 @@ interface Waypoint {
   lateClick: any;
   lateDinner: (country: string) => boolean;
   lateFor: (day: Day) => number;
+  /** a link led to one day: the Trip tab opens on it, not on today */
+  keepDay: () => void;
+  /** running late: move what has not started `min` minutes later (0: back on time) */
+  lateAdd: (day: Day, min: number) => void;
   lateShift: any;
   leg: (a: LatLng | null | undefined, b: LatLng | null | undefined, quiet?: boolean) => Leg | null;
   legAsk?: (k: string, a: LatLng, b: LatLng, e: Leg) => void;
@@ -418,7 +422,7 @@ interface Waypoint {
   offline: OfflineState;
   onData: (fn: () => void) => void;
   openStay: any;
-  openStop: any;
+  openStop: (key: string) => void;
   packBlock: any;
   packClick: any;
   packReset: () => void;
@@ -530,7 +534,7 @@ interface Waypoint {
   stayText: (it: Spot | Food, food: boolean, slot: string) => string;
   stayTrack: any;
   stopAt: (s: Stop) => LatLng & { label?: string };
-  stopDetails: (P: Plan, day: Day, x: any) => string;
+  stopDetails: (P: Plan, day: Day, x: any, opt?: { noMain?: boolean }) => string;
   vtArea: any;
   standalone: boolean;
   needsClaude: (what: string, inClaude?: string) => string;
@@ -567,7 +571,7 @@ interface Waypoint {
   tripName: () => string;
   tripStats: any;
   tzFor: (country: string) => string;
-  undoPoint: (before: any, label?: string) => void;
+  undoPoint: (before: string | null, label?: string, seeDay?: number) => void;
   unrescue: (day: any) => void;
   useIdea: (day: any, slot: string, name: string, P: Plan) => any;
   view: () => View;
@@ -601,6 +605,19 @@ interface Waypoint {
   laterLoading?: boolean;
   loadLater: () => void;
   needLater: () => boolean;
+  /** where to stay, as a sheet over the screen you are on (screens/setup.js, second script) */
+  staySheet: (si: number) => void;
+  staySheetRedraw: () => void;
+  stayClose: () => boolean;
+  /** a stop's sheet (screens/sheet.js, second script) and what it borrows from screens/flow.js */
+  sheetOpen: (key: string) => void;
+  sheetClose: () => boolean;
+  sheetRedraw: () => void;
+  exchangeStops: (a: string, b: string) => void;
+  liftStart: (key: string) => void;
+  snapState: () => string | null;
+  /** the one link that matters for a stop: a table or menu for a meal, the tickets for a sight */
+  stopLink: (it: any, food: boolean, day: Day, P: Plan) => { url: string; t: string } | null;
   /** open a folded part of Today ("bag", "journal") */
   goOpen: (name: string) => void;
   /** "smooth", or "auto" for someone who asked for less motion */

@@ -112,7 +112,7 @@
       '"' +
       (busy ? " disabled" : "") +
       ">" +
-      '<button type="button" class="btn" data-replan="1"' +
+      '<button type="button" class="btn quiet" data-replan="1"' +
       (busy ? " disabled" : "") +
       ">Replan</button></div>" +
       (busy ? '<p class="loading gr-busy" role="status">Claude is replanning the rest of today…</p>' : "") +

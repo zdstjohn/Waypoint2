@@ -2,6 +2,37 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v149
+
+The other five changes from the design review, and four faults the code review turned up in the same screens.
+- Prepare shows the list first. "0% ready" is one line and a thin bar above the tabs (it was a card with a ring);
+  what the autopilot does is behind an (i) beside its one-line status; a booking's deadline is plain words ("Book
+  now", "by Mar 9": coral only when it is due within two weeks or overdue), not a pill that read as a button.
+  lib/memories.js (W.readyRing), lib/autopilot.js (W.autoLine), app.css.
+- A stop's sheet leads with what you do. Right under the name: Directions (the one main button), the tickets or
+  the table to book, Swap, and "⋯" for the rest (move to another day, reorder today, leave it free, "Not for us",
+  which still asks once). Reviews, Photos and Map are buttons with words. The sheet is its own module in the second
+  script, screens/sheet.js; W.openStop asks for it. It moves the keyboard into the sheet and back to what opened it,
+  and is not rebuilt when nothing changed. The tickets-or-menu link is one helper, W.stopLink, shared with Today.
+- Explore's buttons say what they do: "Add to Day 2:", then a row for each part of the day, "+ Morning · replaces
+  Roman Forum…" or "+ Evening · free now". Adding says what happened ("Added to Day 2 afternoon, in place of …")
+  with "See day" and Undo (W.undoPoint takes the day). "+ Add" sits beside the Day · All days · Explore switch and
+  opens Explore with the search ready.
+- Pick a stay without losing your place: "Pick a place" on Today, in Prepare and on the Trip tab opens where to
+  stay as a sheet over that screen (the same panel as Plan's: your own booking, the Booking.com search, the
+  suggestions); picking one closes it, with Undo. screens/setup.js (stayPanel, W.staySheet).
+- Calmer colour: the chosen view in the Day · All days · Explore switch is the raised white one, like Prepare's
+  tabs; "Replan" and "Find unused files" are quiet buttons. The gradient is the banner and a screen's main button.
+- Fixed, from the code review:
+  - "Running late" slipped back stop by stop as the clock passed each stop's old time. The moment you said so is
+    kept (S.lateAt, this device), and what had not started then stays moved. screens/today.js (W.lateAdd).
+  - On Today, a stop's "Swap" and "Reorder today" did nothing (they need the Day view's cards): they go there first.
+  - With no stay picked, some directions started from the middle of the town: Today's first-up and "after that"
+    cards, the stop's sheet, and the whole-day route (which now runs from the first stop to the last).
+  - A fault while drawing the day could leave every later hop asking Google for its time (W.legWant, now in a
+    try/finally).
+- Back also closes the stay sheet (lib/back.js). First load: the stop's sheet moved to the second script (513 KB).
+
 ## v148
 
 The first five of the ten changes from the design review: the screens you use on the street.
