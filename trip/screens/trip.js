@@ -822,6 +822,594 @@
     })[0];
     return it ? { it: it, c: c } : null;
   }
+  /* The day's stops in order, as the Day tab lists them: today's card, the cards for arriving and leaving, each stop
+     with its number and clock notes, the way from one to the next, the nap, and the way back to where you stay.
+     Returns the list's HTML, the stops' points in order (for the map and the route link) and the day's times. */
+  function dayStops(P, day, home, pool) {
+    var num = 0,
+      pts = [],
+      prevPt = home,
+      list = "",
+      T = W.dayTimes(day, P),
+      wasOut = false;
+    /* on its own, a city has only the handful of ideas built into the app: say so where they've run out */
+    if (
+      W.standalone &&
+      W.sampleState !== "on" &&
+      day.slots.some(function (x) {
+        return !x.item && !(S.free || {})[x.key];
+      })
+    )
+      list +=
+        '<div class="sa-info sa-note">This version has only a few ideas built in for ' +
+        esc(day.city) +
+        " (" +
+        (pool.spots || []).length +
+        " things to do" +
+        ((pool.food || []).length ? ", " + pool.food.length + " places to eat" : ", no restaurants") +
+        "), so some parts of the day are open. " +
+        (W.cloud
+          ? "More come once Claude answers."
+          : '<button type="button" class="linkish" data-acct="in">Sign in</button> for fresh ideas for any city.') +
+        "</div>";
+    list += W.todayCard(day, P, T);
+    if (day.moveFrom) list += legCard(P, day, T);
+    else if (day.tripFirst) list += flightCard(P, day) + jetCard(P);
+    list += W.bookedRow ? W.bookedRow(day) : "";
+    (T && T.order
+      ? T.order.map(function (sl) {
+          return day.slots.filter(function (y) {
+            return y.slot === sl;
+          })[0];
+        })
+      : day.slots
+    ).forEach(function (x) {
+      var it = x.item,
+        food = W.isFood(x.slot),
+        swap = swapOpen === x.slot,
+        R = T && T.rows[x.slot],
+        label = (R && R.label) || W.SLOT_NAME[x.slot];
+      var tm = R && R.start != null && !R.skip ? '<span class="tm">' + W.clock(R.start) + "</span>" : "";
+      /* the day's clock notes, as one quiet line under the stop: warnings first */
+      var notes = R
+        ? R.warn
+            .map(function (w) {
+              return '<span class="warn">' + esc(shortNote(w)) + "</span>";
+            })
+            .join("") +
+          R.info
+            .map(function (w) {
+              return "<span>" + esc(shortNote(w)) + "</span>";
+            })
+            .join("")
+        : "";
+      var bk = it && W.bookingFor ? W.bookingFor(it, day) : null;
+      var booked =
+        (bk
+          ? '<span class="booked-tag" title="' + esc(bk.title || "") + '">✓ Booked' + (bk.ref ? " · " + esc(bk.ref) : "") + "</span>"
+          : "") + (it && W.heartBadge ? W.heartBadge(it) : "");
+      var rr =
+        '<button type="button" class="icon-btn" data-reroll="' +
+        x.slot +
+        '" aria-expanded="' +
+        swap +
+        '" aria-label="Swap ' +
+        W.SLOT_NAME[x.slot].toLowerCase() +
+        '" title="Swap">' +
+        ICON_REROLL +
+        "</button>";
+      /* the end of a day trip: the drive or train back before dinner */
+      if (day.trip && !x.trip && wasOut && prevPt !== home) {
+        var rb = W.leg(prevPt, home);
+        if (rb)
+          list +=
+            '<div class="travel-note">Back from ' +
+            esc(day.trip.name) +
+            " to " +
+            esc(home.label) +
+            " · " +
+            W.fmtMin(rb.min) +
+            " " +
+            rb.label +
+            " " +
+            link(W.gmapsDir(prevPt, home, rb.mode), "Directions") +
+            "</div>";
+        prevPt = home;
+        wasOut = false;
+      }
+      if (it && x.trip) wasOut = true;
+      if (it) {
+        num++;
+        pts.push({ n: it.n, lat: it.lat, lng: it.lng, gid: it.gid, gpin: it.gpin, num: num, i: num, food: food, slot: x.slot, it: it });
+        var lg = W.leg(prevPt, it),
+          from = prevPt;
+        var legTag = lg
+          ? '<span class="leg" title="' +
+            esc(W.fmtMin(lg.min) + " " + lg.label + " · " + W.fmtKm(lg.d) + (from === home ? " from " + home.label : "")) +
+            '"><span class="vh">' +
+            esc(lg.label) +
+            " </span>" +
+            (LEG_IC[lg.mode] || LEG_IC.transit) +
+            esc(W.fmtMin(lg.min)) +
+            "</span>"
+          : "";
+        if (it.lat != null) prevPt = it;
+        var open = false;
+        /* closed: what, when, how long, and the one link you need (tickets or menu). Open: everything else. */
+        var main = food ? W.menuBtn(x.key) + W.bookLink(it, day.city, true, day.country) : W.bookLink(it, day.city, false, day.country);
+        if (P.p.kid && it.k === -1)
+          notes =
+            '<span class="warn">' +
+            esc(W.notForLine ? W.notForLine(P.p) : P.p.toddler ? "Not for toddlers" : "Not for kids") +
+            "</span>" +
+            notes;
+        var meta = food ? [it.cuisine, it.price] : [W.priceText(it.ticket, W.curOf(day.country))];
+        var metaHtml = meta
+          .filter(Boolean)
+          .map(function (m) {
+            return "<span>" + esc(m) + "</span>";
+          })
+          .join("");
+        if (it.st === "closed") notes = '<span class="warn">May have closed</span>' + notes;
+        if (it.st === "unfound") notes = '<span class="warn">Couldn\'t find this place</span>' + notes;
+        if (it.st === "unverified" && food) notes = '<span class="warn">Not checked yet</span>' + notes;
+        if (!food) notes = beachNote(it, P) + notes;
+        var rev =
+          it.love || it.gripe
+            ? '<div class="rev">' +
+              (it.love ? "<span><b>Loved for</b> " + esc(it.love) + "</span>" : "") +
+              (it.gripe ? "<span><b>Watch for</b> " + esc(it.gripe) + "</span>" : "") +
+              "</div>"
+            : "";
+        var more = open
+          ? '<div class="slot-more">' +
+            (metaHtml ? '<div class="meta">' + metaHtml + "</div>" : "") +
+            (food ? "" : beachCheck(it)) +
+            rev +
+            (it.st === "unsure" ? "<p class=\"small muted\">Couldn't confirm it's still open. Worth a quick check.</p>" : "") +
+            (W.altLinksFor ? W.altLinksFor("activity", { it: it, food: food, day: day }) : "") +
+            '<div class="links">' +
+            link(W.reviewsUrl(it.n, day.city), "Reviews") +
+            W.iconLink(W.photosUrl(it.n, day.city), "photos", "Photos of " + it.n) +
+            W.iconLink(W.gmapsPlace(it, day.city), "map", it.n + " in Google Maps") +
+            (lg ? link(W.gmapsDir(from, it, lg.mode), "Directions") : "") +
+            "</div>" +
+            (W.familyActs ? W.familyActs(it, day, x) : "") +
+            "</div>"
+          : "";
+        var ph = W.picture(it, food, day.country, day.city); /* restaurants show only their own photo (never a nearby one) */
+        /* at a glance: what it costs, whether it's booked or due, whether it's indoors */
+        var cls = W.classify(it, food),
+          bkG = !food && W.bookEntryFor ? W.bookEntryFor(P, day, it) : null,
+          bkd = W.bookingFor ? W.bookingFor(it, day) : null;
+        var tags = "";
+        if (!food && it.ticket)
+          tags +=
+            '<span class="gt' +
+            (W.isPaid(it) ? "" : " free") +
+            '">' +
+            esc(
+              String(W.priceText(it.ticket, W.curOf(day.country)))
+                .split(/[,;(·]/)[0]
+                .trim()
+                .slice(0, 18)
+            ) +
+            "</span>";
+        if (bkd || (bkG && bkG.done)) tags += '<span class="gt ok">Booked</span>';
+        else if (bkG && bkG.by)
+          tags +=
+            '<span class="gt due' +
+            (bkG.by < new Date() ? " late" : "") +
+            '">Book by ' +
+            esc(bkG.by.toLocaleDateString(undefined, { month: "short", day: "numeric" })) +
+            "</span>";
+        else if (bkG) tags += '<span class="gt due">Book ahead</span>';
+        if (!food && cls.indoor) tags += '<span class="gt in">Indoors</span>';
+        if (!food && it.fame === 2) tags += '<span class="gt must">Must-see</span>';
+        else if (!food && it.fame === 0) tags += '<span class="gt gem">Hidden gem</span>';
+        if (W.whoTags) tags += W.whoTags(it, food, cls);
+        var glance = tags ? '<span class="gtags">' + tags + "</span>" : "";
+        if (food) {
+          /* meals: one slim row (time, name, menu); everything else is a tap away */
+          /* a stop's card: its marker at the left, in the middle of the card (one column down the whole day, meals
+             and sights alike); its photo at the right, never under the marker; the swap button in the bottom-right corner */
+          list +=
+            '<article class="slot sk food slim' +
+            (ph ? " haspic" : "") +
+            (R && R.skip ? " skipped" : "") +
+            '" data-slotkey="' +
+            esc(x.key) +
+            '">' +
+            W.stopMark(it, true, x.slot, num) +
+            '<div class="slot-body"><button type="button" class="slot-toggle" data-open="' +
+            esc(x.key) +
+            '" aria-haspopup="dialog">' +
+            '<span class="sl-l">' +
+            tm +
+            '<b class="nm">' +
+            esc(it.n) +
+            "</b></span>" +
+            '<span class="when">' +
+            label +
+            (legTag ? " · " + legTag : "") +
+            "</span></button>" +
+            (notes ? '<div class="slot-notes">' + notes + "</div>" : "") +
+            "</div>" +
+            '<div class="slim-a">' +
+            (ph ? '<div class="thumb sm">' + ph + "</div>" : "") +
+            booked +
+            W.menuBtn(x.key) +
+            (W.canEdit() ? rr : "") +
+            "</div></article>";
+        } else {
+          var th = ph ? '<div class="thumb">' + ph + "</div>" : "";
+          list +=
+            '<article class="slot sk' +
+            (ph ? " haspic" : "") +
+            (R && R.skip ? " skipped" : "") +
+            '" data-slotkey="' +
+            esc(x.key) +
+            '">' +
+            W.stopMark(it, false, x.slot, num) +
+            '<div class="slot-body"><button type="button" class="slot-toggle" data-open="' +
+            esc(x.key) +
+            '" aria-haspopup="dialog">' +
+            '<span class="when">' +
+            tm +
+            label +
+            stayChip(it, food, x.slot) +
+            '</span><span class="nm">' +
+            esc(it.n) +
+            '</span><span class="desc">' +
+            esc(it.d) +
+            "</span>" +
+            glance +
+            "</button>" +
+            (main || booked ? '<div class="slot-act">' + booked + main + "</div>" : "") +
+            (notes || legTag ? '<div class="slot-notes">' + legTag + notes + "</div>" : "") +
+            "</div>" +
+            (th || W.canEdit() ? '<div class="slot-btns">' + th + (W.canEdit() ? rr : "") + "</div>" : "") +
+            "</article>";
+        }
+      } else if (R && R.skip && !swap) {
+        /* no time for anything here today (a long journey): nothing to show, except a note like "breakfast before you set off" */
+        if (R.info.length) list += '<div class="travel-note">' + esc(label) + " · " + esc(R.info.join(" · ")) + "</div>";
+      } else if (x.loading) {
+        list +=
+          '<div class="slot sk skel' +
+          (food ? " food" : "") +
+          '" aria-hidden="true"><span class="thumb"></span><span class="sl-b"><i></i><i></i><i></i></span></div>';
+      } else {
+        list +=
+          '<article class="slot sk free slim' +
+          (food ? " food" : "") +
+          '" data-slotkey="' +
+          esc(x.key) +
+          '"><span class="num" style="background:var(--soft)"></span><div class="slot-body"><span class="sl-l">' +
+          tm +
+          '<span class="nm muted">' +
+          (x.rest ? "Rest, pool or playground" : x.free ? "Left free" : "Free time") +
+          '</span></span><span class="when">' +
+          esc(label) +
+          (x.free && !W.readOnly ? " · swap to add something" : "") +
+          "</span>" +
+          "</div>" +
+          (!W.canEdit() || x.rest ? "" : '<div class="slim-a">' + rr + "</div>") +
+          "</article>";
+      }
+      if (swap) list += swapPanel(day, x, P);
+      if (x.slot === "lunch" && P.p.toddler && T && T.nap)
+        list +=
+          '<div class="travel-note nap">' +
+          (T && T.nap ? '<b class="tm">' + W.clock(T.nap.start) + "–" + W.clock(T.nap.end) + "</b> " : "") +
+          (T.nap.away
+            ? "Nap in the stroller or the car: you're out in " + esc(day.trip ? day.trip.name : day.city) + " for the day"
+            : "Nap or rest break back at " + esc(home.label)) +
+          "</div>";
+    });
+    var back = W.leg(prevPt, home);
+    if (back && prevPt !== home)
+      list +=
+        '<div class="travel-note">Back to ' +
+        esc(home.label) +
+        " · " +
+        W.fmtMin(back.min) +
+        " " +
+        back.label +
+        (T && T.back ? ", about " + W.clock(T.back) : "") +
+        " " +
+        link(W.gmapsDir(prevPt, home, back.mode), "Directions") +
+        "</div>";
+    if (day.tripLast && day.n > 1) list += flightCard(P, day);
+    return { list: list, pts: pts, T: T };
+  }
+  /* Every idea for the day's city: on the Day tab folded away under the stops, in Explore the whole screen. What is on
+     the trip comes first (in order), then the rest by what they are near, with Explore's filters and sorting, the
+     cards themselves, "find more", and how to get around. pts are the day's stops in order, T its times. Returns HTML. */
+  function dayIdeas(P, day, home, pool, pts, T, ck, xp) {
+    var h = "";
+    /* every idea for this city, folded away until you want it: what's on the trip first (in order), then the rest */
+    var dayOf = {},
+      SLOT_ORDER = ["breakfast", "am", "lunch", "pm", "dinner", "eve"];
+    P.days.forEach(function (d) {
+      (d.slots || []).forEach(function (x) {
+        if (x.item) dayOf[W.norm(x.item.n)] = { n: d.n, slot: x.slot, ord: d.n * 10 + SLOT_ORDER.indexOf(x.slot) };
+      });
+    });
+    var eat = tab === "eat",
+      all = (eat ? pool.food || [] : pool.spots || []).map(function (it) {
+        return { it: it, on: dayOf[W.norm(it.n)] };
+      });
+    /* Explore: filter and sort the ideas */
+    var F = /** @type {{ near?: boolean; free?: boolean; indoor?: boolean; kids?: boolean; beach?: boolean }} */ (xp ? S.exF || {} : {}),
+      total = all.length,
+      hasBeach =
+        !eat &&
+        P.p.kid &&
+        all.some(function (r) {
+          return W.beachFit && W.beachFit(r.it) === "safe";
+        });
+    if (xp) {
+      var anchors = [home].concat(pts).filter(function (a) {
+        return a && a.lat != null;
+      });
+      all.forEach(function (r) {
+        r.km =
+          r.it.lat != null && anchors.length
+            ? Math.min.apply(
+                null,
+                anchors.map(function (a) {
+                  return W.km(a, r.it);
+                })
+              )
+            : null;
+      });
+      all = all.filter(function (r) {
+        var it = r.it;
+        return (
+          (!F.near || (r.km != null && r.km <= 1.5)) &&
+          (eat || !F.free || !W.isPaid(it)) &&
+          (eat || !F.indoor || isIndoor(it)) &&
+          (!F.kids || !P.p.kid || it.k > 0) &&
+          (eat || !F.beach || !hasBeach || W.beachFit(it) === "safe")
+        );
+      });
+    }
+    /* places the check could not find, and duplicates, stay out of the list altogether */
+    all = all.filter(function (x) {
+      return x.on || (!W.gone(x.it) && !W.isNope(day.country, day.city, x.it));
+    }); /* and what you said no to */
+    var planned = all
+        .filter(function (x) {
+          return x.on;
+        })
+        .sort(function (a, b) {
+          return a.on.ord - b.on.ord;
+        }),
+      rest = all.filter(function (x) {
+        return !x.on;
+      });
+    var free = day.slots.filter(function (x) {
+        return W.isFood(x.slot) === eat;
+      }),
+      folded = S.tripFolded !== false; /* the route card already shows today: what's on the trip starts folded */
+    /* the rest, by what they're near: each idea under the stop of today it is closest to (or where you stay), with
+       the time to get there; then what is further out, then what has no pin */
+    var groups = [],
+      restShown = [];
+    if (xp) {
+      var A = /** @type {{ a: any, label: string, sub: string, home?: boolean }[]} */ (
+        pts
+          .filter(function (p) {
+            return p.lat != null;
+          })
+          .map(function (p) {
+            var R = T && T.rows[p.slot];
+            return { a: p, label: p.n, sub: (R && R.label) || W.SLOT_NAME[p.slot] };
+          })
+      ).concat(home.lat != null ? [{ a: home, label: "where you're staying", sub: "", home: true }] : []);
+      var byA = A.map(function () {
+          return /** @type {any[]} */ ([]);
+        }),
+        far = [],
+        nopin = [];
+      rest.forEach(function (r) {
+        if (r.it.lat == null || !A.length) {
+          nopin.push(r);
+          return;
+        }
+        var best = -1,
+          bd = 1e9;
+        A.forEach(function (x, i) {
+          var d = W.km(x.a, r.it);
+          if (d != null && d < bd) {
+            bd = d;
+            best = i;
+          }
+        });
+        var lg = W.leg(A[best].a, r.it);
+        r.km = bd;
+        r.near = lg ? W.fmtMin(lg.min) + " " + lg.label + " from " + (A[best].home ? "where you're staying" : A[best].label) : "";
+        (bd <= 3 ? byA[best] : far).push(r);
+      });
+      var cap = showAll ? 999 : 3;
+      /* in each group the places the nightly check confirmed come first, then those not checked yet, then the doubtful
+         ones (couldn't confirm, or not found on the web), each by distance */
+      var tier = function (it) {
+        return it.st === "open" ? 0 : !it.st ? 1 : it.st === "unsure" ? 2 : 3;
+      };
+      var byTier = function (a, b) {
+        return tier(a.it) - tier(b.it) || a.km - b.km;
+      };
+      A.forEach(function (x, i) {
+        if (!byA[i].length) return;
+        byA[i].sort(byTier);
+        groups.push({ h: x.home ? "Near where you're staying" : "Near " + x.label, sub: x.sub, rows: byA[i].slice(0, cap) });
+      });
+      far.sort(byTier);
+      nopin.sort(function (a, b) {
+        return tier(a.it) - tier(b.it);
+      });
+      if (far.length) groups.push({ h: "Further out", sub: "", rows: far.slice(0, cap) });
+      if (nopin.length) groups.push({ h: "Elsewhere in " + day.city, sub: "", rows: nopin.slice(0, cap) });
+      groups.forEach(function (g) {
+        restShown = restShown.concat(g.rows);
+      });
+    }
+    var moreBusy = W.cityBusy(ck);
+    function ideaCard(row) {
+      var it = row.it,
+        on = row.on,
+        info = [
+          W.stayText(it, eat, it.meal === "breakfast" ? "breakfast" : it.meal === "dinner" ? "dinner" : ""),
+          eat ? it.cuisine : W.priceText(it.ticket, W.curOf(day.country)),
+          eat ? it.price : ""
+        ]
+          .filter(Boolean)
+          .join(" · ");
+      var ph = W.picture(it, eat, day.country, day.city, { credit: true }),
+        onTag = on ? '<span class="on">' + (on.n === day.n ? "Today" : "Day " + on.n) + " · " + W.SLOT_NAME[on.slot] + "</span>" : "";
+      var bTag = !eat && P.p.kid && W.beachFit && W.beachFit(it) === "safe" ? '<span class="bc good">Calm and shallow</span>' : "";
+      /* the group's food needs (Plan, step 3) */
+      var ef = eat && W.eatFit ? W.eatFit(it) : "";
+      if (ef === "good") bTag += '<span class="bc good" title="' + esc(W.eatWhy(it)) + '">Good for your food needs</span>';
+      else if (ef === "poor") bTag += '<span class="warn" title="' + esc(W.eatWhy(it)) + '">Hard for your food needs</span>';
+      return (
+        '<div class="idea' +
+        (ph ? " has-photo" : "") +
+        '">' +
+        (ph ? '<div class="pic-wrap">' + ph + onTag + "</div>" : onTag) +
+        "<h4>" +
+        esc(it.n) +
+        "</h4>" +
+        bTag +
+        '<p class="desc">' +
+        esc(it.d) +
+        "</p>" +
+        (row.near ? '<p class="near">' + esc(row.near) + "</p>" : "") +
+        (info ? '<p class="small muted">' + esc(info) + "</p>" : "") +
+        /* the row: the links only (v118: no "checked" mark, no kids mark, and "Not for us" lives on a stop's own panel
+           and on the swap cards, where a place is already on the day) */
+        '<div class="small idea-meta">' +
+        (eat ? W.menuLink(it, day.city) : "") +
+        W.bookLink(it, day.city, eat, day.country) +
+        W.iconLink(W.photosUrl(it.n, day.city), "photos", "Photos of " + it.n) +
+        W.iconLink(W.gmapsPlace(it, day.city), "map", it.n + " in Google Maps") +
+        "</div>" +
+        ((on && on.n === day.n) || !free.length
+          ? ""
+          : '<div class="use">' +
+            free
+              .map(function (x) {
+                return (
+                  '<button type="button" data-use="' +
+                  x.slot +
+                  '" data-name="' +
+                  esc(it.n) +
+                  '" aria-label="Put ' +
+                  esc(it.n) +
+                  " in " +
+                  W.SLOT_NAME[x.slot].toLowerCase() +
+                  '">' +
+                  W.SLOT_NAME[x.slot] +
+                  "</button>"
+                );
+              })
+              .join("") +
+            "</div>") +
+        "</div>"
+      );
+    }
+    if (xp)
+      h +=
+        '<section class="ideas sk"><div class="ideas-t"><h2>Ideas in ' +
+        esc(day.city) +
+        '</h2><span class="small muted">' +
+        (pool.spots || []).length +
+        " things to do · " +
+        (pool.food || []).length +
+        " places to eat</span></div>" +
+        '<div class="ideas-h"><div class="row"><div class="seg" role="group" aria-label="Ideas">' +
+        '<button type="button" data-tab="do" aria-pressed="' +
+        !eat +
+        '">Things to do (' +
+        (pool.spots || []).length +
+        ")</button>" +
+        '<button type="button" data-tab="eat" aria-pressed="' +
+        eat +
+        '">Places to eat (' +
+        (pool.food || []).length +
+        ")</button></div>" +
+        (pool.fallback
+          ? ""
+          : moreBusy
+            ? '<span class="loading">Finding more…</span>'
+            : W.ideasFull(pool)
+              ? '<span class="small muted">Plenty to choose from</span>'
+              : '<button type="button" class="btn ghost" data-more="1">Find more</button>') +
+        "</div></div>" +
+        (xp ? exChips(F, eat, P, hasBeach, all.length, total) : "") +
+        '<div class="idea-list">' +
+        (planned.length
+          ? '<h3 class="idea-group"><button type="button" class="fold" data-foldtrip="1" aria-expanded="' +
+            !folded +
+            '">' +
+            '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="' +
+            (folded ? "M6 3l5 5-5 5" : "M3 6l5 5 5-5") +
+            '"/></svg>' +
+            "On your trip <span>(" +
+            planned.length +
+            ")</span><em>" +
+            (folded ? "show" : "hide") +
+            "</em></button></h3>" +
+            (folded ? "" : planned.map(ideaCard).join(""))
+          : "") +
+        groups
+          .map(function (g) {
+            return (
+              '<h3 class="idea-group near-g">' +
+              esc(g.h) +
+              (g.sub ? " <span>(" + esc(g.sub.toLowerCase()) + ")</span>" : "") +
+              "</h3>" +
+              g.rows.map(ideaCard).join("")
+            );
+          })
+          .join("") +
+        "</div>" +
+        (rest.length > restShown.length || (showAll && rest.length > 6)
+          ? '<div><button type="button" class="btn quiet" data-showall="1">' +
+            (showAll ? "Show fewer" : "Show all " + rest.length) +
+            "</button></div>"
+          : "") +
+        nopeList(day) +
+        "</section>";
+
+    if (xp && pool.transit) {
+      var t = pool.transit,
+        rows = [
+          ["Transit", t.system],
+          ["Best pass", t.pass],
+          ["From airport", t.airport],
+          ["Tip", t.tip]
+        ].filter(function (x) {
+          return x[1];
+        });
+      if (rows.length)
+        h +=
+          '<details class="transit sk" data-fold="transit"' +
+          (S.transitOpen ? " open" : "") +
+          "><summary>Getting around " +
+          esc(day.city) +
+          "</summary>" +
+          rows
+            .map(function (x) {
+              return '<div><span class="k">' + x[0] + "</span><span>" + esc(x[1]) + "</span></div>";
+            })
+            .join("") +
+          "</details>";
+    }
+    return h;
+  }
   W.renderTrip = function (P, target) {
     /* the map is a way of looking at the trip (Day · Explore); the old Explore view draws the same thing */
     if (S.tview === /** @type {any} */ ("story")) S.tview = "days"; /* the storybook was removed in v118 */
@@ -1035,301 +1623,10 @@
               .join("") +
             "</div>";
     } else {
-      var num = 0,
-        pts = [],
-        prevPt = home,
-        list = "",
-        T = W.dayTimes(day, P),
-        wasOut = false;
-      /* on its own, a city has only the handful of ideas built into the app: say so where they've run out */
-      if (
-        W.standalone &&
-        W.sampleState !== "on" &&
-        day.slots.some(function (x) {
-          return !x.item && !(S.free || {})[x.key];
-        })
-      )
-        list +=
-          '<div class="sa-info sa-note">This version has only a few ideas built in for ' +
-          esc(day.city) +
-          " (" +
-          (pool.spots || []).length +
-          " things to do" +
-          ((pool.food || []).length ? ", " + pool.food.length + " places to eat" : ", no restaurants") +
-          "), so some parts of the day are open. " +
-          (W.cloud
-            ? "More come once Claude answers."
-            : '<button type="button" class="linkish" data-acct="in">Sign in</button> for fresh ideas for any city.') +
-          "</div>";
-      list += W.todayCard(day, P, T);
-      if (day.moveFrom) list += legCard(P, day, T);
-      else if (day.tripFirst) list += flightCard(P, day) + jetCard(P);
-      list += W.bookedRow ? W.bookedRow(day) : "";
-      (T && T.order
-        ? T.order.map(function (sl) {
-            return day.slots.filter(function (y) {
-              return y.slot === sl;
-            })[0];
-          })
-        : day.slots
-      ).forEach(function (x) {
-        var it = x.item,
-          food = W.isFood(x.slot),
-          swap = swapOpen === x.slot,
-          R = T && T.rows[x.slot],
-          label = (R && R.label) || W.SLOT_NAME[x.slot];
-        var tm = R && R.start != null && !R.skip ? '<span class="tm">' + W.clock(R.start) + "</span>" : "";
-        /* the day's clock notes, as one quiet line under the stop: warnings first */
-        var notes = R
-          ? R.warn
-              .map(function (w) {
-                return '<span class="warn">' + esc(shortNote(w)) + "</span>";
-              })
-              .join("") +
-            R.info
-              .map(function (w) {
-                return "<span>" + esc(shortNote(w)) + "</span>";
-              })
-              .join("")
-          : "";
-        var bk = it && W.bookingFor ? W.bookingFor(it, day) : null;
-        var booked =
-          (bk
-            ? '<span class="booked-tag" title="' + esc(bk.title || "") + '">✓ Booked' + (bk.ref ? " · " + esc(bk.ref) : "") + "</span>"
-            : "") + (it && W.heartBadge ? W.heartBadge(it) : "");
-        var rr =
-          '<button type="button" class="icon-btn" data-reroll="' +
-          x.slot +
-          '" aria-expanded="' +
-          swap +
-          '" aria-label="Swap ' +
-          W.SLOT_NAME[x.slot].toLowerCase() +
-          '" title="Swap">' +
-          ICON_REROLL +
-          "</button>";
-        /* the end of a day trip: the drive or train back before dinner */
-        if (day.trip && !x.trip && wasOut && prevPt !== home) {
-          var rb = W.leg(prevPt, home);
-          if (rb)
-            list +=
-              '<div class="travel-note">Back from ' +
-              esc(day.trip.name) +
-              " to " +
-              esc(home.label) +
-              " · " +
-              W.fmtMin(rb.min) +
-              " " +
-              rb.label +
-              " " +
-              link(W.gmapsDir(prevPt, home, rb.mode), "Directions") +
-              "</div>";
-          prevPt = home;
-          wasOut = false;
-        }
-        if (it && x.trip) wasOut = true;
-        if (it) {
-          num++;
-          pts.push({ n: it.n, lat: it.lat, lng: it.lng, gid: it.gid, gpin: it.gpin, num: num, i: num, food: food, slot: x.slot, it: it });
-          var lg = W.leg(prevPt, it),
-            from = prevPt;
-          var legTag = lg
-            ? '<span class="leg" title="' +
-              esc(W.fmtMin(lg.min) + " " + lg.label + " · " + W.fmtKm(lg.d) + (from === home ? " from " + home.label : "")) +
-              '"><span class="vh">' +
-              esc(lg.label) +
-              " </span>" +
-              (LEG_IC[lg.mode] || LEG_IC.transit) +
-              esc(W.fmtMin(lg.min)) +
-              "</span>"
-            : "";
-          if (it.lat != null) prevPt = it;
-          var open = false;
-          /* closed: what, when, how long, and the one link you need (tickets or menu). Open: everything else. */
-          var main = food ? W.menuBtn(x.key) + W.bookLink(it, day.city, true, day.country) : W.bookLink(it, day.city, false, day.country);
-          if (P.p.kid && it.k === -1)
-            notes =
-              '<span class="warn">' +
-              esc(W.notForLine ? W.notForLine(P.p) : P.p.toddler ? "Not for toddlers" : "Not for kids") +
-              "</span>" +
-              notes;
-          var meta = food ? [it.cuisine, it.price] : [W.priceText(it.ticket, W.curOf(day.country))];
-          var metaHtml = meta
-            .filter(Boolean)
-            .map(function (m) {
-              return "<span>" + esc(m) + "</span>";
-            })
-            .join("");
-          if (it.st === "closed") notes = '<span class="warn">May have closed</span>' + notes;
-          if (it.st === "unfound") notes = '<span class="warn">Couldn\'t find this place</span>' + notes;
-          if (it.st === "unverified" && food) notes = '<span class="warn">Not checked yet</span>' + notes;
-          if (!food) notes = beachNote(it, P) + notes;
-          var rev =
-            it.love || it.gripe
-              ? '<div class="rev">' +
-                (it.love ? "<span><b>Loved for</b> " + esc(it.love) + "</span>" : "") +
-                (it.gripe ? "<span><b>Watch for</b> " + esc(it.gripe) + "</span>" : "") +
-                "</div>"
-              : "";
-          var more = open
-            ? '<div class="slot-more">' +
-              (metaHtml ? '<div class="meta">' + metaHtml + "</div>" : "") +
-              (food ? "" : beachCheck(it)) +
-              rev +
-              (it.st === "unsure" ? "<p class=\"small muted\">Couldn't confirm it's still open. Worth a quick check.</p>" : "") +
-              (W.altLinksFor ? W.altLinksFor("activity", { it: it, food: food, day: day }) : "") +
-              '<div class="links">' +
-              link(W.reviewsUrl(it.n, day.city), "Reviews") +
-              W.iconLink(W.photosUrl(it.n, day.city), "photos", "Photos of " + it.n) +
-              W.iconLink(W.gmapsPlace(it, day.city), "map", it.n + " in Google Maps") +
-              (lg ? link(W.gmapsDir(from, it, lg.mode), "Directions") : "") +
-              "</div>" +
-              (W.familyActs ? W.familyActs(it, day, x) : "") +
-              "</div>"
-            : "";
-          var ph = W.picture(it, food, day.country, day.city); /* restaurants show only their own photo (never a nearby one) */
-          /* at a glance: what it costs, whether it's booked or due, whether it's indoors */
-          var cls = W.classify(it, food),
-            bkG = !food && W.bookEntryFor ? W.bookEntryFor(P, day, it) : null,
-            bkd = W.bookingFor ? W.bookingFor(it, day) : null;
-          var tags = "";
-          if (!food && it.ticket)
-            tags +=
-              '<span class="gt' +
-              (W.isPaid(it) ? "" : " free") +
-              '">' +
-              esc(
-                String(W.priceText(it.ticket, W.curOf(day.country)))
-                  .split(/[,;(·]/)[0]
-                  .trim()
-                  .slice(0, 18)
-              ) +
-              "</span>";
-          if (bkd || (bkG && bkG.done)) tags += '<span class="gt ok">Booked</span>';
-          else if (bkG && bkG.by)
-            tags +=
-              '<span class="gt due' +
-              (bkG.by < new Date() ? " late" : "") +
-              '">Book by ' +
-              esc(bkG.by.toLocaleDateString(undefined, { month: "short", day: "numeric" })) +
-              "</span>";
-          else if (bkG) tags += '<span class="gt due">Book ahead</span>';
-          if (!food && cls.indoor) tags += '<span class="gt in">Indoors</span>';
-          if (!food && it.fame === 2) tags += '<span class="gt must">Must-see</span>';
-          else if (!food && it.fame === 0) tags += '<span class="gt gem">Hidden gem</span>';
-          if (W.whoTags) tags += W.whoTags(it, food, cls);
-          var glance = tags ? '<span class="gtags">' + tags + "</span>" : "";
-          if (food) {
-            /* meals: one slim row (time, name, menu); everything else is a tap away */
-            /* a stop's card: its marker at the left, in the middle of the card (one column down the whole day, meals
-               and sights alike); its photo at the right, never under the marker; the swap button in the bottom-right corner */
-            list +=
-              '<article class="slot sk food slim' +
-              (ph ? " haspic" : "") +
-              (R && R.skip ? " skipped" : "") +
-              '" data-slotkey="' +
-              esc(x.key) +
-              '">' +
-              W.stopMark(it, true, x.slot, num) +
-              '<div class="slot-body"><button type="button" class="slot-toggle" data-open="' +
-              esc(x.key) +
-              '" aria-haspopup="dialog">' +
-              '<span class="sl-l">' +
-              tm +
-              '<b class="nm">' +
-              esc(it.n) +
-              "</b></span>" +
-              '<span class="when">' +
-              label +
-              (legTag ? " · " + legTag : "") +
-              "</span></button>" +
-              (notes ? '<div class="slot-notes">' + notes + "</div>" : "") +
-              "</div>" +
-              '<div class="slim-a">' +
-              (ph ? '<div class="thumb sm">' + ph + "</div>" : "") +
-              booked +
-              W.menuBtn(x.key) +
-              (W.canEdit() ? rr : "") +
-              "</div></article>";
-          } else {
-            var th = ph ? '<div class="thumb">' + ph + "</div>" : "";
-            list +=
-              '<article class="slot sk' +
-              (ph ? " haspic" : "") +
-              (R && R.skip ? " skipped" : "") +
-              '" data-slotkey="' +
-              esc(x.key) +
-              '">' +
-              W.stopMark(it, false, x.slot, num) +
-              '<div class="slot-body"><button type="button" class="slot-toggle" data-open="' +
-              esc(x.key) +
-              '" aria-haspopup="dialog">' +
-              '<span class="when">' +
-              tm +
-              label +
-              stayChip(it, food, x.slot) +
-              '</span><span class="nm">' +
-              esc(it.n) +
-              '</span><span class="desc">' +
-              esc(it.d) +
-              "</span>" +
-              glance +
-              "</button>" +
-              (main || booked ? '<div class="slot-act">' + booked + main + "</div>" : "") +
-              (notes || legTag ? '<div class="slot-notes">' + legTag + notes + "</div>" : "") +
-              "</div>" +
-              (th || W.canEdit() ? '<div class="slot-btns">' + th + (W.canEdit() ? rr : "") + "</div>" : "") +
-              "</article>";
-          }
-        } else if (R && R.skip && !swap) {
-          /* no time for anything here today (a long journey): nothing to show, except a note like "breakfast before you set off" */
-          if (R.info.length) list += '<div class="travel-note">' + esc(label) + " · " + esc(R.info.join(" · ")) + "</div>";
-        } else if (x.loading) {
-          list +=
-            '<div class="slot sk skel' +
-            (food ? " food" : "") +
-            '" aria-hidden="true"><span class="thumb"></span><span class="sl-b"><i></i><i></i><i></i></span></div>';
-        } else {
-          list +=
-            '<article class="slot sk free slim' +
-            (food ? " food" : "") +
-            '" data-slotkey="' +
-            esc(x.key) +
-            '"><span class="num" style="background:var(--soft)"></span><div class="slot-body"><span class="sl-l">' +
-            tm +
-            '<span class="nm muted">' +
-            (x.rest ? "Rest, pool or playground" : x.free ? "Left free" : "Free time") +
-            '</span></span><span class="when">' +
-            esc(label) +
-            (x.free && !W.readOnly ? " · swap to add something" : "") +
-            "</span>" +
-            "</div>" +
-            (!W.canEdit() || x.rest ? "" : '<div class="slim-a">' + rr + "</div>") +
-            "</article>";
-        }
-        if (swap) list += swapPanel(day, x, P);
-        if (x.slot === "lunch" && P.p.toddler && T && T.nap)
-          list +=
-            '<div class="travel-note nap">' +
-            (T && T.nap ? '<b class="tm">' + W.clock(T.nap.start) + "–" + W.clock(T.nap.end) + "</b> " : "") +
-            (T.nap.away
-              ? "Nap in the stroller or the car: you're out in " + esc(day.trip ? day.trip.name : day.city) + " for the day"
-              : "Nap or rest break back at " + esc(home.label)) +
-            "</div>";
-      });
-      var back = W.leg(prevPt, home);
-      if (back && prevPt !== home)
-        list +=
-          '<div class="travel-note">Back to ' +
-          esc(home.label) +
-          " · " +
-          W.fmtMin(back.min) +
-          " " +
-          back.label +
-          (T && T.back ? ", about " + W.clock(T.back) : "") +
-          " " +
-          link(W.gmapsDir(prevPt, home, back.mode), "Directions") +
-          "</div>";
-      if (day.tripLast && day.n > 1) list += flightCard(P, day);
+      var stops = dayStops(P, day, home, pool),
+        pts = stops.pts,
+        list = stops.list,
+        T = stops.T;
 
       var stopsLL = pts.filter(function (p) {
         return p.lat != null;
@@ -1423,286 +1720,7 @@
         h += freeTime(day, P, T);
       }
 
-      /* every idea for this city, folded away until you want it: what's on the trip first (in order), then the rest */
-      var dayOf = {},
-        SLOT_ORDER = ["breakfast", "am", "lunch", "pm", "dinner", "eve"];
-      P.days.forEach(function (d) {
-        (d.slots || []).forEach(function (x) {
-          if (x.item) dayOf[W.norm(x.item.n)] = { n: d.n, slot: x.slot, ord: d.n * 10 + SLOT_ORDER.indexOf(x.slot) };
-        });
-      });
-      var eat = tab === "eat",
-        all = (eat ? pool.food || [] : pool.spots || []).map(function (it) {
-          return { it: it, on: dayOf[W.norm(it.n)] };
-        });
-      /* Explore: filter and sort the ideas */
-      var F = /** @type {{ near?: boolean; free?: boolean; indoor?: boolean; kids?: boolean; beach?: boolean }} */ (xp ? S.exF || {} : {}),
-        total = all.length,
-        hasBeach =
-          !eat &&
-          P.p.kid &&
-          all.some(function (r) {
-            return W.beachFit && W.beachFit(r.it) === "safe";
-          });
-      if (xp) {
-        var anchors = [home].concat(pts).filter(function (a) {
-          return a && a.lat != null;
-        });
-        all.forEach(function (r) {
-          r.km =
-            r.it.lat != null && anchors.length
-              ? Math.min.apply(
-                  null,
-                  anchors.map(function (a) {
-                    return W.km(a, r.it);
-                  })
-                )
-              : null;
-        });
-        all = all.filter(function (r) {
-          var it = r.it;
-          return (
-            (!F.near || (r.km != null && r.km <= 1.5)) &&
-            (eat || !F.free || !W.isPaid(it)) &&
-            (eat || !F.indoor || isIndoor(it)) &&
-            (!F.kids || !P.p.kid || it.k > 0) &&
-            (eat || !F.beach || !hasBeach || W.beachFit(it) === "safe")
-          );
-        });
-      }
-      /* places the check could not find, and duplicates, stay out of the list altogether */
-      all = all.filter(function (x) {
-        return x.on || (!W.gone(x.it) && !W.isNope(day.country, day.city, x.it));
-      }); /* and what you said no to */
-      var planned = all
-          .filter(function (x) {
-            return x.on;
-          })
-          .sort(function (a, b) {
-            return a.on.ord - b.on.ord;
-          }),
-        rest = all.filter(function (x) {
-          return !x.on;
-        });
-      var free = day.slots.filter(function (x) {
-          return W.isFood(x.slot) === eat;
-        }),
-        folded = S.tripFolded !== false; /* the route card already shows today: what's on the trip starts folded */
-      /* the rest, by what they're near: each idea under the stop of today it is closest to (or where you stay), with
-         the time to get there; then what is further out, then what has no pin */
-      var groups = [],
-        restShown = [];
-      if (xp) {
-        var A = /** @type {{ a: any, label: string, sub: string, home?: boolean }[]} */ (
-          pts
-            .filter(function (p) {
-              return p.lat != null;
-            })
-            .map(function (p) {
-              var R = T && T.rows[p.slot];
-              return { a: p, label: p.n, sub: (R && R.label) || W.SLOT_NAME[p.slot] };
-            })
-        ).concat(home.lat != null ? [{ a: home, label: "where you're staying", sub: "", home: true }] : []);
-        var byA = A.map(function () {
-            return /** @type {any[]} */ ([]);
-          }),
-          far = [],
-          nopin = [];
-        rest.forEach(function (r) {
-          if (r.it.lat == null || !A.length) {
-            nopin.push(r);
-            return;
-          }
-          var best = -1,
-            bd = 1e9;
-          A.forEach(function (x, i) {
-            var d = W.km(x.a, r.it);
-            if (d != null && d < bd) {
-              bd = d;
-              best = i;
-            }
-          });
-          var lg = W.leg(A[best].a, r.it);
-          r.km = bd;
-          r.near = lg ? W.fmtMin(lg.min) + " " + lg.label + " from " + (A[best].home ? "where you're staying" : A[best].label) : "";
-          (bd <= 3 ? byA[best] : far).push(r);
-        });
-        var cap = showAll ? 999 : 3;
-        /* in each group the places the nightly check confirmed come first, then those not checked yet, then the doubtful
-           ones (couldn't confirm, or not found on the web), each by distance */
-        var tier = function (it) {
-          return it.st === "open" ? 0 : !it.st ? 1 : it.st === "unsure" ? 2 : 3;
-        };
-        var byTier = function (a, b) {
-          return tier(a.it) - tier(b.it) || a.km - b.km;
-        };
-        A.forEach(function (x, i) {
-          if (!byA[i].length) return;
-          byA[i].sort(byTier);
-          groups.push({ h: x.home ? "Near where you're staying" : "Near " + x.label, sub: x.sub, rows: byA[i].slice(0, cap) });
-        });
-        far.sort(byTier);
-        nopin.sort(function (a, b) {
-          return tier(a.it) - tier(b.it);
-        });
-        if (far.length) groups.push({ h: "Further out", sub: "", rows: far.slice(0, cap) });
-        if (nopin.length) groups.push({ h: "Elsewhere in " + day.city, sub: "", rows: nopin.slice(0, cap) });
-        groups.forEach(function (g) {
-          restShown = restShown.concat(g.rows);
-        });
-      }
-      var moreBusy = W.cityBusy(ck);
-      function ideaCard(row) {
-        var it = row.it,
-          on = row.on,
-          info = [
-            W.stayText(it, eat, it.meal === "breakfast" ? "breakfast" : it.meal === "dinner" ? "dinner" : ""),
-            eat ? it.cuisine : W.priceText(it.ticket, W.curOf(day.country)),
-            eat ? it.price : ""
-          ]
-            .filter(Boolean)
-            .join(" · ");
-        var ph = W.picture(it, eat, day.country, day.city, { credit: true }),
-          onTag = on ? '<span class="on">' + (on.n === day.n ? "Today" : "Day " + on.n) + " · " + W.SLOT_NAME[on.slot] + "</span>" : "";
-        var bTag = !eat && P.p.kid && W.beachFit && W.beachFit(it) === "safe" ? '<span class="bc good">Calm and shallow</span>' : "";
-        /* the group's food needs (Plan, step 3) */
-        var ef = eat && W.eatFit ? W.eatFit(it) : "";
-        if (ef === "good") bTag += '<span class="bc good" title="' + esc(W.eatWhy(it)) + '">Good for your food needs</span>';
-        else if (ef === "poor") bTag += '<span class="warn" title="' + esc(W.eatWhy(it)) + '">Hard for your food needs</span>';
-        return (
-          '<div class="idea' +
-          (ph ? " has-photo" : "") +
-          '">' +
-          (ph ? '<div class="pic-wrap">' + ph + onTag + "</div>" : onTag) +
-          "<h4>" +
-          esc(it.n) +
-          "</h4>" +
-          bTag +
-          '<p class="desc">' +
-          esc(it.d) +
-          "</p>" +
-          (row.near ? '<p class="near">' + esc(row.near) + "</p>" : "") +
-          (info ? '<p class="small muted">' + esc(info) + "</p>" : "") +
-          /* the row: the links only (v118: no "checked" mark, no kids mark, and "Not for us" lives on a stop's own panel
-             and on the swap cards, where a place is already on the day) */
-          '<div class="small idea-meta">' +
-          (eat ? W.menuLink(it, day.city) : "") +
-          W.bookLink(it, day.city, eat, day.country) +
-          W.iconLink(W.photosUrl(it.n, day.city), "photos", "Photos of " + it.n) +
-          W.iconLink(W.gmapsPlace(it, day.city), "map", it.n + " in Google Maps") +
-          "</div>" +
-          ((on && on.n === day.n) || !free.length
-            ? ""
-            : '<div class="use">' +
-              free
-                .map(function (x) {
-                  return (
-                    '<button type="button" data-use="' +
-                    x.slot +
-                    '" data-name="' +
-                    esc(it.n) +
-                    '" aria-label="Put ' +
-                    esc(it.n) +
-                    " in " +
-                    W.SLOT_NAME[x.slot].toLowerCase() +
-                    '">' +
-                    W.SLOT_NAME[x.slot] +
-                    "</button>"
-                  );
-                })
-                .join("") +
-              "</div>") +
-          "</div>"
-        );
-      }
-      if (xp)
-        h +=
-          '<section class="ideas sk"><div class="ideas-t"><h2>Ideas in ' +
-          esc(day.city) +
-          '</h2><span class="small muted">' +
-          (pool.spots || []).length +
-          " things to do · " +
-          (pool.food || []).length +
-          " places to eat</span></div>" +
-          '<div class="ideas-h"><div class="row"><div class="seg" role="group" aria-label="Ideas">' +
-          '<button type="button" data-tab="do" aria-pressed="' +
-          !eat +
-          '">Things to do (' +
-          (pool.spots || []).length +
-          ")</button>" +
-          '<button type="button" data-tab="eat" aria-pressed="' +
-          eat +
-          '">Places to eat (' +
-          (pool.food || []).length +
-          ")</button></div>" +
-          (pool.fallback
-            ? ""
-            : moreBusy
-              ? '<span class="loading">Finding more…</span>'
-              : W.ideasFull(pool)
-                ? '<span class="small muted">Plenty to choose from</span>'
-                : '<button type="button" class="btn ghost" data-more="1">Find more</button>') +
-          "</div></div>" +
-          (xp ? exChips(F, eat, P, hasBeach, all.length, total) : "") +
-          '<div class="idea-list">' +
-          (planned.length
-            ? '<h3 class="idea-group"><button type="button" class="fold" data-foldtrip="1" aria-expanded="' +
-              !folded +
-              '">' +
-              '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="' +
-              (folded ? "M6 3l5 5-5 5" : "M3 6l5 5 5-5") +
-              '"/></svg>' +
-              "On your trip <span>(" +
-              planned.length +
-              ")</span><em>" +
-              (folded ? "show" : "hide") +
-              "</em></button></h3>" +
-              (folded ? "" : planned.map(ideaCard).join(""))
-            : "") +
-          groups
-            .map(function (g) {
-              return (
-                '<h3 class="idea-group near-g">' +
-                esc(g.h) +
-                (g.sub ? " <span>(" + esc(g.sub.toLowerCase()) + ")</span>" : "") +
-                "</h3>" +
-                g.rows.map(ideaCard).join("")
-              );
-            })
-            .join("") +
-          "</div>" +
-          (rest.length > restShown.length || (showAll && rest.length > 6)
-            ? '<div><button type="button" class="btn quiet" data-showall="1">' +
-              (showAll ? "Show fewer" : "Show all " + rest.length) +
-              "</button></div>"
-            : "") +
-          nopeList(day) +
-          "</section>";
-
-      if (xp && pool.transit) {
-        var t = pool.transit,
-          rows = [
-            ["Transit", t.system],
-            ["Best pass", t.pass],
-            ["From airport", t.airport],
-            ["Tip", t.tip]
-          ].filter(function (x) {
-            return x[1];
-          });
-        if (rows.length)
-          h +=
-            '<details class="transit sk" data-fold="transit"' +
-            (S.transitOpen ? " open" : "") +
-            "><summary>Getting around " +
-            esc(day.city) +
-            "</summary>" +
-            rows
-              .map(function (x) {
-                return '<div><span class="k">' + x[0] + "</span><span>" + esc(x[1]) + "</span></div>";
-              })
-              .join("") +
-            "</details>";
-      }
+      h += dayIdeas(P, day, home, pool, pts, T, ck, xp);
     }
     /* the same day on the same screen is edited in place (lib/patch.js); another day or view is drawn afresh */
     W.draw(
@@ -2033,7 +2051,7 @@
       if (W.vtActive && W.vtActive()) W.vtZoom(d.zoom);
       return;
     } else if (d.addplace) {
-    /* "Add a place of your own" on the day: Explore, with the search ready */
+      /* "Add a place of your own" on the day: Explore, with the search ready */
       S.tview = "map";
       W.render();
       var q0 = document.getElementById("placeQ");

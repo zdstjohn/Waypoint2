@@ -164,6 +164,15 @@ v133: the formatter, and nothing else (the audit's Q2). trip/lib and trip/screen
 629 to 93 (what is left is long text in quotes), and the files from 11,370 to 28,306 lines. The built scripts are
 byte for byte the same as before (checked with the build stamp fixed), so nothing the app does has changed. Line
 numbers quoted in older notes refer to the files before this.
+v134: the three largest screen functions split by the part of the screen they draw (the audit's Q1); nothing the app
+shows has changed (all suites, and every screen compared with v133 at phone and desktop size). screens/trip.js:
+W.renderTrip (920 lines) keeps the frame, the day's header and the map, and calls dayStops (the stops in order, with the
+ways between them) and dayIdeas (the ideas list: the Day tab's fold and all of Explore). screens/travel.js: W.renderGo
+(392 lines) calls goRoute, goTickets and goTonight. screens/book.js: W.renderBook (415 lines) calls bookedSeg and
+budgetSeg. Each new function takes what it needs as arguments and returns HTML. W.dayTimes (lib/times.js, 232 lines)
+was left as it is. The island towns were checked against OpenStreetMap (tools/check_towns.js): 239 of 253 within 4 km;
+the other 17 were looked at one by one (the search had matched a street, a school or a district's centre) and the app's
+coordinates are right, so the table is unchanged.
 v122: what Claude is asked first. W.run's queue (lib/core.js) no longer goes in the order things were asked: the city on
 screen (the selected day, and today's on a trip) comes first, its main lists (sights, places to eat, breakfast) before
 its second lists, then other cities' main lists, then the extras (hidden gems, rainy-day ideas, links, events, costs);

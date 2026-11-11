@@ -891,6 +891,169 @@
     } catch (e) {}
     laterAll = true;
   };
+  /* Prepare > Budget: what the trip is likely to cost, by kind of cost and by day, in the currency you chose. */
+  function budgetSeg(P) {
+    var h = "";
+    var bud = W.budget(P),
+      costBusy = Object.keys(W.status).some(function (k) {
+        return k.indexOf("cost|") === 0 && W.status[k] === "loading";
+      });
+    var tb = Object.keys(bud.rows)
+      .map(function (k) {
+        var r = bud.rows[k];
+        if (!Object.keys(r.booked).length && !Object.keys(r.est).length && !r.open && !r.flights) return "";
+        return (
+          '<tr><th scope="row">' +
+          esc(r.label) +
+          "</th><td>" +
+          sumText(r.booked) +
+          "</td><td>" +
+          (Object.keys(r.est).length ? "≈ " + sumText(r.est) : "—") +
+          (r.flights
+            ? '<div class="small muted">' +
+              (r.flights.length > 1 ? "plus flights" : r.flights[0] === "home" ? "plus the flight home" : "plus the flight out") +
+              "</div>"
+            : r.open
+              ? '<div class="small muted">' + (costBusy ? "estimating…" : "some not known") + "</div>"
+              : "") +
+          "</td></tr>"
+        );
+      })
+      .join("");
+    h += section(
+      "Budget",
+      "Booked amounts from your bookings; the rest estimated from typical prices for your group" +
+        (costBusy ? ' <span class="loading">working out prices…</span>' : "") +
+        ".",
+      '<div class="tbl"><table class="budget"><thead><tr><th scope="col"></th><th scope="col">Booked</th><th scope="col">Still to pay</th></tr></thead><tbody>' +
+        tb +
+        '</tbody><tfoot><tr><th scope="row">Total</th><td>' +
+        sumText(bud.tot.booked) +
+        "</td><td>" +
+        (Object.keys(bud.tot.est).length ? "≈ " + sumText(bud.tot.est) : "—") +
+        "</td></tr></tfoot></table></div>"
+    );
+    return h;
+  }
+  /* Prepare > Booked: your bookings in date order (each with its reference, time, cost and a way to change it), the
+     form for adding one, what Gmail found, and the things the checklist counts as done. */
+  function bookedSeg(P, list, doneGroup, ro, nBooked) {
+    var h = "";
+    var bl = bookings()
+      .slice()
+      .sort(function (a, b) {
+        return String(a.start).localeCompare(String(b.start));
+      });
+    var gmUI =
+      ro || W.standalone
+        ? ""
+        : gm.state === "search"
+          ? '<span class="loading">Searching Gmail…</span>'
+          : gm.state === "read"
+            ? '<span class="loading">Reading ' + (gm.done || 0) + " of " + gm.n + " emails…</span>"
+            : gm.state === "extract"
+              ? '<span class="loading">Picking out the bookings…</span>'
+              : '<button type="button" class="btn" data-gmail="1">' +
+                (bl.length ? "Check Gmail again" : "Find bookings in Gmail") +
+                "</button>";
+    var gmMsg =
+      gm.state === "error"
+        ? '<p class="warn">' + esc(gm.msg) + "</p>"
+        : gm.state === "done"
+          ? '<p class="small muted">' +
+            (gm.none
+              ? "No new booking emails for these places."
+              : gm.found
+                ? "Added " + gm.found + " booking" + (gm.found > 1 ? "s" : "") + "."
+                : "No new bookings found in those emails.") +
+            "</p>"
+          : "";
+    var bRows = bl
+      .map(function (b) {
+        var n = bkDay(b),
+          info = [
+            n != null && n >= 1 && n <= P.N
+              ? "Day " + n
+              : n === 0
+                ? "Day before the trip"
+                : n === P.N + 1
+                  ? "Day after the trip"
+                  : b.start
+                    ? "Not on these dates"
+                    : "",
+            b.start ? when(b.start) + (b.end ? " → " + when(b.end) : "") : "",
+            b.what,
+            b.provider
+          ]
+            .filter(Boolean)
+            .join(" · ");
+        return (
+          '<li class="bk"><span class="kind">' +
+          esc(KIND[b.kind] || "Booking") +
+          '</span><div class="bk-b"><b>' +
+          esc(b.title || b.ref) +
+          "</b>" +
+          (b.ref ? ' <span class="ref">' + esc(b.ref) + "</span>" : "") +
+          '<div class="small muted">' +
+          esc(info) +
+          "</div>" +
+          (b.url ? '<div class="slot-act">' + link(b.url, "Open the email") + "</div>" : "") +
+          "</div>" +
+          '<span class="amt">' +
+          (b.price ? W.money(b.price, b.cur || "EUR") : "") +
+          "</span>" +
+          (ro
+            ? ""
+            : '<button type="button" class="icon-btn" data-rmbk="' +
+              esc(b.id) +
+              '" aria-label="Remove ' +
+              esc(b.title || "booking") +
+              '" title="Remove">×</button>') +
+          "</li>"
+        );
+      })
+      .join("");
+    var form = ro
+      ? ""
+      : '<details class="addbk"' +
+        (addOpen ? " open" : "") +
+        '><summary class="linkish">Add a booking by hand</summary><div class="addbk-f">' +
+        '<select class="field" id="bkKind" aria-label="Kind">' +
+        Object.keys(KIND)
+          .map(function (k) {
+            return '<option value="' + k + '">' + KIND[k] + "</option>";
+          })
+          .join("") +
+        "</select>" +
+        '<input class="field" id="bkTitle" placeholder="What (hotel, train, tickets…)" aria-label="What">' +
+        '<input class="field" id="bkDate" type="date" aria-label="Date" value="' +
+        esc(S.start || "") +
+        '">' +
+        '<input class="field" id="bkTime" type="time" aria-label="Time (leaves at)" title="Time (a train, ferry or flight: when it leaves)">' +
+        '<input class="field" id="bkArr" type="time" aria-label="Arrives at (for a journey)" title="Arrives at (for a journey)">' +
+        '<input class="field" id="bkPrice" inputmode="decimal" placeholder="Price" aria-label="Price">' +
+        '<input class="field" id="bkCur" placeholder="EUR" maxlength="3" aria-label="Currency" value="' +
+        esc((W.C.cost[W.cityKey(P.stops[0].country, P.stops[0].name)] || {}).cur || "EUR") +
+        '">' +
+        '<input class="field" id="bkRef" placeholder="Confirmation code" aria-label="Confirmation code">' +
+        '<button type="button" class="btn quiet" data-addbk="1">Add</button></div></details>';
+    h += section(
+      "Booked",
+      nBooked ? nBooked + " booked" : "Nothing booked yet. Tick things off under To book as you go, and they'll gather here.",
+      list.some(function (c) {
+        return c.done;
+      })
+        ? doneGroup
+        : "",
+      "bk-done"
+    );
+    h += section(
+      "Confirmations",
+      ro ? "" : "Confirmation emails for these places, placed on their days. Only you see these, even on a shared trip.",
+      '<div class="row bk-row">' + gmUI + "</div>" + gmMsg + (bRows ? '<ul class="bklist">' + bRows + "</ul>" : "") + form
+    );
+    return h;
+  }
   W.renderBook = function (P) {
     var el = $("viewBook");
     if (!P.stops.length) {
@@ -1117,162 +1280,12 @@
 
     /* your bookings */
     if (seg === "booked") {
-      var bl = bookings()
-        .slice()
-        .sort(function (a, b) {
-          return String(a.start).localeCompare(String(b.start));
-        });
-      var gmUI =
-        ro || W.standalone
-          ? ""
-          : gm.state === "search"
-            ? '<span class="loading">Searching Gmail…</span>'
-            : gm.state === "read"
-              ? '<span class="loading">Reading ' + (gm.done || 0) + " of " + gm.n + " emails…</span>"
-              : gm.state === "extract"
-                ? '<span class="loading">Picking out the bookings…</span>'
-                : '<button type="button" class="btn" data-gmail="1">' +
-                  (bl.length ? "Check Gmail again" : "Find bookings in Gmail") +
-                  "</button>";
-      var gmMsg =
-        gm.state === "error"
-          ? '<p class="warn">' + esc(gm.msg) + "</p>"
-          : gm.state === "done"
-            ? '<p class="small muted">' +
-              (gm.none
-                ? "No new booking emails for these places."
-                : gm.found
-                  ? "Added " + gm.found + " booking" + (gm.found > 1 ? "s" : "") + "."
-                  : "No new bookings found in those emails.") +
-              "</p>"
-            : "";
-      var bRows = bl
-        .map(function (b) {
-          var n = bkDay(b),
-            info = [
-              n != null && n >= 1 && n <= P.N
-                ? "Day " + n
-                : n === 0
-                  ? "Day before the trip"
-                  : n === P.N + 1
-                    ? "Day after the trip"
-                    : b.start
-                      ? "Not on these dates"
-                      : "",
-              b.start ? when(b.start) + (b.end ? " → " + when(b.end) : "") : "",
-              b.what,
-              b.provider
-            ]
-              .filter(Boolean)
-              .join(" · ");
-          return (
-            '<li class="bk"><span class="kind">' +
-            esc(KIND[b.kind] || "Booking") +
-            '</span><div class="bk-b"><b>' +
-            esc(b.title || b.ref) +
-            "</b>" +
-            (b.ref ? ' <span class="ref">' + esc(b.ref) + "</span>" : "") +
-            '<div class="small muted">' +
-            esc(info) +
-            "</div>" +
-            (b.url ? '<div class="slot-act">' + link(b.url, "Open the email") + "</div>" : "") +
-            "</div>" +
-            '<span class="amt">' +
-            (b.price ? W.money(b.price, b.cur || "EUR") : "") +
-            "</span>" +
-            (ro
-              ? ""
-              : '<button type="button" class="icon-btn" data-rmbk="' +
-                esc(b.id) +
-                '" aria-label="Remove ' +
-                esc(b.title || "booking") +
-                '" title="Remove">×</button>') +
-            "</li>"
-          );
-        })
-        .join("");
-      var form = ro
-        ? ""
-        : '<details class="addbk"' +
-          (addOpen ? " open" : "") +
-          '><summary class="linkish">Add a booking by hand</summary><div class="addbk-f">' +
-          '<select class="field" id="bkKind" aria-label="Kind">' +
-          Object.keys(KIND)
-            .map(function (k) {
-              return '<option value="' + k + '">' + KIND[k] + "</option>";
-            })
-            .join("") +
-          "</select>" +
-          '<input class="field" id="bkTitle" placeholder="What (hotel, train, tickets…)" aria-label="What">' +
-          '<input class="field" id="bkDate" type="date" aria-label="Date" value="' +
-          esc(S.start || "") +
-          '">' +
-          '<input class="field" id="bkTime" type="time" aria-label="Time (leaves at)" title="Time (a train, ferry or flight: when it leaves)">' +
-          '<input class="field" id="bkArr" type="time" aria-label="Arrives at (for a journey)" title="Arrives at (for a journey)">' +
-          '<input class="field" id="bkPrice" inputmode="decimal" placeholder="Price" aria-label="Price">' +
-          '<input class="field" id="bkCur" placeholder="EUR" maxlength="3" aria-label="Currency" value="' +
-          esc((W.C.cost[W.cityKey(P.stops[0].country, P.stops[0].name)] || {}).cur || "EUR") +
-          '">' +
-          '<input class="field" id="bkRef" placeholder="Confirmation code" aria-label="Confirmation code">' +
-          '<button type="button" class="btn quiet" data-addbk="1">Add</button></div></details>';
-      h += section(
-        "Booked",
-        nBooked ? nBooked + " booked" : "Nothing booked yet. Tick things off under To book as you go, and they'll gather here.",
-        list.some(function (c) {
-          return c.done;
-        })
-          ? doneGroup
-          : "",
-        "bk-done"
-      );
-      h += section(
-        "Confirmations",
-        ro ? "" : "Confirmation emails for these places, placed on their days. Only you see these, even on a shared trip.",
-        '<div class="row bk-row">' + gmUI + "</div>" + gmMsg + (bRows ? '<ul class="bklist">' + bRows + "</ul>" : "") + form
-      );
+      h += bookedSeg(P, list, doneGroup, ro, nBooked);
     }
 
     /* budget */
     if (seg === "budget") {
-      var bud = W.budget(P),
-        costBusy = Object.keys(W.status).some(function (k) {
-          return k.indexOf("cost|") === 0 && W.status[k] === "loading";
-        });
-      var tb = Object.keys(bud.rows)
-        .map(function (k) {
-          var r = bud.rows[k];
-          if (!Object.keys(r.booked).length && !Object.keys(r.est).length && !r.open && !r.flights) return "";
-          return (
-            '<tr><th scope="row">' +
-            esc(r.label) +
-            "</th><td>" +
-            sumText(r.booked) +
-            "</td><td>" +
-            (Object.keys(r.est).length ? "≈ " + sumText(r.est) : "—") +
-            (r.flights
-              ? '<div class="small muted">' +
-                (r.flights.length > 1 ? "plus flights" : r.flights[0] === "home" ? "plus the flight home" : "plus the flight out") +
-                "</div>"
-              : r.open
-                ? '<div class="small muted">' + (costBusy ? "estimating…" : "some not known") + "</div>"
-                : "") +
-            "</td></tr>"
-          );
-        })
-        .join("");
-      h += section(
-        "Budget",
-        "Booked amounts from your bookings; the rest estimated from typical prices for your group" +
-          (costBusy ? ' <span class="loading">working out prices…</span>' : "") +
-          ".",
-        '<div class="tbl"><table class="budget"><thead><tr><th scope="col"></th><th scope="col">Booked</th><th scope="col">Still to pay</th></tr></thead><tbody>' +
-          tb +
-          '</tbody><tfoot><tr><th scope="row">Total</th><td>' +
-          sumText(bud.tot.booked) +
-          "</td><td>" +
-          (Object.keys(bud.tot.est).length ? "≈ " + sumText(bud.tot.est) : "—") +
-          "</td></tr></tfoot></table></div>"
-      );
+      h += budgetSeg(P);
     }
 
     /* what to pack and sort out, read off the plan */

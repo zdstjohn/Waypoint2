@@ -12,10 +12,12 @@ const ctx = { window: {} }; vm.runInNewContext(fs.readFileSync(path.join(ROOT, '
 const TI = ctx.window.TI || {}, only = process.argv[2];
 const km = (a, b) => { const r = Math.PI / 180, x = Math.sin((b[0] - a[0]) * r / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin((b[1] - a[1]) * r / 2) ** 2; return 12742 * Math.asin(Math.sqrt(x)); };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-async function ask(q) {
+async function ask(q, any) {
+  /* towns and villages first (featureType=settlement): without it the nearest answers are often a street, a school or
+     a district's centre that only shares the name (the first run flagged 14 towns that way; all 14 were right) */
   for (let n = 0; n < 3; n++) {
     try {
-      const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=en&q=' + encodeURIComponent(q), { headers: { 'User-Agent': 'waypoint-town-check/1.0 (github.com/zdstjohn/Waypoint2)' } });
+      const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=en' + (any ? '' : '&featureType=settlement') + '&q=' + encodeURIComponent(q), { headers: { 'User-Agent': 'waypoint-town-check/1.0 (github.com/zdstjohn/Waypoint2)' } });
       if (r.ok) return (await r.json()).map(x => [+x.lat, +x.lon, x.display_name]);
     } catch (e) { }
     await sleep(3000);
@@ -33,6 +35,7 @@ async function ask(q) {
     /* with the island's name first (two islands can share a town name), then without it */
     let got = await ask(`${x.town}, ${x.isle}, ${x.c}`); await sleep(1100);
     if (got && !got.length) { got = await ask(`${x.town}, ${x.c}`); await sleep(1100); }
+    if (got && !got.length) { got = await ask(`${x.town}, ${x.c}`, true); await sleep(1100); }
     if (!got || !got.length) { missing.push(x); continue; }
     const best = got.map(g => [km(x.at, g), g]).sort((a, b) => a[0] - b[0])[0];
     if (best[0] > LIMIT) off.push(Object.assign({ km: best[0], found: best[1] }, x));

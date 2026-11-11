@@ -190,6 +190,189 @@
     );
   };
 
+  /* Today's last card: where you sleep tonight and how to get back there, then tomorrow at a glance (where, when it
+     starts, what to book or pack first). */
+  function goTonight(P, day, list, home, live, n, nm) {
+    var S = W.S,
+      h = "";
+    /* tonight and tomorrow */
+    var tom = P.days[n],
+      stay = S.stays[W.cityKey(day.country, day.city)];
+    h +=
+      '<section class="go-eve sk"><div class="ge-row"><span class="gt-i">' +
+      IC.bed +
+      '</span><div><span class="small muted">Tonight</span><b>' +
+      esc(home.label) +
+      "</b></div>" +
+      '<div class="g-acts">' +
+      (home.set || home.lat != null
+        ? '<a class="chip-a" href="' +
+          esc(W.gmapsDir(live ? lastPlace(list, nm, home) : home, { n: home.label, lat: home.lat, lng: home.lng }, "transit")) +
+          '" target="_blank" rel="noopener">Directions</a>'
+        : "") +
+      (!(stay && stay.label) && !W.readOnly
+        ? '<button type="button" class="chip-a pri" data-gostay="' + day.stop + '">Pick a place</button>'
+        : "") +
+      "</div></div>";
+    if (tom) {
+      var tT = tom.slots && tom.slots.length ? W.dayTimes(tom, P) : null,
+        tl = entries(tom, tT),
+        first = tl.filter(function (e) {
+          return e.k === "stop" && !e.food;
+        })[0];
+      h +=
+        '<div class="ge-row"><span class="gt-i">' +
+        (tom.moveFrom ? IC.train : IC.moon) +
+        '</span><div><span class="small muted">Tomorrow · Day ' +
+        tom.n +
+        "</span><b>" +
+        esc(tom.moveFrom ? tom.moveFrom + " → " + tom.city : tom.city) +
+        '</b><span class="small muted">' +
+        esc(
+          tom.moveFrom
+            ? travelLine(tT && tT.travel ? tT.travel.leg : null, tT && tT.travel ? { tk: tT.travel.ticket, arr: tT.travel.arr } : null) +
+                (tT && tT.travel ? (tT.travel.ticket ? " · leave by " : " · leave about ") + W.clock(tT.travel.start) : "")
+            : first
+              ? W.clock(first.start) + " " + first.x.item.n
+              : ""
+        ) +
+        "</span></div>" +
+        '<button type="button" class="chip-a" data-goprev="' +
+        tom.n +
+        '">See it</button></div>';
+    }
+    h += "</section>";
+    return h;
+  }
+  /* Today's tickets and bookings: what is booked for this day (with its reference and a way to open it) and what
+     still needs booking. */
+  function goTickets(P, n, live) {
+    var h = "";
+    /* today's tickets and bookings */
+    var cl = W.checklist
+      ? W.checklist(P).filter(function (c) {
+          return c.day === n && c.key.indexOf("stay|") !== 0 && c.key.indexOf("flight|") !== 0;
+        })
+      : [];
+    if (cl.length)
+      h +=
+        '<section class="go-tix sk"><h3>Tickets ' +
+        (live ? "today" : "for this day") +
+        "</h3>" +
+        cl
+          .map(function (c) {
+            return (
+              '<div class="gt-row"><span class="gt-i' +
+              (c.done ? " ok" : "") +
+              '">' +
+              (c.done ? IC.check : IC.ticket) +
+              "</span><div><b>" +
+              esc(c.short || c.title) +
+              '</b><span class="small muted">' +
+              esc(c.done ? c.why || "Booked" : "Not booked yet") +
+              "</span></div>" +
+              (W.safeUrl(c.url) && !c.done
+                ? '<a class="chip-a pri" href="' + esc(W.safeUrl(c.url)) + '" target="_blank" rel="noopener">Book ↗</a>'
+                : '<button type="button" class="chip-a" data-gobook="' + esc(c.key) + '">Details</button>') +
+              "</div>"
+            );
+          })
+          .join("") +
+        "</section>";
+    return h;
+  }
+  /* The whole day as a route, on Today: from where you're staying to each stop in turn and back, with the way between
+     each (walk, transit, drive) and its directions, the nap and the travel in their places, and the whole route in
+     Google Maps. What has passed is dimmed; now and next are marked. list is the day's entries in order. */
+  function goRoute(P, day, list, home, live, cur, nxt, nm, mapBtn, mapIn) {
+    var h = "";
+    /* the whole day, as a route: from where you're staying to each stop in turn and back, with the way between each
+       (walk, transit, drive) and its directions, the nap and the travel in their places, and the whole route in
+       Google Maps. What has passed is dimmed, and now and next are marked, as the clock moves */
+    var prev = /** @type {any} */ (home),
+      num = 0,
+      pts = /** @type {any[]} */ ([]),
+      rows = "";
+    var legRow = function (a, b2, last, note) {
+      return W.routeLeg(a, b2, day.city, last, note);
+    };
+    var homePt = { n: home.label, label: home.label, lat: home.lat, lng: home.lng };
+    list.forEach(function (e) {
+      var st = !live ? "" : e.end <= nm && e.k !== "back" ? " done" : e === cur ? " now" : e === nxt ? " next" : "";
+      var tm = '<span class="t">' + W.clock(e.start) + "</span>";
+      if (e.k === "stop") {
+        var it = e.x.item,
+          bk = W.bookEntryFor ? W.bookEntryFor(P, day, it) : null;
+        num++;
+        pts.push({ n: it.n, lat: it.lat, lng: it.lng, gid: it.gid, gpin: it.gpin, num: num, food: !!e.food, slot: e.x.slot });
+        rows += legRow(prev, it, false);
+        rows += W.routeStop(
+          { it: it, n: it.n, lat: it.lat, food: !!e.food, slot: e.x.slot, num: num },
+          day.city,
+          tm +
+            " · " +
+            esc(slotName(e)) +
+            (bk ? (bk.done ? ' · <span class="ok">booked</span>' : ' · <span class="warn-t">not booked</span>') : ""),
+          st,
+          e.x.key
+        );
+        if (it.lat != null) prev = it;
+      } else if (e.k === "nap" || e.k === "rest") {
+        /* the nap or the rest is back where you're staying (unless it's in the stroller, out for the day) */
+        if (!e.away && prev !== home) {
+          rows += legRow(prev, homePt, false);
+          prev = home;
+        }
+        rows +=
+          '<li class="rc-stop rc-nap' +
+          st +
+          '"><span class="rc-hi" aria-hidden="true">' +
+          W.icon("nap", 2.2) +
+          '</span><span class="rc-b"><b>' +
+          (e.k === "rest" ? "Rest time" : e.away ? "Nap in the stroller or the car" : "Nap or rest") +
+          '</b><span class="small muted">' +
+          tm +
+          " · " +
+          (e.k === "rest" ? "pool or playground near " + esc(home.label) : e.away ? "out for the day" : "at " + esc(home.label)) +
+          (e.k === "nap" ? " · until " + W.clock(e.end) : "") +
+          "</span></span></li>";
+      } else if (e.k === "travel") {
+        rows +=
+          '<li class="rc-stop rc-trav' +
+          st +
+          '"><span class="rc-hi" aria-hidden="true">' +
+          W.icon("swap", 2.2) +
+          '</span><span class="rc-b"><b>' +
+          esc(day.moveFrom + " → " + day.city) +
+          '</b><span class="small muted">' +
+          tm +
+          " · " +
+          esc(travelLine(e.leg, e)) +
+          "</span></span></li>";
+      } else if (prev !== home) rows += legRow(prev, homePt, true, " · back about " + W.clock(e.start));
+    });
+    if (
+      prev !== home &&
+      !list.some(function (e) {
+        return e.k === "back";
+      })
+    )
+      rows += legRow(prev, homePt, true);
+    var gm = pts.length ? W.dayRouteUrl(day, pts, home) : "";
+    h +=
+      '<section class="go-day go-route sk"><div class="go-rh"><h3>' +
+      "Today's route" +
+      "</h3>" +
+      mapBtn +
+      "</div>" +
+      mapIn +
+      (pts.length || rows
+        ? '<ol class="rc-list go-rt">' + W.routeHome(home) + rows + "</ol>"
+        : '<p class="small muted">Nothing planned for this day yet.</p>') +
+      (gm ? '<a class="btn rc-gm" href="' + esc(gm) + '" target="_blank" rel="noopener">Open the whole route in Google Maps ↗</a>' : "") +
+      "</section>";
+    return h;
+  }
   W.renderGo = function (P) {
     var el = $("viewGo");
     if (!el) return;
@@ -391,175 +574,14 @@
           "</div>";
     }
 
-    /* the whole day, as a route: from where you're staying to each stop in turn and back, with the way between each
-       (walk, transit, drive) and its directions, the nap and the travel in their places, and the whole route in
-       Google Maps. What has passed is dimmed, and now and next are marked, as the clock moves */
-    var prev = /** @type {any} */ (home),
-      num = 0,
-      pts = /** @type {any[]} */ ([]),
-      rows = "";
-    var legRow = function (a, b2, last, note) {
-      return W.routeLeg(a, b2, day.city, last, note);
-    };
-    var homePt = { n: home.label, label: home.label, lat: home.lat, lng: home.lng };
-    list.forEach(function (e) {
-      var st = !live ? "" : e.end <= nm && e.k !== "back" ? " done" : e === cur ? " now" : e === nxt ? " next" : "";
-      var tm = '<span class="t">' + W.clock(e.start) + "</span>";
-      if (e.k === "stop") {
-        var it = e.x.item,
-          bk = W.bookEntryFor ? W.bookEntryFor(P, day, it) : null;
-        num++;
-        pts.push({ n: it.n, lat: it.lat, lng: it.lng, gid: it.gid, gpin: it.gpin, num: num, food: !!e.food, slot: e.x.slot });
-        rows += legRow(prev, it, false);
-        rows += W.routeStop(
-          { it: it, n: it.n, lat: it.lat, food: !!e.food, slot: e.x.slot, num: num },
-          day.city,
-          tm +
-            " · " +
-            esc(slotName(e)) +
-            (bk ? (bk.done ? ' · <span class="ok">booked</span>' : ' · <span class="warn-t">not booked</span>') : ""),
-          st,
-          e.x.key
-        );
-        if (it.lat != null) prev = it;
-      } else if (e.k === "nap" || e.k === "rest") {
-        /* the nap or the rest is back where you're staying (unless it's in the stroller, out for the day) */
-        if (!e.away && prev !== home) {
-          rows += legRow(prev, homePt, false);
-          prev = home;
-        }
-        rows +=
-          '<li class="rc-stop rc-nap' +
-          st +
-          '"><span class="rc-hi" aria-hidden="true">' +
-          W.icon("nap", 2.2) +
-          '</span><span class="rc-b"><b>' +
-          (e.k === "rest" ? "Rest time" : e.away ? "Nap in the stroller or the car" : "Nap or rest") +
-          '</b><span class="small muted">' +
-          tm +
-          " · " +
-          (e.k === "rest" ? "pool or playground near " + esc(home.label) : e.away ? "out for the day" : "at " + esc(home.label)) +
-          (e.k === "nap" ? " · until " + W.clock(e.end) : "") +
-          "</span></span></li>";
-      } else if (e.k === "travel") {
-        rows +=
-          '<li class="rc-stop rc-trav' +
-          st +
-          '"><span class="rc-hi" aria-hidden="true">' +
-          W.icon("swap", 2.2) +
-          '</span><span class="rc-b"><b>' +
-          esc(day.moveFrom + " → " + day.city) +
-          '</b><span class="small muted">' +
-          tm +
-          " · " +
-          esc(travelLine(e.leg, e)) +
-          "</span></span></li>";
-      } else if (prev !== home) rows += legRow(prev, homePt, true, " · back about " + W.clock(e.start));
-    });
-    if (
-      prev !== home &&
-      !list.some(function (e) {
-        return e.k === "back";
-      })
-    )
-      rows += legRow(prev, homePt, true);
-    var gm = pts.length ? W.dayRouteUrl(day, pts, home) : "";
-    h +=
-      '<section class="go-day go-route sk"><div class="go-rh"><h3>' +
-      "Today's route" +
-      "</h3>" +
-      mapBtn +
-      "</div>" +
-      mapIn +
-      (pts.length || rows
-        ? '<ol class="rc-list go-rt">' + W.routeHome(home) + rows + "</ol>"
-        : '<p class="small muted">Nothing planned for this day yet.</p>') +
-      (gm ? '<a class="btn rc-gm" href="' + esc(gm) + '" target="_blank" rel="noopener">Open the whole route in Google Maps ↗</a>' : "") +
-      "</section>";
+    h += goRoute(P, day, list, home, live, cur, nxt, nm, mapBtn, mapIn);
 
-    /* today's tickets and bookings */
-    var cl = W.checklist
-      ? W.checklist(P).filter(function (c) {
-          return c.day === n && c.key.indexOf("stay|") !== 0 && c.key.indexOf("flight|") !== 0;
-        })
-      : [];
-    if (cl.length)
-      h +=
-        '<section class="go-tix sk"><h3>Tickets ' +
-        (live ? "today" : "for this day") +
-        "</h3>" +
-        cl
-          .map(function (c) {
-            return (
-              '<div class="gt-row"><span class="gt-i' +
-              (c.done ? " ok" : "") +
-              '">' +
-              (c.done ? IC.check : IC.ticket) +
-              "</span><div><b>" +
-              esc(c.short || c.title) +
-              '</b><span class="small muted">' +
-              esc(c.done ? c.why || "Booked" : "Not booked yet") +
-              "</span></div>" +
-              (W.safeUrl(c.url) && !c.done
-                ? '<a class="chip-a pri" href="' + esc(W.safeUrl(c.url)) + '" target="_blank" rel="noopener">Book ↗</a>'
-                : '<button type="button" class="chip-a" data-gobook="' + esc(c.key) + '">Details</button>') +
-              "</div>"
-            );
-          })
-          .join("") +
-        "</section>";
-
+    h += goTickets(P, n, live);
     /* what to take out today (comes with the second script) */
     if (W.dayBagCard) h += W.dayBagCard(day, P, live);
 
-    /* tonight and tomorrow */
-    var tom = P.days[n],
-      stay = S.stays[W.cityKey(day.country, day.city)];
+    h += goTonight(P, day, list, home, live, n, nm);
     if (W.offline && W.offline.off) h = W.offline.block(P) + h; /* offline: say so first */
-    h +=
-      '<section class="go-eve sk"><div class="ge-row"><span class="gt-i">' +
-      IC.bed +
-      '</span><div><span class="small muted">Tonight</span><b>' +
-      esc(home.label) +
-      "</b></div>" +
-      '<div class="g-acts">' +
-      (home.set || home.lat != null
-        ? '<a class="chip-a" href="' +
-          esc(W.gmapsDir(live ? lastPlace(list, nm, home) : home, { n: home.label, lat: home.lat, lng: home.lng }, "transit")) +
-          '" target="_blank" rel="noopener">Directions</a>'
-        : "") +
-      (!(stay && stay.label) && !W.readOnly
-        ? '<button type="button" class="chip-a pri" data-gostay="' + day.stop + '">Pick a place</button>'
-        : "") +
-      "</div></div>";
-    if (tom) {
-      var tT = tom.slots && tom.slots.length ? W.dayTimes(tom, P) : null,
-        tl = entries(tom, tT),
-        first = tl.filter(function (e) {
-          return e.k === "stop" && !e.food;
-        })[0];
-      h +=
-        '<div class="ge-row"><span class="gt-i">' +
-        (tom.moveFrom ? IC.train : IC.moon) +
-        '</span><div><span class="small muted">Tomorrow · Day ' +
-        tom.n +
-        "</span><b>" +
-        esc(tom.moveFrom ? tom.moveFrom + " → " + tom.city : tom.city) +
-        '</b><span class="small muted">' +
-        esc(
-          tom.moveFrom
-            ? travelLine(tT && tT.travel ? tT.travel.leg : null, tT && tT.travel ? { tk: tT.travel.ticket, arr: tT.travel.arr } : null) +
-                (tT && tT.travel ? (tT.travel.ticket ? " · leave by " : " · leave about ") + W.clock(tT.travel.start) : "")
-            : first
-              ? W.clock(first.start) + " " + first.x.item.n
-              : ""
-        ) +
-        "</span></div>" +
-        '<button type="button" class="chip-a" data-goprev="' +
-        tom.n +
-        '">See it</button></div>';
-    }
-    h += "</section>";
 
     /* a photo and a line for the journal */
     if (W.journalCard) h += W.journalCard(day);
