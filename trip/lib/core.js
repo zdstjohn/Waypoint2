@@ -252,13 +252,49 @@
     var x = Math.sin(dLa / 2) * Math.sin(dLa / 2) + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLo / 2) * Math.sin(dLo / 2);
     return 2 * R * Math.asin(Math.sqrt(x));
   };
-  /* time between two points inside a city */
-  W.leg = function (a, b) {
+  /* time between two points inside a city, worked out from the distance alone (the planner uses this one, so the same
+     places always give the same plan) */
+  W.legEst = function (a, b) {
     var d = W.km(a, b);
     if (d == null) return null;
     if (d < 1.3) return { d: d, mode: "walking", min: Math.max(3, Math.round(((d * 1.3) / 4.8) * 60)), label: "walk" };
     if (d < 30) return { d: d, mode: "transit", min: Math.round(8 + ((d * 1.3) / 18) * 60), label: "transit" };
     return { d: d, mode: "driving", min: Math.round((d / 60) * 60 + 10), label: "drive or train" };
+  };
+  /* the same, with Google's own time where it has been asked (lib/gmaps.js, through the viewer's Google Maps
+     connection). Real times travel with the trip as S.rl: "from>to" (pins to 4 decimals, base 36) -> [minutes, km x 10,
+     0 walk | 1 transit | 2 drive | 3 drive where transit was asked, the day it was asked]; 0 minutes = Google has no
+     route, so the estimate stands. A pair with no real time yet is handed to W.legAsk, but only while a day is being
+     drawn for the viewer (W.legWant: the planner trying out places, and the other days' summaries, ask for nothing)
+     and not when quiet is set (lists of ideas and search results show what is known). */
+  var RL_MODE = ["walking", "transit", "driving", "driving"],
+    RL_LABEL = ["walk", "transit", "drive", "drive or taxi"];
+  function rl36(n) {
+    return Math.round(n * 1e4).toString(36);
+  }
+  W.rlKey = function (a, b) {
+    return rl36(a.lat) + "," + rl36(a.lng) + ">" + rl36(b.lat) + "," + rl36(b.lng);
+  };
+  W.legReal = 0; /* how many real times the screens have shown (W.legNote compares two readings) */
+  W.legWant = 0; /* above 0 while a day is being drawn for the viewer (Today, the Trip screen's day): only then is a missing time asked for */
+  W.leg = function (a, b, quiet) {
+    var e = W.legEst(a, b);
+    if (!e) return e;
+    var k = W.rlKey(a, b),
+      v = (W.S.rl && W.S.rl[k]) || (W.rlOwn && W.rlOwn[k]);
+    if (v && v[0] > 0) {
+      W.legReal++;
+      return { d: e.d, mode: RL_MODE[v[2]] || e.mode, min: v[0], label: RL_LABEL[v[2]] || e.label, real: true, km: v[1] / 10 };
+    }
+    if (!v && !quiet && W.legWant > 0 && W.legAsk) W.legAsk(k, a, b, e);
+    return e;
+  };
+  /* under a list that showed Google's times since the reading n0: whose they are, and Google's own caution about its
+     walking routes (its routes tool asks every app to show it) */
+  W.legNote = function (n0) {
+    return W.legReal > n0
+      ? '<p class="small muted gm-note">Times between stops are from Google Maps. Its walking routes are in beta: a pavement or footpath may be missing.</p>'
+      : "";
   };
   W.fmtMin = function (m) {
     return m < 60 ? m + " min" : Math.floor(m / 60) + "h" + (m % 60 ? " " + (m % 60) + "m" : "");

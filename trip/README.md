@@ -157,8 +157,14 @@ lib/              the shared library
                   are kept, as the nightly photo run records its uploads after making them), shows them with thumbnails,
                   and deletes them only after you confirm, checking again first. It deletes nothing when a list can't be
                   read in full (1000 documents) or when more than half the files would go.
-  search.js       find any place and put it on the day: the city's own ideas, Mapbox (real places with exact pins,
-                  through the viewer's Mapbox connection) and Claude (marked "Suggested by Claude" until the nightly
+  gmaps.js        (second script) Google Maps through the viewer's own connection: real times between stops (kept
+                  with the trip as S.rl and read by W.leg in core.js; asked only for the day on show, W.legWant),
+                  the forecast (W.wxLine), Google's listings for the search (W.gmSearch), a place from a pasted link
+                  (W.gmFromLink), a day's places as a Google Maps list (W.gmListHtml), the Settings card (W.gmCard).
+                  Basic requests only; 300 a day from a device. Without the connection nothing changes.
+  search.js       find any place and put it on the day: the city's own ideas, Google's listings when the viewer has a
+                  Google Maps connection (else Mapbox: real places with exact pins, through the viewer's Mapbox
+                  connection) and Claude (marked "Suggested by Claude" until the nightly
                   check confirms it), merged into one list; a Google Maps search for the same words is one link away.
                   An added place joins the city's list as your own (S.imported, with the trip) and goes in the part of
                   the day you pick. The page can't reach the internet itself: the map comes through the connection.

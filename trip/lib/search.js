@@ -1,5 +1,7 @@
 /* Waypoint place search: find any place, not only the ones on the list, and put it on the day. Three sources, merged:
      - the city's own ideas (instant; "On your list", with the day it is already on)
+     - Google Maps, through the viewer's own connection (lib/gmaps.js): Google's listings, each with its place ID; a
+       pasted Google Maps link gives that one place. Without that connection:
      - Mapbox, through the viewer's own Mapbox connection: real places with exact pins, categories and addresses
      - Claude, for what the map does not know by that name, or a description ("calm beach for toddlers"); marked
        "Suggested by Claude" until the nightly place check confirms it
@@ -11,8 +13,8 @@
   var W = window.W,
     esc = W.esc,
     V = W.V;
-  /** @type {{ q: string, ck: string, seq: number, local: any[], mb: any[], ai: any[], busyMb: boolean, msgMb: string, pick: string | null, added: string }} */
-  var st = { q: "", ck: "", seq: 0, local: [], mb: [], ai: [], busyMb: false, msgMb: "", pick: null, added: "" };
+  /** @type {{ q: string, ck: string, seq: number, local: any[], mb: any[], gg: any[], ai: any[], busyMb: boolean, msgMb: string, pick: string | null, added: string, link: boolean }} */
+  var st = { q: "", ck: "", seq: 0, local: [], mb: [], gg: [], ai: [], busyMb: false, msgMb: "", pick: null, added: "", link: false };
   /** Claude's answers by search, for this visit only (searches are not kept with the trip) @type {Record<string, any[]>} */
   var aiRes = {};
   var FOOD =
@@ -153,6 +155,53 @@
       });
   }
 
+  /* Google Maps: up to five of its listings near the city. When it does not answer, the map search is Mapbox's. */
+  function google(q, country, city, seq) {
+    var c = centerFor(country, city);
+    if (!c) return mapbox(q, country, city, seq);
+    st.busyMb = true;
+    st.msgMb = "";
+    W.gmSearch(q, c, city, country).then(
+      function (list) {
+        if (seq !== st.seq) return;
+        st.gg = list.map(function (r) {
+          return Object.assign(r, { id: rid("g", r.n), src: "google", food: FOOD.test(r.d + " " + r.n + " " + q) });
+        });
+        st.busyMb = false;
+        W.changed();
+      },
+      function () {
+        if (seq === st.seq) mapbox(q, country, city, seq);
+      }
+    );
+  }
+  /* a pasted Google Maps link: the one place it is for */
+  function fromLink(u, country, city, seq) {
+    var c = centerFor(country, city);
+    st.link = true;
+    if (!c) {
+      st.msgMb = "This city has no place on the map yet: type the place's name instead.";
+      return;
+    }
+    st.busyMb = true;
+    W.gmFromLink(u, c, city, country)
+      .then(
+        function (r) {
+          if (seq !== st.seq) return;
+          st.gg = [Object.assign(r, { id: rid("g", r.n), src: "google", link: true, food: FOOD.test((r.d || "") + " " + r.n) })];
+        },
+        function (e) {
+          if (seq === st.seq) st.msgMb = (e && e.msg) || "That link couldn't be read. Type the place's name instead.";
+        }
+      )
+      .then(function () {
+        if (seq === st.seq) {
+          st.busyMb = false;
+          W.changed();
+        }
+      });
+  }
+
   /* Claude: up to six real, named places for the words you typed, checked like every other list */
   function claude(q, country, city) {
     var ck = W.cityKey(country, city),
@@ -202,10 +251,14 @@
     st.added = "";
     st.local = [];
     st.mb = [];
+    st.gg = [];
     st.msgMb = "";
+    st.link = false;
     if (q.length < 2) return;
+    if (W.gmIsLink && W.gmIsLink(q)) return fromLink(W.gmIsLink(q), country, city, st.seq);
     st.local = local(q, country, city);
-    mapbox(q, country, city, st.seq);
+    if (W.gmOn && W.gmOn()) google(q, country, city, st.seq);
+    else mapbox(q, country, city, st.seq);
     claude(q, country, city);
   };
 
@@ -220,7 +273,10 @@
         y = W.norm(b);
       return x === y || (x.length > 5 && y.indexOf(x) > -1) || (y.length > 5 && x.indexOf(y) > -1);
     }
-    st.local.concat(st.mb, ai).forEach(function (r) {
+    var onMap = function (x) {
+      return x.src === "map" || x.src === "google";
+    };
+    st.local.concat(st.gg, st.mb, st.link ? [] : ai).forEach(function (r) {
       if (
         out.some(function (o) {
           return same(o.n, r.n) && (o.lat == null || r.lat == null || W.km(o, r) < 1.5);
@@ -230,12 +286,12 @@
         var o = out.filter(function (o) {
           return same(o.n, r.n);
         })[0];
-        if (o && o.src === "ai" && r.src === "map") {
+        if (o && o.src === "ai" && onMap(r)) {
           o.lat = r.lat;
           o.lng = r.lng;
           o.onMap = true;
         }
-        if (o && o.src === "map" && r.src === "ai" && r.it) {
+        if (o && onMap(o) && r.src === "ai" && r.it) {
           o.it = r.it;
           o.d = o.d || r.d;
         }
@@ -245,6 +301,7 @@
       seen[r.id] = 1;
       out.push(Object.assign({}, r));
     });
+    if (st.link) return { list: out, aiBusy: false, aiErr: "" };
     return { list: out, aiBusy: W.status[key] === "loading", aiErr: W.status[key] && W.status[key] !== "loading" ? W.status[key] : "" };
   }
 
@@ -265,7 +322,7 @@
         if (d != null && (!best || d < best.d)) best = { d: d, a: a };
       });
     if (!best) return "";
-    var lg = W.leg(best.a, r),
+    var lg = W.leg(best.a, r, true),
       from = best.a === home ? "where you're staying" : best.a.n;
     return lg ? W.fmtMin(lg.min) + " " + lg.label.toLowerCase() + " from " + from : W.fmtKm(best.d) + " from " + from;
   }
@@ -279,6 +336,8 @@
       st.q = "";
       st.local = [];
       st.mb = [];
+      st.gg = [];
+      st.link = false;
       st.pick = null;
       st.added = "";
     }
@@ -294,7 +353,9 @@
     if (!st.q)
       return (
         h +
-        '<p class="small muted ps-hint">A restaurant you heard about, a beach, "gelato", "rainy day with toddlers"… then add it to Day ' +
+        '<p class="small muted ps-hint">A restaurant you heard about, a beach, "gelato", "rainy day with toddlers"' +
+        (W.gmOn && W.gmOn() ? ", or a link from Google Maps" : "") +
+        "… then add it to Day " +
         day.n +
         ".</p></section>"
       );
@@ -313,9 +374,11 @@
           var tag =
             r.src === "list"
               ? '<span class="ps-src list">On your list' + (dayOf[W.norm(r.n)] ? " · Day " + dayOf[W.norm(r.n)] : "") + "</span>"
-              : r.src === "map" || r.onMap
-                ? '<span class="ps-src map">On the map</span>'
-                : '<span class="ps-src ai" title="Suggested by Claude; not checked against the map yet">Suggested by Claude</span>';
+              : r.src === "google"
+                ? '<span class="ps-src map">' + (r.link ? "From your link" : "On Google Maps") + "</span>"
+                : r.src === "map" || r.onMap
+                  ? '<span class="ps-src map">On the map</span>'
+                  : '<span class="ps-src ai" title="Suggested by Claude; not checked against the map yet">Suggested by Claude</span>';
           var near = nearLine(r, day, P),
             gm = W.gmapsPlace(r, day.city);
           var open = st.pick === r.id,
@@ -378,22 +441,29 @@
     if (busy)
       h +=
         '<p class="loading ps-busy">' +
-        (st.busyMb && M.aiBusy ? "Searching the map and asking Claude…" : st.busyMb ? "Searching the map…" : "Asking Claude…") +
+        (st.link
+          ? "Reading your Google Maps link…"
+          : st.busyMb && M.aiBusy
+            ? "Searching the map and asking Claude…"
+            : st.busyMb
+              ? "Searching the map…"
+              : "Asking Claude…") +
         "</p>";
-    if (!busy && !M.list.length)
+    if (!busy && !M.list.length && !st.link)
       h +=
         '<p class="small muted">Nothing found for "' +
         esc(st.q) +
         '". Try the place\'s own name, or a kind of place ("bakery", "playground").</p>';
     if (st.msgMb) h += '<p class="small muted">' + esc(st.msgMb) + "</p>";
     /* Google's own results for the same words, in Google Maps (they open there; add one here by searching its name) */
-    h +=
-      '<p class="ps-google">' +
-      W.extLink(
-        "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(st.q + " near " + day.city + ", " + day.country),
-        "Search Google Maps for “" + esc(st.q) + "” near " + esc(day.city) + " ↗"
-      ) +
-      "</p>";
+    if (!st.link)
+      h +=
+        '<p class="ps-google">' +
+        W.extLink(
+          "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(st.q + " near " + day.city + ", " + day.country),
+          "Search Google Maps for “" + esc(st.q) + "” near " + esc(day.city) + " ↗"
+        ) +
+        "</p>";
     if (M.aiErr) h += '<p class="small muted">' + esc(M.aiErr) + "</p>";
     if (W.standalone && !W.cloud)
       return (
@@ -407,7 +477,9 @@
       );
     return (
       h +
-      '<p class="small muted ps-src-note">Map results © Mapbox · ideas marked "Suggested by Claude" are checked against the map overnight.</p></section>'
+      '<p class="small muted ps-src-note">' +
+      (st.gg.length ? "Places, ratings and descriptions from Google Maps" : "Map results © Mapbox") +
+      ' · ideas marked "Suggested by Claude" are checked against the map overnight.</p></section>'
     );
   };
 
@@ -425,14 +497,19 @@
         L = imp[ck] || (imp[ck] = []),
         it = r.it || {};
       var food = W.isFood(slot);
+      /* from Google: its place ID is kept (every Google Maps link then opens that listing); its pin for 30 days
+         (lib/import.js); its description and rating not at all */
+      var g = r.src === "google";
       L.push({
         n: r.n,
-        d: r.d || it.d || "",
+        d: g ? it.d || "" : r.d || it.d || "",
         lat: r.lat,
         lng: r.lng,
+        gid: g && r.gid ? r.gid : undefined,
+        gat: g && r.gid && r.lat != null ? W.isoDay(new Date()) : undefined,
         food: food,
         slot: slot,
-        src: r.src === "ai" && !r.onMap ? "claude" : "map",
+        src: r.src === "ai" && !r.onMap ? "claude" : g ? "google" : "map",
         t: it.t || [],
         k: it.k || 0,
         s: it.s,

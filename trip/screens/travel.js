@@ -292,7 +292,8 @@
     var prev = /** @type {any} */ (home),
       num = 0,
       pts = /** @type {any[]} */ ([]),
-      rows = "";
+      rows = "",
+      lr0 = W.legReal;
     var legRow = function (a, b2, last, note) {
       return W.routeLeg(a, b2, day.city, last, note);
     };
@@ -370,6 +371,8 @@
         ? '<ol class="rc-list go-rt">' + W.routeHome(home) + rows + "</ol>"
         : '<p class="small muted">Nothing planned for this day yet.</p>') +
       (gm ? '<a class="btn rc-gm" href="' + esc(gm) + '" target="_blank" rel="noopener">Open the whole route in Google Maps ↗</a>' : "") +
+      (W.gmListHtml ? W.gmListHtml(day) : "") +
+      W.legNote(lr0) +
       "</section>";
     return h;
   }
@@ -432,6 +435,7 @@
       "</button></div>";
     if (tn && !live) h += '<button type="button" class="linkish go-back" data-gotoday="1">' + W.arrow() + "Back to today</button>";
     if (W.holidayLine) h += W.holidayLine(day);
+    h += "<!--wx-->"; /* the forecast goes here, once it is known whether the day can still be rescued (below) */
     if (!tn && !goN)
       h +=
         '<p class="small muted go-pre">' +
@@ -443,7 +447,7 @@
     if (!T) {
       h +=
         '<div class="empty sk"><div class="loading" style="justify-content:center">Gathering ideas for ' + esc(day.city) + "…</div></div>";
-      W.draw(el, '<div class="go">' + h + "</div>");
+      W.draw(el, '<div class="go">' + h.replace("<!--wx-->", W.wxLine ? W.wxLine(day, live) : "") + "</div>");
       return;
     }
 
@@ -550,6 +554,9 @@
     var late = W.lateFor(day),
       rk = W.restKey(day) + "|" + W.isoDay(W.now()),
       resc = (S.rescued || {})[rk];
+    /* the forecast, from the viewer's Google Maps connection (lib/gmaps.js); with rain likely and the day under way,
+       the way indoors is one tap from it */
+    h = h.replace("<!--wx-->", W.wxLine ? W.wxLine(day, live, !!(live && (cur || nxt) && !W.readOnly && !resc)) : "");
     if (live && (cur || nxt) && !W.readOnly) {
       h +=
         '<div class="go-late"><span>Running late?</span><button type="button" class="chip" data-late="15">+15 min</button><button type="button" class="chip" data-late="30">+30 min</button>' +
@@ -894,5 +901,15 @@
         window.scrollTo(0, 0);
       });
     else W.render();
+  };
+  /* while Today is drawn, a hop that has no real time yet is asked of Google (W.legWant, lib/core.js) */
+  var drawGo = W.renderGo;
+  W.renderGo = function (P) {
+    W.legWant++;
+    try {
+      drawGo(P);
+    } finally {
+      W.legWant--;
+    }
   };
 })();

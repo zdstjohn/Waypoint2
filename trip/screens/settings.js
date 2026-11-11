@@ -64,6 +64,7 @@
           "</p>",
         "set-copy"
       );
+    if (W.gmCard) h += W.gmCard(card); /* the viewer's Google Maps connection: what it adds, and its switch (lib/gmaps.js) */
     if (W.storageCard) h += W.storageCard(card); /* the app's stored files, for people who can edit it (lib/storage.js) */
     W.keepInputs(host, function () {
       var t = W.$("importText"),

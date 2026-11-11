@@ -196,8 +196,48 @@
     if (tool === 'search_flights') return { payload: { errors: [], options: [
       { slices: [{ legs: [{ marketing_airline_name: 'ITA Airways' }], ui_text: { departs_arrives: '5:10 PM – 1:25 PM+1', stops_label: 'Nonstop', flight_duration_display: '11h 15m' }, departure_time: 'x', arrival_time: 'y' }], price: { total_price: { value: 3120.5 * (window.__pf || 1), currency: 'USD' } } },
       { slices: [{ legs: [{ marketing_airline_name: 'Lufthansa' }, { marketing_airline_name: 'Lufthansa' }], ui_text: { departs_arrives: '3:00 PM – 2:40 PM+1', stops_label: '1 stop (MUC)', flight_duration_display: '14h 40m' } }], price: { total_price: { value: 2480 * (window.__pf || 1), currency: 'USD' } } } ] } };
+    /* Google Maps, when a suite turns it on (window.__gmaps = true before the app starts): shaped like the real
+       connector's answers (no name, address or hours fields; names come in attribution titles, a line about each
+       place in one summary). Times differ from the app's own estimate on purpose, so a check can tell them apart. */
+    if (server === 'Google Maps' && window.__gmaps) {
+      const km = (a, b) => { const r = Math.PI / 180, x = Math.sin((b.latitude - a.latitude) * r / 2) ** 2 + Math.cos(a.latitude * r) * Math.cos(b.latitude * r) * Math.sin((b.longitude - a.longitude) * r / 2) ** 2; return 12742 * Math.asin(Math.sqrt(x)); };
+      const LINKED = 'ChIJlinkedPlace0000000000000';
+      if (tool === 'compute_routes') {
+        const o = input.origin.latLng, d = input.destination.latLng;
+        if (!d) return { payload: { routes: [{ distanceMeters: 4200, duration: '660s', attribution: { title: '(' + o.latitude.toFixed(6) + ',' + o.longitude.toFixed(6) + ') to Linked Trattoria - Google Maps', url: 'https://www.google.com/maps/dir/x' } }] } };
+        if (input.travelMode === 'TRANSIT' && window.__gmNoTransit) return { payload: { routes: [] } };
+        const k = km(o, d), min = input.travelMode === 'WALK' ? Math.round(k * 20) + 7 : input.travelMode === 'TRANSIT' ? Math.round(k * 5) + 11 : Math.round(k * 2) + 4;
+        return { payload: { routes: [{ distanceMeters: Math.round(k * 1400), duration: (min * 60) + 's', attribution: { title: 'A to B - Google Maps', url: 'https://www.google.com/maps/dir/a/b' } }] } };
+      }
+      if (tool === 'lookup_weather') {
+        if (input.location.placeId) return { payload: { weather: { temperature: { degrees: 16, unit: 'CELSIUS' }, attribution: { title: window.__gmNoName ? 'Weather - Google' : 'Weather for Linked Trattoria - Google', url: 'https://www.google.com/search?q=Weather' } }, timeZone: 'Europe/Rome' } };
+        if (!input.date) throw { code: 'tool_error', message: 'no date' };
+        const dry = window.__gmWx === 'dry';
+        return { payload: { weather: { maxTemperature: { degrees: 21, unit: 'CELSIUS' }, minTemperature: { degrees: 18.6, unit: 'CELSIUS' }, weatherCondition: { description: { text: dry ? 'Sunny' : 'Rain', languageCode: 'en' }, type: dry ? 'CLEAR' : 'RAIN' },
+          precipitation: { probability: { percent: dry ? 5 : 75, type: 'RAIN' }, qpf: { quantity: dry ? 0 : 11.3, unit: 'MILLIMETERS' } }, uvIndex: 3, attribution: { title: 'Weather for Rome - Google', url: 'https://www.google.com/search?q=Weather+for+Rome' }, date: input.date }, timeZone: 'Europe/Rome' } };
+      }
+      if (tool === 'search_places') {
+        const c = (input.locationBias && input.locationBias.circle.center) || { latitude: 41.9, longitude: 12.5 }, q = input.textQuery.split(' in ')[0];
+        const pl = (id, name, dx, dy) => ({ place: 'places/' + id, id, location: { latitude: c.latitude + dy, longitude: c.longitude + dx }, googleMapsLinks: { placeUrl: 'https://www.google.com/maps/place//data=x' }, attribution: { title: name + ' - Google Maps', url: 'https://www.google.com/maps/place//data=!4m2!3m1!1s' + id } });
+        if (/^Linked Trattoria/.test(q)) return { payload: { places: [pl('ChIJother0000000000000000000', 'Trattoria Other', 0.01, 0.01), pl(LINKED, 'Linked Trattoria', 0.006, 0.003)], summary: '**Trattoria Other** [0] (4.0★ (12)) is a restaurant.\n\n**Linked Trattoria** [1] (4.6★ (880)) is a family-run restaurant known for its pasta.' } };
+        if (/nothing/i.test(q)) return { payload: {} };
+        const W1 = q.replace(/^\w/, x => x.toUpperCase());
+        return { payload: { places: [pl('ChIJgoogleOne000000000000000', 'Gelateria ' + W1, 0.003, 0.002), pl('ChIJgoogleTwo000000000000000', 'Caffè ' + q, -0.002, 0.001), pl('ChIJgoogleFar000000000000000', 'Far Google Place', 3, 3)],
+          summary: '**Gelateria ' + W1 + '** [0] (4.9★ (16144)) is a trendy and family-friendly ice cream shop.\n\n**Caffè ' + q + '** [1] (4.1★ (90)) is a small cafe bar.\n\n**Far Google Place** [2] (3.0★ (3)) is a museum.', contentToken: 'x' } };
+      }
+      if (tool === 'resolve_names') {
+        const res = input.queries.map((x, i) => ({ entity: { place: 'places/ChIJname' + String(i).padStart(22, '0') }, confidence: /Nowhere|Unknowable/.test(x.text) ? 'MEDIUM' : 'HIGH' }));
+        return { payload: { results: res, saveToMapsUrl: 'https://www.google.com/maps/@?api=1&map_action=shortlist&place_ids=' + res.map(r => r.entity.place.slice(7)).join(',') } };
+      }
+      if (tool === 'resolve_maps_urls') {
+        if (/goo\.gl/.test(input.urls[0])) return { payload: { entities: [{ place: 'places/' + LINKED }], saveToMapsUrl: 'https://www.google.com/maps/@?api=1&map_action=shortlist&place_ids=' + LINKED } };
+        return { payload: { entities: [{}], failedRequests: { 0: { code: 3, message: 'Failed to resolve Maps URL to a place.' } } } };
+      }
+    }
     throw { code: 'not_in_manifest' };
-  } };
+  },
+  /* which connections this viewer has: Google Maps only when a suite turned it on */
+  listTools: async (server) => ({ servers: window.__gmaps && (!server || server === 'Google Maps') ? [{ server: 'Google Maps', authStatus: 'connected', tools: ['compute_routes', 'lookup_weather', 'search_places', 'resolve_names', 'resolve_maps_urls'].map(name => ({ name, description: '' })) }] : [] }) };
   window.__assets = []; window.__composer = [];
   /* stored files for the Storage card: window.__assetList = [{id, url, contentType, sizeBytes, createdAt}] */
   const assetsMore = {

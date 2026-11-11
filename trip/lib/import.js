@@ -11,28 +11,56 @@
   W.withImported = function (country, city, pool) {
     var list = (W.S.imported || {})[W.cityKey(country, city)];
     if (!list || !list.length) return;
-    var sig = list
-      .map(function (x) {
-        return x.n;
-      })
-      .join("|");
+    /* a place added from Google's search: its place ID stays for good; its pin is Google's, kept 30 days and never
+       drawn on the free street map. After that the place stays on the day without a pin (Google Maps links open its
+       listing) until the nightly check finds it on the free map. */
+    function gPast(x) {
+      return !!(x.gid && x.gat) && !(Date.now() - Date.parse(x.gat) < 30 * 864e5);
+    }
+    var sig =
+      list
+        .map(function (x) {
+          return x.n;
+        })
+        .join("|") +
+      "|" +
+      list.filter(gPast).length;
     if (pool._imp === sig) return;
+    /* (the trip's own copy of a Google pin past its 30 days goes too, where the trip is yours to change) */
+    if (!W.readOnly)
+      list.forEach(function (x) {
+        if (gPast(x) && x.lat != null) x.lat = x.lng = null;
+      });
     var have = {};
     (pool.spots || []).concat(pool.food || []).forEach(function (x) {
-      have[W.norm(x.n)] = 1;
+      have[W.norm(x.n)] = x;
     });
     list.forEach(function (x) {
-      if (have[W.norm(x.n)]) return;
-      /* from an imported plan, or a place you found with the search (src: "map" or "claude"), with what is known of it */
+      var had = have[W.norm(x.n)];
+      if (had) {
+        /* already on the list: a Google pin past its 30 days comes off */
+        if (had.igp && gPast(x)) {
+          had.lat = had.lng = null;
+          had.g = null;
+          delete had.igp;
+          delete had.gpin;
+        }
+        return;
+      }
+      /* from an imported plan, or a place you found with the search (src: "map", "google" or "claude"), with what is known of it */
+      var gPin = !!(x.gid && x.gat),
+        gOld = gPast(x);
       var it = {
         n: x.n,
         d: x.d || (x.src ? "Added by you" : "From your plan"),
-        lat: x.lat,
-        lng: x.lng,
+        lat: gOld ? null : x.lat,
+        lng: gOld ? null : x.lng,
         t: Array.isArray(x.t) ? x.t : [],
         k: x.k === 1 || x.k === -1 ? x.k : 0,
         imp: true
       };
+      if (x.gid) it.gid = it.ig = x.gid;
+      if (gPin && !gOld && it.lat != null) it.gpin = it.igp = 1;
       if (x.src) it.src = x.src;
       if (x.dur) it.dur = x.dur;
       if (x.food) {

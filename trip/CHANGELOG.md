@@ -2,6 +2,48 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v140
+
+Google Maps, through the viewer's own Google Maps connection in Claude (lib/gmaps.js, in the second script). The page
+holds no key and cannot reach the internet itself; without the connection every screen works as it did.
+- Real times between stops. W.leg (lib/core.js) used to work every hop out from the straight-line distance. It now
+  returns Google's walking, transit or driving time when one is known, and W.legEst is the old estimate (the planner
+  keeps using it, so the same places still give the same picks; what moves is the day's clock). A hop with no real
+  time is asked for only while its day is on show (W.legWant: Today, and the Trip screen's day), plus today and the
+  next two days once a trip is two days away or under way; about a dozen requests a day, once. Where Google has no
+  transit, or only a connection far slower than the estimate, a close stop is walked and a far one driven ("drive or
+  taxi"). Real times are saved with the trip (S.rl), so everyone it is shared with sees the same clock, connection or
+  not; they are asked for again after 60 days. Under a day that shows them: whose they are, and Google's own caution
+  that its walking routes are in beta.
+- The forecast. Today and the Trip screen's day show Google's forecast when the day is inside its ten days (W.wxLine):
+  the weather, the chance of rain, the temperature range (°F for a US phone, else °C). With rain likely and the day
+  under way, "Rain likely · go indoors" is on the line itself (the same rescue as before, one tap closer). Forecasts
+  stay on the device, for 3 hours (today and tomorrow) or 8.
+- Explore's search shows Google's listings (five, the basic kind of request) in place of Mapbox's when the connection
+  is there, each with its place ID, so its Google Maps link opens that exact listing. Google's line about a place
+  and its rating are shown while you search and not kept. An added place keeps its place ID for good and Google's pin
+  for 30 days (lib/import.js; never drawn on the app's own street map); after that Claude is asked where it is, as
+  for any place without a pin. If Google does not answer, the search is Mapbox's as before.
+- A Google Maps link pasted into the search becomes its one place: a long link says the name and pin by itself (no
+  connection needed); a short one (maps.app.goo.gl) is read in three requests (the place, its name, its pin).
+- "Make a Google Maps list of these places", under "Open the whole route in Google Maps" (Trip's day, Today's route):
+  the day's places by name, and the button becomes the link to that list in Google Maps, to save there. A place
+  Google only half-recognises is left off and named.
+- Settings > Google Maps: how the connection stands, how many requests this device has made today, and a switch.
+  Limits: 300 requests a day from a device, 120 by the app itself in one visit; no live-traffic routing, no more than
+  five results, no extended details (the kinds Google bills higher). A "no" to Claude's question is remembered for
+  a week ("Ask me again" is in Settings).
+- The nightly place check no longer needs a Google API key. tools/place_check.py has two new commands: gtodo lists
+  what to ask (Google pins due for renewal, then the weakest pins), the task's session asks the Google Maps
+  connector and copies the answers into a file, and gapply matches them with the same rules as before. The connector
+  gives no types, so what a place is comes from Google's written line about it; a place ID copied by hand is used
+  only when it agrees with the feature id in the place's own link (the ID is those two numbers, encoded), which
+  catches a miscopied character. The key-based commands (google, refresh) are still in the file.
+- Tests: test/suites/gmaps.js (46 checks, with a stand-in for the connector shaped like its real answers);
+  tools/test_tools.py covers the new commands. The artifact declares the connector's five tools (compute_routes,
+  lookup_weather, search_places, resolve_names, resolve_maps_urls).
+Screens: Settings gains the Google Maps card. With the connection off nothing else looks different.
+
 ## v139
 
 The one-time speed measurement can save its result. Since v130 it wrote to data/users/<you>/diag/effort, which is not

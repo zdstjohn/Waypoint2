@@ -18,6 +18,16 @@ OpenStreetMap (Photon, near the city); clear matches become "open" records with 
       links), the free map's pin at Google's spot, or Google's own pin kept short-lived ("gpin", refreshed below)
   python3 place_check.py refresh <db_dir> <work_dir>       (needs GOOGLE_MAPS_API_KEY)
       Google pins are kept at most 30 days: renewed by place ID after 25, removed after 30 or when Google drops them
+  python3 place_check.py gtodo <db_dir> <work_dir> [max]   (no key: the same two jobs through a Google Maps connector)
+      prints up to max (30) lines "<n> | <what to search> | <lat>,<lng>": Google pins due for renewal first, then the
+      places with the weakest pins; writes <work_dir>/gtodo.json. Whoever runs this (the nightly task's session) asks
+      the connector's search_places once per line and writes the answers to a file, one JSON object per line:
+        {"n": <n>, "places": [{"id", "lat", "lng", "title", "fid"}...], "summary": "<the answer's summary>"}
+      (title = attribution.title; fid = the "0x...:0x..." at the end of googleMapsLinks.placeUrl)
+  python3 place_check.py gapply <db_dir> <work_dir> <answers.jsonl>
+      matches those answers like "google" does, renews like "refresh" does, and takes Google pins older than 30 days
+      off. A place ID copied by hand is used only when it agrees with the place's fid (gid_ok). Works with an empty
+      answers file too (then it only retires old Google pins).
   python3 place_check.py pins <db_dir> <work_dir>
       every pin a trip still shows from a guess (no checked pin) is tested against the map's water (pin_check.py):
       a pin a little out in a harbour moves to the nearest shore ("approx"), one far out at sea loses its pin ("nopin",
@@ -222,21 +232,28 @@ GNOT = {"parking": ({"parking", "parking_lot", "parking_garage"}, r"\bparking\b"
 def _gpick(name, q, food, lat, lng):
     d = gcall("https://places.googleapis.com/v1/places:searchText", {"textQuery": q + ", " + (CITY_NAME[0] or ""), "pageSize": 5, "languageCode": "en",
               "locationBias": {"circle": {"center": {"latitude": lat, "longitude": lng}, "radius": 25000.0}}})
+    return _gscore(name, food, lat, lng, (d or {}).get("places") or [])
+def _gscore(name, food, lat, lng, places):
+    """Google's answers for one place, scored against its name: the best one, when it is good enough. From the Places
+    API a place has its types. From the connector (gapply) it has what its written description says: "types" = what
+    the place is, "typesAny" = every kind of place the description mentions (a museum "with a cafe" is not a cafe, but
+    a "spot ... for handmade gelato" is a place to eat)."""
     # the item's own words (not the town, not "beach" or "dinner"); a part after a comma says where, not what
     # (from the item's name, never from the shorter words asked: "Pizzaiolo" alone would let any pizzaiolo count)
     own = {t for t in toks(re.sub(r"\s*[\(\[].*?[\)\]]", "", name).split(",")[0]) if not _close(t, CITY_TOKS)} - WEAKW
     ta = _types(name)
     named_town = any(_close(t, CITY_TOKS) for t in toks(name))      # "Sweet Corner Rethymno" is in Rethymno, not Heraklion
     out = []
-    for rank, p in enumerate((d or {}).get("places") or []):
+    for rank, p in enumerate(places):
         loc = p.get("location") or {}; nm = ((p.get("displayName") or {}).get("text")) or ""
         if loc.get("latitude") is None or not nm: continue
         dist = km(lat, lng, loc["latitude"], loc["longitude"]); types = set(p.get("types") or [])
+        anyt = set(p.get("typesAny") or []) | types
         sc = sim(name, nm)          # the item's own name, whichever words were asked ("Museo Civico" is not "Civico 36")
         addr = set(toks(p.get("formattedAddress") or ""))
         bown = {t for t in toks(nm) if not _close(t, CITY_TOKS) and not t.isdigit()} - WEAKW
         covered = all(_close(t, bown | addr) for t in own)
-        gk = _gkinds(types, nm); kind_ok = not ta or bool(ta & gk)
+        gk = _gkinds(anyt, nm); kind_ok = not ta or bool(ta & gk)
         # kinds of place that are never what an item means unless it says so: a car park, a street, a bus or train
         # station, a tour desk, a supermarket ("Siena day trip" is not Florence's "Via Siena"); a hotel is no restaurant
         bad = [k for k, why in GNOT.items() if (types & why[0]) and not re.search(why[1], name, re.I)]
@@ -266,7 +283,7 @@ def _gpick(name, q, food, lat, lng):
             # Bianca" on the next island is not Lipari's "Spiaggia Bianca", and nothing past 120 km
             same = own and covered and all(_close(t, own) for t in bown)
             sc *= 0.3 if dist > (80 if food else 120) or named_town else (0.9 if dist <= 60 else 0.8) if same else 0.5
-        if food and not (types & GFOOD): sc *= 0.6
+        if food and anyt and not (anyt & GFOOD): sc *= 0.6        # (no kinds known at all: the name alone decides)
         if not food and (types & {"restaurant", "cafe", "bar", "lodging", "hotel"}) and not re.search(r"\b(cafe|bar|restaurant|taverna|hotel|lido|beach club)\b", name, re.I): sc *= 0.6
         out.append({"gid": p.get("id"), "name": nm, "lat": loc["latitude"], "lng": loc["longitude"], "km": round(dist, 1), "s": round(sc, 2), "closed": p.get("businessStatus") == "CLOSED_PERMANENTLY", "types": sorted(types)})
     best = max(out, key=lambda c: c["s"]) if out else None
@@ -298,8 +315,8 @@ def snap_free(name, g):
         sc = max([max(sim(name, a), sim(g["name"], a)) for a in alts] or [0])
         if sc >= 0.67 and (best is None or dm < best[0]): best = (dm, nm, la, ln)
     return best
-def google_cand(name, food, lat, lng):
-    g = google_pick(name, food, lat, lng)
+def google_cand(name, food, lat, lng, g=None):
+    g = g or google_pick(name, food, lat, lng)
     if not g: return None
     # a neighbourhood or a street is not the shop the free map has on it ("Krutenau" is not "Epicerie de la Krutenau")
     sn = None if set(g.get("types") or []) & GAREA else snap_free(name, g)
@@ -669,6 +686,19 @@ def recheck(db, work):
         print(slug, json.dumps(stats), flush=True)
     print(json.dumps(stats))
 
+def gmerge(r, b, weak, stats):
+    """a Google match into a place's record: its place ID, "closed" when Google says so, and its pin when that is
+    better than the one the record has"""
+    stats["matched"] += 1
+    gcheck_record(r, b); r["checked"] = TODAY
+    if b.get("closed"): r["st"] = "closed"; r["note"] = (r.get("note") or "Listed as permanently closed.").strip(); stats["closed"] += 1
+    # the pin: replace one that rests on less evidence, or one more than 300 m from where the place really is
+    if weak < 3 or r.get("lat") is None or km(r["lat"], r["lng"], b["lat"], b["lng"]) > 0.3:
+        if r.get("lat") is not None and not r.get("was") and weak >= 2: r["was"] = [r["lat"], r["lng"]]
+        r.update({"lat": b["lat"], "lng": b["lng"], "name": b["name"], "osm": b["osm"]})
+        for x in ("approx", "nopin", "pin_tried", "area", "ashore"): r.pop(x, None)
+        stats["google_pin" if b.get("gpin") else "free_pin"] += 1
+    if not r.get("st"): r["st"] = "open"
 def gpass(db, work):
     """Google pass (needs GOOGLE_MAPS_API_KEY): the places whose pins rest on the least evidence first (none, a guess
     moved ashore, a village's shore, one the check took off), then any without a Google place ID, up to GOOGLE_MAX
@@ -709,16 +739,7 @@ def gpass(db, work):
         stats["looked"] += 1
         b = google_cand(n, food, c[0], c[1])
         if not b: continue
-        stats["matched"] += 1
-        gcheck_record(r, b); r["checked"] = TODAY
-        if b.get("closed"): r["st"] = "closed"; r["note"] = (r.get("note") or "Listed as permanently closed.").strip(); stats["closed"] += 1
-        # the pin: replace one that rests on less evidence, or one more than 300 m from where the place really is
-        if weak < 3 or r.get("lat") is None or km(r["lat"], r["lng"], b["lat"], b["lng"]) > 0.3:
-            if r.get("lat") is not None and not r.get("was") and weak >= 2: r["was"] = [r["lat"], r["lng"]]
-            r.update({"lat": b["lat"], "lng": b["lng"], "name": b["name"], "osm": b["osm"]})
-            for x in ("approx", "nopin", "pin_tried", "area", "ashore"): r.pop(x, None)
-            stats["google_pin" if b.get("gpin") else "free_pin"] += 1
-        if not r.get("st"): r["st"] = "open"
+        gmerge(r, b, weak, stats)
         items[norm(n)] = r
     for slug, doc in docs.items():
         doc["checked"] = TODAY; json.dump(doc, open(os.path.join(work, "places", slug + ".json"), "w"), ensure_ascii=False); stats["cities"] += 1
@@ -754,6 +775,143 @@ def refresh(db, work):
                 changed = True; stats["removed"] += 1
         if changed: json.dump(doc, open(f, "w"), ensure_ascii=False); stats["cities"] += 1
     if GSTOP[0]: stats["google_stopped"] = GSTOP[0]
+    print(json.dumps(stats))
+
+# ---------- the same two jobs through a Google Maps connector (no key): gtodo lists the lookups, gapply reads the answers ----------
+def gid_ok(pid, fid):
+    """A Google place ID copied by hand is trusted only when it agrees with the feature id in the place's own link
+    ("0x132f61e08c37da1d:0xa47132a7a5082628"): the ID is those two numbers, encoded. One wrong character in either
+    and they no longer agree."""
+    import base64, struct
+    m = re.match(r"^0x([0-9a-f]{1,16}):0x([0-9a-f]{1,16})$", str(fid or "").strip().lower())
+    if not m or not re.match(r"^[A-Za-z0-9_-]{27}$", str(pid or "")): return False
+    raw = b"\x0a\x12\x09" + struct.pack("<Q", int(m.group(1), 16)) + b"\x11" + struct.pack("<Q", int(m.group(2), 16))
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=") == pid
+# what a place is, read from Google's one-line description of it (the connector gives no types)
+SAYS = [(r"restaurants?|trattoria|osteria|tavern[as]?|bistro|eatery|diner|steakhouse|pizzeria|brasserie|rotisserie", "restaurant"),
+        (r"caf[eé]s?|coffee ?shop|coffee ?house|espresso bar|tea ?room", "cafe"), (r"baker(y|ies)|patisserie|pastry shop|bakehouse", "bakery"),
+        (r"ice cream|gelato|gelateria", "ice_cream_shop"), (r"bar|pub|wine bar|cocktail bar", "bar"), (r"museum", "museum"), (r"art gallery|gallery", "art_gallery"),
+        (r"church|cathedral|basilica|chapel|monastery", "church"), (r"mosque", "mosque"), (r"castle|palace", "castle"), (r"fortress|fort|citadel", "fortress"),
+        (r"beach", "beach"), (r"park|playground", "park"), (r"gardens?", "garden"), (r"hotel|resort|guest ?house|bed and breakfast|b&b|hostel|inn", "lodging"),
+        (r"market|marketplace", "market"), (r"marina|harbou?r", "marina"), (r"square|piazza|plaza", "plaza"),
+        (r"parking lot|car park|parking garage|parking", "parking"), (r"bus station|train station|railway station|metro station|subway station|bus stop|transit station", "transit_station"),
+        (r"travel agency|tour agency|car rental", "travel_agency"), (r"supermarket|grocery store|convenience store|minimarket", "supermarket"),
+        (r"hiking area|hiking trail|gorge|nature reserve", "hiking_area")]
+def says(line):
+    """(what the place is, everything the line mentions): the first from the words up to the first "with", "offering",
+    comma and the like ("is a historic ice cream parlor featuring ..."), the second from the whole line"""
+    t = re.sub(r"\*\*|\[\d+\]|\([\d.]+\s*★[^)]*\)\)?", " ", str(line or "")).lower()
+    m = re.search(r"\b(?:is|are)\b(.*)", t); body = m.group(1) if m else t
+    head = re.split(r",|\bwith\b|\boffering\b|\bfeaturing\b|\bknown\b|\blocated\b|\bthat\b|\bwhere\b|\bfor\b|\bserving\b|\bnear\b|\bin\b|\bon\b", body)[0]
+    kinds = lambda x: [g for rx, g in SAYS if re.search(r"\b(?:" + rx + r")\b", x)]
+    return kinds(head), kinds(body)
+def gplaces(ans):
+    """one answer file line as the places _gscore reads; a place whose ID and feature id disagree is left out"""
+    paras = [x for x in re.split(r"\n+", str(ans.get("summary") or "")) if x.strip()]; out = []; bad = 0
+    for i, pl in enumerate(ans.get("places") or []):
+        if isinstance(pl, (list, tuple)) and len(pl) >= 5: pl = {"id": pl[0], "lat": pl[1], "lng": pl[2], "title": pl[3], "fid": pl[4]}
+        if not isinstance(pl, dict): continue
+        fid = re.search(r"0x[0-9a-fA-F]{1,16}:0x[0-9a-fA-F]{1,16}", str(pl.get("fid") or ""))
+        try: la, ln = float(pl.get("lat")), float(pl.get("lng"))
+        except Exception: continue
+        if not gid_ok(pl.get("id"), fid.group(0) if fid else ""): bad += 1; continue
+        nm = re.sub(r"\s+[-–]\s+Google Maps\s*$", "", str(pl.get("title") or "")).strip()
+        line = next((x for x in paras if "[%d]" % i in x), "")
+        head, anyk = says(line)
+        out.append({"id": pl["id"], "displayName": {"text": nm}, "location": {"latitude": la, "longitude": ln}, "types": head, "typesAny": anyk,
+                    "primaryType": head[0] if head else "", "businessStatus": "CLOSED_PERMANENTLY" if re.search(r"permanently closed", line, re.I) else "", "formattedAddress": ""})
+    return out, bad
+def gtodo(db, work, gmax):
+    """what to ask Google tonight, through the connector: pins due for renewal first, then the weakest pins. Prints
+    "<n> | <what to search> | <lat>,<lng>" lines and writes <work>/gtodo.json."""
+    import datetime
+    wanted, places = load_dir(os.path.join(db, "wanted")), load_dir(os.path.join(db, "places"))
+    os.makedirs(os.path.join(work, "places"), exist_ok=True)
+    cur = lambda slug: (json.load(open(os.path.join(work, "places", slug + ".json"))) if os.path.exists(os.path.join(work, "places", slug + ".json")) else (places.get(slug) or {"items": {}}))
+    old = (datetime.date.today() - datetime.timedelta(days=25)).isoformat(); asked = (datetime.date.today() - datetime.timedelta(days=30)).isoformat()
+    paren = lambda v: re.sub(r"\s*[\(\[].*?[\)\]]", "", v).strip(" -–,:&")
+    out = []
+    for slug in sorted(places):
+        doc = cur(slug); city = doc.get("city") or (wanted.get(slug) or {}).get("city") or ""
+        for k, r in sorted((doc.get("items") or {}).items()):
+            if r.get("gpin") and r.get("g") and r.get("lat") is not None and (r.get("gat") or "") <= old and r.get("name"):
+                out.append({"kind": "renew", "slug": slug, "key": k, "g": r["g"], "q": paren(r["name"]) + ", " + city, "lat": r["lat"], "lng": r["lng"]})
+    out = out[:max(1, gmax // 2)]
+    todo = []
+    for slug, w in wanted.items():
+        doc = cur(slug); items = doc.get("items") or {}
+        names = [(n, False) for n in (w.get("spots") or [])] + [(n, True) for n in (w.get("food") or [])]
+        c = doc.get("center") or w.get("center")
+        if not (isinstance(c, list) and len(c) == 2):
+            ps = [(x["lat"], x["lng"]) for x in items.values() if isinstance(x, dict) and x.get("lat") is not None and not (x.get("approx") or x.get("area"))]
+            if len(ps) < 3: continue
+            c = [sorted(a for a, _ in ps)[len(ps) // 2], sorted(b for _, b in ps)[len(ps) // 2]]
+        for n, food in names:
+            if not isinstance(n, str) or not n.strip(): continue
+            r = items.get(norm(n)) or {}
+            # (gq: the night Google was last asked and had no match; not asked again for 30 days)
+            if r.get("st") in ("closed", "unfound", "dup") or r.get("stay") or r.get("g") or (food and GENERIC.search(n)) or (r.get("gq") or "") > asked: continue
+            weak = 0 if r.get("lat") is None else 1 if (r.get("approx") or r.get("area") or r.get("pin_tried") or r.get("gpin")) else 2 if not r.get("name") else 3
+            todo.append((trip_rank(w), norm(n) not in used_names(w), weak, slug, n, food, c, w.get("city") or ""))
+    todo.sort(key=lambda x: (x[0] if x[1] is False else 10 ** 6 + x[0], x[2], x[3]))
+    waiting = max(0, len(todo) - max(0, gmax - len(out)))
+    for _, _, weak, slug, n, food, c, city in todo[:max(0, gmax - len(out))]:
+        out.append({"kind": "find", "slug": slug, "name": n, "food": food, "weak": weak, "q": paren(n) + ", " + city, "lat": c[0], "lng": c[1]})
+    for i, e in enumerate(out): e["n"] = i + 1
+    json.dump({"at": TODAY, "todo": out, "waiting": waiting}, open(os.path.join(work, "gtodo.json"), "w"), ensure_ascii=False)
+    for e in out: print("%d | %s | %.5f,%.5f" % (e["n"], e["q"], e["lat"], e["lng"]))
+def gapply(db, work, answers):
+    """the connector's answers (see gtodo) into the records: matches like gpass, renewals like refresh; a Google pin
+    older than 30 days comes off either way. Writes <work>/places/<slug>.json for every city changed."""
+    import datetime
+    wanted, places = load_dir(os.path.join(db, "wanted")), load_dir(os.path.join(db, "places"))
+    os.makedirs(os.path.join(work, "places"), exist_ok=True)
+    tf = os.path.join(work, "gtodo.json"); plan = json.load(open(tf)) if os.path.exists(tf) else {"todo": [], "waiting": 0}
+    ans = {}
+    if answers and os.path.exists(answers):
+        for line in open(answers, encoding="utf-8"):
+            line = line.strip()
+            if not line: continue
+            try: a = json.loads(line)
+            except Exception: continue
+            if isinstance(a, dict) and isinstance(a.get("n"), int): ans[a["n"]] = a
+    docs = {}; stats = {"looked": 0, "matched": 0, "free_pin": 0, "google_pin": 0, "closed": 0, "renewed": 0, "removed": 0, "bad_ids": 0, "cities": 0}
+    def doc_of(slug):
+        if slug not in docs:
+            f = os.path.join(work, "places", slug + ".json")
+            docs[slug] = [json.load(open(f)) if os.path.exists(f) else json.loads(json.dumps(places.get(slug) or {"items": {}})), False]
+        return docs[slug]
+    for e in plan.get("todo") or []:
+        a = ans.get(e.get("n"))
+        if a is None: continue                          # not asked, or no answer: another night
+        got, bad = gplaces(a); stats["bad_ids"] += bad
+        d = doc_of(e["slug"]); items = d[0].setdefault("items", {})
+        if e["kind"] == "renew":
+            r = items.get(e["key"])
+            hit = next((p for p in got if p["id"] == e["g"]), None)
+            if r and hit and r.get("g") == e["g"]:
+                r.update({"lat": round(hit["location"]["latitude"], 7), "lng": round(hit["location"]["longitude"], 7), "gat": TODAY}); stats["renewed"] += 1; d[1] = True
+            continue
+        w = wanted.get(e["slug"]) or {}; set_city(w.get("city") or "", w.get("country") or "")
+        r = dict(items.get(norm(e["name"])) or {}); stats["looked"] += 1
+        g = _gscore(e["name"], e["food"], e["lat"], e["lng"], got)
+        b = google_cand(e["name"], e["food"], e["lat"], e["lng"], g) if g else None
+        if b: gmerge(r, b, e.get("weak", 0), stats); r.pop("gq", None)
+        else: r["gq"] = TODAY
+        items[norm(e["name"])] = r; d[1] = True
+    # past 30 days without a renewal, a Google pin comes off either way (Google's terms)
+    gone = (datetime.date.today() - datetime.timedelta(days=30)).isoformat()
+    for slug in sorted(places):
+        if not any(x.get("gpin") and (x.get("gat") or "") < gone for x in ((docs[slug][0] if slug in docs else places[slug]).get("items") or {}).values() if isinstance(x, dict)): continue
+        d = doc_of(slug)
+        for r in (d[0].get("items") or {}).values():
+            if isinstance(r, dict) and r.get("gpin") and (r.get("gat") or "") < gone:
+                for x in ("lat", "lng", "gpin", "gat"): r.pop(x, None)
+                stats["removed"] += 1; d[1] = True
+    for slug, (doc, changed) in docs.items():
+        if not changed: continue
+        doc["checked"] = TODAY; json.dump(doc, open(os.path.join(work, "places", slug + ".json"), "w"), ensure_ascii=False); stats["cities"] += 1
+    stats["answers"] = len(ans); stats["waiting"] = plan.get("waiting", 0) + len([e for e in plan.get("todo") or [] if e.get("n") not in ans])
     print(json.dumps(stats))
 
 def pins(db, work):
@@ -838,4 +996,6 @@ if __name__ == "__main__":
     elif len(sys.argv) >= 4 and sys.argv[1] == "recheck": recheck(sys.argv[2], sys.argv[3])
     elif len(sys.argv) >= 4 and sys.argv[1] == "google": gpass(sys.argv[2], sys.argv[3])
     elif len(sys.argv) >= 4 and sys.argv[1] == "refresh": refresh(sys.argv[2], sys.argv[3])
+    elif len(sys.argv) >= 4 and sys.argv[1] == "gtodo": gtodo(sys.argv[2], sys.argv[3], int(sys.argv[4]) if len(sys.argv) > 4 else 30)
+    elif len(sys.argv) >= 5 and sys.argv[1] == "gapply": gapply(sys.argv[2], sys.argv[3], sys.argv[4])
     else: print(__doc__)

@@ -1227,7 +1227,7 @@
             best = i;
           }
         });
-        var lg = W.leg(A[best].a, r.it);
+        var lg = W.leg(A[best].a, r.it, true);
         r.km = bd;
         r.near = lg ? W.fmtMin(lg.min) + " " + lg.label + " from " + (A[best].home ? "where you're staying" : A[best].label) : "";
         (bd <= 3 ? byA[best] : far).push(r);
@@ -1520,6 +1520,8 @@
     }
     /* a public holiday or a festival on this day */
     if (!xp && W.holidayLine) h += W.holidayLine(day);
+    /* the forecast, when the day is inside Google's ten and the viewer has a Google Maps connection (lib/gmaps.js) */
+    if (!xp && W.wxLine) h += W.wxLine(day, W.isToday(day));
     /* the city's first ideas are still being written: the day already shows the ones that are in, and says more are coming */
     if (
       !xp &&
@@ -1623,10 +1625,14 @@
               .join("") +
             "</div>";
     } else {
-      var stops = dayStops(P, day, home, pool),
+      /* (the hops of the day on show are the ones worth asking Google for: W.legWant, lib/core.js) */
+      W.legWant++;
+      var lr0 = W.legReal,
+        stops = dayStops(P, day, home, pool),
         pts = stops.pts,
         list = stops.list,
         T = stops.T;
+      W.legWant--;
 
       var stopsLL = pts.filter(function (p) {
         return p.lat != null;
@@ -1673,11 +1679,13 @@
               esc(gm) +
               '" target="_blank" rel="noopener">' +
               W.icon("dir", 2.2) +
-              "Open the whole route in Google Maps ↗</a></div>"
+              "Open the whole route in Google Maps ↗</a>" +
+              (W.gmListHtml ? W.gmListHtml(day) : "") +
+              "</div>"
           : ""
       );
       if (!xp) {
-        list += dayEnd(day, P, home, geoBusy);
+        list += W.legNote(lr0) + dayEnd(day, P, home, geoBusy);
         if (!W.readOnly)
           list +=
             '<button type="button" class="add-place" data-addplace="1"><span aria-hidden="true">+</span> Add a place of your own</button>';

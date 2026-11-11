@@ -33,19 +33,20 @@
       if (was && it.g && same(it.g[0], was[0]) && same(it.g[1], was[1])) it.g = null;
       /* Google's place ID opens the exact listing from every "Google Maps" link. A pin taken from Google ("gpin") may
          be kept for 30 days only, and is never drawn on the free street map. */
-      it.gid = r.g || undefined;
+      it.gid = r.g || it.ig || undefined; /* (ig, igp: the ID and pin of a place you added from Google's search) */
       var gOk = !r.gpin || (r.gat && Date.now() - Date.parse(r.gat) < 30 * 864e5);
       it.gpin = r.gpin && gOk ? 1 : undefined;
       if (r.lat != null && r.lng != null && gOk) {
         it.lat = r.lat;
         it.lng = r.lng;
       } else if (r.nopin) {
-      /* a guessed pin that landed far out in the water, with the real place not found yet: no pin beats a wrong one */
+        /* a guessed pin that landed far out in the water, with the real place not found yet: no pin beats a wrong one */
         it.lat = null;
         it.lng = null;
       } else {
         it.lat = it.g ? it.g[0] : null;
         it.lng = it.g ? it.g[1] : null;
+        if (it.igp && it.lat != null) it.gpin = 1;
       }
       if (r.st) it.st = r.st;
       if (r.site) {

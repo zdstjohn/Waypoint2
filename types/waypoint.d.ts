@@ -39,7 +39,7 @@ interface TripState { v: 2; algo?: number; tripId?: string; tripName?: string; s
   cityDays: Record<string, number>; day: number; tview?: "days" | "map"; glanceOpen?: boolean; allPref?: boolean; stepClosed?: Record<string, boolean>; prepTab?: string; transitOpen?: unknown; jetOpen?: unknown; nextHide?: unknown; tripFolded?: any; mapZoom?: number; late?: any;
   appMode?: string; appModeAt?: string; exF?: unknown; exSort?: unknown; pack?: Record<string, unknown>; packHide?: Record<string, 1>; packOwn?: PackItem[]; journal?: Record<string, { mood?: number; note?: string; photos?: { id: string; [k: string]: any }[] }>;
   kidPicks?: Record<string, string[]>; hunt?: Record<string, Record<string, 1>>; stamps?: Record<string, string>; celebrated?: Record<string, string>; warmSeen?: string; lodge?: Record<string, string>; lodgeSeen?: Record<string, string[]>;
-  share?: any; imported?: any; bookings?: Booking[]; booked?: Record<string, any>; [k: string]: any }
+  share?: any; imported?: any; bookings?: Booking[]; booked?: Record<string, any>; rl?: Record<string, number[]>; [k: string]: any }
 interface Booking { key?: string; kind: string; title?: string; day?: number; [k: string]: any }
 interface Costs { ages: string; cur?: string; breakfast?: number | null; lunch?: number | null; dinner?: number | null; transit?: number | null; lodge?: number | null; tickets: Record<string, number | null> }
 interface Cache { country: Record<string, { blurb: string; cities: BuiltCity[]; v?: number; part?: number }>; city: Record<string, Pool>; geo: Record<string, LatLng & { area?: string }>;
@@ -255,7 +255,22 @@ interface Waypoint {
   lateDinner: (country: string) => boolean;
   lateFor: (day: Day) => number;
   lateShift: any;
-  leg: (a: LatLng | null | undefined, b: LatLng | null | undefined) => Leg | null;
+  leg: (a: LatLng | null | undefined, b: LatLng | null | undefined, quiet?: boolean) => Leg | null;
+  legAsk?: (k: string, a: LatLng, b: LatLng, e: Leg) => void;
+  legEst: (a: LatLng | null | undefined, b: LatLng | null | undefined) => Leg | null;
+  legNote: (n0: number) => string;
+  legReal: number;
+  legWant: number;
+  rlKey: (a: LatLng, b: LatLng) => string;
+  rlOwn?: Record<string, number[]>;
+  gmCard: (card: (title: string, sub: string, body: string, id?: string) => string) => string;
+  gmFromLink: (u: string, c: LatLng, city: string, country: string) => Promise<any>;
+  gmIsLink: (q: string) => string;
+  gmListHtml: (day: Day) => string;
+  gmOn: () => boolean;
+  gmSearch: (q: string, c: LatLng, city: string, country: string) => Promise<any[]>;
+  gmState: () => { state: string; why: string; left: number };
+  wxLine: (day: Day, live?: boolean, rescue?: boolean) => string;
   legBusy: any;
   legFor: (P: Plan, si: number) => any;
   legTicket: (P: Plan, si: number) => Ticket | null;

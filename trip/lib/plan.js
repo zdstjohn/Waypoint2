@@ -435,7 +435,7 @@
       } /* a long hike or a gorge is left out, not merely marked down */
       /* the clock: would it still fit before the next meal, with the journey there? */
       if (ctx.at != null) {
-        var lg = W.leg(ctx.prev, item),
+        var lg = W.legEst(ctx.prev, item),
           start = ctx.at + (lg ? lg.min : 10),
           next = slot === "am" ? ctx.lunchAt : slot === "pm" ? ctx.dinnerAt : ctx.eveCap;
         if (next && item.s !== "any") {
