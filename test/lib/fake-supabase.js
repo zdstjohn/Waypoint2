@@ -2,7 +2,9 @@
    sign-out (GoTrue), and the documents table (PostgREST) with the same row-level rules as the real one (supabase/:
    data/users/<id>/... only for that person; other paths read by every signed-in person; a row changed only by whoever
    wrote it; and a person writes only their own data, shared trips (shared/...) and photo requests (wanted/...): the
-   nightly paths (photos, places, menus, links, maps, fx) are the nightly copy's alone, public.docs_write_ok). Claude's function is not here: the test answers it in the page.
+   nightly paths (photos, places, menus, links, maps, fx) are the nightly copy's alone, public.docs_write_ok), and the
+   public "maps" bucket of the file storage (FAKE_PACK: the file every pack name serves). /__seed puts a nightly
+   document in place. Claude's function is not here: the test answers it in the page.
      node test/lib/fake-supabase.js <port> <comma-separated invited emails> */
 const http = require('http'), crypto = require('crypto');
 const PORT = +process.argv[2] || 8775, INVITED = new Set((process.argv[3] || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
@@ -31,8 +33,15 @@ http.createServer((req, res) => {
   const u = new URL(req.url, 'http://x'); let body = '';
   req.on('data', c => body += c); req.on('end', () => {
     if (req.method === 'OPTIONS') return json(res, 204);
+    /* the public "maps" bucket of the file storage: anyone may read; here every pack name serves the file FAKE_PACK */
+    if (req.method === 'GET' && /^\/storage\/v1\/object\/public\/maps\/[a-z0-9-]+\/p\d+-[0-9a-f]{32}\.json$/.test(u.pathname)) {
+      const f = process.env.FAKE_PACK; if (!f || !require('fs').existsSync(f)) return json(res, 404, { message: 'Object not found' });
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); return res.end(require('fs').readFileSync(f));
+    }
     if (req.headers.apikey !== KEY) return json(res, 401, { message: 'No API key found in request' });
     const b = body ? (() => { try { return JSON.parse(body); } catch (e) { return null; } })() : null;
+    /* the nightly copy's documents (no owner), put in place by a test */
+    if (u.pathname === '/__seed' && req.method === 'POST' && b && typeof b.path === 'string') { docs[b.path] = { owner: null, data: b.data, updated_at: now() }; return json(res, 201, {}); }
     if (u.pathname === '/auth/v1/signup') {
       const email = String(b && b.email || '').toLowerCase();
       if (!INVITED.has(email)) return json(res, 500, { code: 500, error_code: 'unexpected_failure', msg: 'Database error saving new user' });

@@ -2,6 +2,23 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v147
+
+Street maps in the installable app, hosted in Waypoint's own Supabase project.
+- The map packs (83 cities, about 260 MB) are in the project's file storage, a public "maps" folder that only the
+  nightly copy can add to, and only while its window is open; a stored pack never changes (each is named by its id in
+  the Claude version's file store, and a rebuilt pack has a new id). Migration supabase/migrations/
+  20261111195557_map_packs_storage.sql: the folder, its two rules, and maps/<slug> documents in the staging rule.
+- The installable app carries the same map engine as the Claude version (build/standalone.js copies vt/: MapLibre, its
+  worker, the pack reader and the letters; the service worker keeps them, .wasm included, once fetched). Which cities
+  have a map comes from the maps/<slug> documents on the server (signed in); each pack, once seen, is kept on the phone
+  (vt/packworker.js, IndexedDB), so a city's map works offline afterwards, as in the Claude version.
+- The nightly copy (tools/copy_to_cloud.js) copies the maps collection too: "--need" lists the packs not stored yet,
+  the task fetches those from the Claude version's file store (at most 20 a night), and "--packs <dir>" stores them
+  and points each document at its stored pack. A document whose pack can't be stored is left for the next night.
+- Tests: cloud (the stand-in server serves a pack and a maps document; the installable app finds the city's map and
+  decodes the pack from storage), standalone (the engine files are in the build).
+
 ## v146
 
 Your list from the third round of reviews, with the layouts you picked (navigate C, Google Maps D3, back to top A).

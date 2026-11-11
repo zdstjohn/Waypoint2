@@ -1,13 +1,3 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v146: Navigate lines between the day's cards, the Google Maps row under the stops, Near you on Today, the swap's
-# close-up, the Booking.com search in the stay panel, no stay picked yet, nights, back to top.
-trip-*
-today-*
-explore-*
-setup-open-*
-swap-*
-stop-panel-*
-meal-panel-*
-menu-*
-recap-*
+# v147: street maps in the installable app; no screen of the Claude version changes.

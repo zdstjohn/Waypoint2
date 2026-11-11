@@ -233,7 +233,9 @@ vt/              street-map data: the detailed packs live in the asset store (ma
                   failed tile is decoded up to three times and asked for again, and map errors go to the error log. vt/ keeps the engine, the
                   pack worker (packworker.js: downloads and decodes packs off the main thread, caches them in IndexedDB)
                   and the glyphs (glyphs.wasm: everyday letters; glyphs-ext.wasm: extended Latin, Greek, Cyrillic, on
-                  demand; split by tools/glyphsplit.py)
+                  demand; split by tools/glyphsplit.py). The installable app has the same engine (build/standalone.js
+                  copies vt/); its packs are in the Supabase project's file storage (the public "maps" folder) and its
+                  list in the maps/<city> documents there, both copied nightly by tools/copy_to_cloud.js
 ```
 
 Tests: `node test/run.js` (see test/run.js for the suites; `perf` records startup requests and render times). The nightly photo finder and its judge live in `tools/`.

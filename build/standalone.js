@@ -31,7 +31,12 @@ ASSETS.forEach(f => {
 });
 const fonts = fs.readdirSync(path.join(TRIP, 'fonts')).filter(f => f.endsWith('.woff2')).sort();
 fonts.forEach(f => copy(path.join(TRIP, 'fonts', f), 'fonts/' + f));
-fs.writeFileSync(path.join(DIST, 'vt', 'index.json'), '{}\n');   /* no street-map packs in this version */
+/* the street map: the same engine as the Claude version (MapLibre, its worker, the pack reader, the letters). The list
+   of packs comes from the server (maps/<slug> documents, copied nightly from the Claude version) and the packs from
+   its file storage; each pack is kept on the phone once seen (vt/packworker.js), so a city's map works offline after.
+   The engine files are fetched the first time a map is shown, then kept by the service worker. */
+fs.writeFileSync(path.join(DIST, 'vt', 'index.json'), '{}\n');
+['maplibre-gl-csp.js', 'maplibre-gl-csp-worker.js', 'packworker.js', 'ping.js', 'glyphs.wasm', 'glyphs-ext.wasm'].forEach(f => copy(path.join(TRIP, 'vt', f), 'vt/' + f));
 const icons = fs.readdirSync(ICONS).filter(f => f.endsWith('.png')).sort();
 icons.forEach(f => copy(path.join(ICONS, f), f));
 
@@ -104,7 +109,7 @@ self.addEventListener("fetch", e => {
     return;
   }
   e.respondWith(caches.match(req).then(r => r || fetch(req).then(res => {
-    if (res.ok && url.pathname.match(/\\.(js|css|woff2|png|json|webmanifest)$/)) { const c = res.clone(); caches.open(CACHE).then(x => x.put(req, c)); }
+    if (res.ok && url.pathname.match(/\\.(js|css|woff2|png|json|webmanifest|wasm)$/)) { const c = res.clone(); caches.open(CACHE).then(x => x.put(req, c)); }
     return res;
   })));
 });

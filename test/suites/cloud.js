@@ -13,7 +13,9 @@ exports.run = async t => {
   const bld = spawnSync('node', [path.join(ROOT, 'build', 'standalone.js')], { env: Object.assign({}, process.env, { WP_DIST: out, WP_CLOUD_URL: `http://127.0.0.1:${SB}`, WP_CLOUD_KEY: 'pk_test' }), encoding: 'utf8' });
   t.ok(bld.status === 0 && fs.existsSync(path.join(out, 'cloud.js')), 'built against the stand-in server ' + (bld.stderr || '').slice(0, 200));
   t.ok(!/fbgubkesrlvtcnbaxuef/.test(fs.readFileSync(path.join(out, 'standalone.js'), 'utf8')) && /fbgubkesrlvtcnbaxuef/.test(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8')), 'the test build points at the stand-in, and the real hosting rules are untouched');
-  const sb = spawn('node', [path.join(ROOT, 'test', 'lib', 'fake-supabase.js'), String(SB), 'ann@example.com,bob@example.com'], { stdio: 'ignore' });
+  const PACKFILE = path.join(ROOT, 'vtassets', 'parts', 'greece-nafplio.p0.js');   /* (a real pack, where the machine has the map sources) */
+  const sb = spawn('node', [path.join(ROOT, 'test', 'lib', 'fake-supabase.js'), String(SB), 'ann@example.com,bob@example.com'], { stdio: 'ignore', env: Object.assign({}, process.env, { FAKE_PACK: PACKFILE }) });
+  const seed = (p, data) => new Promise(r => { const q = http.request({ host: '127.0.0.1', port: SB, path: '/__seed', method: 'POST', headers: { apikey: 'pk_test', 'Content-Type': 'application/json' } }, res => { res.resume(); res.on('end', r); }); q.end(JSON.stringify({ path: p, data })); });
   const web = spawn('node', [path.join(ROOT, 'test', 'lib', 'sa-server.js'), String(WEB), out, out + '.vercel.json'], { stdio: 'ignore' });
   for (let i = 0; i < 40 && !(await up(URL) && await up(`http://127.0.0.1:${SB}/`)); i++) await new Promise(r => setTimeout(r, 150));
   const b = await chromium.launch();
@@ -150,6 +152,22 @@ exports.run = async t => {
     await L.pg.evaluate(() => { W.newTripFrom({ v: 2, algo: 2, styles: ['food'], countries: [{ mode: 'manual', name: 'Spain', picked: ['Málaga'] }], days: 2, start: '2027-06-14', depart: 'Seattle (SEA)', travelers: [40], stays: {}, picks: {}, seen: {}, cityDays: {}, tripName: 'Limit' }); });
     await L.pg.waitForFunction(() => Object.values(W.status).some(v => /Busy right now/.test(String(v))), null, { timeout: 10000 }).catch(() => {});
     t.ok(await L.pg.evaluate(() => Object.values(W.status).some(v => /Busy right now/.test(String(v)))), 'over the daily limit, a request says to try later instead of failing silently');
+    /* 9b. the street map in the installable app: which cities have one from the server (maps/<slug>, copied nightly
+       from the Claude version), the engine from the app's own files (kept by the service worker once fetched), the
+       packs from the server's file storage */
+    const missing = ['maplibre-gl-csp.js', 'maplibre-gl-csp-worker.js', 'packworker.js', 'ping.js', 'glyphs.wasm', 'glyphs-ext.wasm'].filter(f => !fs.existsSync(path.join(out, 'vt', f)));
+    t.ok(!missing.length && /\|wasm\)\$/.test(fs.readFileSync(path.join(out, 'sw.js'), 'utf8')), 'the installable app carries the street-map engine, and keeps it once fetched' + (missing.length ? ': missing ' + missing.join(', ') : ''));
+    const PACK = `http://127.0.0.1:${SB}/storage/v1/object/public/maps/greece-nafplio/p0-0123456789abcdef0123456789abcdef.json`;
+    await seed('maps/greece-nafplio', { slug: 'greece-nafplio', city: 'Nafplio', country: 'Greece', b: [22.6, 37.45, 23, 37.7], places: [22.78, 37.55, 22.83, 37.58], parts: [PACK], size: 1, built: '2026-11-11' });
+    const M = await phone('M'); await signIn(M.pg, 'bob@example.com', 'bob-pass-123');
+    const mp = await M.pg.evaluate(async () => { for (let i = 0; i < 80 && !(W.vtFor && W.vtFor('Greece', 'Nafplio')); i++) await new Promise(r => setTimeout(r, 150)); return W.vtFor ? W.vtFor('Greece', 'Nafplio') : null; });
+    t.eq(mp, 'greece-nafplio', 'a city whose pack is on the server has a street map in the installable app');
+    if (fs.existsSync(PACKFILE)) {
+      const dec = await M.pg.evaluate(async u => { for (let i = 0; i < 80 && !W.vtLoadTest; i++) await new Promise(r => setTimeout(r, 150)); try { const p = await W.vtLoadTest('pack|cloud-test', 'v1', { urls: [u] }); return { slug: p.hdr && p.hdr.slug, tiles: Object.keys((p.hdr && p.hdr.t) || {}).length }; } catch (e) { return { err: String(e && e.message || e) }; } }, PACK);
+      t.ok(dec.slug === 'greece-nafplio' && dec.tiles > 10, 'and its pack loads from the server\'s file storage: ' + JSON.stringify(dec));
+    }
+    await M.ctx.close();
+
     /* 10. signing out leaves the phone-only app; going without an account too */
     await A.pg.evaluate(() => { W.goView('settings'); }); await A.pg.waitForTimeout(800);
     await Promise.all([A.pg.waitForNavigation({ timeout: 8000 }).catch(() => null), A.pg.click('[data-acct="out"]')]); await A.pg.waitForTimeout(1500);
@@ -160,6 +178,6 @@ exports.run = async t => {
     t.ok(!a11.gate && a11.text > 100, '"Use without an account" goes straight to the app on this phone');
     await A.pg.reload(); await A.pg.waitForTimeout(1500);
     t.ok(await A.pg.evaluate(() => !document.querySelector('.auth-gate')), 'and it remembers that choice next time');
-    t.eq([].concat(A.errs, A2.errs, B.errs, L.errs), [], 'no errors');
+    t.eq([].concat(A.errs, A2.errs, B.errs, L.errs, M.errs), [], 'no errors');
   } finally { await b.close(); sb.kill(); web.kill(); }
 };
