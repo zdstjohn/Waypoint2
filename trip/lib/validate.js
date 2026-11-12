@@ -234,7 +234,7 @@
     var p = V.pinNear(x.lat, x.lng, center);
     if (!p && (x.lat != null || x.lng != null)) V.stats.cleared++;
     /* links the answer was not asked for stay open (undefined), so the later check of this place asks for them */
-    return {
+    var o = /** @type {Food} */ ({
       n: n,
       d: V.str(x.d, 240),
       cuisine: V.str(x.cuisine, 40),
@@ -255,7 +255,11 @@
       fit: V.oneOf(x.fit, ["good", "ok", "poor"], ""),
       fitw: V.str(x.fitw, 120),
       like: x.like === 2 || x.like === "2" ? 2 : x.like === 1 || x.like === "1" ? 1 : 0
-    };
+    });
+    /* a place the answer itself was not sure exists (sure: false) starts as "not checked yet": the day warns, the
+       planner picks it last, and the nightly check of places (lib/places.js) settles it either way */
+    if (x.sure === false) o.st = "unverified";
+    return o;
   };
   /** a destination in a country (the country list) */
   V.city = function (c0) {

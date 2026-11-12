@@ -860,15 +860,20 @@
     });
   };
 
+  /* (v158: "sure" and the rule about names. Of 3,544 suggestions the nightly check had judged, 9% were not real places,
+     nearly all of them places to eat in small towns, with names made from the kind of place and the town. Told to list
+     only what it is certain of, Sonnet gave 1 to 8 places for a town; asked to mark what it is unsure of, it kept the
+     list, and the unsure ones failed a map lookup 43% of the time against 5% for the sure ones: evo/v157/grade.
+     V.food turns sure = false into "not checked yet", which the planner picks last: lib/validate.js) */
   var FOOD_EX =
-    '{"n":"name","d":"what it is known for or what to order, one short sentence","fame":1,"rating":4.5,"cuisine":"","price":"€€","meal":"both","dur":"1h","fav":false,"k":0,"reserve":false,"book":"","menu":"","pic":"taverna","lat":0,"lng":0}';
+    '{"n":"name","d":"what it is known for or what to order, one short sentence","fame":1,"rating":4.5,"cuisine":"","price":"€€","meal":"both","dur":"1h","fav":false,"k":0,"sure":true,"reserve":false,"book":"","menu":"","pic":"taverna","lat":0,"lng":0}';
   function foodRules() {
     return (
       "pic = the picture that fits best, one of: " +
       W.FOOD_PICS.join(", ") +
       ". " +
       MENURULE +
-      " reserve = true if booking a table ahead is recommended; then book = its official website or reservation page if you are confident of the address, else an empty string. meal = breakfast, lunch, dinner, both (lunch and dinner) or all (all three). dur = the recommended time to allow for a meal there, e.g. '30m' for a bakery, '1-1.5h' for a sit-down lunch, '2h' for a long dinner. fav = true for places food lovers seek out (a famous classic, a top market, a destination restaurant). Use real places and accurate coordinates." +
+      " reserve = true if booking a table ahead is recommended; then book = its official website or reservation page if you are confident of the address, else an empty string. meal = breakfast, lunch, dinner, both (lunch and dinner) or all (all three). dur = the recommended time to allow for a meal there, e.g. '30m' for a bakery, '1-1.5h' for a sit-down lunch, '2h' for a long dinner. fav = true for places food lovers seek out (a famous classic, a top market, a destination restaurant). Use real places and accurate coordinates. n = the exact name on its sign: never a name made from the kind of place and the town ('Pasticceria Positano', 'Elounda Gelato'), never an area's places as one entry ('Plaka seaside tavernas'). sure = false when you are not certain the place exists under this exact name in this town (it may have closed, or you may be thinking of a place somewhere else), true otherwise; a place you are unsure of may still be listed, marked so." +
       TAGRULE.split(" Tags")[0] +
       " k: 1 = very family friendly, 0 = fine, -1 = adults-oriented." +
       FAMERULE.replace("must-sees most visitors come for (a city's top handful)", "famous institutions visitors seek out").replace(

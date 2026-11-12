@@ -2,6 +2,26 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v158
+
+Places to eat that may not exist are marked, and picked last (the owner's follow-up 2 of 4: grade Sonnet's
+suggestions, then tune the prompts from what the grading finds).
+- What the grading found. The nightly check of places had already judged 3,544 suggestions in 59 towns: 9% were not
+  real places, nearly all of them places to eat in small towns (Costa Smeralda 36%, Mykonos 31%, Positano 19%, Elounda
+  17%), most with a name made from the kind of place and the town ("Pasticceria Positano", "Elounda Gelato"). Sights
+  were rarely invented. Sonnet answering today's questions for six towns did the same: 21 of 90 places to eat did not
+  resolve to a place on Google Maps.
+- What was tried (evo/v157/grade: the questions, the answers, the lookups). Telling Sonnet to list only places it is
+  certain of cut the lists to 5-10, then 1-8, a town: too few to plan meals from. Asking it to mark what it is unsure
+  of kept all 15, and the mark means something: 43% of the places marked unsure failed the lookup, 5% of the sure ones.
+- What changed. The question for places to eat (lib/ideas.js) asks for the exact name on the sign, never one made
+  from the kind of place and the town, and for "sure": false where it is not certain. lib/validate.js turns that into
+  the status "not checked yet": the day says so on the place, the planner picks such a place last (it already did for
+  this status), and the nightly check settles it either way. Nothing is dropped.
+- A limit, said plainly: the answers graded here came from Sonnet run as a helper, not through the app; what the app
+  gets will show in the nightly check's own numbers.
+- Tests: validate (the mark and the question). No screen changes with the test data.
+
 ## v157
 
 Room in the first download (the owner's follow-up 1 of 4 after v156). The first script and stylesheet were 518.9 KB of

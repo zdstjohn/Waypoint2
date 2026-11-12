@@ -78,5 +78,15 @@ exports.run = async t => {
   });
   t.eq(one, ['', '', '', 'https://parcocolosseo.it/en/', 'https://parcocolosseo.it/en/', '', 'https://www.museivaticani.va/'], 'a ticket link three places share is cleared on all three; a combined ticket for two stays: ' + JSON.stringify(one));
   t.eq(errors(), [], 'no page errors');
+  /* v158: a place to eat the answer itself is unsure of starts as "not checked yet"; a sure one, or an answer that
+     does not say, carries no status of its own. The question asks for the mark and for real names. */
+  /* (wait for the page's own questions about its cities: they go out a little after it starts) */
+  await pg.waitForFunction(() => (window.__full || []).some(p => /^List \d+ (MORE )?places to eat/.test(p)), null, { timeout: 20000 }).catch(() => {});
+  const sure = await pg.evaluate(() => { const V = W.V, c = { lat: 35.26, lng: 25.73 };
+    const f = V.list([{ n: 'Ferryman Taverna', sure: true }, { n: 'Elounda Bakery', sure: false }, { n: 'Nikos Taverna' }, { n: 'Maybe Cafe', sure: 'false' }], x => V.food(x, c));
+    const asks = (window.__full || []).filter(p => /^List \d+ (MORE )?places to eat/.test(p));
+    return { st: f.map(x => x.st === undefined ? ('st' in x ? 'key' : '-') : x.st), asks: asks.length, marked: asks.every(p => p.indexOf('"sure":true') > -1 && /sure = false when you are not certain/.test(p) && /never a name made from the kind of place and the town/.test(p)) }; });
+  t.eq(sure.st, ['-', 'unverified', '-', '-'], 'sure: false makes a place "not checked yet"; true, missing or anything else leaves it alone');
+  t.ok(sure.asks > 0 && sure.marked, `every question for places to eat asks for the "sure" mark and exact names (${sure.asks})`);
   await ctx.close(); await b.close();
 };
