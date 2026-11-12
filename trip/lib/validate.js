@@ -253,7 +253,8 @@
       lat: p ? p.lat : null,
       lng: p ? p.lng : null,
       fit: V.oneOf(x.fit, ["good", "ok", "poor"], ""),
-      fitw: V.str(x.fitw, 120)
+      fitw: V.str(x.fitw, 120),
+      like: x.like === 2 || x.like === "2" ? 2 : x.like === 1 || x.like === "1" ? 1 : 0
     };
   };
   /** a destination in a country (the country list) */

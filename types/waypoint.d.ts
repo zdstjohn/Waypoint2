@@ -18,7 +18,7 @@ interface Spot extends LatLng { n: string; d: string; t: string[]; k: Kid; fame?
   meal?: Meal; cuisine?: string; price?: string; menu?: string; reserve?: boolean; fav?: boolean }
 /** a place to eat */
 interface Food extends LatLng { n: string; d: string; cuisine: string; price: string; meal: Meal; k: Kid; fame?: Fame; rating?: number; reserve: boolean; book: string; menu: string; dur: string; fav: boolean; pic: string; place?: string;
-  st?: Spot["st"]; hours?: Hours | null; lead?: number; love?: string; gripe?: string; note?: string; durAsked?: 1; s?: TimeOfDay; ticket?: string; t?: string[]; bookV?: number; bch?: BeachFacts; indoor?: boolean; mine?: boolean; fit?: string; fitw?: string; eat?: { f: string; w: string; sig: string }; night?: string }
+  st?: Spot["st"]; hours?: Hours | null; lead?: number; love?: string; gripe?: string; note?: string; durAsked?: 1; s?: TimeOfDay; ticket?: string; t?: string[]; bookV?: number; bch?: BeachFacts; indoor?: boolean; mine?: boolean; fit?: string; fitw?: string; eat?: { f: string; w: string; l?: number; sig: string }; night?: string }
 interface Hours { o: number; c: number; closed: number[] }
 interface BeachFacts { calm?: "calm" | "some waves" | "often rough"; shallow?: boolean; shade?: string; lifeguard?: boolean; sand?: string; walk?: number; facilities?: boolean; note?: string }
 interface StayArea extends LatLng { n: string; d: string }
@@ -35,7 +35,7 @@ interface Country { name: string; mode: "manual" | "suggest"; picked: string[]; 
 interface Stay { label: string; lat?: number | null; lng?: number | null; live?: { total: number; cur: string; url: string; at: number; in: string; out: string; src: string } }
 /** the trip, as saved (localStorage "waypoint-v2" and the account) */
 interface TripState { v: 2; algo?: number; tripId?: string; tripName?: string; styles: string[]; focus?: Focus; countries: Country[]; days: number; start: string; depart: string; travelers: (number | "")[]; names?: string[];
-  stays: Record<string, Stay>; picks: Record<string, string>; seen: Record<string, string[]>; mine?: Record<string, 1>; free?: Record<string, 1>; rest?: Record<string, 1>; fold?: Record<string, unknown>; legPick?: Record<string, unknown>; nope?: Record<string, string>; eat?: { al?: string[]; di?: string[]; love?: string; avoid?: string; note?: string }; eatNone?: 1; eatOpen?: { al?: boolean; di?: boolean }; bag?: Record<string, Record<string, 1>>;
+  stays: Record<string, Stay>; picks: Record<string, string>; seen: Record<string, string[]>; mine?: Record<string, 1>; free?: Record<string, 1>; rest?: Record<string, 1>; dayTrip?: Record<string, { country: string; name: string; lat: number | null; lng: number | null; min: number | null }>; fold?: Record<string, unknown>; legPick?: Record<string, unknown>; nope?: Record<string, string>; eat?: { al?: string[]; di?: string[]; love?: string; avoid?: string; note?: string }; eatNone?: 1; eatOpen?: { al?: boolean; di?: boolean }; bag?: Record<string, Record<string, 1>>;
   cityDays: Record<string, number>; day: number; example?: number; tview?: "days" | "map"; glanceOpen?: boolean; allPref?: boolean; stepClosed?: Record<string, boolean>; prepTab?: string; transitOpen?: unknown; jetOpen?: unknown; nextHide?: unknown; tripFolded?: any; mapZoom?: number; late?: any;
   appMode?: string; appModeAt?: string; exF?: unknown; exSort?: unknown; pack?: Record<string, unknown>; packHide?: Record<string, 1>; packOwn?: PackItem[]; journal?: Record<string, { mood?: number; note?: string; photos?: { id: string; [k: string]: any }[] }>;
   kidPicks?: Record<string, string[]>; hunt?: Record<string, Record<string, 1>>; stamps?: Record<string, string>; celebrated?: Record<string, string>; warmSeen?: string; lodge?: Record<string, string>; lodgeSeen?: Record<string, string[]>;
@@ -177,6 +177,7 @@ interface Waypoint {
   dayPool: any;
   dayTimes: (day: Day, P: Plan) => DayTimes | null;
   dayTripMax: (p: any) => number;
+  dayTripOpen: (n: number) => void;
   daysUntil: any;
   durText: (raw: unknown) => string;
   elderNames: () => string[];
@@ -264,6 +265,21 @@ interface Waypoint {
   lateFor: (day: Day) => number;
   /** every country Plan can take (screens/setup.js) */
   countryNames: () => string[];
+  /** how well a place matches "Food you love": 2, 1 or 0 (lib/eat.js) */
+  eatLike: (it: any) => number;
+  /** the "like" part of a question about places to eat, when there is something they love */
+  eatLikeAsk: () => string;
+  eatLikeOf: (v: any) => number;
+  /** a city's meals chosen again, keeping the ones you chose (lib/plan.js) */
+  freshMeals: (country: string, city: string) => void;
+  /** a few places for what you love in a city, asked once (lib/ideas.js) */
+  loadLoved: (country: string, city: string) => void;
+  /** a city's places that are a place for what you love (and fine to eat at) */
+  lovedCount: (country: string, city: string) => number;
+  /** a To book item still to book: not booked, its day not gone by (lib/bookcore.js) */
+  leftToBook: (c: any) => boolean;
+  /** where a booking stands by the trip's clock: "Booked", "Did you book it?", "Book now", "Book by Mar 9" */
+  bookByText: (c: any, short?: boolean) => string;
   /** 2 with ideas built in, about 1 for the most visited, 0 for the rest */
   countryRank: (n: string) => number;
   /** one of the places with ideas built in (or an island's main town that has them) */
@@ -377,8 +393,6 @@ interface Waypoint {
   legSig: (o: any) => string;
   liveClick: (d: any, P: Plan) => any;
   liveFares: any;
-  liveStays: any;
-  bookingSearchUrl: (s: Stop, P: Plan, F?: { q: string; f: Record<string, number> }) => string;
   loadBookLinks: any;
   loadCity: (country: string, city: string, more?: any, stayDays?: number, nMore?: number) => void;
   loadCosts: any;

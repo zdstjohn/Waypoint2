@@ -60,7 +60,7 @@
     var list = P.stops.length && W.checklist ? W.checklist(P) : [];
     var due = list
       .filter(function (c) {
-        return !c.done && c.by;
+        return W.leftToBook(c) && c.by;
       })
       .sort(function (a, b) {
         return a.by - b.by;
@@ -71,7 +71,7 @@
     if (urgent)
       out.push({
         key: "book|" + urgent.key,
-        k: urgent.by < today ? "Book now" : "Book by " + fmt(urgent.by),
+        k: W.bookByText(urgent),
         text: urgent.short || urgent.title,
         go: { gobook: urgent.key }
       });

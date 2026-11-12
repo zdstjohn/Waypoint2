@@ -153,16 +153,16 @@
   };
 
   /* which of a base's days are its day trips: not the first (arrival) or last (packing) day, not a jet-lag or rest day,
-     spread out, and never two in a row. Returns the days that got one; trips that found no day are left unplanned. */
+     not a day you made a day trip yourself, spread out, and never two in a row. Returns the days that got one; trips that found no day are left unplanned. */
   W.placeTrips = function (stop, cdays) {
     var trips = stop.trips || [];
     if (!trips.length) return [];
     var ok = cdays.filter(function (d, i) {
-      return i > 0 && i < cdays.length - 1 && !d.jet && !d.rest && !d.tripLast && !d.moveFrom;
+      return i > 0 && i < cdays.length - 1 && !d.jet && !d.rest && !d.mineTrip && !d.tripLast && !d.moveFrom;
     });
     if (!ok.length && cdays.length > 1)
       ok = cdays.filter(function (d, i) {
-        return i > 0 && !d.jet && !d.rest;
+        return i > 0 && !d.jet && !d.rest && !d.mineTrip;
       });
     var out = [],
       lastN = -9;

@@ -21,6 +21,9 @@ function commonsSized(it) {
   return "https://commons.wikimedia.org/wiki/Special:FilePath/" + encodeURIComponent(name.replace(/ /g, "_")) + "?width=960";
 }
 function forTheWeb(kind, data) {
+  /* (a nightly place's fit for the owner's food needs stays out of the shared copy: it could say what they can't eat) */
+  if (kind === "morefood" && Array.isArray(data.items))
+    return Object.assign({}, data, { items: data.items.map(it => { const o = Object.assign({}, it); delete o.fit; delete o.fitw; delete o.like; return o; }) });
   if (kind !== "photos" || !data.items || typeof data.items !== "object") return data;
   const items = {};
   for (const [k, it] of Object.entries(data.items)) {

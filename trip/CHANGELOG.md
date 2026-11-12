@@ -2,6 +2,50 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v152
+
+Your requests after v151: a smaller "First up", booking reminders that follow the trip's clock, one Add per idea in
+Explore, a design pass, no Booking.com search in Where to stay, the food words made to matter, a day trip day, and the
+desktop city banners as they were before v123.
+- Today (screens/travel.js heroCard, option A): "First up" before the trip and "Next" on the day are a compact card,
+  a small photo beside the name instead of a full-width one, so Today scrolls less. "Now" is unchanged. The card after
+  it reads "After that · 11:30 AM" with the name in bold and its walk and Directions on one row (nextCard).
+- Booking reminders follow the trip's clock (lib/bookcore.js): something whose book-by day has gone by and is not
+  ticked is no longer "Book by Mar 9" for ever. On To book it moves to "Did you book these?" (folded, with a count),
+  out of what's left to book, the next-to-book line and Plan's readiness (W.leftToBook, W.bookByText: "Booked", "Did
+  you book it?", "Book now", "Book by …"); the Day tab's badge, Today and the next-step bar use the same words.
+- Explore (screens/trip.js useBlock): one "Add to Day N" button per idea; tapping it shows the slots it fits (free
+  ones first), and an idea that fits one slot is added at once. Shared trips planned together can use it.
+- Design pass, no state logic changed: the stop rows in Plan put what the place is under the row, full width (it was
+  squeezed beside the stepper; setup.js .stop-d); the overdue badge and the dark-mode badges have their own colour
+  tokens with stronger contrast (--late-*, --in-*, --ok-*); the header gradient ends a deeper warm red (--grad); press
+  feedback on the buttons that had none (Explore's Add, the day bag, the route chips, tick boxes); Pack fits a 320px
+  phone (its title wraps and shrinks below 360px); tick boxes, small buttons and fields are at least 44px to touch.
+- Where to stay has no Booking.com search any more, in Plan or the "Pick a place" sheet (lib/prices.js, setup.js
+  stayPanel; the old code is kept out of the app). A stay picked from it before keeps its price, and the price watch
+  still asks Booking.com for your nights (W.stayInput). "Also on Booking.com · Expedia" links stay.
+- Food you love, rather avoid, anything else (the deep dive found "love" changed no meal): Claude is now asked how
+  much each place has of what you love, not only whether it can feed you (lib/eat.js W.eatLike, W.eatLikeAsk; asks.js);
+  meals lean to those places (plan.js, a larger bonus), and once the marks arrive the planner's own meal picks for that
+  city are made again (W.freshMeals; yours stay); a city with few such places gets a few more asked for (ideas.js
+  W.loadLoved). Words decide without Claude too ("pizza" in a place's name or note). A mark from the nightly task made
+  for other food words is ignored (nightfood.js); the marks never go into the shared lists of places
+  (tools/copy_to_cloud.js), and the nightly task no longer writes them and clears old ones. Plan says what it did:
+  "13 places for pizza · 11 of your 24 meals go to them. 6 places kept off your plan for what you'd rather avoid."
+  (setup.js eatReport).
+- A day trip day (new screens/daytrip.js, second script): at the end of a full day in a place, next to "Make it a
+  rest day", "Make it a day trip" opens the places an easy day out from it (from the country's list, within the
+  group's day-trip range, each with what it is and about how long it takes) and a box for anywhere else. Picking one
+  drops the planner's picks for that day (yours stay) and plans it again there: morning, lunch and afternoon from the
+  place's ideas, the evening back near the stay (S.dayTrip by day, plan.js mineTrip; the planner's own day trips keep
+  off it, shape.js placeTrips). Undo is offered at once; the link then reads "Undo day trip". A day trip the planner
+  chose reads "Change day trip". Not on the arrival or packing day, and a rest day is not a day out.
+- Desktop city banners (lib/photos.js, app.css): every photo fills its band again. v123 set a photo with no large copy
+  at the side at its own size, fading into purple; you asked for it gone.
+- First load stays under 520 KB: lib/nightfood.js and a stop's sheet's styles load with the second script.
+- Tests: new suite daytrip; stays (no search; an old pick keeps its price), bookings (the past group), flow (one Add),
+  eat (likes, fresh meals, stale marks, the report line) and photos (a small photo fills its band) follow the changes.
+
 ## v151
 
 Your three requests from v150, and two more of the code review's ten (suggestions 2 and 10).

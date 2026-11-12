@@ -68,5 +68,45 @@ exports.run = async t => {
   /* clearing the needs: nothing is filtered any more */
   t.ok(await pg.evaluate(() => { W.S.eat = {}; W.changed(); W.replan(); return !W.eatSig() && !W.eatFit(W.pool('Italy', 'Rome').food[0]); }), 'with no needs, nothing is marked or filtered');
   t.eq(errors(), [], 'no page errors');
-  await ctx.close(); await b.close();
+  await ctx.close();
+
+  /* v152: "Food you love" counts. It is asked about apart from "can they eat here" (like 0, 1, 2), the meals the planner
+     chose are chosen again once the marks are in (never the ones you chose), a city with few such places is asked for
+     a few, without Claude the words in a place's name and description decide, and Plan says what it has done. The
+     stand-in calls a third of the places "a place for it" (like 2). */
+  const { pg: p2, ctx: c2, errors: e2 } = await open(b, { width: 390, height: 844, db: mkdb({ 'morefood/italy-rome': { city: 'Rome', country: 'Italy', at: '2027-01-01', items: [{ n: 'Night Trattoria', d: 'Roman classics', cuisine: 'Roman', lat: 41.895, lng: 12.474, meal: 'both', fit: 'poor', fitw: 'stale mark' }] } }) });
+  await exampleTrip(p2); await settle(p2, 6000);
+  const lv = await p2.evaluate(async () => {
+    const real = W.SAMPLE.json; window.__lp = [];
+    W.SAMPLE.json = (p, o) => { window.__lp.push(p);
+      if (/how well can it feed this group\?/.test(p)) { const names = ((p.split('\nPlaces: ')[1] || '').split('\nReply')[0] || '').split('; ').map(x => x.replace(/ \([^)]*\)$/, '').trim()).filter(Boolean);
+        return Promise.resolve({ fit: names.map((n, i) => ({ n, fit: 'ok', fitw: '', like: i % 3 === 0 ? 2 : 0 })) }); }
+      return real(p, o); };
+    const meals = () => { const o = {}; W.plan().days.forEach(d => d.slots.forEach(x => { if (W.isFood(x.slot) && x.item) o[x.key] = x.item.n; })); return o; };
+    const loved = () => W.plan().days.reduce((a, d) => a + d.slots.filter(x => W.isFood(x.slot) && x.item && W.eatLike(x.item) === 2).length, 0);
+    const k0 = Object.keys(meals())[0], m0 = meals(), mineName = m0[k0];
+    W.S.mine = Object.assign(W.S.mine || {}, { [k0]: 1 });
+    const before = loved();
+    W.S.eat = { love: 'pizza' }; W.changed(); W.replan(); W.render();
+    for (let i = 0; i < 60; i++) { await new Promise(r => setTimeout(r, 150)); if (!Object.keys(W.status).some(k => /^eat(fit|love)\|/.test(k) && W.status[k] === 'loading') && i > 8) break; }
+    W.replan(); W.render(); await new Promise(r => setTimeout(r, 400));
+    const m1 = meals(), after = loved();
+    const night = (W.pool('Italy', 'Rome').food || []).find(x => x.n === 'Night Trattoria');
+    W.SAMPLE.json = real;
+    return { before, after, total: Object.keys(m1).length, mineKept: m1[k0] === mineName,
+      likeAsked: window.__lp.some(p => /how well can it feed this group/.test(p) && /like = 2 if it is a place for what they love \(pizza\)/.test(p)),
+      lovedAsk: window.__lp.filter(p => /especially good for what this group loves: pizza/.test(p)).length, lovedRome: W.lovedCount('Italy', 'Rome'),
+      night: night ? (night.eat ? night.eat.w : 'unmarked') : 'absent' };
+  });
+  t.ok(lv.likeAsked, '"Food you love" is asked about apart from whether you can eat there (like 0, 1 or 2)');
+  t.ok(lv.after > lv.before && lv.after >= Math.round(lv.total / 3) && lv.mineKept, `and the meals go to the places for it: ${lv.before} → ${lv.after} of ${lv.total} meals (a meal you chose yourself stays)`);
+  t.ok(lv.lovedRome >= 4 || lv.lovedAsk >= 1, 'a city with few places for it is asked for a few more: ' + JSON.stringify({ rome: lv.lovedRome, asked: lv.lovedAsk }));
+  t.ok(lv.night !== 'stale mark', 'a nightly place\'s mark made for other needs is not taken as one for these: ' + lv.night);
+  const words = await p2.evaluate(() => { W.S.eat = { love: 'grilled fish, pizza', avoid: 'very spicy food' }; const saved = W.SAMPLE;
+    const r = { pizza: W.eatLike({ n: 'Pizzeria da Remo', cuisine: 'Pizza', d: 'Thin Roman pizza' }), fish: W.eatLike({ n: 'Il Pescatore', d: 'Grilled fish and seafood' }), other: W.eatLike({ n: 'Trattoria', d: 'Pasta' }), spicy: W.eatFit({ n: 'Sichuan House', d: 'Spicy Sichuan dishes' }), mild: W.eatFit({ n: 'Gelateria', d: 'Ice cream' }) }; return r; });
+  t.eq(words, { pizza: 2, fish: 2, other: 0, spicy: 'poor', mild: '' }, 'without a mark from Claude, the words decide: what you love and what you would rather avoid');
+  const rep = await p2.evaluate(async () => { W.S.eat = { love: 'pizza' }; W.needLater(); W.goView('setup'); W.render(); for (let i = 0; i < 40 && !W.laterReady; i++) await new Promise(r => setTimeout(r, 100)); W.render(); await new Promise(r => setTimeout(r, 300)); return (document.querySelector('.eat-rep') || {}).textContent || ''; });
+  t.ok(/^\d+ places? for pizza · \d+ of your \d+ meals go to them/.test(rep), 'Plan says what it has done: ' + rep);
+  t.eq(e2(), [], 'no page errors there either');
+  await c2.close(); await b.close();
 };

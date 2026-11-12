@@ -165,13 +165,16 @@
           "." +
           " For each place, how well can it feed this group? fit = good (plenty they can eat), ok (some options; tell the staff) or poor (hard to eat there: say why); fitw = one short line on what they can have or what to ask." +
           " Judge from the kind of place and its menu as far as you know it; for allergies, never promise a place is safe." +
+          W.eatLikeAsk() +
           "\nPlaces: " +
           todo
             .map(function (x) {
               return x.n + (x.cuisine ? " (" + x.cuisine + ")" : "");
             })
             .join("; ") +
-          '\nReply with JSON only: {"fit":[{"n":"the name exactly as given","fit":"good","fitw":""}]}',
+          '\nReply with JSON only: {"fit":[{"n":"the name exactly as given","fit":"good","fitw":""' +
+          (W.eatLikeAsk() ? ',"like":0' : "") +
+          "}]}",
         "quick",
         function (r) {
           var by = {};
@@ -182,6 +185,7 @@
                 w: String(x.fitw || "")
                   .trim()
                   .slice(0, 120),
+                l: W.eatLikeOf(x.like),
                 sig: sig
               };
           });
@@ -194,6 +198,9 @@
           todo.forEach(function (x) {
             if (!x.eat || x.eat.sig !== sig) x.eat = { f: "", w: "", sig: sig };
           });
+          /* what you love counts now: the meals the planner chose here are chosen again (never the ones you chose) */
+          var nd = W.eatNeeds();
+          if (nd && nd.love && W.freshMeals) W.freshMeals(country, city);
         }
       );
     /* no extra list of places that suit the food needs: the first list and every "Find more" are asked with them (foodAsk) */

@@ -851,9 +851,11 @@
         '">Tickets and times</button></div></div></section>'
       );
     }
+    /* what is on now keeps its wide photo; what is first up or next is a short card: a small photo beside the name, two
+       lines about it, the buttons under them (the photo's credit is in the stop's sheet) */
     var it = e.x.item,
       food = e.food,
-      ph = W.picture(it, food, day.country, day.city, { credit: true });
+      ph = W.picture(it, food, day.country, day.city, { credit: isNow });
     var lg = W.leg(from, it),
       leave = e.start - (lg ? lg.min : 10),
       mins = live ? leave - nm : null;
@@ -865,22 +867,24 @@
     var bk = W.bookEntryFor ? W.bookEntryFor(P, day, it) : null,
       tix = W.stopLink(it, food, day, P);
     var sub = [isNow ? "" : W.stayText(it, food, e.x.slot), bk ? (bk.done ? "Booked" : "Not booked yet") : ""].filter(Boolean).join(" · ");
+    var pic = ph ? '<div class="gh-pic">' + ph + "</div>" : "",
+      body =
+        '<span class="gh-k' +
+        (isNow ? " now" : "") +
+        '">' +
+        esc(k) +
+        "</span>" +
+        "<h2>" +
+        esc(it.n) +
+        "</h2>" +
+        (it.d ? '<p class="gh-d">' + esc(it.d) + "</p>" : "") +
+        (sub ? '<p class="small muted">' + esc(sub) + "</p>" : "") +
+        (!isNow && live ? leaveLine(mins, leave, lg, "Time to go") : "");
     return (
       '<section class="go-hero sk' +
-      (isNow ? " is-now" : "") +
+      (isNow ? " is-now" : " gh-sm") +
       '">' +
-      (ph ? '<div class="gh-pic">' + ph + "</div>" : "") +
-      '<div class="gh-b"><span class="gh-k' +
-      (isNow ? " now" : "") +
-      '">' +
-      esc(k) +
-      "</span>" +
-      "<h2>" +
-      esc(it.n) +
-      "</h2>" +
-      (it.d ? '<p class="gh-d">' + esc(it.d) + "</p>" : "") +
-      (sub ? '<p class="small muted">' + esc(sub) + "</p>" : "") +
-      (!isNow && live ? leaveLine(mins, leave, lg, "Time to go") : "") +
+      (isNow ? pic + '<div class="gh-b">' + body : '<div class="gh-top">' + pic + '<div class="gh-b">' + body + "</div></div>") +
       /* where you are now needs no main button: the way there is a quiet link (you may still be on the way), and the
          main one is the way to what's next (below). On a live day every way there starts where you are. */
       '<div class="gh-act">' +
@@ -909,7 +913,7 @@
           IC.dir +
           "Directions here</a>"
         : "") +
-      "</div>" +
+      (isNow ? "</div>" : "") +
       (nextHtml || "") +
       "</section>"
     );
@@ -922,24 +926,25 @@
     return (
       '<div class="go-next sk">' +
       (ph ? '<span class="thumb">' + ph + "</span>" : "") +
-      '<div class="gn-b"><span class="gh-k">' +
+      '<div class="gn-b"><span class="gh-k" title="' +
+      esc(slotName(e)) +
+      '">' +
       (live ? "After that" : "Then") +
       " · " +
       W.clock(e.start) +
-      " " +
-      esc(slotName(e)) +
       "</span><b>" +
       esc(it.n) +
       "</b>" +
+      /* the way there, and the button for it, on one line under the name (beside it, the name had no room) */
+      '<div class="gn-way">' +
       (lg ? '<span class="small muted">' + esc(W.fmtMin(lg.min) + " " + lg.label) + "</span>" : "") +
-      "</div>" +
       '<a class="btn quiet sm gn-go" href="' +
       esc(W.gmapsDir(known(from), it, lg ? lg.mode : "walk")) +
       '" target="_blank" rel="noopener" aria-label="Directions to ' +
       esc(it.n) +
       '">' +
       IC.dir +
-      "Directions</a></div>"
+      "Directions</a></div></div></div>"
     );
   }
   /* a part of Today that belongs to another time of day (the day bag before you leave, the journal in the evening):

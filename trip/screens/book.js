@@ -815,6 +815,7 @@
      each needs booking: months (flights, places to stay), weeks, or a few days (most tables and tickets) */
   function bucketOf(c, today) {
     if (c.done) return "done";
+    if (c.past) return "past";
     if (!c.by) return S.start ? "later" : c.lead >= 60 ? "lmo" : c.lead >= 14 ? "lwk" : "ldy";
     var dd = c.by - today;
     return dd < 14 * 864e5 ? "now" : dd < 31 * 864e5 ? "month" : "later";
@@ -822,7 +823,7 @@
   /* a group you folded stays folded; Booked starts folded */
   function isShut(key) {
     var f = fold();
-    return f[key] === undefined ? key === "u-done" : !!f[key];
+    return f[key] === undefined ? key === "u-done" || key === "u-past" : !!f[key];
   }
   function fold() {
     if (!foldMem) {
@@ -1116,13 +1117,11 @@
       if (si) W.loadLeg(P.stops[si - 1], s);
     });
     var list = W.checklist(P),
-      left = list.filter(function (c) {
-        return !c.done;
-      }).length;
+      left = list.filter(W.leftToBook).length;
     function row(c) {
-      var late = c.by && !c.done && c.by < today,
-        soon = c.by && !c.done && !late && c.by.getTime() - today.getTime() < 14 * 864e5;
-      var by = c.done ? "Booked" : c.by ? (late ? "Book now" : "by " + fmtDay(c.by, { month: "short", day: "numeric" })) : "";
+      var late = c.by && W.leftToBook(c) && c.by < today,
+        soon = c.by && W.leftToBook(c) && !late && c.by.getTime() - today.getTime() < 14 * 864e5;
+      var by = W.bookByText(c, true);
       var sub = c.auto ? c.why : c.sub != null ? c.sub : c.group === "flight" ? "" : c.why;
       if ((c.key === "flight|out" || c.key === "flight|home") && !c.done && W.fareMin) {
         var fm = W.fareMin(c.key === "flight|out" ? "out" : "home", P);
@@ -1166,7 +1165,7 @@
         '<div class="chk-b"><div class="chk-t"><b>' +
         esc(c.short || c.title) +
         "</b>" +
-        (by ? '<span class="by' + (late ? " late" : soon ? " soon" : "") + '">' + esc(by) + "</span>" : "") +
+        (by ? '<span class="by' + (late ? " late" : soon ? " soon" : c.past ? " past" : "") + '">' + esc(by) + "</span>" : "") +
         "</div>" +
         (meta
           ? '<div class="chk-m" title="' +
@@ -1187,6 +1186,8 @@
           ["now", "Do now"],
           ["month", "This month"],
           ["later", "Later"],
+          /* its day has gone by on the trip's clock: one tap says you did */
+          ["past", "Did you book these?"],
           ["done", "Booked"]
         ]
       : [
@@ -1229,7 +1230,7 @@
         "</span>" +
         '<span class="gn">' +
         items.length +
-        (g[0] === "done" ? " booked" : " to book") +
+        (g[0] === "done" ? " booked" : g[0] === "past" ? " to check" : " to book") +
         "</span>" +
         CHEV +
         "</button></h3>" +
@@ -1248,14 +1249,14 @@
     /* one line on top: how many are left and the next deadline */
     var nextAll = list
       .filter(function (c) {
-        return !c.done && c.by;
+        return W.leftToBook(c) && c.by;
       })
       .sort(function (a, b) {
         return a.by - b.by;
       })[0];
     var top =
       (left ? left + " to book" : "All booked") +
-      (nextAll ? " · next: " + esc(nextAll.short || nextAll.title) + " by " + fmtDay(nextAll.by, { month: "short", day: "numeric" }) : "") +
+      (nextAll ? " · next: " + esc(nextAll.short || nextAll.title) + (nextAll.by < today ? ", now" : " by " + fmtDay(nextAll.by, { month: "short", day: "numeric" })) : "") +
       (S.start ? "" : ' · add your start date under <a href="#plan" data-view="setup">Plan</a> for book-by dates');
     var nBook = left,
       nBooked =

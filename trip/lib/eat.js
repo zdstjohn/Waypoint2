@@ -87,16 +87,55 @@
     for (var i = 0; i < t.length; i++) h = (h * 33 + t.charCodeAt(i)) | 0;
     return t ? (h >>> 0).toString(36) : "";
   };
-  /* how a place fits the group's food needs now: "good", "ok", "poor", or "" (no needs, or not checked yet) */
-  W.eatFit = function (it) {
+  /* the words of "Food you love" or "Rather avoid", for matching a place without Claude: "Grilled fish, pizza" ->
+     ["grilled fish", "pizza"] (filler like "very" and "food" dropped; a plural also matches its singular) */
+  function terms(txt) {
+    return String(txt || "")
+      .toLowerCase()
+      .split(/,|;|\/|\band\b|\bor\b|\+/)
+      .map(function (x) {
+        return W.norm(x)
+          .replace(/\b(very|really|food|foods|dishes|dish|anything|lots of|any|good|great|kind of|kinds of|we|our|love|like|the|a|an)\b/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+      })
+      .filter(function (x) {
+        return x.length >= 3;
+      });
+  }
+  function hits(list, it) {
+    if (!list.length || !it) return false;
+    var text = " " + W.norm([it.n, it.cuisine || "", it.d || ""].join(" ")) + " ";
+    return list.some(function (t) {
+      var one = t.replace(/(e?s)$/, "");
+      return text.indexOf(" " + t) > -1 || (one.length >= 3 && text.indexOf(" " + one) > -1);
+    });
+  }
+  /* a place's mark from Claude, if it was made for the needs as they are now */
+  function mark(it) {
     var s = W.eatSig(),
       e = it && it.eat;
-    return s && e && e.sig === s ? e.f : "";
+    return s && e && e.sig === s && e.f !== undefined ? e : null;
+  }
+  /* how a place fits the group's food needs now: "good", "ok", "poor", or "" (no needs, or not known). Claude's check
+     when there is one; otherwise "poor" when its name, cuisine or description has what you'd rather avoid */
+  W.eatFit = function (it) {
+    var m = mark(it);
+    if (m && m.f) return m.f;
+    var n = W.eatNeeds();
+    return n && hits(terms(n.avoid), it) ? "poor" : "";
+  };
+  /* how well a place matches "Food you love": 2 (a place for it), 1 (has some), 0. Claude's check, or the words */
+  W.eatLike = function (it) {
+    var n = W.eatNeeds();
+    if (!n || !n.love) return 0;
+    var m = mark(it);
+    if (m && m.l != null) return m.l;
+    return hits(terms(n.love), it) ? 2 : 0;
   };
   W.eatWhy = function (it) {
-    var s = W.eatSig(),
-      e = it && it.eat;
-    return s && e && e.sig === s ? e.w || "" : "";
+    var m = mark(it);
+    return m ? m.w || "" : "";
   };
   W.eatAsk = function () {
     var t = W.eatText();
@@ -105,17 +144,32 @@
       " The group's food needs: " +
       t +
       ". Suggest places that can feed them well (clear dishes for their diet; kitchens that handle allergies carefully) and never one where that is hard (for example a seafood-only grill for a shellfish allergy)." +
-      " For each place, fit = good (plenty they can eat), ok (some options; tell the staff) or poor, and fitw = one short line on what they can have or what to ask."
+      " For each place, fit = good (plenty they can eat), ok (some options; tell the staff) or poor, and fitw = one short line on what they can have or what to ask." +
+      W.eatLikeAsk()
     );
   };
+  /* what they love is asked about apart from what they can eat (a place that can feed them is not a place they love) */
+  W.eatLikeAsk = function () {
+    var n = W.eatNeeds();
+    return n && n.love
+      ? " Separately, like = 2 if it is a place for what they love (" +
+          n.love +
+          "), 1 if it has some of it, 0 if not; be strict, most places are 0."
+      : "";
+  };
+  function likeOf(v) {
+    return v === 2 || v === "2" ? 2 : v === 1 || v === "1" ? 1 : 0;
+  }
+  W.eatLikeOf = likeOf;
   W.eatMark = function (list) {
     var sig = W.eatSig();
     if (!sig) return;
     (list || []).forEach(function (x) {
-      if (x && x.fit) x.eat = { f: x.fit, w: x.fitw || "", sig: sig };
+      if (x && x.fit) x.eat = { f: x.fit, w: x.fitw || "", l: likeOf(x.like), sig: sig };
       if (x) {
         delete x.fit;
         delete x.fitw;
+        delete x.like;
       }
     });
   };

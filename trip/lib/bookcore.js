@@ -575,6 +575,19 @@
       return g.items.length;
     });
   };
+  /** still to book: not booked, and its day still ahead (or today) */
+  W.leftToBook = function (c) {
+    return !!c && !c.done && !c.past;
+  };
+  /** where a booking stands, in a word or two, by the trip's clock: never a date that has gone by */
+  W.bookByText = function (c, short) {
+    if (!c) return "";
+    if (c.done) return "Booked";
+    if (c.past) return "Did you book it?";
+    if (!c.by) return "";
+    if (c.by < W.now()) return "Book now";
+    return (short ? "by " : "Book by ") + c.by.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  };
   W.checklist = function (P) {
     var out = [],
       T = ticks(),
@@ -597,6 +610,9 @@
       o.auto = !!o.match;
       if (o.match) o.why = "Booked: " + (o.match.title || o.match.provider || "") + (o.match.ref ? " · " + o.match.ref : "");
       o.done = T[o.key] === 1 || (T[o.key] !== 0 && o.auto);
+      /* its day has come and gone on the trip's clock and it was never marked booked: not "Book now" any more, but
+         "Did you book it?" (a flight you already took, the stay you are in) */
+      o.past = !o.done && !!d && W.isoDay(d) < W.isoDay(W.now());
       out.push(o);
     }
     var ap = P.ap;

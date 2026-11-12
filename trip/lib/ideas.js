@@ -669,6 +669,52 @@
     );
     return "ask";
   };
+  /* ---------- what you love (Plan, "Food you love") ----------
+     A city's first list was asked before you said what you love, so the places for it may not be in it: once per
+     city and per what you typed, a few are asked for, unless the list has enough already. They come marked like
+     any other (can you eat there, how much it is a place for what you love), and the meals the planner chose in
+     that city are chosen again (never the ones you chose). */
+  var LOVED_ENOUGH = 4,
+    LOVED_ASK = 6;
+  W.lovedCount = function (country, city) {
+    var cur = W.C.city[W.cityKey(country, city)];
+    return ((cur && cur.food) || []).filter(function (x) {
+      return W.eatLike(x) >= 2 && W.eatFit(x) !== "poor";
+    }).length;
+  };
+  W.loadLoved = function (country, city) {
+    var n = W.eatNeeds && W.eatNeeds();
+    if (!n || !n.love || W.readOnly || !W.SAMPLE) return;
+    var ck = W.cityKey(country, city),
+      cur = W.C.city[ck],
+      want = W.norm(n.love);
+    if (!cur || cur.fallback || cur.lovedFor === want || W.cityBusy(ck) || W.status["eatlove|" + ck]) return;
+    /* (the check of the places already listed comes first: it may find enough of them) */
+    if (
+      (cur.food || []).some(function (x) {
+        return !x.eat || x.eat.sig !== W.eatSig();
+      })
+    )
+      return;
+    cur.lovedFor = want;
+    if (W.lovedCount(country, city) >= LOVED_ENOUGH) return;
+    run(
+      "eatlove|" + ck,
+      foodAsk(
+        "List " + LOVED_ASK + " MORE places to eat in " + city + ", " + country + " that are especially good for what this group loves: " + n.love + ".",
+        namesOf(cur, "food")
+      ),
+      "default",
+      function (r) {
+        var c0 = W.C.city[ck],
+          before = c0 ? (c0.food || []).length : 0;
+        addFood(ck, r, "eatmore");
+        c0 = W.C.city[ck];
+        bumpShown(ck, c0, "food", c0.food.length - before);
+        if (W.freshMeals) W.freshMeals(country, city);
+      }
+    );
+  };
   /* ---------- no more ideas on show than the stay calls for ----------
      A city shows 15 things to do and 15 places to eat (more for a longer stay: W.firstIdeas), plus what you asked for
      ("Find more", a search, hidden gems: pool.showN). A city that holds more than that (lists from before the limit,
@@ -825,7 +871,8 @@
   }
   /* add places to eat; front = the best-loved half, which stays at the top of the list whichever half arrives first */
   function foodEx() {
-    return W.eatSig() ? FOOD_EX.replace(/\}$/, ',"fit":"good","fitw":""}') : FOOD_EX;
+    var n = W.eatNeeds && W.eatNeeds();
+    return W.eatSig() ? FOOD_EX.replace(/\}$/, ',"fit":"good","fitw":""' + (n && n.love ? ',"like":0' : "") + "}") : FOOD_EX;
   }
   function addFood(ck, r, kind) {
     var c0 = W.C.city[ck] || newPool(),

@@ -333,8 +333,8 @@
   function canWide(ph) {
     return !!(ph.big || (W.standalone && commonsFile(ph)));
   }
-  /* the photo filling a header, with the photographer's credit as plain text in its corner. A photo with no large copy
-     is never stretched across a wide screen: it sits at the side, at its own size (class "lowres", app.css) */
+  /* the photo filling a header, with the photographer's credit as plain text in its corner. Every photo fills its band
+     (a small one too: v152 took away the side placement with a purple fade) */
   /* a phone gets the small picture (its header is narrow; the large copy is half a megabyte), a wide screen the large
      one: "sizes" tells the browser how wide the header is drawn. Headers further down a long page (All days) load as
      they come near (lazy) */
@@ -353,9 +353,7 @@
       set = ' srcset="' + esc(at(960)) + " 960w, " + esc(at(1280)) + " 1280w, " + esc(at(1920)) + ' 1920w" sizes="' + HERO_SIZES + '"';
     } else if (!off && ph.big) set = ' srcset="' + esc(small) + " 720w, " + esc(ph.big) + ' 1920w" sizes="' + HERO_SIZES + '"';
     return (
-      '<img class="hero-img' +
-      (off || !canWide(ph) ? " lowres" : "") +
-      '" src="' +
+      '<img class="hero-img" src="' +
       esc(src) +
       '"' +
       set +

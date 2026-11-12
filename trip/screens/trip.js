@@ -435,11 +435,19 @@
           '">' +
           (home.set ? "Change" : "Pick a place") +
           "</button>") +
-      (canRest
+      (canRest && !day.trip
         ? '<button type="button" class="linkish" data-rest="' +
           esc(rk) +
           '">' +
           (day.rest ? "Undo rest day" : "Make it a rest day") +
+          "</button>"
+        : "") +
+      /* a day out somewhere else (screens/daytrip.js); a day trip the planner chose can be changed for another place */
+      (canRest && !day.rest
+        ? '<button type="button" class="linkish" data-daytrip="' +
+          day.n +
+          '">' +
+          (day.trip ? (day.trip.mine ? "Undo day trip" : "Change day trip") : "Make it a day trip") +
           "</button>"
         : "") +
       "</div></div>"
@@ -617,6 +625,8 @@
     swapAll = false,
     /* the idea the swap is showing up close (its name), or null for the list: nothing is swapped in until you say Add */
     swapPeek = null,
+    /* the Explore idea whose "Add to Day N" is open ("<day>|<name>"): one button per idea, the parts of the day under it */
+    /** @type {string | null} */ useOpen = null,
     tab = "do",
     showAll = false;
   var CHEV =
@@ -1078,13 +1088,9 @@
             esc(W.clip(String(W.priceText(it.ticket, W.curOf(day.country))).split(/[,;(·]/)[0], 18)) +
             "</span>";
         if (bkd || (bkG && bkG.done)) tags += '<span class="gt ok">Booked</span>';
-        else if (bkG && bkG.by)
-          tags +=
-            '<span class="gt due' +
-            (bkG.by < W.now() ? " late" : "") +
-            '">Book by ' +
-            esc(bkG.by.toLocaleDateString(undefined, { month: "short", day: "numeric" })) +
-            "</span>";
+        else if (bkG && bkG.past) {
+          /* (a day gone by: no deadline to show) */
+        } else if (bkG && bkG.by) tags += '<span class="gt due' + (bkG.by < W.now() ? " late" : "") + '">' + esc(W.bookByText(bkG)) + "</span>";
         else if (bkG) tags += '<span class="gt due">Book ahead</span>';
         if (!food && cls.indoor) tags += '<span class="gt in">Indoors</span>';
         if (!food && it.fame === 2) tags += '<span class="gt must">Must-see</span>';
@@ -1393,13 +1399,32 @@
         W.iconLink(W.photosUrl(it.n, day.city), "photos", "Photos of " + it.n) +
         W.iconLink(W.gmapsPlace(it, day.city), "map", it.n + " in Google Maps") +
         "</div>" +
-        ((on && on.n === day.n) || !free.length
-          ? ""
-          : /* "Add to Day 2:" then a row for each part of the day, saying what it would take the place of */
-            '<div class="use"><span class="use-l">Add to Day ' +
+        ((on && on.n === day.n) || !free.length ? "" : useBlock(it)) +
+        "</div>"
+      );
+    }
+    /* one "Add to Day 2" per idea; a tap shows the parts of the day under it, a free one first, each saying what it would
+       take the place of (one part of the day only: the button adds straight to it) */
+    function useBlock(it) {
+      var opts = free.slice().sort(function (a, b) {
+          return (a.item ? 1 : 0) - (b.item ? 1 : 0);
+        }),
+        key = day.n + "|" + it.n,
+        openNow = useOpen === key;
+      return (
+        '<div class="use">' +
+        (opts.length > 1
+          ? '<button type="button" class="use-add" data-useopen="' +
+            esc(it.n) +
+            '" aria-expanded="' +
+            openNow +
+            '"><span class="use-p" aria-hidden="true">+ </span>Add to Day ' +
             day.n +
-            ":</span>" +
-            free
+            "</button>"
+          : "") +
+        (opts.length === 1 || openNow
+          ? (opts.length > 1 ? '<div class="use-pick" role="group" aria-label="When on Day ' + day.n + '">' : "") +
+            opts
               .map(function (x) {
                 return (
                   '<button type="button" data-use="' +
@@ -1424,7 +1449,8 @@
                 );
               })
               .join("") +
-            "</div>") +
+            (opts.length > 1 ? "</div>" : "")
+          : "") +
         "</div>"
       );
     }
@@ -2002,8 +2028,10 @@
         d.peekskip ||
         d.peekback ||
         d.use ||
+        d.useopen != null ||
         d.swapall ||
         d.rest ||
+        d.daytrip ||
         d.free ||
         d.legpick ||
         d.sheetact ||
@@ -2167,7 +2195,13 @@
       W.fxAfter(function () {
         W.fxStagger(".swap .scard-w, .swap .opt-w", { y: 6, step: 20 });
       });
+    } else if (d.useopen != null) {
+      var uk = day.n + "|" + d.useopen;
+      useOpen = useOpen === uk ? null : uk;
+      W.render();
+      return;
     } else if (d.use) {
+      useOpen = null;
       var us = d.use,
         un = d.name,
         sw2 = document.querySelector(".swap");
@@ -2278,10 +2312,32 @@
       W.goView("go", "#viewGo .journal");
       return;
     } else if ((d.live || d.livepick != null || d.site) && W.liveClick) W.liveClick(d, P);
-    else if (d.rest) {
+    else if (d.daytrip) {
+      /* "Make it a day trip" / "Change day trip" open the choice; "Undo day trip" gives the day back to its town */
+      var dn = +d.daytrip,
+        tday = P.days[dn - 1];
+      if (!tday) return;
+      if (tday.trip && tday.trip.mine) {
+        var b4t = W.snapState ? W.snapState() : null;
+        if (S.dayTrip) delete S.dayTrip[W.restKey(tday)];
+        var mineT = S.mine || {};
+        tday.slots.forEach(function (x) {
+          if (!mineT[x.key]) delete S.picks[x.key];
+        });
+        if (W.realChange) W.realChange();
+        if (W.undoPoint) W.undoPoint(b4t, "Day " + dn + " is back in " + tday.city);
+        W.changed();
+      } else
+        W.whenLater(function () {
+          W.dayTripOpen(dn);
+        });
+    } else if (d.rest) {
       var rs = S.rest || (S.rest = {});
       if (rs[d.rest]) delete rs[d.rest];
-      else rs[d.rest] = 1;
+      else {
+        rs[d.rest] = 1;
+        if (S.dayTrip) delete S.dayTrip[d.rest]; /* (a rest day is not a day out) */
+      }
       W.fxAfter(function () {
         W.fxStagger(".slots > .slot", { step: 30 });
       });

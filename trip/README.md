@@ -60,6 +60,7 @@ lib/              the shared library
                   (a pin on another continent or at 0,0 is cleared, the place kept), tags, ratings, kid scores, times of
                   day, meals, hours, beach facts, money, time zones; links through the own-site rule. Loaded first.
   photos.js       real photos (from the nightly finder) and the credit line; a place with no photo shows no picture.
+                  A city's photo fills its header band at every width (the large copy where there is one)
                   The list it leaves for the finder (wanted/<city>) puts the places your trip actually uses first, with
                   the trip's first day ("when") and the day each is used, so the nightly tasks do the soonest trip first
   places.js       checked place records (places/<city> in the database): fixed pins, official sites, hours, places
@@ -233,7 +234,9 @@ screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.
                   at; Today shows Now and Next in one card with the way to what is next as its one main button, the
                   route under it, and the day bag and journal folded to a line outside their time of day. flow.js has
                   the next-step bar, undo and drag to reorder; sheet.js (second script) is a stop's sheet (Directions,
-                  tickets and Swap first, then the facts, then the rarer changes); setup.js also draws where to stay as a sheet over any
+                  tickets and Swap first, then the facts, then the rarer changes); daytrip.js (second script) is "Make it a day
+                  trip": the places an easy day out from a day's town, or any other, and the day planned again there
+                  (S.dayTrip); setup.js also draws where to stay as a sheet over any
                   screen (W.staySheet); quickstart.js (second script) the three questions for a
                   new trip (shown on the very first open; a stop's sheet keeps
                   "Leave free" and "Not for us" at its end, and "Not for us" asks once); journal, family;

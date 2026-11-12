@@ -1,5 +1,5 @@
 /* Bookings: the checklist has what to book and by when, ticking an item, the budget adds up, a booking added by hand lands
-   on its day and in the budget. */
+   on its day and in the budget; on the trip, the reminders follow its clock (v152). */
 const { launch, open, exampleTrip, settle, calm } = require('../lib/page'); const mkdb = require('../lib/db');
 exports.run = async t => {
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(pg);
@@ -47,5 +47,27 @@ exports.run = async t => {
     t.ok(back.found && /checked your inbox/.test(back.line) && /1 reminder/.test(back.line), 'and what the helper found comes back to the list: ' + JSON.stringify(back));
   }
   t.eq(errors(), [], 'no page errors');
-  await ctx.close(); await b.close();
+  await ctx.close();
+  /* v152: the reminders follow the trip's clock. On Day 2, the flight and the first stay are not "Book now": they ask
+     "Did you book it?" in their own folded group, out of the count and of how ready you are; a deadline that has gone
+     by is never shown as a date ("Book now" on today's card); a day gone by shows no deadline at all. */
+  const { pg: p2, ctx: c2, errors: e2 } = await open(b, { width: 390, height: 844, db: mkdb(), init: () => { try { localStorage.setItem('waypoint-now', '2027-06-08T10:20:00'); } catch (e) {} } });
+  await exampleTrip(p2); await settle(p2, 4000);
+  const ck = await p2.evaluate(async () => {
+    W.S.prepTab = 'tobook'; W.goView('book'); W.render(); await new Promise(r => setTimeout(r, 700));
+    const L = W.checklist(W.P), past = L.filter(c => c.past);
+    const g = [...document.querySelectorAll('#viewBook .chk-group')].map(x => ({ t: x.querySelector('.gl').textContent, n: x.querySelector('.gn').textContent, shut: x.classList.contains('shut') }));
+    const tabN = +((document.querySelector('[data-prep="tobook"] .gn') || {}).textContent || 0), ready = (document.querySelector('.ready') || {}).textContent || '';
+    W.S.day = 2; W.S.tview = 'days'; W.goView('trip'); W.render(); await new Promise(r => setTimeout(r, 500));
+    const today = [...document.querySelectorAll('#viewTrip .gt.due')].map(t => t.textContent);
+    W.S.day = 1; W.render(); await new Promise(r => setTimeout(r, 400));
+    const day1 = [...document.querySelectorAll('#viewTrip .gt.due')].map(t => t.textContent);
+    return { past: past.map(c => c.short || c.title), flight: past.some(c => c.key === 'flight|out'), left: L.filter(W.leftToBook).length, g, tabN, ready, today, day1, text: W.bookByText(past[0]) };
+  });
+  const pg2 = ck.g.find(x => /Did you book these/.test(x.t));
+  t.ok(ck.flight && pg2 && pg2.shut && new RegExp('^' + ck.past.length + ' to check').test(pg2.n) && ck.text === 'Did you book it?', 'on Day 2 the flight and what Day 1 needed ask "Did you book it?", in their own folded group: ' + JSON.stringify({ past: ck.past, group: pg2 }));
+  t.ok(ck.tabN === ck.left && new RegExp(ck.left + ' to book').test(ck.ready), 'they are out of the count and of how ready you are: ' + JSON.stringify({ tab: ck.tabN, left: ck.left, ready: ck.ready }));
+  t.ok(ck.today.length && ck.today.every(x => !/ by /i.test(x) || !/May|Apr|Jun/.test(x)) && ck.day1.length === 0, 'no deadline that has gone by shows as a date ("Book now" today), and a day gone by shows none: ' + JSON.stringify({ today: ck.today, day1: ck.day1 }));
+  t.eq(e2(), [], 'no page errors on the trip either');
+  await c2.close(); await b.close();
 };

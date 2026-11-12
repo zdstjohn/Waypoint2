@@ -131,7 +131,8 @@
     var geoBusy = Object.keys(W.status).some(function (k) {
       return k.indexOf("geo|" + ck) === 0 && W.status[k] === "loading";
     });
-    var sub = [from ? (from === to ? from : from + " – " + to) : "", (info && info.d) || ""].filter(Boolean).join(" · ");
+    var sub = from ? (from === to ? from : from + " – " + to) : "",
+      about = (info && info.d) || "";
     wantLodging(s, hb);
     return (
       '<div class="stop" id="stop-' +
@@ -163,6 +164,7 @@
       '"' +
       (s.days >= 30 ? " disabled" : "") +
       ">+</button></div></div>" +
+      (about ? '<p class="stop-d">' + esc(about) + "</p>" : "") +
       paceRow(s, i) +
       /* a stop from before islands gave way to their towns: it still works, and its towns are one tap away */
       (function () {
@@ -214,8 +216,55 @@
     var cur = W.C.city[W.cityKey(s.country, s.name)];
     if (!cur || cur.lodgeFor !== W.lodgeSig() || !cur.lodgeAsked) W.loadLodging(s.country, s.name);
   }
-  /* where to stay in one place: a stay you booked already, a search on Booking.com, the suggested areas and hotels,
-     and other sites. In Plan it opens under the place's row; from any other screen it is a sheet (W.staySheet) */
+  /* where to stay in one place: a stay you booked already, the suggested areas and hotels, and other sites. In Plan it opens under the place's row; from any other screen it is a sheet (W.staySheet) */
+  /* what "Food you love" and "Rather avoid" have done, so you can see they work: the places found for what you love
+     and how many meals go to them, and how many places what you avoid keeps off the plan */
+  function eatReport(P) {
+    var n = W.eatNeeds && W.eatNeeds();
+    if (!n || (!n.love && !n.avoid) || !P || !P.stops.length) return "";
+    var busy = Object.keys(W.status).some(function (k) {
+      return /^eat(fit|love)\|/.test(k) && W.status[k] === "loading";
+    });
+    if (busy) return '<p class="eat-rep" role="status">Checking the places to eat in your cities for this…</p>';
+    var loved = 0,
+      off = 0,
+      meals = 0,
+      onMeals = 0;
+    P.stops.forEach(function (s) {
+      var c = W.C.city[W.cityKey(s.country, s.name)];
+      ((c && c.food) || []).forEach(function (x) {
+        if (n.love && W.eatLike(x) >= 2 && W.eatFit(x) !== "poor") loved++;
+        if (W.eatFit(x) === "poor") off++;
+      });
+    });
+    P.days.forEach(function (d) {
+      d.slots.forEach(function (x) {
+        if (!x.item || !W.isFood(x.slot)) return;
+        meals++;
+        if (n.love && W.eatLike(x.item) >= 2) onMeals++;
+      });
+    });
+    var parts = [];
+    if (n.love)
+      parts.push(
+        loved
+          ? loved + " place" + (loved > 1 ? "s" : "") + " for " + n.love + " · " + onMeals + " of your " + meals + " meals go to them"
+          : "No places for " + n.love + " found in your cities yet"
+      );
+    if (n.avoid)
+      parts.push(
+        off
+          ? off + " place" + (off === 1 ? "" : "s") + " kept off your plan for what you'd rather avoid"
+          : "No place in your cities has what you'd rather avoid"
+      );
+    return (
+      '<p class="eat-rep" role="status">' +
+      esc(parts.join(". ")) +
+      "." +
+      (!W.SAMPLE ? " (Without Claude, by the words in each place's name and description.)" : "") +
+      "</p>"
+    );
+  }
   function stayPanel(s, i) {
     return (
       '<div class="stay-panel"><div class="row"><input class="field" id="stayIn' +
@@ -225,7 +274,6 @@
       '"><button type="button" class="btn quiet" data-setstay="' +
       i +
       '">Set</button></div>' +
-      (W.liveStays ? W.liveStays(s, W.P) : "") +
       lodgeCards(s, i) +
       (W.altLinksFor ? W.altLinksFor("stay", { s: s, dates: stayDatesFor(s) }) : "") +
       "</div>"
@@ -918,6 +966,7 @@
         '<label class="fld" for="eatNote"><span>Anything else</span><input class="field" id="eatNote" data-eat="note" maxlength="200" value="' +
         esc(eat.note || "") +
         '" placeholder="Our 4-year-old only eats plain pasta" autocomplete="off"></label>' +
+        eatReport(P) +
         '<p class="small muted">Restaurant ideas are chosen with these in mind, places that can\'t feed you are never planned, and each meal says what you can have. With allergies, always tell the staff: no app can promise a kitchen is safe.</p>' +
         (!eatSum && !S.eatNone ? '<div><button type="button" class="btn quiet sm" data-eatnone="1">Nothing special</button></div>' : "")
     );

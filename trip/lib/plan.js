@@ -516,7 +516,9 @@
     if (W.gone(item)) return null; /* closed for good, or the check found no such place */
     /* the group's food needs: a place that can't feed them is never planned; one that clearly can is a little ahead */
     var eatF = W.isFood(slot) && W.eatFit ? W.eatFit(item) : "",
-      eatB = eatF === "good" ? 3 : eatF === "ok" ? 0.5 : 0;
+      /* what you love counts for more than a good rating (a place for it: +7; one with some of it: +3) */
+      eatL = W.isFood(slot) && W.eatLike ? W.eatLike(item) : 0,
+      eatB = (eatF === "good" ? 3 : eatF === "ok" ? 0.5 : 0) + (eatL === 2 ? 7 : eatL === 1 ? 3 : 0);
     if (eatF === "poor") return null;
     /* the first days after a long flight: no timed entries first thing */
     if (ctx.jet && slot === "am" && W.needsBooking(item)) return null;
@@ -936,15 +938,23 @@
           moveFrom: d === 0 && si > 0 ? st[si - 1].name : null,
           jet: n <= jl.days
         });
-        days[days.length - 1].rest = W.isRest(days[days.length - 1]);
+        var dd = days[days.length - 1],
+          mt = (W.S.dayTrip || {})[W.restKey(dd)];
+        /* a day you made a day trip ("Make it a day trip", screens/daytrip.js): not the arrival or packing day */
+        if (mt && typeof mt.name === "string" && mt.name.trim() && !dd.tripFirst && !dd.tripLast && !dd.moveFrom) dd.mineTrip = mt;
+        dd.rest = !dd.mineTrip && W.isRest(dd);
       }
-      if (W.placeTrips)
-        W.placeTrips(
-          s,
-          days.filter(function (d) {
-            return d.stop === si;
-          })
-        );
+      var sdays = days.filter(function (d) {
+        return d.stop === si;
+      });
+      if (W.placeTrips) W.placeTrips(s, sdays); /* (the planner's own day trips keep off yours) */
+      sdays.forEach(function (d) {
+        var m = d.mineTrip;
+        var num = function (v) {
+          return typeof v === "number" && isFinite(v) ? v : null;
+        };
+        if (m) d.trip = { country: d.country, name: m.name.trim().slice(0, 60), lat: num(m.lat), lng: num(m.lng), min: num(m.min), why: "mine", mine: 1, planned: true };
+      });
     });
 
     /* fill each city's days from its own pool. A place the plan already used at an earlier stop close by (two stays on
@@ -963,8 +973,10 @@
         });
         return;
       }
-      if (!pool.fallback && W.loadEatFit)
-        W.loadEatFit(s.country, s.name); /* the group's food needs: check these places, and add a few that fit */
+      if (!pool.fallback && W.loadEatFit) {
+        W.loadEatFit(s.country, s.name); /* the group's food needs: check these places */
+        if (W.loadLoved) W.loadLoved(s.country, s.name); /* and a few places for what you love, if the list has few */
+      }
       if (!pool.fallback && W.loadFame) W.loadFame(s.country, s.name); /* ratings for the ideas already there (no new ones) */
       var home = W.homebase(s.country, s.name),
         used = {};
@@ -1882,6 +1894,14 @@
       m = mine();
     Object.keys(W.S.picks).forEach(function (k) {
       if (k.indexOf(pre) === 0 && !m[k]) delete W.S.picks[k];
+    });
+  };
+  /* a city's meals chosen again, keeping the ones you chose yourself (what you love changed) */
+  W.freshMeals = function (country, city) {
+    var pre = country + "|" + city + "|",
+      m = mine();
+    Object.keys(W.S.picks).forEach(function (k) {
+      if (k.indexOf(pre) === 0 && !m[k] && W.isFood(k.slice(k.lastIndexOf("|") + 1))) delete W.S.picks[k];
     });
   };
   /* every city's days planned again, keeping the stops you chose yourself (the trip's feel changed) */

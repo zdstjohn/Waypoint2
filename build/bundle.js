@@ -13,9 +13,9 @@ const ORDER = [
   'data/data1.js', 'data/data2.js',
   'lib/validate.js', 'lib/core.js', 'lib/ideastore.js', 'lib/towns.js', 'lib/ideas.js', 'lib/stays.js', 'lib/asks.js', 'lib/icons.js', 'lib/patch.js', 'lib/eat.js', 'lib/links.js', 'lib/errlog.js', 'lib/later.js', 'lib/pwa.js', 'lib/back.js', 'lib/classify.js', 'lib/photos.js', 'lib/places.js', 'lib/nightfood.js', 'lib/fx.js', 'lib/vtindex.js', 'lib/vtmap.js', 'lib/offline.js', 'lib/offcopy.js', 'lib/speedtest.js', 'lib/times.js', 'lib/holidays.js', 'lib/shape.js', 'lib/plan.js', 'lib/packing.js', 'lib/warm.js', 'lib/memories.js',
   'screens/setup.js', 'lib/sharebox.js', 'lib/sync.js', 'lib/bookcore.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/route.js', 'lib/import.js', 'lib/prices.js', 'lib/watch.js', 'lib/gmaps.js', 'lib/search.js', 'lib/replan.js', 'lib/review.js',
-  'screens/today.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/near.js', 'screens/travel.js', 'screens/flow.js', 'screens/quickstart.js', 'screens/sheet.js', 'lib/typeahead.js', 'screens/settings.js', 'screens/trip.js'
+  'screens/today.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/near.js', 'screens/travel.js', 'screens/flow.js', 'screens/quickstart.js', 'screens/sheet.js', 'screens/daytrip.js', 'lib/typeahead.js', 'screens/settings.js', 'screens/trip.js'
 ];
-const LATER = ['lib/memories.js', 'screens/near.js', 'screens/quickstart.js', 'screens/sheet.js', 'lib/typeahead.js', 'lib/import.js', 'screens/setup.js', 'lib/vtmap.js', 'lib/packing.js', 'lib/prices.js', 'lib/watch.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/gmaps.js', 'lib/search.js', 'lib/replan.js', 'lib/review.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/settings.js', 'lib/route.js', 'lib/offcopy.js', 'lib/speedtest.js'];
+const LATER = ['lib/nightfood.js', 'lib/memories.js', 'screens/near.js', 'screens/quickstart.js', 'screens/sheet.js', 'screens/daytrip.js', 'lib/typeahead.js', 'lib/import.js', 'screens/setup.js', 'lib/vtmap.js', 'lib/packing.js', 'lib/prices.js', 'lib/watch.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/gmaps.js', 'lib/search.js', 'lib/replan.js', 'lib/review.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/settings.js', 'lib/route.js', 'lib/offcopy.js', 'lib/speedtest.js'];
 module.exports.ORDER = ORDER; module.exports.LATER = LATER;
 
 async function build() {
@@ -56,7 +56,7 @@ async function build() {
    of its class names appears in the first script's code or index.html: whatever the first screen draws keeps its
    style in app.min.css. Rules keep their order; @media blocks are split rule by rule; @keyframes, @font-face and other
    at-rules stay. */
-const LATER_CSS = [/^warmly\b/, /^quick start\b/, /^Typeahead\b/, /^Today: near you\b/, /^Today: the day bag\b/, /^Prepare: the tabs\b/, /^Setup\b/, /^Bookings\b/, /^journal, recap/, /^Trip settings\b/, /^pack and prepare\b/, /^prepare: segments\b/, /^the kids' corner\b/, /^Settings: stored files\b/, /^Claude: check my plan\b/];
+const LATER_CSS = [/^warmly\b/, /^quick start\b/, /^Typeahead\b/, /^Today: near you\b/, /^Today: the day bag\b/, /^Prepare: the tabs\b/, /^Setup\b/, /^Bookings\b/, /^journal, recap/, /^Trip settings\b/, /^pack and prepare\b/, /^prepare: segments\b/, /^the kids' corner\b/, /^Settings: stored files\b/, /^Claude: check my plan\b/, /^a stop's details and the actions sheet\b/];
 /* how specific a selector is (ids, classes and the like, elements), as one number to compare */
 function spec(sel) {
   const s = sel.replace(/::?[\w-]+\([^)]*\)/g, m => /^:(not|is|has|where)/.test(m) ? m.replace(/^:\w+\(|\)$/g, ' ') : ' .x ').replace(/::[\w-]+/g, ' a ');

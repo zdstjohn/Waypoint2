@@ -19,9 +19,11 @@
     var list = W.checklist(P) || [],
       pk = W.packing ? W.packing(P) : { pack: [], todo: [] },
       t = S().pack || {};
-    var tb = list.filter(function (c) {
-        return !c.done;
-      }).length,
+    /* (what the trip's clock has passed, never marked booked, is no longer counted either way) */
+    list = list.filter(function (c) {
+      return !c.past;
+    });
+    var tb = list.filter(W.leftToBook).length,
       tp = pk.pack.filter(function (x) {
         return !t[x.key];
       }).length,

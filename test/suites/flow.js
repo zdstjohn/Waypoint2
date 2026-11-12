@@ -139,11 +139,16 @@ exports.run = async t => {
   /* v149: Explore's add buttons say what they do and what they replace; the toast leads to the day; "+ Add" is beside the switch */
   t.ok(await pg.evaluate(() => !document.querySelector('#viewTrip .vsw-add')), 'no "+ Add" beside the Day · All days · Explore switch (v150: it was noise)');
   await pg.evaluate(() => { W.S.tview = 'map'; W.render(); }); await pg.waitForTimeout(700);
-  const ex = await pg.evaluate(() => { const u = document.querySelector('#viewTrip .idea .use'), bs = u ? [...u.querySelectorAll('button')] : [];
-    return { label: u ? u.querySelector('.use-l').textContent : '', btns: bs.map(b2 => b2.textContent.replace(/\s+/g, ' ').trim()), h: bs.length ? Math.round(bs[0].getBoundingClientRect().height) : 0, aria: bs.length ? bs[0].getAttribute('aria-label') : '', day: W.S.day }; });
-  t.ok(ex.label === 'Add to Day ' + ex.day + ':' && ex.btns.length >= 2 && ex.btns.every(x => /^\+ \w+ · (replaces .+|free now)$/.test(x)) && ex.h >= 40 && /^Add .+ to Day \d+, /.test(ex.aria || ''), 'an idea\'s buttons say "Add to Day N", and each names what it would replace or that the time is free: ' + ex.btns.join(' | '));
-  const tgt = await pg.evaluate(() => { const b2 = document.querySelector('#viewTrip .idea .use button'); return { slot: b2.dataset.use, name: b2.dataset.name }; });
-  await pg.click('#viewTrip .idea .use button'); await pg.waitForTimeout(700);
+  /* v152: one "Add to Day N" per idea; a tap shows the parts of the day under it, a free one first */
+  const ex0 = await pg.evaluate(() => { const u = document.querySelector('#viewTrip .idea .use'); return u ? { add: (u.querySelector('.use-add') || {}).textContent, rows: u.querySelectorAll('[data-use]').length, h: Math.round(u.querySelector('.use-add').getBoundingClientRect().height), day: W.S.day } : null; });
+  t.ok(ex0 && ex0.add.replace(/\s+/g, ' ').trim() === '+ Add to Day ' + ex0.day && ex0.rows === 0 && ex0.h >= 44, 'an idea has one "Add to Day N" button, 44px tall, and no row of times until it is tapped: ' + JSON.stringify(ex0));
+  await pg.click('#viewTrip .idea .use .use-add'); await pg.waitForTimeout(400);
+  const ex = await pg.evaluate(() => { const u = document.querySelector('#viewTrip .idea .use'), bs = [...u.querySelectorAll('[data-use]')];
+    return { open: u.querySelector('.use-add').getAttribute('aria-expanded'), btns: bs.map(b2 => b2.textContent.replace(/\s+/g, ' ').trim()), h: bs.length ? Math.round(bs[0].getBoundingClientRect().height) : 0, aria: bs.length ? bs[0].getAttribute('aria-label') : '', others: document.querySelectorAll('#viewTrip .idea .use-pick').length }; });
+  const freeFirst = ex.btns.every((x, i) => !/free now$/.test(x) || ex.btns.slice(0, i).every(y => /free now$/.test(y)));
+  t.ok(ex.open === 'true' && ex.others === 1 && ex.btns.length >= 2 && ex.btns.every(x => /^\+ \w+ · (replaces .+|free now)$/.test(x)) && freeFirst && ex.h >= 40 && /^Add .+ to Day \d+, /.test(ex.aria || ''), 'a tap shows the parts of the day, a free one first, each naming what it would replace: ' + ex.btns.join(' | '));
+  const tgt = await pg.evaluate(() => { const b2 = document.querySelector('#viewTrip .idea .use [data-use]'); return { slot: b2.dataset.use, name: b2.dataset.name }; });
+  await pg.click('#viewTrip .idea .use [data-use]'); await pg.waitForTimeout(700);
   const toast = await pg.evaluate(([slot, name]) => { const u = document.querySelector('#undohost .undo'), x = W.P.days[W.S.day - 1].slots.find(y => y.slot === slot); return { text: u ? u.querySelector('span').textContent : '', see: !!(u && u.querySelector('[data-undosee]')), undo: !!(u && u.querySelector('[data-undo]')), on: !!x.item && x.item.n === name }; }, [tgt.slot, tgt.name]);
   t.ok(toast.on && /^Added to Day \d+ \w+/.test(toast.text) && toast.see && toast.undo, 'adding says what happened ("' + toast.text + '"), with "See day" and Undo');
   await pg.click('#undohost [data-undosee]'); await pg.waitForTimeout(600);
