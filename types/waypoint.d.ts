@@ -427,6 +427,12 @@ interface Waypoint {
   menuFor: (it: any, country: string, city: string) => { src: string; at: string; sections: { h: string; items: { n: string; p: string; d: string }[] }[]; kids: { n: string; p: string }[]; note: string } | null;
   menuBlock: (it: any, day: Day, key?: string) => string;
   /** lib/menuread.js: a menu read from a photo, for this family */
+  /** lib/bookcheck.js: your bookings against the plan */
+  bookCheck: (P: Plan) => { day: number; slot: string; kind: string; text: string; fix: string }[];
+  bookedOn: (n: number) => Record<string, any>[];
+  /** lib/bookcore.js: a place's name against a booking's words */
+  nameRank: (name: string, text: string) => number;
+  nameMatch: (name: string, text: string) => boolean;
   menuCanRead: () => boolean;
   menuClean: (r: any) => { lang: string; dishes: { n: string; en: string; d: string; p: string; fit: string; why: string }[]; ask: { local: string; en: string }[]; note: string };
   menuRead: (key: string, files: FileList | File[]) => void;

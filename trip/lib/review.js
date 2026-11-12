@@ -1,4 +1,6 @@
-/* Waypoint: "Check my plan" (second script).
+/* Waypoint: "Check my plan" (second script). It starts with your bookings against the plan (lib/bookcheck.js: read on
+   the phone, no Claude), then Claude's own check, which reads the bookings too.
+
    One button at the end of Plan (and in the trip menu): Claude reads the whole trip as it is planned here (every day's stops
    with their times, how far apart they are, what is indoors, what closes when, naps, tickets, travel days) and lists
    the real problems, each with a way to fix it and a way to open that day. It only reads: nothing in the plan changes.
@@ -15,6 +17,7 @@
     pace: "Pace",
     meal: "Meals",
     travel: "Travel day",
+    booking: "Bookings",
     other: "Worth a look"
   };
   var WD = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -55,6 +58,9 @@
         o.travel = day.moveFrom + " to " + day.city + (T && T.travel ? " " + W.clock(T.travel.start) + "-" + W.clock(T.travel.end) : "");
       if (day.trip) o.day_trip_to = day.trip.name;
       if (day.rest) o.rest_day = true;
+      /* what is already booked that day: stays (check-in, check-out), journeys, tickets, tours, tables, with their times */
+      var bk = W.bookedOn ? W.bookedOn(day.n) : [];
+      if (bk.length) o.booked = bk;
       if (day.jet) o.jet_lag = true;
       if (T && T.nap) o.nap = W.clock(T.nap.start) + "-" + W.clock(T.nap.end) + (T.nap.away ? " (on the go)" : " (at the lodging)");
       if (E) {
@@ -137,10 +143,11 @@
       JSON.stringify(facts) +
       "\n" +
       'Look for: too much walking or too many big stops for the youngest or oldest traveler; a place that is closed on its day (from the data, or a closing day you are sure of, such as a museum\'s weekly closing day; say "check" when it comes from your own knowledge); ' +
+      "a booking that doesn't fit the plan (booked lists what is already booked that day, with check-in and check-out times, journeys, tickets, tours and tables: a stop planned while a booked tour runs, arriving long before check-in with the bags, a meal clashing with a table booked elsewhere); " +
       "dinner or an outing running into a small child's nap or bedtime; tickets that sell out and are not marked booked, most urgent first; a heavy day straight after a travel day or jet lag; a day with no real meal stop; outdoor stops stacked in the hottest hours.\n" +
       "Only real problems this family would thank you for; none is a fine answer. At most 8, most important first. Name the place. Give one concrete fix each, in the plan's own terms (swap two stops, move it to another day, book it now, drop one stop).\n" +
       'Answer with JSON only: {"ok": "one sentence on what is already good about this plan", "issues": [{"day": 3, "slot": "pm", "kind": "walk", "text": "the problem in one sentence", "fix": "what to do in one sentence"}]} ' +
-      'where kind is one of walk, closed, nap, book, pace, meal, travel, other and slot is one of breakfast, am, lunch, pm, dinner, eve or "".'
+      'where kind is one of walk, closed, nap, book, pace, meal, travel, booking, other and slot is one of breakfast, am, lunch, pm, dinner, eve or "".'
     );
   }
   function clean(res, P) {
@@ -180,10 +187,58 @@
     });
     return true;
   };
-  var ICON = W.icon("plancheck", 2.1);
+  var ICON = W.icon("plancheck", 2.1),
+    TICKET = W.icon("ticket", 2.1);
+  /** one problem: what kind (not in the bookings' own section, where it's always "Bookings"), where, what, what to try,
+      and the way to its day @param {any} i @param {Plan} P @param {boolean} [bare] */
+  function item(i, P, bare) {
+    var d = P.days[i.day - 1];
+    return (
+      '<li class="pcheck-i pc-' /* (pc-: k- is the kids' corner's prefix, and .k-book is its storybook page) */ +
+      esc(i.kind) +
+      '">' +
+      (bare ? "" : '<span class="pcheck-k">' + esc(KINDS[i.kind] || KINDS.other) + "</span>") +
+      '<span class="pcheck-w">' +
+      esc("Day " + i.day + (d ? " · " + d.city : "") + (i.slot ? " · " + W.SLOT_NAME[i.slot] : "")) +
+      "</span>" +
+      '<p class="pcheck-t">' +
+      esc(i.text) +
+      "</p>" +
+      (i.fix ? '<p class="pcheck-f"><b>Try:</b> ' + esc(i.fix) + "</p>" : "") +
+      (d ? '<button type="button" class="linkish" data-goday="' + i.day + '">Open Day ' + i.day + " →</button>" : "") +
+      "</li>"
+    );
+  }
+  /** your bookings against the plan: on the phone, at once, whenever there are bookings @param {Plan} P */
+  function bookBlock(P) {
+    var n = (W.S.bookings || []).length;
+    if (!n || !W.bookCheck) return "";
+    var bi = W.bookCheck(P);
+    return (
+      '<section class="pcheck bkcheck sk" aria-label="Your bookings against the plan"><div class="pcheck-h"><h3>' +
+      TICKET +
+      "Your bookings against the plan</h3></div>" +
+      (bi.length
+        ? '<ol class="pcheck-l">' +
+          bi
+            .map(function (i) {
+              return item(i, P, true);
+            })
+            .join("") +
+          "</ol>"
+        : '<p class="pcheck-none">Your ' +
+          (n === 1 ? "booking matches" : n + " bookings match") +
+          " the plan: the nights, the journeys and the times.</p>") +
+      "</section>"
+    );
+  }
   /** the card in All days @param {Plan} P */
   W.reviewBlock = function (P) {
     if (!P || !P.days || !P.days.length) return "";
+    return bookBlock(P) + claudeBlock(P);
+  };
+  /** Claude's own check @param {Plan} P */
+  function claudeBlock(P) {
     var v = saved(),
       s = W.status["review|" + (W.S.tripId || "t")],
       busy = s === "loading",
@@ -223,22 +278,7 @@
         '<ol class="pcheck-l">' +
         v.issues
           .map(function (/** @type {any} */ i) {
-            var d = P.days[i.day - 1];
-            return (
-              '<li class="pcheck-i pc-' /* (pc-: k- is the kids' corner's prefix, and .k-book is its storybook page) */ +
-              esc(i.kind) +
-              '"><span class="pcheck-k">' +
-              esc(KINDS[i.kind] || KINDS.other) +
-              '</span><span class="pcheck-w">' +
-              esc("Day " + i.day + (d ? " · " + d.city : "") + (i.slot ? " · " + W.SLOT_NAME[i.slot] : "")) +
-              "</span>" +
-              '<p class="pcheck-t">' +
-              esc(i.text) +
-              "</p>" +
-              (i.fix ? '<p class="pcheck-f"><b>Try:</b> ' + esc(i.fix) + "</p>" : "") +
-              (d ? '<button type="button" class="linkish" data-goday="' + i.day + '">Open Day ' + i.day + " →</button>" : "") +
-              "</li>"
-            );
+            return item(i, P);
           })
           .join("") +
         "</ol>";
@@ -250,7 +290,7 @@
         (s ? '<span class="small pcheck-err" role="status">' + esc(s) + "</span>" : "") +
         "</div>";
     return h + "</section>";
-  };
+  }
   document.addEventListener("click", function (e) {
     var t = /** @type {HTMLElement} */ (e.target),
       b = t && t.closest ? t.closest("[data-review]") : null;

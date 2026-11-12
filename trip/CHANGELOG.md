@@ -2,6 +2,31 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v165
+
+Your bookings checked against the plan, in "Check my plan" (the owner's pick from the second list of ideas).
+- Plan's "Check my plan" starts with "Your bookings against the plan" whenever there are bookings (lib/bookcheck.js,
+  new, in the second script; lib/review.js W.reviewBlock = bookBlock + claudeBlock). It is read on the phone at once,
+  without Claude, from the stays, journeys, tickets, tours and tables you added or imported (S.bookings):
+  - a stay that starts after the plan reaches its town (said once, with the nights to book), starts before it, runs
+    past the day you leave, or falls when the plan has you elsewhere;
+  - nights in a booked town with no stay, and two stays the same night (a run of nights is one problem; changing
+    hotel halfway through a town is not a problem);
+  - a train, ferry, bus or flight booked for another day than the plan moves (an evening departure the day before
+    is fine);
+  - arriving 90 minutes or more before check-in, or leaving 3 hours or more after check-out: what to do with the bags;
+  - a ticket, tour or table booked for another day than the plan has the place, more than 45 minutes off its planned
+    time, or for a place not in the plan.
+  Each is drawn like Claude's own findings (the day, what is wrong, "Try:", "Open Day N"), without the kind label
+  that would say "Bookings" every time. With nothing wrong: "Your 2 bookings match the plan".
+- Claude's own check is told what is booked each day (W.bookedOn: kind, what, time, check-in, check-out) and looks
+  for bookings that don't fit the plan (a new kind, "Bookings").
+- One way of matching a place's name against a booking's words (lib/bookcore.js W.nameRank, W.nameMatch), used by
+  the bookings and the new check: numbers count and must be whole ("Sight 2" is not "Sight 20"), and among several
+  places that match, the closest name wins.
+- Tests: bookcheck (each problem above; matching bookings and a change of hotel raise nothing; the section and its
+  "Open Day" buttons; none without bookings). 57 suites.
+
 ## v164
 
 Small text links as small buttons, chips with the buttons' corners, "Find more" in the gradient, photos first in Explore

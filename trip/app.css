@@ -1808,7 +1808,8 @@ button.menu-btn{border:0;background:transparent;font:inherit;font-weight:800;col
 .pcheck-ok,.pcheck-none{margin:0}
 .pcheck-l{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .pcheck-i{display:grid;gap:4px;padding:10px 12px 10px 14px;border:var(--hair);border-left:4px solid var(--accent);border-radius:var(--r-md);justify-items:start;background:var(--surface)}
-.pcheck-i.pc-book,.pcheck-i.pc-closed{border-left-color:var(--note)}
+.pcheck-i.pc-book,.pcheck-i.pc-closed,.pcheck-i.pc-booking{border-left-color:var(--note)}
+.bkcheck + .pcheck,.bkcheck + .pcheck-go{margin-top:12px}
 .pcheck-i.pc-nap,.pcheck-i.pc-pace,.pcheck-i.pc-walk{border-left-color:var(--warn,#C27A1A)}
 .pcheck-k{font-size:var(--t-cap);font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--accent)}
 .pcheck-w{font-weight:800;font-size:var(--t-body)}

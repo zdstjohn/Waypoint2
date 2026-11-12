@@ -395,22 +395,47 @@
     in: 1,
     on: 1
   };
+  /* a name's words that tell it apart: longer than two letters, or with a number in it; each once */
   function toks(s) {
+    var seen = /** @type {Record<string, number>} */ ({});
     return W.norm(s)
       .split(" ")
       .filter(function (w) {
-        return w.length > 2 && !STOP[w];
+        if (!w || STOP[w] || seen[w] || (w.length < 3 && !/\d/.test(w))) return false;
+        return (seen[w] = 1);
       });
   }
-  function nameMatch(name, text) {
-    var A = toks(name),
-      B = " " + W.norm(text) + " ";
-    if (!A.length) return false;
-    var hit = A.filter(function (w) {
-      return B.indexOf(" " + w) > -1;
-    }).length;
-    return hit / A.length >= 0.6;
+  /* a word in a list of words: a word may be the start of a longer one ("museum" in "museums"), a number must be whole
+     ("2" is not "20") */
+  function inWords(hay, w) {
+    return hay.indexOf(" " + w + (/\d/.test(w) ? " " : "")) > -1;
   }
+  /** how well a place's name is found in a booking's words: 0 when under 3 in 5 of the name's words are there; otherwise
+      that share plus the share of the booking's words found in the name, so "Sight 2-2" is closer to a "Sight 2-2"
+      ticket than "Sight 2-7" is @param {string} name @param {string} text */
+  W.nameRank = function (name, text) {
+    var A = toks(name),
+      Bw = toks(text);
+    if (!A.length || !Bw.length) return 0;
+    var B = " " + Bw.join(" ") + " ",
+      An = " " + A.join(" ") + " ";
+    var fwd =
+      A.filter(function (w) {
+        return inWords(B, w);
+      }).length / A.length;
+    if (fwd < 0.6) return 0;
+    return (
+      fwd +
+      Bw.filter(function (w) {
+        return inWords(An, w);
+      }).length /
+        Bw.length
+    );
+  };
+  /** a place's name is in a booking's words @param {string} name @param {string} text */
+  var nameMatch = (W.nameMatch = function (name, text) {
+    return W.nameRank(name, text) > 0;
+  });
   function bkDay(b) {
     return W.dayOfDate(b.start);
   }
