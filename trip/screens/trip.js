@@ -580,7 +580,7 @@
       rows += W.routeLeg(prev, p, city, false);
       var R = T && T.rows[p.slot],
         when = [R && R.start != null && !R.skip ? W.clock(R.start) : "", (R && R.label) || W.SLOT_NAME[p.slot]].filter(Boolean).join(" · ");
-      rows += W.routeStop(p, city, esc(when));
+      rows += W.routeStop(p, city, esc(when), undefined, undefined, prev);
       if (p.lat != null) prev = p;
     });
     if (prev !== home) rows += W.routeLeg(prev, home, city, true);

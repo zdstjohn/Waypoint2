@@ -1,7 +1,8 @@
 // Waypoint's door to Claude (Supabase Edge Function "claude"). The installable app sends a question here; this checks
 // who is asking (a signed-in, invited person), counts it against their daily limit, and asks Claude with the API key
 // that only this function can see (the ANTHROPIC_API_KEY secret). The app never holds the key.
-//   POST { prompt: string, tier?: "quick" | "default" | "complex", effort?: "low" | "medium" | "high", stream?: boolean }
+//   POST { prompt: string, tier?: "quick" | "default" | "complex", effort?: "low" | "medium" | "high", stream?: boolean,
+//          images?: [{ type: "image/jpeg" | "image/png" | "image/webp", data: base64 }] }   (up to 3, a menu's pages)
 //     ->  { text, model, truncated }   (or { error, code })
 //   With stream: true the answer comes as it is written, as lines of "data: {...}\n\n":
 //     { t: "more text" } any number of times, then { done: true, truncated, model } (or { error, code } if it broke off).
@@ -10,6 +11,8 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 const MODELS: Record<string, string> = { quick: "claude-haiku-5-5", default: "claude-sonnet-5-5", complex: "claude-sonnet-5-5" };
 const MAX_OUT: Record<string, number> = { quick: 4096, default: 8192, complex: 8192 };
 const EFFORTS = ["low", "medium", "high"];
+const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_IMAGES = 3, MAX_IMAGE_B64 = 5_000_000;   // (about 3.7 MB a picture; the app sends them shrunk to about 0.3 MB)
 const DAILY = Number(Deno.env.get("DAILY_LIMIT") || "200");
 const ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") || "https://waypoint-livid-three.vercel.app,https://waypoint-waypoint-4fb2.vercel.app,https://waypoint-git-main-waypoint-4fb2.vercel.app").split(",").map((s) => s.trim());
 
@@ -41,13 +44,26 @@ Deno.serve(async (req) => {
   const { data: who, error: whoErr } = await admin.auth.getUser(jwt);
   if (whoErr || !who?.user) return reply({ error: "Sign in again.", code: "not_signed_in" }, 401, origin);
 
-  let body: { prompt?: unknown; tier?: unknown; effort?: unknown; stream?: unknown };
+  let body: { prompt?: unknown; tier?: unknown; effort?: unknown; stream?: unknown; images?: unknown };
   try { body = await req.json(); } catch { return reply({ error: "Bad request.", code: "invalid_argument" }, 400, origin); }
   const prompt = typeof body.prompt === "string" ? body.prompt : "";
   const tier = typeof body.tier === "string" && MODELS[body.tier] ? body.tier : "default";
   const effort = typeof body.effort === "string" && EFFORTS.includes(body.effort) ? body.effort : "";
   const stream = body.stream === true;
   if (!prompt || prompt.length > 80000) return reply({ error: "Bad request.", code: "invalid_argument" }, 400, origin);
+  // pictures (a photo of a menu): each one a type the API reads and a size it takes, or the request is refused
+  const images: { type: string; data: string }[] = [];
+  if (body.images !== undefined) {
+    const list = Array.isArray(body.images) ? body.images : null;
+    if (!list || list.length > MAX_IMAGES) return reply({ error: "Too many pictures.", code: "invalid_argument" }, 400, origin);
+    for (const raw of list) {
+      const im = (raw && typeof raw === "object" ? raw : {}) as { type?: unknown; data?: unknown };
+      const t = typeof im.type === "string" ? im.type : "", d = typeof im.data === "string" ? im.data : "";
+      if (!IMAGE_TYPES.includes(t) || !d || d.length > MAX_IMAGE_B64 || !/^[A-Za-z0-9+/]+=*$/.test(d))
+        return reply({ error: "That picture can't be read.", code: "invalid_argument" }, 400, origin);
+      images.push({ type: t, data: d });
+    }
+  }
 
   // today's limit
   const { data: n, error: nErr } = await admin.rpc("bump_usage", { uid: who.user.id, lim: DAILY });
@@ -59,7 +75,9 @@ Deno.serve(async (req) => {
   const ask: Record<string, unknown> = {
     model, max_tokens: MAX_OUT[tier],
     system: "You answer for a family trip-planning app. Reply with the JSON the request asks for and nothing else: no prose, no code fences.",
-    messages: [{ role: "user", content: prompt }],
+    messages: [{ role: "user", content: images.length
+      ? [...images.map((im) => ({ type: "image", source: { type: "base64", media_type: im.type, data: im.data } })), { type: "text", text: prompt }]
+      : prompt }],
   };
   if (effort) ask.output_config = { effort };   // how much Claude thinks before it writes (left out: the model's own setting)
   if (stream) ask.stream = true;

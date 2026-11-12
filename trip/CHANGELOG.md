@@ -2,6 +2,29 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v162
+
+Buttons as one family, and Today's route with one directions button per stop. The owner chose each step from
+mock-ups: indigo words and an indigo ring on every button (option "C"), the gradient icons kept, the rounded-square
+corners kept, and for the route a mix of "round icon buttons" and "one Directions per stop".
+- Every button (app.css): .btn, .btn.quiet, .btn.ghost, the link buttons .chip-a, Explore's "Add to Day" and Today's Map
+  have indigo words, an indigo ring (--primary-ring, a lighter mix of --on-primary) and soft corners (--r-sm); the main
+  action on a card (.btn, .chip-a.pri: the next stop's Directions, Pick a place, Book) is also filled with the soft
+  indigo. A delete keeps its own colour (.btn.danger). Before, buttons came in four looks: square filled, square
+  outlined with white words, round outlined with indigo words, round filled.
+- Icons keep the gradient on every button: the filled button's icon had been drawn in its words' colour.
+- One place for the colours: the per-screen rules for .chip-a (Today, the day's end, Prepare's checklist) keep only
+  their size and spacing; their own backgrounds, borders, hovers and the .goto colour are gone.
+- Today: its buttons are one height (44 px on a touch screen; the next stop's Directions a little larger), and the
+  nearby list's Directions has the same padding as the others.
+- Today's route (screens/travel.js W.routeStop, W.routeLeg; also the route beside the day on a big screen): each stop
+  has the gradient arrow on the right (no box round it), the way to it from the stop before, or from where you are when
+  the stay isn't picked yet; a place with no pin is found by its name and town. "Navigate" on the ways between,
+  "find on Google Maps" (on two lines) and "Find it on the map" are gone; a way whose time can't be worked out says
+  "Travel time not known". Only the way back to a picked stay keeps a button of its own.
+- Tests: travel.js (one button per stop, none on the ways between), places.js (a stop with no pin is found by name).
+  54 suites pass; screens change where they have buttons.
+
 ## v161
 
 Two fixes for the web app (claude.ai in a phone's browser), from the owner's screenshots, and one for Explore.

@@ -1,6 +1,5 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v161: an idea's link row in Explore keeps its picture links (menu, photos, map) together beside the tickets link.
-# The tab bar and the slim top bar change only where the page is drawn under the phone's bars, which the test
-# browser never is: no other screen may change.
-explore*
+# v162: every button is one family (round ends, indigo words and ring, the main action filled, gradient icons), and
+# Today's route has one round directions button per stop. Buttons are on nearly every screen.
+*

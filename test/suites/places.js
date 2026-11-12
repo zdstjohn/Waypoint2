@@ -74,7 +74,7 @@ exports.run = async t => {
     const wp = decodeURIComponent((gm.match(/waypoints=([^&]*)/) || [])[1] || '').split('|').filter(Boolean);
     /* (no stay picked: the route runs from the first stop to the last, so those two are its ends, not waypoints) */
     const none = !!W.homebase(d.country, d.city).none, ends = none ? Math.min(2, stops.length) : 0, o = decodeURIComponent((gm.match(/origin=([^&]*)/) || [])[1] || ''), c = W.findCity(d.country, d.city);
-    return { n: rows.length, stops: stops.length, noLL: stops.filter(it => it.lat == null).length, byName: rows.filter(r => /find on Google Maps/.test(r.textContent)).length, wp: wp.length + ends, none, fromMiddle: !!c && o === c.lat + ',' + c.lng };
+    return { n: rows.length, stops: stops.length, noLL: stops.filter(it => it.lat == null).length, byName: rows.filter(r => { const a = r.querySelector('.rc-go'), d = a ? decodeURIComponent((a.href.match(/destination=([^&]+)/) || [])[1] || '') : ''; return d && !/^-?[\d.]+,-?[\d.]+$/.test(d); }).length, wp: wp.length + ends, none, fromMiddle: !!c && o === c.lat + ',' + c.lng };
   });
   t.ok(!rt.none || !rt.fromMiddle, 'with no stay picked, the whole-day route starts at the first stop, not at the middle of the town');
   t.ok(rt.n === rt.stops && rt.byName === rt.noLL && rt.wp === Math.min(9, rt.stops), `the route lists every stop (${rt.n}), finds the unpinned ones by name (${rt.byName}), and the Google Maps link carries all of them (${rt.wp})`);

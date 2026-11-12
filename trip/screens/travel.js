@@ -153,7 +153,31 @@
   };
   /* ---------- the rows of a route list ----------
      One definition for Today's route (below) and for the route beside the day on a big screen (screens/trip.js):
-     where you're staying, the way from one stop to the next with its directions, and a stop. */
+     where you're staying, the way from one stop to the next, and a stop. Each stop has one round directions button
+     on the right, the way to it (v162: the owner's pick; "Navigate" on the ways between and "find on Google Maps" on
+     a stop with no pin made two kinds of link down the side, one of them on two lines). */
+  /* directions to b from a, the stop before it, or from where you are when a is a stay not picked yet; a place with
+     no pin is found by its name and town */
+  function dirTo(a, b, city) {
+    var pt = b.it || b,
+      to = pt.lat != null ? pt : { n: (b.n || b.label) + ", " + city, lat: null, lng: null },
+      from = !a || a.none ? null : a.lat != null ? a : { label: (a.label || a.n) + ", " + city, lat: null },
+      lg = from && from.lat != null && to.lat != null ? W.leg(a, pt) : null;
+    return W.gmapsDir(from, to, lg ? lg.mode : "walking");
+  }
+  function goBtn(url, label) {
+    return (
+      '<a class="rc-go" href="' +
+      esc(url) +
+      '" target="_blank" rel="noopener" aria-label="' +
+      esc(label) +
+      '" title="' +
+      esc(label) +
+      '">' +
+      W.icon("dir", 2) +
+      "</a>"
+    );
+  }
   /** @param {{ label: string, none?: boolean }} home */
   W.routeHome = function (home) {
     return (
@@ -166,35 +190,28 @@
       "</span></span></li>"
     );
   };
-  /** the way from a to b: how, how long, and directions (by name when either has no pin)
+  /** the way from a to b: how and how long. Only the way back to the stay has a directions button (there is no stop
+      row after it); to or from a stay not picked yet, none, since there is no address
       @param {any} a @param {any} b @param {string} city @param {boolean} [last] the way back @param {string} [note] */
   W.routeLeg = function (a, b, city, last, note) {
     var lg = W.leg(a, b),
-      to = b.lat != null ? b : { n: (b.n || b.label) + ", " + city, lat: null, lng: null };
-    /* (to or from a stay not picked yet: no directions, since there is no address) */
-    var dir =
-      a.none || b.none
-        ? ""
-        : W.extLink(
-            W.gmapsDir(a.lat != null ? a : { label: (a.label || a.n) + ", " + city, lat: null }, to, lg ? lg.mode : "walking"),
-            "Navigate" /* (from one stop to the next: "Navigate"; to one place from wherever you are: "Directions") */
-          );
+      dir = last && !a.none && !b.none ? goBtn(dirTo(a, b, city), "Directions back to " + (b.label || "your stay")) : "";
     return (
       '<li class="rc-leg' +
       (last ? " last" : "") +
       '">' +
       (lg
         ? W.legIcon(lg.mode) + "<span>" + esc(W.fmtMin(lg.min) + " " + lg.label + (note || "")) + "</span>"
-        : "<span>Find it on the map</span>") +
+        : "<span>Travel time not known</span>") +
       dir +
       "</li>"
     );
   };
-  /** a stop: its marker (what it is, and its letter), its name and when; with a key it opens the stop's sheet; one
-      with no pin links to Google Maps by name
+  /** a stop: its marker (what it is, and its letter), its name and when, and the round button with the way to it from
+      the stop before (from) or from where you are; with a key it opens the stop's sheet
       @param {{ it?: any, n: string, lat?: number | null, food?: boolean, slot: string, num: number }} p @param {string} city
-      @param {string} when HTML @param {string} [cls] @param {string} [key] */
-  W.routeStop = function (p, city, when, cls, key) {
+      @param {string} when HTML @param {string} [cls] @param {string} [key] @param {any} [from] */
+  W.routeStop = function (p, city, when, cls, key, from) {
     var body = "<b>" + esc(p.n) + '</b><span class="small muted">' + when + "</span>";
     return (
       '<li class="rc-stop' +
@@ -204,7 +221,7 @@
       (key
         ? '<button type="button" class="rc-b" data-sheet="' + esc(key) + '" aria-haspopup="dialog">' + body + "</button>"
         : '<span class="rc-b">' + body + "</span>") +
-      (p.lat == null ? W.extLink(W.gmapsPlace(p.it || p, city), "find on Google Maps", "rc-find small") : "") +
+      goBtn(dirTo(from, p, city), "Directions to " + p.n) +
       "</li>"
     );
   };
@@ -333,7 +350,8 @@
             esc(slotName(e)) +
             (bk ? (bk.done ? ' · <span class="ok">booked</span>' : ' · <span class="warn-t">not booked</span>') : ""),
           st,
-          e.x.key
+          e.x.key,
+          prev
         );
         if (it.lat != null) prev = it;
       } else if (e.k === "nap" || e.k === "rest") {

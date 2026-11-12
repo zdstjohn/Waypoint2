@@ -732,7 +732,7 @@ interface Waypoint {
   legIcon: (mode: string) => string;
   routeHome: (home: { label: string }) => string;
   routeLeg: (a: any, b: any, city: string, last?: boolean, note?: string) => string;
-  routeStop: (p: { it?: any; n: string; lat?: number | null; food?: boolean; slot: string; num: number }, city: string, when: string, cls?: string, key?: string) => string;
+  routeStop: (p: { it?: any; n: string; lat?: number | null; food?: boolean; slot: string; num: number }, city: string, when: string, cls?: string, key?: string, from?: any) => string;
   kindIcon: (it: any, food: boolean, slot?: string) => string;
   stopTag: (n: number) => string;
   stopMark: (it: any, food: boolean, slot: string | undefined, n: number) => string;
