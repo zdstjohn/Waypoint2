@@ -81,6 +81,47 @@
   function cityScore(c, p) {
     return (c.w || 2) + (c.pop || 3) * 1.5 + hits(c.t) * 4 + (p.toddler && (c.t || []).indexOf("family") > -1 ? 2 : 0);
   }
+  /* Suggesting the places of a trip (a country added from v151 on: rank 2). The best known and best liked come first;
+     what the app knows well counts for more (ideas built in, its own street map); your trip style counts, but no
+     longer outweighs how good a place is (a windy kite-surf town no more beats the famous beach cities). */
+  function bestScore(c, p, country) {
+    var ck = W.cityKey(country, c.name),
+      pool = W.C.city[ck],
+      built = builtIn(country, c);
+    return (
+      /* (the places with ideas built in are the famous ones; their entries carry no number of their own) */
+      (c.pop || (built ? 5 : 2)) * 3 +
+      (built ? 2 : 0) +
+      (W.vtFor && c.lat != null && W.vtFor(country, c.name, c.lat, c.lng) ? 2 : 0) +
+      (pool && pool.spots && pool.spots.length >= 12 ? 1 : 0) +
+      /* each of your trip's styles a place is good for counts for more than a step in how well known it is, and a place
+         good for none of them counts for less (a beach trip goes to the famous beach cities before the capital) */
+      (W.S.styles.length ? (hits(c.t) ? hits(c.t) * 5 : -4) : 0) +
+      (c.w || 2) * 0.5 +
+      (p.toddler && (c.t || []).indexOf("family") > -1 ? 1 : 0)
+    );
+  }
+  /* one of the places with ideas built in (or the main town of an island that has them, like Palma for Mallorca): the
+     famous ones, whose entries carry no number of their own (also how the city box ranks what you type) */
+  W.builtIn = builtIn;
+  function builtIn(country, c) {
+    return ((window.TD[country] || {}).cities || []).some(function (b) {
+      return W.norm(b.name) === W.norm(c.name) || (!!c.isl && c.pop == null && W.norm(b.name) === W.norm(c.isl));
+    });
+  }
+  /* a day trip, never a place to stay: one the country list says is a day trip; a park or a reserve, always; mountains, a
+     lake, falls or a stretch of coast, unless it is a city by name (Salt Lake City) or the country list says it is a
+     place to stay (the Gold Coast) */
+  var PARK =
+      /\b(national park|natural park|nature park|nature reserve|parque nacional|parque natural|parc national|parc naturel|parco nazionale|parco naturale|nationalpark|naturpark|reserve|reserva)\b/i,
+    SCENERY =
+      /\b(sierra|mountains?|massif|valley|valle|vall[ée]e|gorges?|canyon|caves?|lake|lago|lac|falls|waterfalls?|desert|volcano|glacier|forest|coast|costa|riviera|c[ôo]te|region|province)\b/i;
+  /* (also the Plan's quick-add chips: a day trip is never offered as somewhere to stay) */
+  W.dayTrip = dayTrip;
+  function dayTrip(c) {
+    var n = c.name || "";
+    return !!c.day || PARK.test(n) || (!c.stay && SCENERY.test(n) && !/\b(city|town)\b/i.test(n));
+  }
 
   /* where you sleep in a city: your lodging if set, otherwise the city center */
   W.homebase = function (country, city) {
@@ -210,8 +251,38 @@
       /* the best-fitting places, but only ones within an easy journey (under 5 hours) of another place on the trip */
       /* a list that came best known first has its first places marked (top): the choice is made among them first, so a
          plan started on them stands when the rest of the list arrives */
-      var sorted = cities.slice().sort(function (a, b) {
-          return (b.top || 0) - (a.top || 0) || cityScore(b, p) - cityScore(a, p);
+      var best = (c.rank || 0) >= 2,
+        cn = c.name,
+        sorted = (
+          best
+            ? /* only places to stay, and among them the well-known ones (a lesser one only when too few are left) */
+              (function () {
+                var stay = cities.filter(function (x) {
+                    return !dayTrip(x);
+                  }),
+                  pop = function (x) {
+                    return x.pop || (builtIn(cn, x) ? 5 : 2);
+                  },
+                  /* the very well known (4 and 5 of 5) when there are plenty; then the well known; then any town */
+                  top4 = stay.filter(function (x) {
+                    return pop(x) >= 4;
+                  }),
+                  good = stay.filter(function (x) {
+                    return pop(x) >= 3;
+                  });
+                return top4.length >= Math.max(3, share * 2)
+                  ? top4
+                  : good.length >= Math.max(2, share)
+                    ? good
+                    : stay.length
+                      ? stay
+                      : cities;
+              })()
+            : cities.slice()
+        ).sort(function (a, b) {
+          return best
+            ? (b.top || 0) - (a.top || 0) || bestScore(b, p, cn) - bestScore(a, p, cn)
+            : (b.top || 0) - (a.top || 0) || cityScore(b, p) - cityScore(a, p);
         }),
         ranked = [];
       /* one base on an island first; a second town on the same island only when the list would otherwise run short,

@@ -20,10 +20,8 @@
     no: W.icon("no", 2.2)
   };
   var XI =
-      '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>',
-    DOTS =
-      '<svg viewBox="0 0 20 20" aria-hidden="true" fill="currentColor"><circle cx="4" cy="10" r="1.7"/><circle cx="10" cy="10" r="1.7"/><circle cx="16" cy="10" r="1.7"/></svg>';
-  /** @type {{key: string, slot: string, mode: string, more?: boolean, ask?: string} | null} */
+      '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
+  /** @type {{key: string, slot: string, mode: string, ask?: string} | null} */
   var sheet = null,
     drawn = "",
     /** @type {HTMLElement | null} */ opener = null;
@@ -73,7 +71,8 @@
       "</span></button>"
     );
   }
-  /* behind "⋯": the rarer things, each saying what it does; "Not for us" asks once before it acts */
+  /* at the end of the sheet, under the facts: the rarer changes, each saying what it does (no "⋯" to open first);
+     "Not for us" asks once before it acts */
   function moreBlock(it, x, day, nm) {
     var city = x.trip && day.trip ? day.trip.name : day.city;
     if (sheet && sheet.ask === "nope")
@@ -164,8 +163,7 @@
         "Back</button>";
     } else {
       /* what you do with it, then everything about it */
-      var tix = W.stopLink ? W.stopLink(it, food, day, P) : null,
-        open = !!(sheet.more || sheet.ask);
+      var tix = W.stopLink ? W.stopLink(it, food, day, P) : null;
       h +=
         '<div class="sh-main"><a class="btn sh-dir" href="' +
         esc(dirUrl(day, x)) +
@@ -176,16 +174,11 @@
         (can
           ? '<button type="button" class="btn quiet" data-sheetact="swap">' +
             IC.swap +
-            "Swap</button>" +
-            '<button type="button" class="icon-btn sh-more" data-sheetact="more" aria-expanded="' +
-            open +
-            '" aria-label="More: move, reorder, leave free, not for us">' +
-            DOTS +
-            "</button>"
+            "Swap</button>"
           : "") +
         "</div>" +
-        (can && open ? moreBlock(it, x, day, nm) : "") +
-        (W.stopDetails ? W.stopDetails(P, day, x, { noMain: !!tix }) : "");
+        (W.stopDetails ? W.stopDetails(P, day, x, { noMain: !!tix }) : "") +
+        (can ? '<div class="sh-change"><p class="sh-h">Change this stop</p>' + moreBlock(it, x, day, nm) + "</div>" : "");
     }
     return h + "</div>";
   }
@@ -228,6 +221,7 @@
     })[0];
     if (!x || !x.item) return;
     if (!sheet) opener = /** @type {HTMLElement | null} */ (document.activeElement);
+    if (W.closeTripMenu) W.closeTripMenu(); /* (one thing on top at a time: the trip menu stayed open behind it) */
     sheet = { key: key, slot: x.slot, mode: "acts" };
     drawn = "";
     draw();
@@ -260,11 +254,6 @@
       x = entry(day),
       S = W.S;
     if (!sheet || !x) return W.sheetClose();
-    if (a === "more") {
-      sheet.more = !sheet.more;
-      delete sheet.ask;
-      return draw();
-    }
     if (a === "swap") {
       W.sheetClose();
       onDay(function () {

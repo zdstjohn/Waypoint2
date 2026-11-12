@@ -35,9 +35,12 @@
     }
   }
   function lset(k, v) {
+    if (/** @type {any} */ (window).__WP_AWAY) return; /* (signing out: see lib/cloud.js putAway) */
     try {
       localStorage.setItem(k, JSON.stringify(v));
-    } catch (e) {}
+    } catch (e) {
+      W.caught(e, "together: keep on this phone");
+    }
   }
   function clone(o) {
     return JSON.parse(JSON.stringify(o));
@@ -57,7 +60,9 @@
         },
         function () {}
       );
-  } catch (e) {}
+  } catch (e) {
+    W.caught(e, "together: start");
+  }
 
   /* checking what someone else wrote: a key the app makes, a value of the right kind */
   function safeKey(k) {
@@ -225,7 +230,9 @@
     if (sub) {
       try {
         sub();
-      } catch (e) {}
+      } catch (e) {
+        W.caught(e, "together: listen");
+      }
       sub = null;
     }
     subCode = want;

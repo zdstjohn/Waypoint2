@@ -48,6 +48,8 @@ lib/              the shared library
                   view, tv, build, ua, w, on, n}], updated}). Nothing personal: the message, where in the code, which
                   screen, the build, the browser and the screen width. Read it with ArtifactData get on that path.
   later.js        loads app2.js (above); loaded right after errlog.js
+  typeahead.js    (second script) a country, city or airport box: a short list of matches under the box once you
+                  type, the best known first (W.countryRank, W.builtIn); part of the page, never over the keyboard
   back.js         the Back button in the installed app: what opens on top of the screen is one entry in the browser's
                   history (W.backOpen; closing it yourself takes the entry out, W.backShut), a screen reached by a link is
                   one too (W.navTo with step) and tabs replace the current one, so Back closes, then steps back, then
@@ -119,7 +121,9 @@ lib/              the shared library
                   holiday or festival is
   shape.js        the trip as a whole: nights per base, day trips instead of hotel moves, the way between bases,
                   what the group (toddlers, grandparents) can take
-  plan.js         which cities, how many days each, what to do each day (the chooser and its shape rules). A city keeps
+  plan.js         which cities, how many days each, what to do each day (the chooser and its shape rules; a country
+                  suggested from v151 on starts from the best known places, bestScore, and never stays in a park or on
+                  a coast, W.dayTrip). A city keeps
                   its first ideas until you tap "Find more"; two things grow them unasked: a stay made longer
                   (W.growIdeas) and a meal the finished plan leaves without a place (mealGaps counts them per town on
                   P.gaps, each with the stop it should be near; W.mealIdeas in ideas.js brings places in for exactly
@@ -229,10 +233,10 @@ screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.
                   at; Today shows Now and Next in one card with the way to what is next as its one main button, the
                   route under it, and the day bag and journal folded to a line outside their time of day. flow.js has
                   the next-step bar, undo and drag to reorder; sheet.js (second script) is a stop's sheet (Directions,
-                  tickets, Swap and "⋯" first, then the facts); setup.js also draws where to stay as a sheet over any
+                  tickets and Swap first, then the facts, then the rarer changes); setup.js also draws where to stay as a sheet over any
                   screen (W.staySheet); quickstart.js (second script) the three questions for a
                   new trip (shown on the very first open; a stop's sheet keeps
-                  "Leave free" and "Not for us" behind "⋯", and "Not for us" asks once); journal, family;
+                  "Leave free" and "Not for us" at its end, and "Not for us" asks once); journal, family;
                   settings.js is "Import a plan" and Storage (sharing lives in the trip menu); kids.js is "For the kids"
                   (from the trip menu and Today): today's outings in big photo cards with a heart per kid, a passport
                   that stamps each place, and a treasure hunt per town

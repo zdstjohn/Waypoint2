@@ -30,13 +30,13 @@ interface Pool extends LatLng { d?: string; spots: Spot[]; food: Food[]; stay?: 
   indoorAsked?: 1; fameAsked?: 0 | 1; cityLow?: string }
 /** a destination in a country list (built in, or from Claude) */
 /** isl = the island a town is on; whole = the entry is an island itself (kept only so an older trip that has one as a stop still works) */
-interface BuiltCity extends LatLng { name: string; region?: string; isl?: string; whole?: number; top?: number; w?: number; pop?: number; t?: string[]; d?: string; spots?: Spot[] }
-interface Country { name: string; mode: "manual" | "suggest"; picked: string[] }
+interface BuiltCity extends LatLng { name: string; region?: string; isl?: string; whole?: number; top?: number; day?: number; stay?: number; w?: number; pop?: number; t?: string[]; d?: string; spots?: Spot[] }
+interface Country { name: string; mode: "manual" | "suggest"; picked: string[]; rank?: number }
 interface Stay { label: string; lat?: number | null; lng?: number | null; live?: { total: number; cur: string; url: string; at: number; in: string; out: string; src: string } }
 /** the trip, as saved (localStorage "waypoint-v2" and the account) */
 interface TripState { v: 2; algo?: number; tripId?: string; tripName?: string; styles: string[]; focus?: Focus; countries: Country[]; days: number; start: string; depart: string; travelers: (number | "")[]; names?: string[];
   stays: Record<string, Stay>; picks: Record<string, string>; seen: Record<string, string[]>; mine?: Record<string, 1>; free?: Record<string, 1>; rest?: Record<string, 1>; fold?: Record<string, unknown>; legPick?: Record<string, unknown>; nope?: Record<string, string>; eat?: { al?: string[]; di?: string[]; love?: string; avoid?: string; note?: string }; eatNone?: 1; eatOpen?: { al?: boolean; di?: boolean }; bag?: Record<string, Record<string, 1>>;
-  cityDays: Record<string, number>; day: number; tview?: "days" | "map"; glanceOpen?: boolean; allPref?: boolean; stepClosed?: Record<string, boolean>; prepTab?: string; transitOpen?: unknown; jetOpen?: unknown; nextHide?: unknown; tripFolded?: any; mapZoom?: number; late?: any;
+  cityDays: Record<string, number>; day: number; example?: number; tview?: "days" | "map"; glanceOpen?: boolean; allPref?: boolean; stepClosed?: Record<string, boolean>; prepTab?: string; transitOpen?: unknown; jetOpen?: unknown; nextHide?: unknown; tripFolded?: any; mapZoom?: number; late?: any;
   appMode?: string; appModeAt?: string; exF?: unknown; exSort?: unknown; pack?: Record<string, unknown>; packHide?: Record<string, 1>; packOwn?: PackItem[]; journal?: Record<string, { mood?: number; note?: string; photos?: { id: string; [k: string]: any }[] }>;
   kidPicks?: Record<string, string[]>; hunt?: Record<string, Record<string, 1>>; stamps?: Record<string, string>; celebrated?: Record<string, string>; warmSeen?: string; lodge?: Record<string, string>; lodgeSeen?: Record<string, string[]>;
   share?: any; imported?: any; bookings?: Booking[]; booked?: Record<string, any>; rl?: Record<string, number[]>; under?: Record<string, [string, string, number]>; [k: string]: any }
@@ -262,6 +262,16 @@ interface Waypoint {
   lateClick: any;
   lateDinner: (country: string) => boolean;
   lateFor: (day: Day) => number;
+  /** every country Plan can take (screens/setup.js) */
+  countryNames: () => string[];
+  /** 2 with ideas built in, about 1 for the most visited, 0 for the rest */
+  countryRank: (n: string) => number;
+  /** one of the places with ideas built in (or an island's main town that has them) */
+  builtIn: (country: string, c: { name: string; isl?: string; pop?: number }) => boolean;
+  /** a park, a reserve, mountains, a coast: a day trip, never somewhere to stay */
+  dayTrip: (c: { name?: string; day?: number; stay?: number }) => boolean;
+  /** typeahead lists follow a redraw (lib/typeahead.js) */
+  taRedraw: () => void;
   /** a stay named but not yet found is asked for again (lib/plan.js) */
   stayRetry: (country: string, city: string) => void;
   /** a place as Google Maps directions take it (lib/core.js) */

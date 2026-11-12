@@ -2,6 +2,53 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v151
+
+Your three requests from v150, and two more of the code review's ten (suggestions 2 and 10).
+- Choosing a country, a city or an airport as you type (lib/typeahead.js, second script): the browser's own list
+  showed every country as soon as the box was tapped and sat over the phone's keyboard. Now a short list (at most six,
+  each 44px tall) appears only once you type, right under the box and part of the page, so it pushes the page down
+  and never covers the keyboard. The best known come first: countries with ideas built in, then the most visited
+  (W.countryRank), then the rest; cities by how well known they are, the famous built-in ones first (W.builtIn). One
+  tap adds it; arrow keys, Enter and Escape work. The round back-to-top button hides while you type (it sat on the
+  list). Plan's country and city boxes, the quick start's.
+- "Suggest cities" proposes the famous, well-covered places first (lib/plan.js bestScore): how well known a place is
+  counts three times over, what the app knows well counts (ideas built in, its own street map, a long list of
+  ideas), and your trip style counts but no longer outweighs how good a place is. Spain for a beach trip was Tarifa
+  and Palma; it is now Barcelona and Palma (Madrid and Barcelona for culture). Places with few ideas behind them are
+  not suggested when there are enough good ones. A national park, a nature reserve, mountains, a lake or a stretch of
+  coast is never suggested as somewhere to stay, nor offered in "I'll choose"'s quick-add buttons (W.dayTrip): those
+  are day trips, and Claude now marks them so in its list of a country's places (ideas.js "base"; validate.js). A
+  city whose name sounds like scenery stays a place to stay (Salt Lake City by its name, the Gold Coast when Claude's
+  list says so); a park never is.
+  Countries in trips made before v151 keep the old choice until you suggest again.
+- Each account's trips stay with that account (suggestion 2; installable app, lib/cloud.js). Signing out puts your
+  trips away on the phone, so the next person to sign in never sees them and never has them copied into their
+  account; signing in again brings them back. Trips made without an account go to the first account that signs in.
+  The example trip is marked as the example in the saved trip itself (it used to stop counting as the example after a
+  reload, and signing in reloads), so a new phone never saves "Italy trip" into your account; it becomes yours the
+  moment you change its plan (core.js W.save, sync.js). A trip deleted on another device no longer comes back from a
+  phone that still had it: one that was in your account and is not any more is taken off this phone too, or, if it
+  is open there, kept on that phone only until you change it. From the re-review before release: if someone used the
+  phone without an account in between, the trip you had open comes back into your list whole, with what was not yet
+  sent (it came back as a name with nothing behind it); once your trips are put away at sign-out nothing writes them
+  back before the page reloads (a save while the sign-out request was slow, or on the way out, left your trip on the
+  phone with no owner for the next account to take; window.__WP_AWAY, checked by W.save, sync.js and together.js);
+  put-away trips are kept until every one is back; the example is never sent to an account however it got into your
+  list (it could after the quick start: sync.js keepCurrent, pushTrip). New suite: accounts (no browser; the bug
+  review's shared-phone simulation, test/lib/acctsim.js).
+- Safety nets (suggestion 10). The build checks itself: one list sets the order of both scripts, and it stops when
+  moving a style rule to app2.css (which loads last) would let it beat a later rule it used to lose to, the fault
+  behind v148's button colour (rules in different contexts, plain and touch-screen, are compared too); `node build/bundle.js --check` runs the checks without writing. Errors that were
+  dropped unseen in sharing, planning together, the offline copy, the exchange rates and the journal's photo store go
+  to the error log (W.caught), and a test holds the number of silent catches to fewer each time.
+- A stop's sheet has no "⋯" any more (you found it unnecessary): Directions, then the tickets and Swap, then the facts,
+  and at the end, under "Change this stop", the four rarer changes it hid (move to another day, reorder today, leave
+  it free, not for us; "Not for us" still asks once). Opening a stop closes the trip menu if it was open behind it.
+  Reviews, Photos and Map sit centred on their own row. screens/sheet.js, app.css.
+- Tests: review (the boxes, suggested places, the build's checks), cloud (Bob on Ann's phone, a new phone's example, a
+  trip deleted on another phone).
+
 ## v150
 
 The first of the code review's ten suggestions (evo/v149/agents/ten.md), and small faults from it.

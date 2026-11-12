@@ -29,6 +29,93 @@
   }
   var session = lget(SK);
   if (session && (!session.access_token || !session.user || !session.user.id)) session = null;
+
+  /* ---------- whose trips are on this phone ----------
+     The trips on a phone belong to the account they were made under ("waypoint-owner"; none: made without an
+     account). Signing out puts them away under that account on this phone; signing in brings that account's back.
+     So the next person to sign in on a shared tablet never sees them, and never has them copied into their account.
+     Trips made without an account go to the first account that signs in (that is what signing in is for). */
+  var OWNER = "waypoint-owner",
+    MINE = ["waypoint-v2", "waypoint-trips-v1", "waypoint-shared-seen-v1", "waypoint-sharesync-v1", "waypoint-poolsync-v1"];
+  function mineKeys() {
+    var ks = MINE.slice();
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i) || "";
+        if (/^waypoint-co-/.test(k)) ks.push(k);
+      }
+    } catch (e) {
+      /* (storage closed to the page: there is nothing of anyone's on the phone to put away) */
+    }
+    return ks;
+  }
+  /** put this phone's trips away under an account: true when they are put away (or there were none) */
+  function putAway(uid) {
+    var box = /** @type {Record<string, string>} */ ({}),
+      any = false;
+    mineKeys().forEach(function (k) {
+      var v = localStorage.getItem(k);
+      if (v != null) {
+        box[k] = v;
+        any = true;
+      }
+    });
+    try {
+      if (any) localStorage.setItem("waypoint-acct-" + uid, JSON.stringify(box));
+    } catch (e) {
+      return false; /* (no room for a second copy: they stay as they are, still marked as that account's) */
+    }
+    Object.keys(box).forEach(function (k) {
+      localStorage.removeItem(k);
+    });
+    /* (the page reloads next: until it does, nothing writes them back, not even a save on the way out, which would
+       leave this account's trip on the phone with no owner for the next account to take; core.js W.save, sync.js and
+       together.js check this) */
+    /** @type {any} */ (window).__WP_AWAY = true;
+    return true;
+  }
+  function bringBack(uid) {
+    var box = lget("waypoint-acct-" + uid);
+    if (!box || typeof box !== "object") return;
+    /* only the example here: everything comes back as it was. A trip made here since, without an account, stays open
+       and joins your list (your open trip is in your account and comes back from there) */
+    var here = lget("waypoint-v2"),
+      mine = !here || !!here.example,
+      ok = true;
+    Object.keys(box).forEach(function (k) {
+      try {
+        if (k === "waypoint-trips-v1" && !mine) {
+          var a = JSON.parse(box[k]) || {},
+            b = lget(k) || {},
+            open = /** @type {any} */ (JSON.parse(box["waypoint-v2"] || "null"));
+          /* the trip you had open goes into your list whole, with anything not yet sent (it would otherwise be a name
+             with nothing behind it, until your account had a newer copy) */
+          if (open && open.tripId) a[open.tripId] = Object.assign({ name: open.tripName || "Trip", updated: Date.now() }, a[open.tripId], { state: open });
+          Object.keys(b).forEach(function (id) {
+            a[id] = b[id];
+          });
+          localStorage.setItem(k, JSON.stringify(a));
+        } else if (mine || localStorage.getItem(k) == null) localStorage.setItem(k, box[k]);
+      } catch (e) {
+        ok = false; /* (no room: they stay put away, whole, for the next sign-in) */
+      }
+    });
+    if (ok) lset("waypoint-acct-" + uid, null);
+  }
+  /** the account now signing in: the last one's trips go away, this one's come back */
+  function claim(uid) {
+    var was = lget(OWNER);
+    if (was && was !== uid && !putAway(was)) {
+      /* (no room to put them away: they are in that account already; the phone's copy goes) */
+      mineKeys().forEach(function (k) {
+        localStorage.removeItem(k);
+      });
+    }
+    if (was !== uid) bringBack(uid);
+    lset(OWNER, uid);
+  }
+  /* (signed in before phones remembered whose trips they hold: they are this account's) */
+  if (session && !lget(OWNER)) lset(OWNER, session.user.id);
   /** @type {any} */ var C = { session: session, email: session ? session.user.email || "" : "", skipped: !!lget(SKIP) };
   /** @type {any} */ (window).__WP_CLOUD = C;
 
@@ -59,6 +146,7 @@
     };
     lset(SK, session);
     lset(SKIP, null);
+    claim(session.user.id);
     C.session = session;
     C.email = session.user.email || "";
     return true;
@@ -104,6 +192,8 @@
   };
   C.signOut = function () {
     var t = session && session.access_token;
+    /* your trips go away with you (they are in your account, and back on this phone when you sign in again) */
+    if (session && putAway(session.user.id)) lset(OWNER, null);
     lset(SK, null);
     session = null;
     var done = function () {

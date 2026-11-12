@@ -67,7 +67,7 @@
         ? "Waypoint plans family trips around naps, little legs and grandparents\' pace. Three quick questions and you\'ll have a day-by-day plan; everything can be changed afterwards."
         : "Three quick questions. You can fine-tune everything afterwards.") +
       "</p>" +
-      '<label class="fld"><span>Where to?</span><input class="field" id="qsWhere" list="countryList" placeholder="A country, e.g. Greece" value="' +
+      '<label class="fld"><span>Where to?</span><input class="field" id="qsWhere" data-ta="country" autocomplete="off" placeholder="A country, e.g. Greece" value="' +
       esc(keep.qsWhere || "") +
       '"></label>' +
       (W.standalone && !W.cloud
@@ -110,7 +110,7 @@
         })
         .join("") +
       '<button type="button" class="btn quiet sm" data-qs="k+">+ Add a child</button></div></div>' +
-      '<label class="fld"><span>Flying from</span><input class="field" id="qsFrom" list="airportList" placeholder="Your home city or airport" value="' +
+      '<label class="fld"><span>Flying from</span><input class="field" id="qsFrom" data-ta="airport" autocomplete="off" placeholder="Your home city or airport" value="' +
       esc(from) +
       '"></label>' +
       (qs.msg ? '<p class="warn">' + esc(qs.msg) + "</p>" : "") +
@@ -192,7 +192,7 @@
       algo: 2,
       styles: (S.styles || []).slice(),
       focus: S.focus,
-      countries: [{ name: c, mode: cities.length ? "manual" : "suggest", picked: cities }],
+      countries: [{ name: c, mode: cities.length ? "manual" : "suggest", picked: cities, rank: 2 }],
       days: days,
       start: start,
       depart: from,

@@ -1,12 +1,7 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v150: no "+ Add" beside the Day · All days · Explore switch (every Trip screen); Today's card titles in the text face;
-# a day's effort label counts its walks (the banner and All days).
-today-*
-trip-days-*
-trip-all-*
-explore-*
-menu-*
-swap-*
+# v151: Plan's quick-add buttons leave out day trips (parks, coasts) and the country and city boxes lose the browser's
+# own list (the list of matches shows only while typing, so no screen at rest changes). A stop's sheet has no "⋯": the
+# rarer changes are listed at its end.
 stop-panel-*
 meal-panel-*

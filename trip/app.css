@@ -547,6 +547,8 @@ html.modal-open,html.modal-open body{overflow:hidden}
 #totop.on{opacity:1;transform:none;pointer-events:auto}
 #totop:active{transform:scale(.94)}
 html.modal-open #totop{display:none}
+/* (typing: the keyboard is up and the button would sit on the list of matches) */
+html:has(:is(input,textarea):focus) #totop{display:none}
 @media (max-width:560px){#totop{bottom:calc(80px + env(safe-area-inset-bottom,0px))}}
 @media (prefers-reduced-motion:reduce){#totop{transition:none}}
 #undohost{position:fixed;left:0;right:0;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:65;display:flex;justify-content:center;pointer-events:none;padding:0 16px}
@@ -755,20 +757,19 @@ a.menu-btn{font-weight:800;color:var(--accent)}
 .sh-top > div{display:grid;gap:2px;min-width:0}
 .sh-top b{font-size:var(--t-h4);font-weight:800;line-height:1.25}
 .sh-top h2{font-size:var(--t-h2);padding-top:4px}
-/* a stop's sheet: what you do with it first (Directions, the tickets or the table, Swap, and "⋯" for the rest) */
+/* a stop's sheet: what you do with it first (Directions, the tickets or the table, Swap); the rarer changes at its end */
 .sh-main{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .sh-main .btn{flex:1 1 0;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:48px;padding:10px 14px;font-size:var(--t-body);text-decoration:none}
 .sh-main .sh-dir{flex:1 1 100%;min-height:52px;font-size:var(--t-lead)}
 .sh-main .btn svg{width:18px;height:18px;flex:none}
-.sh-main .sh-more{margin-left:auto;width:44px;height:44px;color:var(--fg)}
-.sh-main .sh-more svg{width:20px;height:20px}
-.sh-main .sh-more[aria-expanded="true"]{background:var(--sunk)}
+.sh-change{display:grid;gap:8px;padding-top:14px;border-top:var(--hair)}
+.sh-change .sh-h{margin:0;font:800 var(--t-ui)/1.2 var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .sh-menu{display:grid;gap:8px}
 @media (hover:hover){.sh-row:hover{background:var(--sunk)}}
 .sh-row:active{background:var(--sunk)}
 .sheet:focus{outline:0}
-/* Reviews, Photos, Map: three buttons that say what they open */
-.pl-b{display:flex;gap:8px;flex-wrap:wrap}
+/* Reviews, Photos, Map: three buttons that say what they open, centred on their own row */
+.pl-b{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;flex:1 1 100%}
 .pl-a{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:6px 13px;border:var(--hair);border-radius:var(--r-pill);background:var(--surface);color:var(--fg);font:800 var(--t-ui)/1.2 var(--f-body);text-decoration:none;white-space:nowrap}
 .pl-a svg{width:16px;height:16px;flex:none}
 @media (hover:hover){.pl-a:hover{border-color:var(--muted);text-decoration:none}}
@@ -2095,3 +2096,13 @@ svg.arr.arr-r{margin:0 0 0 .35em}
   .go-near .nr-b .btn,.gn-go,.slot-act .lo-book{min-height:44px}
   .go-near .nr-b .btn{display:inline-flex;align-items:center}
 }
+
+/* ---------- Typeahead: choosing a country, city or airport as you type ---------- */
+/* a short list right under the box, part of the page (never over the keyboard) */
+.ta-l{list-style:none;margin:6px 0 4px;padding:4px;display:grid;gap:2px;border:var(--hair);border-radius:var(--r-md);background:var(--surface);box-shadow:var(--sh-1)}
+.ta-l button{display:flex;align-items:baseline;gap:8px;width:100%;min-height:44px;padding:8px 12px;border:0;border-radius:var(--r-sm);background:none;color:var(--fg);font:inherit;font-size:var(--t-body);text-align:left;cursor:pointer}
+.ta-l b{font-weight:800}
+.ta-l .muted{font-size:var(--t-ui);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ta-l li[aria-selected="true"] button,.ta-l button:active{background:var(--sunk)}
+@media (hover:hover){.ta-l button:hover{background:var(--sunk)}}
+

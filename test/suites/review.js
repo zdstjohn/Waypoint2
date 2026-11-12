@@ -2,9 +2,26 @@
    the photo finder carries nothing private (in explore.js); the journal is kept as you type and when the page is
    hidden, and a photo that lands minutes after your last tap is sent; a stay you named whose place is not known yet
    gives directions by its name and town (never the middle of the town under its name), and is asked for again;
-   walking counts towards a day's effort; Enter in the trip bar. */
+   walking counts towards a day's effort; Enter in the trip bar. v151: the country and city boxes; suggested places;
+   the build's checks of its own split; no more errors dropped unseen. */
 const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb = require('../lib/db');
 exports.run = async t => {
+  /* v151 safety nets, no browser needed. The stylesheet split stops when a rule moved to app2.css (which loads last)
+     would beat a later rule it used to lose to; v148's .nr-b slipped through that way. */
+  const { splitCss } = require('../../build/bundle.js');
+  const css = '/* ---------- Typeahead: test ---------- */\n.zq-a .zq-b{color:red}\n.zq-a.zq-x .zq-c{color:red}\n/* ---------- Other ---------- */\n.zq-k .zq-b{color:blue}\n.zq-k .zq-c{color:blue}\n.zq-k .zq-b{margin:0}\n';
+  const split = splitCss(css, 'zq-k');
+  t.ok(split.turned.length === 1 && /zq-a \.zq-b/.test(split.turned[0]), 'the build stops a moved rule from beating, by load order, a later rule as specific that sets the same thing: ' + JSON.stringify(split.turned));
+  /* (and across contexts: a plain rule moved over a later touch-screen rule that stays, v148's .nr-b) */
+  const split2 = splitCss('/* ---------- Typeahead: test ---------- */\n.zq-a .zq-n{padding:4px}\n/* ---------- Other ---------- */\n@media (hover:none){.zq-k .zq-n{padding:10px}}\n', 'zq-k');
+  t.ok(split2.turned.length === 1, 'and when one of the two sits in a touch-screen or screen-size block: ' + JSON.stringify(split2.turned));
+  t.eq(splitCss(require('fs').readFileSync(require('path').join(__dirname, '../../trip/app.css'), 'utf8'), require('fs').readFileSync(require('path').join(__dirname, '../../trip/index.html'), 'utf8')).turned.filter(x => /zq-/.test(x)), [], '(the real stylesheet is checked by every build)');
+  /* the error catches that drop an error unseen: only ever fewer (each new one either goes to W.caught, or says why not) */
+  const SILENT_MAX = 63, FS = require('fs'), PATH = require('path');
+  const silent = ['lib', 'screens'].flatMap(d => FS.readdirSync(PATH.join(__dirname, '../../trip', d)).filter(f => /\.js$/.test(f)).map(f => [d + '/' + f, (FS.readFileSync(PATH.join(__dirname, '../../trip', d, f), 'utf8').match(/catch \((e|x|err|_)\) \{\s*\}/g) || []).length])).filter(x => x[1]);
+  const nSilent = silent.reduce((a, x) => a + x[1], 0);
+  t.ok(nSilent <= SILENT_MAX, `silent catches: ${nSilent} (at most ${SILENT_MAX}; a new one sends its error to W.caught, or says in a comment why it is safe to drop)` + (nSilent > SILENT_MAX ? ' ' + JSON.stringify(silent) : ''));
+
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(pg); await settle(pg, 5000);
 
   /* one odd answer: three of them used to leave every list on "Gathering…" until a reload */
@@ -55,6 +72,45 @@ exports.run = async t => {
   /* Enter on a button in the trip bar is the button's own */
   const ent = await pg.evaluate(async () => { const m = document.querySelector('[data-sync="menu"]'); m.focus(); const ev = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }); m.dispatchEvent(ev); return { prevented: ev.defaultPrevented }; });
   t.ok(!ent.prevented, 'Enter on a button in the trip bar is left to the button (it was swallowed)');
+  /* v151: suggesting a trip's places: the well known and well liked first, never a thin town or a day-trip place as a stay
+     (the owner: "When I ask for Spain and it suggests Tarifa, it doesn't make sense"). Trips suggested before keep theirs. */
+  const sp = await pg.evaluate(() => {
+    const C = (n, lat, lng, pop, t, w, extra) => Object.assign({ name: n, region: 'x', lat, lng, pop, t, w, d: '' }, extra || {});
+    const list = [C('Madrid', 40.4168, -3.7038, 5, ['culture', 'food', 'nightlife'], 3), C('Barcelona', 41.3874, 2.1686, 5, ['culture', 'beach', 'food'], 3), C('Seville', 37.3891, -5.9845, 5, ['culture', 'food'], 3),
+      C('Málaga', 36.7213, -4.4214, 4, ['beach', 'culture', 'food'], 2), C('Valencia', 39.4699, -0.3763, 4, ['beach', 'food', 'family'], 2), C('Tarifa', 36.0143, -5.6044, 3, ['beach', 'adventure'], 2),
+      C('Doñana National Park', 37.0, -6.45, 4, ['nature', 'adventure', 'beach'], 1), C('Costa de la Luz', 36.5, -6.2, 4, ['beach', 'relax', 'adventure'], 2), C('Cádiz', 36.5271, -6.2886, 4, ['beach', 'culture', 'food'], 2),
+      C('Marbella', 36.5101, -4.8825, 4, ['beach', 'relax'], 2), C('Caminito del Rey', 36.915, -4.7869, 4, ['adventure', 'nature', 'beach'], 1, { day: 1 }), C('Córdoba', 37.8882, -4.7794, 4, ['culture', 'food'], 2)];
+    const was = W.C.country.Spain, S0 = JSON.stringify(W.S); W.C.country.Spain = { blurb: '', cities: list, v: W.COUNTRY_V };
+    const run = (rank, styles, days) => { W.S.countries = [{ name: 'Spain', mode: 'suggest', picked: [], rank }]; W.S.styles = styles; W.S.days = days; W.replan(); return W.plan().stops.map(s => s.name); };
+    const out = { fresh: [], old: run(0, ['beach', 'adventure'], 10) };
+    [['beach', 'adventure'], ['culture', 'food'], ['beach', 'relax'], ['adventure', 'nature']].forEach(st => [6, 10, 16].forEach(d => out.fresh.push(run(2, st, d))));
+    const keep = JSON.parse(S0); Object.keys(W.S).forEach(k => delete W.S[k]); Object.assign(W.S, keep); W.C.country.Spain = was; W.replan();
+    return out;
+  });
+  const bad = /^(Tarifa|Doñana National Park|Costa de la Luz|Caminito del Rey)$/;
+  t.ok(sp.fresh.every(l => l.length && !l.some(n => bad.test(n))), 'a suggested trip never stays in a thin town or a park, coast or other day-trip place: ' + sp.fresh.slice(0, 4).map(l => l.join('+')).join(' | '));
+  t.ok(sp.fresh[1].includes('Barcelona') && sp.fresh[4].includes('Madrid'), 'the best known come first, as your style suits them (beach: ' + sp.fresh[1].join(', ') + '; culture: ' + sp.fresh[4].join(', ') + ')');
+  t.ok(sp.old.some(n => bad.test(n)), 'a trip suggested before keeps the places it had (no city moves under a planned trip): ' + sp.old.join(', '));
+  /* v151: the country and city boxes: a short list under the box once you type, in the page (never over the keyboard) */
+  await pg.evaluate(async () => { W.S.countries = [{ name: 'Italy', mode: 'manual', picked: ['Rome'] }]; (W.S.stepClosed = W.S.stepClosed || {}).where = false; W.needLater(); W.setView('setup'); W.render(); for (let i = 0; i < 40 && !W.laterReady; i++) await new Promise(r => setTimeout(r, 100)); W.render(); });
+  await pg.waitForSelector('#countryIn', { timeout: 10000 });
+  await pg.focus('#countryIn'); await pg.waitForTimeout(200);
+  const ta0 = await pg.evaluate(() => ({ list: !!document.querySelector('.ta-l'), dl: document.getElementById('countryIn').getAttribute('list') }));
+  await pg.type('#countryIn', 'spa'); await pg.waitForTimeout(250);
+  const ta1 = await pg.evaluate(() => { const i = document.getElementById('countryIn'), l = document.querySelector('.ta-l'); if (!l) return null; const r = l.getBoundingClientRect(), ir = i.getBoundingClientRect();
+    return { items: [...l.querySelectorAll('li b')].map(b => b.textContent), below: r.top >= ir.bottom - 1, flow: getComputedStyle(l).position === 'static', exp: i.getAttribute('aria-expanded'), h: Math.round(l.querySelector('button').getBoundingClientRect().height) }; });
+  t.ok(!ta0.list && !ta0.dl, 'tapping the country box shows no list yet (the browser\'s own list is gone)');
+  t.ok(ta1 && ta1.items[0] === 'Spain' && ta1.items.length <= 6 && ta1.below && ta1.flow && ta1.exp === 'true' && ta1.h >= 44, 'typing "spa" shows a short list right under the box, in the page, not over the keyboard: ' + JSON.stringify(ta1));
+  await pg.click('.ta-l [data-tapick="0"]'); await pg.waitForTimeout(500);
+  t.ok(await pg.evaluate(() => W.S.countries.some(c => c.name === 'Spain') && !document.querySelector('.ta-l')), 'a tap on Spain adds it');
+  await pg.evaluate(() => { W.S.countries = [{ name: 'Italy', mode: 'manual', picked: ['Rome'] }]; W.render(); }); await pg.waitForSelector('#cityIn0');
+  await pg.type('#cityIn0', 'flo'); await pg.waitForTimeout(250);
+  const tc = await pg.evaluate(() => [...document.querySelectorAll('.ta-l li b')].map(b => b.textContent));
+  await pg.keyboard.press('ArrowDown'); await pg.keyboard.press('Enter'); await pg.waitForTimeout(500);
+  t.ok(tc[0] === 'Florence' && await pg.evaluate(() => W.S.countries[0].picked.includes('Florence')), 'cities too, and the arrow keys and Enter choose: ' + tc.join(', '));
+  /* (a city whose name sounds like scenery is still a place to stay; a park never is, whatever the list says) */
+  const dt = await pg.evaluate(() => ['Salt Lake City', 'Gold Coast|stay', 'Niagara Falls', 'Costa de la Luz', 'Yosemite National Park|stay', 'Lake Como', 'Barcelona'].map(x => { const [name, s] = x.split('|'); return name + ':' + (W.dayTrip({ name, stay: s ? 1 : 0 }) ? 'day' : 'stay'); }));
+  t.eq(dt, ['Salt Lake City:stay', 'Gold Coast:stay', 'Niagara Falls:day', 'Costa de la Luz:day', 'Yosemite National Park:day', 'Lake Como:day', 'Barcelona:stay'], 'which names are day trips');
   t.eq(errors().filter(e => !/answer for odd/.test(e)), [], 'no page errors');
   await ctx.close(); await b.close();
 };

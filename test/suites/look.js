@@ -61,7 +61,6 @@ exports.run = async t => {
     t.ok(!oth.all && !oth.map && oth.greet, 'All days and Explore keep the greeting and the time in the banner');
     /* the stop panel's links and "Not for us" too */
     await pg.evaluate(() => { W.S.tview = 'days'; W.render(); const x = W.P.days[1].slots.find(x => x.item && !W.isFood(x.slot)); W.openStop(x.key); }); await pg.waitForTimeout(700);
-    await pg.evaluate(() => { const m = document.querySelector('#sheethost [data-sheetact="more"]'); if (m) m.click(); }); await pg.waitForTimeout(250);
     const sh = await pg.evaluate(() => { const s = document.querySelector('#sheethost'); const o = s && s.querySelector('.sh-out-r.danger'); return { btns: s ? [...s.querySelectorAll('.links .pl-a')].map(a => a.textContent.trim() + (a.querySelector('svg') ? '+icon' : '')) : [], red: o ? getComputedStyle(o).borderTopColor === getComputedStyle(o.querySelector('b')).color : false }; });
     t.ok(sh.btns.join() === 'Reviews+icon,Photos+icon,Map+icon' && sh.red, 'the stop panel\'s links are a picture with its word, and its "Not for us" has a red border: ' + JSON.stringify(sh));
     await pg.evaluate(() => W.closeStop && W.closeStop());

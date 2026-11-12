@@ -282,6 +282,9 @@
     /* the island it is on, when it is on one */
     var isl = V.str(c.isl, 60);
     if (isl) o.isl = isl;
+    /* a day trip, not a place to stay (a national park, a single sight, a village with nowhere to eat) */
+    if (c.base === 0 || c.base === "0" || c.base === false) o.day = 1;
+    else if (c.base === 1 || c.base === "1" || c.base === true) o.stay = 1; /* (a city whose name sounds like scenery: Gold Coast) */
     return o;
   };
   /** a where-to-stay area */

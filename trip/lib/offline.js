@@ -325,7 +325,9 @@
           });
           try {
             localStorage.setItem(SAVE_KEY, JSON.stringify({ at: O.at, n: n, maps: maps, trip: O.trip, sig: sig(P), cities: O.cities }));
-          } catch (e) {}
+          } catch (e) {
+            W.caught(e, "offline: record");
+          }
           W.changed();
         },
         function (e) {

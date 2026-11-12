@@ -172,8 +172,10 @@
         'isl is "" for a place on the mainland or on the country\'s main island.\n' +
         'Reply with JSON only: {"blurb":"one sentence about traveling in ' +
         name +
-        '","cities":[{"name":"","region":"","isl":"","lat":0,"lng":0,"w":2,"pop":3,"t":["tag"],"d":"what it is known for, max 12 words"}]}\n' +
-        "w = suggested days (1-4). pop = how popular with visitors, 1-5." +
+        '","cities":[{"name":"","region":"","isl":"","lat":0,"lng":0,"w":2,"pop":3,"base":1,"t":["tag"],"d":"what it is known for, max 12 words"}]}\n' +
+        "w = suggested days (1-4). pop = how popular with visitors, 1-5. base = 1 for a place to stay a few nights (a city, " +
+        "town or resort with hotels and restaurants), 0 for a day trip (a national park, nature reserve, mountain range, " +
+        "lake, single sight, or a village with few places to stay or eat)." +
         TAGRULE.split(" k:")[0],
       "quick",
       function (r) {

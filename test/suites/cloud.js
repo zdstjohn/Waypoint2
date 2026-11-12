@@ -107,6 +107,10 @@ exports.run = async t => {
     await A2.pg.waitForFunction(() => W.tripName && /Spain with Claude/.test(document.body.innerText + ' ' + JSON.stringify(Object.values(JSON.parse(localStorage.getItem('waypoint-trips-v1') || localStorage.getItem('waypoint-trips') || '{}')))), null, { timeout: 15000 }).catch(() => {});
     const a5 = await A2.pg.evaluate(async () => { document.querySelector('[data-sync="menu"]').click(); await new Promise(r => setTimeout(r, 500)); const t = document.body.innerText; document.querySelector('[data-sync="menu"]').click(); return /Spain with Claude/.test(t) || W.tripName() === 'Spain with Claude'; });
     t.ok(a5, 'on her second device, after signing in, the trip is there');
+    /* 5b (v151). the new phone opened on the example trip: it stays on that phone, never saved into her account */
+    const tripsOf = (st, who) => st.docs.filter(p => /\/trips\/t\//.test(p) && st.owners[p] === who).length;
+    await A2.pg.waitForTimeout(2500);
+    t.eq(tripsOf(await state(), 'ann@example.com'), tripDocs.length, "the new phone's example trip is not saved into her account");
     /* 6. Bob can't see Ann's trips; the server refuses a write into her space */
     const B = await phone('B'); await signIn(B.pg, 'bob@example.com', 'bob-pass-123', true);
     const annId = await A.pg.evaluate(async () => (await window.claude.use('user')).id());
@@ -173,11 +177,37 @@ exports.run = async t => {
     await Promise.all([A.pg.waitForNavigation({ timeout: 8000 }).catch(() => null), A.pg.click('[data-acct="out"]')]); await A.pg.waitForTimeout(1500);
     const a10 = await A.pg.evaluate(() => ({ gate: !!document.querySelector('.auth-gate'), cloud: W.cloud, sample: W.sampleState }));
     t.ok(a10.gate && !a10.cloud, 'signing out brings back the sign-in screen');
+    /* (v151) her trips go away with her: the next person on this phone sees none of them */
+    const a10b = await A.pg.evaluate(() => ({ trips: localStorage.getItem('waypoint-trips-v1') || '', open: localStorage.getItem('waypoint-v2') || '', away: Object.keys(localStorage).filter(k => /^waypoint-acct-/.test(k)).length }));
+    t.ok(!/Spain with Claude/.test(a10b.trips + a10b.open) && a10b.away === 1, 'signing out puts her trips away on the phone, out of sight: ' + JSON.stringify({ away: a10b.away, trips: a10b.trips.length }));
     await A.pg.click('.auth-gate [data-auth="skip"]'); await A.pg.waitForTimeout(800);
     const a11 = await A.pg.evaluate(() => ({ gate: !!document.querySelector('.auth-gate'), view: W.view(), text: document.querySelector('main:not([hidden])').innerText.length }));
     t.ok(!a11.gate && a11.text > 100, '"Use without an account" goes straight to the app on this phone');
     await A.pg.reload(); await A.pg.waitForTimeout(1500);
     t.ok(await A.pg.evaluate(() => !document.querySelector('.auth-gate')), 'and it remembers that choice next time');
+    /* 10b (v151). Bob signs in on Ann's phone: none of her trips go to his account; when he signs out and she signs
+       in again, hers are back on the phone */
+    const bobBefore = tripsOf(await state(), 'bob@example.com');
+    await A.pg.evaluate(() => { localStorage.removeItem('waypoint-auth-skip'); }); await A.pg.reload(); await A.pg.waitForTimeout(800);
+    await signIn(A.pg, 'bob@example.com', 'bob-pass-123'); await A.pg.waitForTimeout(2500);
+    const b10 = await A.pg.evaluate(() => ({ name: W.tripName(), trips: localStorage.getItem('waypoint-trips-v1') || '' }));
+    const bobAfter = tripsOf(await state(), 'bob@example.com');
+    t.ok(!/Spain with Claude/.test(b10.name + b10.trips) && bobAfter === bobBefore, "Bob on Ann's phone: none of her trips, and none copied into his account: " + JSON.stringify({ name: b10.name, bobBefore, bobAfter }));
+    await A.pg.evaluate(() => { W.goView('settings'); }); await A.pg.waitForTimeout(800);
+    await Promise.all([A.pg.waitForNavigation({ timeout: 8000 }).catch(() => null), A.pg.click('[data-acct="out"]')]); await A.pg.waitForTimeout(1200);
+    await signIn(A.pg, 'ann@example.com', 'ann-pass-123'); await A.pg.waitForTimeout(1500);
+    const a10c = await A.pg.evaluate(() => ({ name: W.tripName(), trips: localStorage.getItem('waypoint-trips-v1') || '' }));
+    t.ok(/Spain with Claude/.test(a10c.name + a10c.trips), 'Ann signs in again: her trips are back on the phone: ' + a10c.name);
+    /* 10c (v151). a trip deleted on another device does not come back from a phone that still has it */
+    const gone = await A2.pg.evaluate(() => ({ open: W.S.tripId, name: W.tripName() }));
+    await A2.pg.evaluate(async id => { document.querySelector('[data-sync="menu"]').click(); await new Promise(r => setTimeout(r, 400)); const del = document.querySelector('[data-sync="del"][data-id="' + id + '"]'); if (del) del.click(); await new Promise(r => setTimeout(r, 400));
+      const yes = document.querySelector('[data-sync="delyes"][data-id="' + id + '"]'); if (yes) yes.click(); await new Promise(r => setTimeout(r, 1500)); }, gone.open);
+    const has = st => st.docs.some(p => p.endsWith('/trips/t/' + gone.open));
+    const afterDel = has(await state());
+    await A.pg.reload(); await A.pg.waitForTimeout(3500);
+    const a10d = await A.pg.evaluate(() => ({ open: W.tripName(), list: Object.values(JSON.parse(localStorage.getItem('waypoint-trips-v1') || '{}')).map(x => x.name) }));
+    const afterBack = has(await state());
+    t.ok(gone.name === 'Spain with Claude' && !afterDel && !afterBack, 'a trip deleted on her second phone is not put back by her first phone, which still had it open: ' + JSON.stringify({ deleted: gone.name, afterDel, afterBack, first: a10d }));
     t.eq([].concat(A.errs, A2.errs, B.errs, L.errs, M.errs), [], 'no errors');
   } finally { await b.close(); sb.kill(); web.kill(); }
 };

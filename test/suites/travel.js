@@ -122,7 +122,7 @@ exports.run = async t => {
     const sh0 = await o.pg.evaluate(() => ({ open: !!document.querySelector('#sheethost .sheet'), dir: (document.querySelector('#sheethost .sh-dir') || {}).href || '', acts: [...document.querySelectorAll('#sheethost .sh-main > *')].length }));
     await o.pg.click('#sheethost [data-sheetact="swap"]'); await o.pg.waitForTimeout(900);
     const sw = await o.pg.evaluate(() => ({ view: W.view(), tview: W.S.tview, sheet: !!document.querySelector('#sheethost .sheet'), swap: !!document.querySelector('#viewTrip .swap') }));
-    t.ok(sh0.open && sh0.acts >= 3 && !/origin=/.test(sh0.dir) && sw.view === 'trip' && sw.tview === 'days' && !sw.sheet && sw.swap, 'from Today, a stop\'s sheet gives directions from where you are, and Swap opens the swap on the Day view: ' + JSON.stringify(sw));
+    t.ok(sh0.open && sh0.acts >= 2 && !/origin=/.test(sh0.dir) && sw.view === 'trip' && sw.tview === 'days' && !sw.sheet && sw.swap, 'from Today, a stop\'s sheet gives directions from where you are, and Swap opens the swap on the Day view: ' + JSON.stringify(sw));
     /* "Pick a place" opens where to stay as a sheet over Today; picking one closes it and you are still on Today */
     await o.pg.evaluate(() => { const c = document.querySelector('#viewTrip .swap [data-swapclose]'); if (c) c.click(); W.goView('go'); }); await o.pg.waitForTimeout(900);
     await o.pg.click('#viewGo [data-gostay]'); await o.pg.waitForFunction(() => !!document.querySelector('#stayhost .stay-sheet [data-lstay]'), null, { timeout: 8000 }).catch(() => {});

@@ -16,7 +16,9 @@
         },
         function () {}
       );
-  } catch (e) {}
+  } catch (e) {
+    W.caught(e, "journal: photo store");
+  }
   function J() {
     return S.journal || (S.journal = {});
   }

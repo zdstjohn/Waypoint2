@@ -53,6 +53,7 @@
     }
   }
   function lset(k, v) {
+    if (/** @type {any} */ (window).__WP_AWAY) return; /* (signing out: see lib/cloud.js putAway) */
     try {
       localStorage.setItem(k, JSON.stringify(v));
     } catch (e) {
@@ -405,6 +406,8 @@
   }
   function pushTrip(id) {
     if (!col || !canWrite) return;
+    /* the example never goes to your account, whichever way it got into your list */
+    if (id === S.tripId ? S.example : idx[id] && idx[id].state && idx[id].state.example) return;
     enqueue("trip/" + id, function () {
       var b = tripBody(id);
       if (!b) return;
@@ -515,6 +518,7 @@
       fetched = {};
       if (back && firstSnap) pushTrip(id); /* what was joined goes back to the account */
       W.isExample = false;
+      delete W.S.example;
       W.changed();
       pullPools();
     } else {
@@ -528,6 +532,10 @@
       if (!b || !b.state) return;
       remote[d.id] = { name: b.name, updated: b.updated || 0 };
       var loc = idx[d.id];
+      if (loc && !loc.seen) {
+        loc.seen = 1; /* (in the account: if it is ever missing from there, it was deleted on another device) */
+        saveIdx();
+      }
       /* newer than this device's copy: another device changed it (our own writes carry our own time, so they never look newer) */
       if (!loc || (b.updated || 0) > (loc.updated || 0)) applyRemote(d.id, b);
     });
@@ -557,7 +565,19 @@
       }
       /* trips saved on this device before syncing existed */
       Object.keys(idx).forEach(function (id) {
-        if (!idx[id].updated && id === S.tripId && W.isExample) return; /* the untouched example stays on this device */
+        if (id === S.tripId && (W.isExample || S.example)) return; /* the example stays on this device */
+        if (!remote[id] && idx[id].seen) {
+          /* it was in the account and is not now: deleted on another device. Not put back; gone from here too,
+             unless it is the trip open on this screen (that one stays, on this device only, until you change it) */
+          if (id !== S.tripId) delete idx[id];
+          else {
+            delete idx[id].seen;
+            idx[id].gone = 1;
+          }
+          saveIdx();
+          return;
+        }
+        if (idx[id].gone) return;
         if (!remote[id] || (idx[id].updated || 0) > remote[id].updated) pushTrip(id);
       });
       pullPools();
@@ -658,7 +678,11 @@
     else if (sig !== lastSig) {
       lastSig = sig;
       if (Date.now() - touched < 120000 && touched > appliedAt) {
+        /* (you changed the example: it is your trip now, sent and kept like any other) */
+        W.isExample = false;
+        delete S.example;
         var m = meta();
+        delete m.gone; /* (deleted on another device, then changed here: wanted after all) */
         m.updated = Date.now();
         m.name = W.tripName();
         saveIdx();
@@ -683,6 +707,11 @@
 
   /* ---------- trips ---------- */
   function keepCurrent() {
+    /* (the example, untouched, is not kept as a trip of yours: a new trip takes its place) */
+    if (S.example) {
+      delete idx[S.tripId];
+      return;
+    }
     var cur = meta();
     cur.state = syncable(S);
     cur.name = W.tripName();
@@ -698,6 +727,7 @@
     baseline();
     fetched = {};
     W.isExample = false;
+    delete W.S.example;
     saveIdx();
     if (!quiet) menuOpen = false;
     W.save();
@@ -728,6 +758,7 @@
     saveIdx();
     baseline();
     W.isExample = false;
+    delete W.S.example;
     menuOpen = false;
     if (firstSnap) pushTrip(id);
     W.setView("setup");
@@ -747,6 +778,7 @@
     saveIdx();
     baseline();
     W.isExample = false;
+    delete W.S.example;
     menuOpen = false;
     if (firstSnap) pushTrip(id); /* saved to your account straight away */
     W.setView("setup");
@@ -919,7 +951,9 @@
                 function () {}
               )
           );
-        } catch (e) {}
+        } catch (e) {
+          W.caught(e, "stop sharing");
+        }
       });
       return Promise.all(jobs);
     });
@@ -1099,6 +1133,7 @@
         replaceState(W.V.shared(b.state) || {});
         S.day = day;
         W.isExample = false;
+        delete W.S.example;
         menuOpen = false;
         takeLegs(W.V.shared(b.legs));
         if (W.coReapply) W.coReapply(b);

@@ -157,7 +157,15 @@
      the copy used to open on the example trip) */
   if (SEED && SEED.S && !(s && s.v === 2)) s = JSON.parse(JSON.stringify(SEED.S));
   W.S = s && s.v === 2 ? s : JSON.parse(JSON.stringify(DEFAULT));
-  W.isExample = !s;
+  /* the example trip, until you change it: marked in the state, so it is still the example after a reload (signing in
+     reloads the page; it used to count as a trip of yours then, and went up to your account) */
+  if (!s) W.S.example = 1;
+  W.isExample = !s || !!W.S.example;
+  /* the example's own plan (where, when, who, for how long): once any of it changes, it is your trip (W.save) */
+  function planSig(/** @type {any} */ st) {
+    return JSON.stringify([st.countries, st.days, st.start, st.depart, st.travelers, st.styles, st.stays, st.cityDays]);
+  }
+  var exampleSig = W.S.example ? planSig(W.S) : "";
   if (!W.S.cityDays) W.S.cityDays = {}; /* days you set for each place */
   var c = load("waypoint-cache-v2") || (SEED && SEED.C) || {};
   W.C = /** @type {Cache} */ ({
@@ -184,7 +192,9 @@
     if (W.renderBar && W.P)
       try {
         W.renderBar(W.P);
-      } catch (x) {}
+      } catch (x) {
+        W.caught(x, "trip bar");
+      }
   };
   /* The ideas as this device's storage entry holds them: what the trip on screen uses, the rest being in IndexedDB
      (lib/ideastore.js; all of it where there is none). Refused because the entry is full, it is written again with only
@@ -210,10 +220,15 @@
     lastV = -1;
   };
   W.save = function () {
+    if (/** @type {any} */ (window).__WP_AWAY) return; /* (signing out: your trips were put away, the page reloads; lib/cloud.js) */
     /* someone else's shared trip: look, don't keep (planning together sends your changes to its owner instead) */
     if (W.readOnly) {
       if (W.readOnly.edit && W.coPush) W.coPush();
       return;
+    }
+    if (W.S.example && planSig(W.S) !== exampleSig) {
+      delete W.S.example;
+      W.isExample = false;
     }
     var wrote = false,
       failed = false,

@@ -2033,6 +2033,8 @@
       )
     )
       return;
+    /* (looking around the example counts as yours for this visit; it stays the example, never sent to your account,
+       until you change its plan: see W.save and lib/sync.js) */
     if (!W.readOnly) W.isExample = false;
     /* family: hearts and comments (a comment opens claude.ai's composer on this card, so nothing redraws) */
     if (d.comment) {

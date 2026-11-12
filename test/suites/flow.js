@@ -21,14 +21,13 @@ exports.run = async t => {
   /* the actions sheet */
   await pg.evaluate(k => W.openStop(k), k0); await pg.waitForTimeout(400);
   const sheet = await pg.evaluate(() => { const s = document.querySelector('.sheet'), main = s.querySelector('.sh-main'), det = s.querySelector('.sd');
-    return { acts: [...main.children].map(a => a.textContent.trim() || a.getAttribute('aria-label')), title: (s.querySelector('.sh-top b') || {}).textContent, first: main.getBoundingClientRect().bottom <= det.getBoundingClientRect().top + 1, dirMain: !main.querySelector('.sh-dir').classList.contains('quiet') && main.querySelectorAll('.btn:not(.quiet)').length === 1, menu: !!s.querySelector('.sh-menu'), focus: document.activeElement === s,
+    return { acts: [...main.children].map(a => a.textContent.trim() || a.getAttribute('aria-label')), title: (s.querySelector('.sh-top b') || {}).textContent, first: main.getBoundingClientRect().bottom <= det.getBoundingClientRect().top + 1, dirMain: !main.querySelector('.sh-dir').classList.contains('quiet') && main.querySelectorAll('.btn:not(.quiet)').length === 1, menu: (m => !!m && m.getBoundingClientRect().top >= det.getBoundingClientRect().bottom - 1)(s.querySelector('.sh-menu')), focus: document.activeElement === s,
       links: [...s.querySelectorAll('.links .pl-a')].map(a => a.textContent.trim()) }; });
-  t.ok(sheet.acts[0] === 'Directions' && sheet.acts.includes('Swap') && /^More/.test(sheet.acts[sheet.acts.length - 1]) && sheet.first && sheet.dirMain && !sheet.menu, 'a stop\'s sheet leads with what you do: Directions (the one main button), Swap and "⋯", above the facts: ' + sheet.acts.join(' | '));
+  t.ok(sheet.acts[0] === 'Directions' && sheet.acts[sheet.acts.length - 1] === 'Swap' && sheet.first && sheet.dirMain && sheet.menu, 'a stop\'s sheet leads with what you do: Directions (the one main button) and Swap, above the facts; the rarer changes come after them, with no "⋯" to open: ' + sheet.acts.join(' | '));
   t.ok(sheet.title === name0 && sheet.focus, 'the sheet is for the stop that was opened, and the keyboard is in it');
   t.eq(sheet.links, ['Reviews', 'Photos', 'Map'], 'Reviews, Photos and Map are buttons that say what they open');
-  await pg.click('.sheet [data-sheetact="more"]'); await pg.waitForTimeout(200);
   const more = await pg.evaluate(() => [...document.querySelectorAll('.sheet .sh-menu [data-sheetact]')].map(b2 => b2.dataset.sheetact));
-  t.eq(more, ['move', 'reorder', 'remove', 'nope'], '"⋯" holds the rest: move to another day, reorder today, leave it free, not for us');
+  t.eq(more, ['move', 'reorder', 'remove', 'nope'], 'the end of the sheet holds the rest: move to another day, reorder today, leave it free, not for us');
 
   /* move to another day, then undo */
   await pg.click('[data-sheetact="move"]'); await pg.waitForTimeout(250);
@@ -45,7 +44,6 @@ exports.run = async t => {
 
   /* leave it free, then undo */
   await pg.evaluate(k => W.openStop(k), k0); await pg.waitForTimeout(300);
-  await pg.click('.sheet [data-sheetact="more"]'); await pg.waitForTimeout(200);
   await pg.click('[data-sheetact="remove"]'); await pg.waitForTimeout(500);
   t.ok(await pg.evaluate(k => !!(W.S.free || {})[k], k0), 'the slot is now free time');
   await pg.click('[data-undo]'); await pg.waitForTimeout(500);

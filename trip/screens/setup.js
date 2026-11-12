@@ -12,6 +12,9 @@
       " "
     );
   var names = [];
+  /* the countries most visited, most first: offered before the rest as you type (after the ones with ideas built in) */
+  var POPULAR = "FR ES IT US GB GR PT TR MX DE AT JP TH NL HR CH CA AU IE IS MA EG VN ID SG KR NZ CR NO SE DK CZ HU PL BE PE AR BR CL ZA IN MY PH CY MT AE".split(" "),
+    known = /** @type {Object<string, number>} */ ({});
   /* on its own (no Claude), only the countries with ideas built in can be planned */
   if (!W.standalone || W.cloud)
     try {
@@ -19,11 +22,22 @@
       names = CODES.map(function (c) {
         return dn.of(c);
       });
+      POPULAR.forEach(function (c, i) {
+        known[dn.of(c) || c] = 1 + (POPULAR.length - i) / 1000;
+      });
     } catch (e) {}
   Object.keys(window.TD).forEach(function (k) {
     if (names.indexOf(k) < 0) names.push(k);
   });
   names.sort();
+  /** every country Plan can take (lib/typeahead.js offers them as you type) */
+  W.countryNames = function () {
+    return names;
+  };
+  /** how well known a country is: 2 with ideas built in, about 1 for the most visited, 0 for the rest */
+  W.countryRank = function (n) {
+    return window.TD[n] ? 2 : known[n] || 0;
+  };
   $("countryList").innerHTML = names
     .map(function (n) {
       return '<option value="' + esc(n) + '">';
@@ -428,18 +442,9 @@
     h +=
       '<div class="row"><input class="field" id="cityIn' +
       ci +
-      '" list="cl' +
-      ci +
-      '" placeholder="Add any city or town">' +
-      '<datalist id="cl' +
-      ci +
-      '">' +
-      cities
-        .map(function (x) {
-          return '<option value="' + esc(x.name) + '">' + esc(x.isl || x.region || "") + "</option>";
-        })
-        .join("") +
-      "</datalist>" +
+      '" data-ta="city" data-tac="' +
+      esc(c.name) +
+      '" autocomplete="off" placeholder="Add any city or town">' +
       '<button type="button" class="btn" data-addcity="' +
       ci +
       '">Add</button></div>';
@@ -454,7 +459,7 @@
       );
     var popular = cities
       .filter(function (x) {
-        return c.picked.indexOf(x.name) < 0;
+        return c.picked.indexOf(x.name) < 0 && !W.dayTrip(x);
       })
       .sort(function (a, b) {
         return (b.pop || 4) - (a.pop || 4);
@@ -847,7 +852,7 @@
       "02",
       "Who's going?",
       [who, S.depart ? "from " + S.depart : ""].filter(Boolean).join(" · ") || "Add travelers",
-      '<label class="fld" for="depart"><span>Flying from</span><input class="field" id="depart" list="airportList" value="' +
+      '<label class="fld" for="depart"><span>Flying from</span><input class="field" id="depart" data-ta="airport" autocomplete="off" value="' +
         esc(S.depart) +
         '" placeholder="Your home city or airport"></label>' +
         '<div class="fld"><span>Travelers</span><div class="travs">' +
@@ -974,7 +979,7 @@
             esc(W.builtInCountries()) +
             ". Anywhere else comes with the full Waypoint, in Claude.</p>"
           : "") +
-        '<div class="row add-country"><input class="field" id="countryIn" list="countryList" placeholder="' +
+        '<div class="row add-country"><input class="field" id="countryIn" data-ta="country" data-tago="addCountry" autocomplete="off" placeholder="' +
         (S.countries.length ? "Add another country" : "Add a country") +
         '"><button type="button" class="btn' +
         (S.countries.length ? " quiet" : "") +
@@ -1070,7 +1075,7 @@
         return c.name === v;
       })
     )
-      S.countries.push({ name: v, mode: "suggest", picked: [] });
+      S.countries.push({ name: v, mode: "suggest", picked: [], rank: 2 });
     W.loadCountry(v);
     W.render();
   }
@@ -1187,6 +1192,7 @@
             return s.name;
           });
       c.mode = d.mode;
+      if (d.mode === "suggest") c.rank = 2; /* (suggested afresh: the best known first) */
       if (d.mode === "manual") W.loadCountry(c.name);
     } else if (d.rmcountry != null) S.countries.splice(+d.rmcountry, 1);
     else if (d.openstay != null) {

@@ -90,7 +90,9 @@
         },
         function () {}
       );
-  } catch (e) {}
+  } catch (e) {
+    W.caught(e, "exchange rates");
+  }
   W.fxDate = function () {
     return FX.rates ? FX.date : "";
   };

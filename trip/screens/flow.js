@@ -465,6 +465,7 @@
     }
     if (W.sheetRedraw) W.sheetRedraw();
     if (W.staySheetRedraw) W.staySheetRedraw();
+    if (W.taRedraw) W.taRedraw();
   };
   /* (for the stop's sheet, which swaps and reorders through these) */
   W.exchangeStops = exchange;
