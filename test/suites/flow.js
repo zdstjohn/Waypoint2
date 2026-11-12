@@ -108,7 +108,7 @@ exports.run = async t => {
   const nav = await pg.evaluate(() => { const L = [...document.querySelectorAll('#viewTrip .nav-leg')], cards = [...document.querySelectorAll('#viewTrip article.slot:not(.free)')];
     const before = cards.filter(c => { let p = c.previousElementSibling; while (p && !p.matches('article.slot, .nav-leg')) p = p.previousElementSibling; return p && p.matches('.nav-leg'); }).length;
     return { n: L.length, cards: cards.length, before, hrefs: L.every(a => /^https:\/\/www\.google\.com\/maps\/dir\/\?api=1(&origin=[^&]+)?&destination=/.test(a.href) && a.target === '_blank'), text: L[0] && L[0].textContent.replace(/\s+/g, ' ').trim(), inCard: document.querySelectorAll('#viewTrip article.slot .leg').length }; });
-  t.ok(nav.n >= nav.cards && nav.before === nav.cards && nav.hrefs && /^Navigate\s*·.*\d+ min/.test(nav.text || '') && nav.inCard === 0, 'each stop has "Navigate · 19 min" on the way to it, opening Google Maps directions, and the card no longer repeats the time: ' + JSON.stringify(nav));
+  t.ok(nav.n >= nav.cards && nav.before === nav.cards && nav.hrefs && /\d+ min\b.*Navigate/.test(nav.text || '') && nav.inCard === 0, 'each stop has the way to it before it (how long and how far, then Navigate), opening Google Maps directions, and the card does not repeat the time: ' + JSON.stringify(nav));
   /* back to the top: a round button when you turn back up from far down a screen, above the tab bar; one tap goes up.
      On the way down it stays out of the way (it sits where each row keeps its button) */
   await pg.evaluate(() => { scrollTo(0, 0); W.upCheck(); }); await pg.waitForTimeout(300);

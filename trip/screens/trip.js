@@ -138,14 +138,30 @@
     var tr = T && T.travel,
       busy = W.legBusy(L.a, L.b);
     var tk = tr && tr.ticket;
-    var h =
-      '<section class="legcard sk"><div class="legcard-h"><h3>Getting here from ' +
-      esc(L.a.name) +
-      "</h3>" +
-      (tr
-        ? '<span class="small muted">' + W.clock(tr.start) + "–" + W.clock(tr.end) + (L.guessed && !tk ? " (rough)" : "") + "</span>"
-        : "") +
-      "</div>";
+    var po = L.opts && L.opts[L.pick],
+      h =
+        '<section class="legcard sk tk"><div class="legcard-h"><h3>Getting here from ' +
+        esc(L.a.name) +
+        "</h3>" +
+        (tr
+          ? '<span class="small muted">' + W.clock(tr.start) + "–" + W.clock(tr.end) + (L.guessed && !tk ? " (rough)" : "") + "</span>"
+          : "") +
+        "</div>" +
+        '<div class="tk-band" aria-hidden="true"><span class="tk-end"><i>From</i><b>' +
+        esc(L.a.name) +
+        "</b>" +
+        (tr ? '<span class="tk-t">' + W.clock(tr.start) + "</span>" : "") +
+        '</span><span class="tk-mid">' +
+        (po ? modeIcon(po.mode) + (po.dur ? '<span class="tk-d">' + esc(po.dur) + "</span>" : "") : "") +
+        '</span><span class="tk-end r"><i>To</i><b>' +
+        esc(L.b.name) +
+        "</b>" +
+        (tr ? '<span class="tk-t">' + W.clock(tr.end) + "</span>" : "") +
+        "</span>" +
+        (tk
+          ? '<span class="tk-st ok">Booked' + (tk.ref ? " · " + esc(tk.ref) : "") + "</span>"
+          : '<span class="tk-st">Not booked yet · planned times, door to door</span>') +
+        "</div>";
     /* your ticket, when one is booked with a time: the day is planned around it */
     if (tk)
       h +=
@@ -1054,6 +1070,7 @@
             " </span>" +
             (LEG_IC[lg.mode] || LEG_IC.transit) +
             esc(W.fmtMin(lg.min)) +
+            (lg.d != null ? '<span class="km"> · ' + esc(W.fmtKm(lg.d)) + "</span>" : "") +
             "</span>"
           : "";
         if (it.lat != null) prevPt = it;
@@ -1070,9 +1087,7 @@
             esc(it.n) +
             ": " +
             esc(W.fmtMin(lg.min) + " " + lg.label) +
-            '">' +
-            W.icon("dir", 2.2) +
-            '<b>Navigate</b><span aria-hidden="true">·</span>' +
+            '"><span class="nl-p">' +
             legTag +
             (spare != null && spare >= 10
               ? '<span class="ws-buf' +
@@ -1081,7 +1096,9 @@
                 esc(W.fmtMin(spare)) +
                 " to spare</span>"
               : "") +
-            '<span class="nl-c" aria-hidden="true">›</span></a>';
+            '</span><b class="nl-go">' +
+            W.icon("dir", 2.2) +
+            'Navigate</b><span class="nl-c" aria-hidden="true">›</span></a>';
         var open = false;
         /* closed: what, when, how long, and the one link you need (tickets or menu). Open: everything else. */
         var main = food ? W.menuBtn(x.key) + W.bookLink(it, day.city, true, day.country) : W.bookLink(it, day.city, false, day.country);
@@ -1256,16 +1273,17 @@
           esc(home.label) +
           ": " +
           esc(W.fmtMin(back.min) + " " + back.label) +
-          '">' +
-          W.icon("dir", 2.2) +
-          "<b>Back to " +
-          esc(home.label) +
-          '</b><span aria-hidden="true">·</span><span class="leg">' +
+          '"><span class="nl-p"><span class="leg">' +
           (LEG_IC[back.mode] || LEG_IC.transit) +
           esc(W.fmtMin(back.min)) +
+          (back.d != null ? '<span class="km"> · ' + esc(W.fmtKm(back.d)) + "</span>" : "") +
           "</span>" +
-          (T && T.back ? '<span class="nl-t">about ' + W.clock(T.back) + "</span>" : "") +
-          '<span class="nl-c" aria-hidden="true">›</span></a>';
+          (T && T.back ? '<span class="nl-t">· about ' + W.clock(T.back) + "</span>" : "") +
+          '</span><b class="nl-go">' +
+          W.icon("dir", 2.2) +
+          "Back to " +
+          esc(home.label) +
+          '</b><span class="nl-c" aria-hidden="true">›</span></a>';
     if (day.tripLast && day.n > 1) list += flightCard(P, day);
     return { list: list, pts: pts, T: T, sum: sum };
   }

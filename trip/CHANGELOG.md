@@ -2,6 +2,30 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v156
+
+The redesign, chosen by the owner from three versions (the original, a first revision, and that revision as corrected by
+the eight people who reviewed it), with soft indigo as the main colour.
+- Colours (the tokens at the top of app.css): a warm off-white page, white cards on hairlines, and one colour per kind
+  of thing: terracotta for food, green for sights, indigo for getting around, amber for pace and warnings. The dark
+  theme is a warm near-black with the same roles.
+- The main colour is its own pair of tokens, --primary and --on-primary: main buttons, the tab and the day you're on,
+  a chosen chip, "Book" on a stay and the home mark in a route were a near-black block; they are a pale indigo fill with
+  indigo text (a deep indigo fill with a hairline in the dark). On the desktop's rail the day you're on has its number
+  in indigo.
+- Type: Plus Jakarta Sans for text and headings (bold), Instrument Serif only for place names and the biggest titles,
+  JetBrains Mono only for the budget's amounts; digits are even-width everywhere so times line up. Nunito's files are
+  gone; Dela Gothic One stays for the logo alone.
+- A day reads as a timeline (screens/trip.js): the way between two stops is a pill on the dashed line (how, how long,
+  how far) with Navigate beside it. A travel day's leg is a ticket: from, to, the times, and whether it is booked
+  ("Not booked yet · planned times, door to door", or "Booked" with its reference).
+- The map (lib/vtmap.js): a quiet grey-and-stone palette; a pin shows its kind's icon with its letter as a small tag,
+  so colour is not the only cue (screens/travel.js passes the stop to the pin). On the desktop the title and tools over
+  the map are frosted glass, and the stop you point at has a pulsing ring (off under "reduce motion").
+- Smaller numbers and labels are darker (they passed contrast before; the reviewers found them faint).
+- On a phone the tab bar is frosted glass floating 10px off the bottom edge; Back to the top and the undo note sit 14px
+  higher so they clear it (test/suites/flow.js caught the overlap).
+
 ## v155
 
 Three speed fixes from the v154 performance review (approved by the owner; the review's other ideas were judged not

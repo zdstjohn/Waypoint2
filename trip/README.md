@@ -50,8 +50,11 @@ What changed in each version is in CHANGELOG.md (newest first); this file says h
 index.html        markup (header, tabs, one <main> per view); loads app.js and app.min.css (built; app2.js and app2.css follow)
 app.css           the stylesheet, grouped by screen: fonts, foundations, header, Setup, My trip, a stop, storybook,
                   Explore, Bookings, Today, journal, settings, motion
-fonts/            Nunito, Dela Gothic One and Patrick Hand SC as woff2, served by the app itself (Latin; extended Latin
-                  letters in separate files the browser fetches only when a label needs them)
+fonts/            Plus Jakarta Sans (the text and headings), Instrument Serif (place names and the biggest titles),
+                  JetBrains Mono (the budget's amounts) and Dela Gothic One (the logo) as woff2, served by the app itself
+                  (Latin; extended Latin letters in a separate file the browser fetches only when a label needs them).
+                  Colours are tokens at the top of app.css: one per kind of thing (food, sights, getting around, pace),
+                  and --primary / --on-primary for the main colour (main buttons, the tab and the day you're on)
 data/             built-in destinations (data1: Europe, data2: the rest, plus airports)
 lib/              the shared library
   core.js         state, caches, helpers and the queue to Claude. Three ways to say something happened: W.changed

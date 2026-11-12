@@ -55,7 +55,7 @@
   .wr-nav button,.wr-tools button,.wr-tools a{display:flex;align-items:center;gap:10px;width:100%;min-height:34px;padding:5px 10px;border:0;border-radius:var(--r-sm);background:transparent;color:var(--fg);font:800 var(--t-ui)/1.2 var(--f-body);text-align:left;text-decoration:none;cursor:pointer}
   .wr-nav button svg,.wr-tools button svg,.wr-tools a svg{flex:none;width:18px;height:18px}
   .wr-nav button:hover,.wr-tools button:hover,.wr-tools a:hover{background:var(--sunk)}
-  .wr-nav button[aria-current="page"]{background:var(--ink);color:var(--bg)}
+  .wr-nav button[aria-current="page"]{background:var(--primary);color:var(--on-primary);box-shadow:var(--primary-edge)}
   .wr-nav button[aria-current="page"] svg{stroke:currentColor}
   .wr-nav .sub{padding-left:38px;min-height:30px;font-weight:700;color:var(--muted)}
   .wr-nav .sub[aria-current="true"]{color:var(--fg);background:var(--sunk)}
@@ -70,7 +70,7 @@
   .wr-day .t b{font-weight:800;font-size:var(--t-sm);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .wr-day .t i{font-style:normal;font-size:var(--t-micro);color:var(--muted);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .wr-day[aria-current="true"]{background:var(--accent-soft)}
-  .wr-day[aria-current="true"] .n{background:var(--ink);color:var(--bg)}
+  .wr-day[aria-current="true"] .n{background:var(--on-primary);color:var(--primary)}
   .wr-day.today .n{box-shadow:0 0 0 2px var(--note)}
   .wr-day .bars{margin:0}
   .wr-day.drop{outline:2px dashed var(--accent);outline-offset:-2px;background:var(--accent-soft)}
@@ -105,10 +105,10 @@
   .ws-canvas .vt-slot{border-radius:0}
   .wc-bar{position:absolute;top:12px;left:12px;right:12px;z-index:4;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;pointer-events:none}
   .wc-bar > *{pointer-events:auto}
-  .wc-title{display:flex;align-items:center;gap:8px;max-width:60%;padding:7px 12px;border-radius:var(--r-md);background:var(--surface);box-shadow:var(--sh-1);font:800 var(--t-ui)/1.25 var(--f-body)}
+  .wc-title{display:flex;align-items:center;gap:8px;max-width:60%;padding:7px 14px;border-radius:var(--r-pill);background:color-mix(in srgb,var(--surface) 85%,transparent);-webkit-backdrop-filter:blur(12px) saturate(1.4);backdrop-filter:blur(12px) saturate(1.4);border:1px solid color-mix(in srgb,var(--ring) 75%,transparent);box-shadow:var(--sh-1);font:700 var(--t-ui)/1.25 var(--f-body)}
   .wc-title span{color:var(--muted);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .wc-tools{display:flex;gap:6px;margin-left:auto}
-  .wc-tools .icon-btn{width:36px;height:36px;background:var(--surface);box-shadow:var(--sh-1);font-size:var(--t-h4);font-weight:800;line-height:1}
+  .wc-tools{display:flex;gap:2px;margin-left:auto;padding:3px;border-radius:var(--r-pill);background:color-mix(in srgb,var(--surface) 85%,transparent);-webkit-backdrop-filter:blur(12px) saturate(1.4);backdrop-filter:blur(12px) saturate(1.4);border:1px solid color-mix(in srgb,var(--ring) 75%,transparent);box-shadow:var(--sh-1)}
+  .wc-tools .icon-btn{width:32px;height:32px;border-radius:var(--r-pill);background:transparent;box-shadow:none;font-size:var(--t-h4);font-weight:700;line-height:1}
   .wc-tools .icon-btn svg{width:16px;height:16px}
   .wc-note{position:absolute;right:8px;bottom:6px;z-index:3;margin:0;font-size:10.5px;color:var(--place);background:color-mix(in srgb,var(--surface) 80%,transparent);padding:1px 6px;border-radius:var(--r-xs)}
   .wc-empty{position:absolute;inset:0;display:grid;place-items:center;padding:24px;overflow:auto}
@@ -126,7 +126,13 @@
   .ws-canvas .vt-pin.nolabel span{display:none}
   .ws-canvas .vt-pin.nolabel.hi span,.ws-canvas .vt-pin.nolabel.sel span{display:block}
   .ws-canvas .vt-pin.hi{z-index:5}
-  .ws-canvas .vt-pin.hi b{transform:scale(1.28);box-shadow:0 0 0 4px color-mix(in srgb,var(--note) 55%,transparent),var(--sh-3)}
+  .ws-canvas .vt-pin.hi b{transform:scale(1.22);box-shadow:var(--sh-3)}
+  /* (a lit pin breathes: a ring in its own colour grows out of it and fades, gently) */
+  .ws-canvas .vt-pin b{position:relative}
+  .ws-canvas .vt-pin.hi b::after{content:"";position:absolute;inset:-3px;border-radius:inherit;border:2px solid var(--pin,var(--sight));animation:ws-pulse 1.4s cubic-bezier(.2,.7,.3,1) infinite;pointer-events:none}
+  .ws-canvas .vt-pin.food{--pin:var(--food)}
+  @keyframes ws-pulse{from{transform:scale(1);opacity:.75}to{transform:scale(1.9);opacity:0}}
+  @media (prefers-reduced-motion:reduce){.ws-canvas .vt-pin.hi b::after{animation:none;opacity:.5;transform:scale(1.35)}}
   .ws-canvas .vt-pin.hi span{background:#2E2A27;color:#fff}
   .ws-canvas .vt-pin.sel b{box-shadow:0 0 0 3px var(--surface),0 0 0 6px var(--note)}
   .ws-canvas .vt-pin.vt-idea b{width:16px;height:16px;border-width:1.5px;background:var(--surface);color:transparent;border-color:var(--accent)}

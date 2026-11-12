@@ -322,7 +322,7 @@
         var it = e.x.item,
           bk = W.bookEntryFor ? W.bookEntryFor(P, day, it) : null;
         num++;
-        pts.push({ n: it.n, lat: it.lat, lng: it.lng, gid: it.gid, gpin: it.gpin, num: num, food: !!e.food, slot: e.x.slot });
+        pts.push({ n: it.n, lat: it.lat, lng: it.lng, gid: it.gid, gpin: it.gpin, num: num, food: !!e.food, slot: e.x.slot, it: it });
         rows += legRow(prev, it, false);
         rows += W.routeStop(
           { it: it, n: it.n, lat: it.lat, food: !!e.food, slot: e.x.slot, num: num },

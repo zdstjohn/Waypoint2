@@ -19,7 +19,7 @@ exports.run = async t => {
   const app2 = await pg.evaluate(() => { const e = performance.getEntriesByType('resource').find(r => /app2\.js$/.test(r.name)); return e ? { start: e.startTime } : null; });
   t.eq(st.list.filter(n => /\.js$/.test(n)).sort(), ['app.js', 'app2.js'].filter(n => n === 'app.js' || app2), 'the first screen needs one script; the second comes after');
   t.ok(app2 && firstPaint != null && app2.start >= firstPaint - 1 && await pg.evaluate(() => W.laterReady && !!W.packBlock && !!W.renderKids), `the second script loads after the first paint (${app2 && Math.round(app2.start)} ms vs ${firstPaint && Math.round(firstPaint)} ms) and brings its screens`);
-  t.ok(st.fonts >= 2 && st.fonts <= 3, `the fonts it needs load from the app itself: Nunito as one variable file, and the title face (${st.fonts})`);
+  t.ok(st.fonts >= 2 && st.fonts <= 3, `the fonts it needs load from the app itself: the text face as one variable file, the serif and the logo's face (${st.fonts})`);
   const kb = Math.round((fs.statSync(path.join(t.root, 'trip', 'app.js')).size + fs.statSync(path.join(t.root, 'trip', 'app.min.css')).size) / 1024);
   t.ok(kb < 520, `first script + stylesheet under 520 KB before compression (${kb} KB)`);
   const wide = ['app.min.css', 'app2.css'].map(f => fs.readFileSync(path.join(t.root, 'trip', f)).filter(c => c > 127).length);

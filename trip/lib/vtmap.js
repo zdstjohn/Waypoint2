@@ -343,6 +343,7 @@
   }
 
   /* ---------- the look: warm paper land, clear white streets, readable names (and a dark version) ---------- */
+  /* (v156: quiet colours, as a printed city map: pale streets, soft water, labels in stone) */
   function palette() {
     var dark =
       document.documentElement.getAttribute("data-theme") === "dark" ||
@@ -352,75 +353,75 @@
     return dark
       ? {
           dark: true,
-          land: "#23242B",
-          water: "#2E4A63",
-          waterLine: "#33536E",
-          park: "#2C3D2E",
-          wood: "#2A3A2B",
-          grass: "#2E3D2F",
-          sand: "#3A3629",
-          residential: "#282930",
-          commercial: "#2D2A2E",
-          industrial: "#2A2A2E",
-          cemetery: "#2A352C",
-          hospital: "#3A2C2F",
-          school: "#332F29",
-          building: "#33343C",
-          buildingLine: "#3E3F48",
-          roadCase: "#1B1C21",
-          road: "#4A4B55",
-          major: "#6B5F45",
-          majorCase: "#22232A",
-          motorway: "#8A6B3A",
-          motorwayCase: "#22232A",
-          rail: "#5C5A60",
-          path: "#5A5A62",
-          ferry: "#4B7CA3",
-          boundary: "#6B6470",
-          label: "#E9E4DC",
-          halo: "#1D1E24",
-          place: "#C7BFB3",
-          waterLabel: "#9FC7E6",
-          parkLabel: "#A9CF95",
-          poi: "#E2A27A",
-          poiDot: "#C77D55",
-          station: "#8EA2E8"
+          land: "#1B1917",
+          water: "#1E272C",
+          waterLine: "#24313A",
+          park: "#1F2620",
+          wood: "#1E251F",
+          grass: "#20271F",
+          sand: "#2A2620",
+          residential: "#1E1C1A",
+          commercial: "#211E1B",
+          industrial: "#1F1D1C",
+          cemetery: "#1F2620",
+          hospital: "#2A2020",
+          school: "#25221D",
+          building: "#262320",
+          buildingLine: "#2F2B27",
+          roadCase: "#141210",
+          road: "#36322E",
+          major: "#423D38",
+          majorCase: "#141210",
+          motorway: "#4D463F",
+          motorwayCase: "#141210",
+          rail: "#4A4440",
+          path: "#3A3530",
+          ferry: "#3B5563",
+          boundary: "#4F4843",
+          label: "#C9C3BC",
+          halo: "#161412",
+          place: "#D6D0C9",
+          waterLabel: "#7F9BAA",
+          parkLabel: "#8FA584",
+          poi: "#B5AEA7",
+          poiDot: "#8A847E",
+          station: "#A5B4FC"
         }
       : {
           dark: false,
-          land: "#F4EFE5",
-          water: "#A3CDE7",
-          waterLine: "#93C2E0",
-          park: "#CFE6BA",
-          wood: "#C3DEAC",
-          grass: "#D8EBC5",
-          sand: "#F2E4BF",
-          residential: "#EFE8DC",
-          commercial: "#F3E6D9",
-          industrial: "#EAE5E2",
-          cemetery: "#D8E6D0",
-          hospital: "#F7E0DE",
-          school: "#F2E8D4",
-          building: "#E4DBCD",
-          buildingLine: "#D3C7B5",
-          roadCase: "#DCCFBA",
+          land: "#F5F3F0",
+          water: "#D4DADC",
+          waterLine: "#C6D0D4",
+          park: "#E2E9DC",
+          wood: "#DCE5D4",
+          grass: "#E6ECDF",
+          sand: "#EFEADF",
+          residential: "#F1EFEB",
+          commercial: "#F2EEEA",
+          industrial: "#EEECE9",
+          cemetery: "#E2E9DC",
+          hospital: "#F3E9E7",
+          school: "#F1EDE4",
+          building: "#E9E5E0",
+          buildingLine: "#DEDAD4",
+          roadCase: "#E3DFD9",
           road: "#FFFFFF",
-          major: "#FFF0C4",
-          majorCase: "#E4C788",
-          motorway: "#F7CF85",
-          motorwayCase: "#D6A54F",
-          rail: "#B3A796",
-          path: "#C8B89E",
-          ferry: "#6FA7CF",
-          boundary: "#A898B0",
-          label: "#3F3934",
+          major: "#FFFFFF",
+          majorCase: "#DAD5CE",
+          motorway: "#FBF8F3",
+          motorwayCase: "#D3CCC3",
+          rail: "#D1CCC6",
+          path: "#DAD5CE",
+          ferry: "#AFC2CC",
+          boundary: "#C9C2BC",
+          label: "#6B6560",
           halo: "#FFFFFF",
-          place: "#665A4D",
-          waterLabel: "#3C6E96",
-          parkLabel: "#4B7A3A",
-          poi: "#8C4F2E",
-          poiDot: "#C9683F",
-          station: "#3F4682"
+          place: "#57534E",
+          waterLabel: "#7D96A3",
+          parkLabel: "#7A9070",
+          poi: "#8A847E",
+          poiDot: "#A8A29E",
+          station: "#4338CA"
         };
   }
   var F_REG = ["Noto Sans Regular"],
@@ -1000,7 +1001,15 @@
         })
         .join(" ")
     );
-    el.innerHTML = "<b>" + nums + "</b><span>" + W.esc(ps[0].n) + (many ? " +" + (ps.length - 1) : "") + "</span>";
+    /* (one stop: the icon for what it is, its letter as a small tag, as the day's list marks it; several: their letters) */
+    el.innerHTML =
+      (many
+        ? "<b>" + nums + "</b>"
+        : '<b class="ki">' + W.icon(W.kindIcon(ps[0].it || ps[0], ps[0].food, ps[0].slot), 2.1) + '<i class="nb">' + nums + "</i></b>") +
+      "<span>" +
+      W.esc(ps[0].n) +
+      (many ? " +" + (ps.length - 1) : "") +
+      "</span>";
     el.setAttribute(
       "aria-label",
       ps
@@ -1090,7 +1099,9 @@
           m.remove();
         });
         S.pinMarkers = spotGroups(S.pinPts).map(function (g) {
-          return new ML.Marker({ element: pinEl(g), anchor: "left", offset: [-13, 0] }).setLngLat(g.ll).addTo(S.map);
+          return new ML.Marker({ element: pinEl(g), anchor: "left", offset: [g.items.length > 1 ? -13 : -15, 0] })
+            .setLngLat(g.ll)
+            .addTo(S.map);
         });
         if (S.onPins) S.onPins();
       }
@@ -1117,7 +1128,10 @@
     S.pinMarkers = [];
     groups.forEach(function (g) {
       var ll = S.map.unproject([g.x, g.y]);
-      S.pinMarkers.push(new ML.Marker({ element: pinEl(g), anchor: "left", offset: [-13, 0] }).setLngLat(ll).addTo(S.map));
+      var el = pinEl(g);
+      S.pinMarkers.push(
+        new ML.Marker({ element: el, anchor: "left", offset: [g.items.length > 1 ? -13 : -15, 0] }).setLngLat(ll).addTo(S.map)
+      );
     });
     if (S.onPins) S.onPins(); /* (new pin elements: the desktop workspace marks the lit and the open one again) */
   }
