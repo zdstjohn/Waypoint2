@@ -1,6 +1,5 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v163: a meal's Menu starts with "Read the menu" (a photo of the menu, read for the family). Only a meal's panel and
-# a stop's sheet show it.
-meal-panel*
-stop-panel*
+# v164: small text links are small outlined buttons (the day's end with icons), every chip has soft corners, "Find
+# more" in gradient letters, Explore lists ideas with a photo first. Chips and links are on most screens.
+*

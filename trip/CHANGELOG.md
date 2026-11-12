@@ -2,6 +2,25 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v164
+
+Small text links as small buttons, chips with the buttons' corners, "Find more" in the gradient, photos first in Explore
+(the owner's picks, from mock-ups).
+- The day's end (screens/trip.js): "Make it a rest day" and "Make it a day trip" are small outlined buttons with their
+  icons (a nap, a car), stacked under "Pick a place", one width (.de-a, .de-b).
+- A text link that is an action of its own (.linkish: "Find more ideas", "Comment", "Show all", "Try again", "Undo",
+  "Rename this trip"…) is a small outlined button like the others: indigo words and ring, soft corners. The arrows
+  back (.back, .go-back, a sheet's "Back") and a word inside a sentence (.linkish.small) stay words.
+- Explore's "On your trip (8) show": "show"/"hide" is a small outlined button with an arrow.
+- Every chip (the filters under "Find more", Plan's interests, "Running late?"…) has the buttons' soft corners
+  (--r-sm), not round ends.
+- "Find more" in the icons' gradient (.grad-t: --ig-1..3, clipped to the letters).
+- Explore lists, in each group, the ideas with a photo first and those without one last (screens/trip.js byTier, by
+  W.photoFor as the card itself decides; a place to eat counts only a photo of itself; not in Simple view).
+- The "Comment" button on a stop is gone (screens/family.js; the owner's call): the hearts stay, and claude.ai's own
+  comments on the page still work.
+- Tests: ideaorder (an idea given a photo comes first in its group). 56 suites.
+
 ## v163
 
 Read a menu photo for your family (the owner's pick from the second list of ideas).

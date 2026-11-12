@@ -454,17 +454,19 @@
           (home.set ? "Change" : "Pick a place") +
           "</button>") +
       (canRest && !day.trip
-        ? '<button type="button" class="linkish" data-rest="' +
+        ? '<button type="button" class="btn quiet de-b" data-rest="' +
           esc(rk) +
           '">' +
+          W.icon("nap", 2.1) +
           (day.rest ? "Undo rest day" : "Make it a rest day") +
           "</button>"
         : "") +
       /* a day out somewhere else (screens/daytrip.js); a day trip the planner chose can be changed for another place */
       (canRest && !day.rest
-        ? '<button type="button" class="linkish" data-daytrip="' +
+        ? '<button type="button" class="btn quiet de-b" data-daytrip="' +
           day.n +
           '">' +
+          W.icon("car", 2.1) +
           (day.trip ? (day.trip.mine ? "Undo day trip" : "Change day trip") : "Make it a day trip") +
           "</button>"
         : "") +
@@ -1195,13 +1197,23 @@
         (bd <= 3 ? byA[best] : far).push(r);
       });
       var cap = showAll ? 999 : 3;
-      /* in each group the places the nightly check confirmed come first, then those not checked yet, then the doubtful
-         ones (couldn't confirm, or not found on the web), each by distance */
+      /* in each group the places with a photo come first and those without one last (the owner's wish: a list you
+         can see), then the places the nightly check confirmed, those not checked yet, the doubtful ones (couldn't
+         confirm, or not found on the web), each by distance. A place to eat counts only a photo of itself, as on
+         its card (W.picture); in Simple view, with no photos shown, the photo doesn't count */
+      var pics = !(W.simple && W.simple()),
+        pic = function (r) {
+          if (r.pic == null) {
+            var ph = pics ? W.photoFor(r.it, eat, day.country, day.city) : null;
+            r.pic = ph && !(eat && ph.near) ? 0 : 1;
+          }
+          return r.pic;
+        };
       var tier = function (it) {
         return it.st === "open" ? 0 : !it.st ? 1 : it.st === "unsure" ? 2 : 3;
       };
       var byTier = function (a, b) {
-        return tier(a.it) - tier(b.it) || a.km - b.km;
+        return pic(a) - pic(b) || tier(a.it) - tier(b.it) || a.km - b.km;
       };
       A.forEach(function (x, i) {
         if (!byA[i].length) return;
@@ -1210,7 +1222,7 @@
       });
       far.sort(byTier);
       nopin.sort(function (a, b) {
-        return tier(a.it) - tier(b.it);
+        return pic(a) - pic(b) || tier(a.it) - tier(b.it);
       });
       if (far.length) groups.push({ h: "Further out", sub: "", rows: far.slice(0, cap) });
       if (nopin.length) groups.push({ h: "Elsewhere in " + day.city, sub: "", rows: nopin.slice(0, cap) });
@@ -1350,7 +1362,7 @@
             ? '<span class="loading">Finding more…</span>'
             : W.ideasFull(pool)
               ? '<span class="small muted">Plenty to choose from</span>'
-              : '<button type="button" class="btn ghost" data-more="1">Find more</button>') +
+              : '<button type="button" class="btn ghost" data-more="1"><span class="grad-t">Find more</span></button>') +
         "</div></div>" +
         (xp ? exChips(F, eat, P, hasBeach, all.length, total) : "") +
         '<div class="idea-list">' +
@@ -1364,6 +1376,7 @@
             "On your trip <span>(" +
             planned.length +
             ")</span><em>" +
+            W.icon(folded ? "chevD" : "chevU", 2.2) +
             (folded ? "show" : "hide") +
             "</em></button></h3>" +
             (folded ? "" : planned.map(ideaCard).join(""))

@@ -260,7 +260,7 @@ details.step > summary:focus-visible{outline:2px solid var(--ink);outline-offset
 .pace-all{display:grid;gap:6px}
 .pace-all .chips{gap:6px}
 .add-country{margin-top:4px}
-.chips .linkish{padding:4px 2px}
+.chips .linkish{padding:0 10px}
 .browse h4{font-family:var(--f-body);text-transform:uppercase;letter-spacing:.08em;color:var(--label);margin:12px 0 6px;font-weight:650;font-size:var(--t-cap)}
 .browse .chip{font-size:var(--t-ui);padding:3px 10px}
 /* a whole island named as a place: its towns to choose between */
@@ -279,6 +279,10 @@ details.step > summary:focus-visible{outline:2px solid var(--ink);outline-offset
 .stepper.sm input{width:46px;height:34px;font-size:var(--t-body)}
 .total-days{min-width:60px;height:42px;display:grid;place-items:center;font:750 20px var(--f-display);background:var(--sunk);border-radius:var(--r-md);padding:0 10px}
 .linkish{border:0;background:none;padding:0;font:inherit;font-weight:800;color:var(--accent);text-decoration:none;cursor:pointer}
+/* v164: a text link that is an action of its own is a small outlined button, like the others (indigo words and ring,
+   soft corners); the arrows back and a word inside a sentence (.small) stay words */
+.linkish:not(.back):not(.go-back):not(.small):not(.auth-skip):not([data-sheetback]):not([data-peekback]){display:inline-flex;align-items:center;gap:5px;min-height:32px;padding:0 10px;border:1.5px solid var(--primary-ring);border-radius:var(--r-sm);color:var(--on-primary);font-weight:700;font-size:var(--t-sm);line-height:1.2;text-align:left}
+@media (hover:hover){.linkish:not(.back):not(.go-back):not(.small):hover{text-decoration:none;background:color-mix(in srgb,var(--primary) 55%,transparent)}}
 @media (hover:hover){.linkish:hover,a:hover{text-decoration:underline}}
 a{text-decoration:none}
 .fld{display:grid;gap:6px}
@@ -664,8 +668,11 @@ html.lifting #undohost{display:none}
 .de-i svg{width:19px;height:19px}
 .day-end > div:nth-child(2){display:grid;gap:1px;min-width:0}
 .day-end b{font-size:var(--t-body);font-weight:800;line-height:1.3;overflow:hidden;text-overflow:ellipsis}
-.de-a{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
-.day-end .linkish{font-size:var(--t-sm)}
+/* (the day's end: "Pick a place" and the two small buttons under it, one width, stacked: v164) */
+.de-a{display:flex;flex-direction:column;align-items:stretch;gap:6px}
+.day-end .de-a > *{justify-content:center}
+.de-b{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 10px;font-size:var(--t-sm);white-space:nowrap}
+.de-b svg{width:15px;height:15px;flex:none}
 /* meals: one slim row */
 .slot.slim{align-items:center;padding:8px 8px 8px 12px;gap:10px}
 .slot.slim .slot-body{gap:2px}
@@ -872,7 +879,8 @@ details.ideas summary h2{font-family:var(--f-display);font-weight:750;font-size:
 .idea-group .fold{border:0;background:none;padding:4px 0;font:inherit;color:inherit;letter-spacing:inherit;display:inline-flex;align-items:center;gap:6px;cursor:pointer;min-height:36px}
 .idea-group .fold svg{width:15px;height:15px}
 .idea-group .fold span{color:var(--muted)}
-.idea-group .fold em{font-style:normal;font-family:var(--f-body);font-size:var(--t-sm);font-weight:800;letter-spacing:0;color:var(--accent);text-decoration:none;text-underline-offset:3px;margin-left:4px}
+.idea-group .fold em{display:inline-flex;align-items:center;gap:4px;min-height:30px;padding:0 10px 0 8px;margin-left:8px;border:1.5px solid var(--primary-ring);border-radius:var(--r-sm);font-style:normal;font-family:var(--f-body);font-size:var(--t-sm);font-weight:700;letter-spacing:0;color:var(--on-primary)}
+.idea-group .fold em svg{width:14px;height:14px}
 .idea p{font-size:var(--t-ui);color:var(--muted)}
 .idea .on{font-size:var(--t-sm);font-weight:800;color:var(--note-text)}
 /* one "Add to Day 2" per idea; open, a row for each part of the day (a free one first): each says what it would
@@ -2162,8 +2170,10 @@ table.budget td + td *{font-family:var(--f-body);letter-spacing:0}
 @media (hover:hover){.btn:hover{filter:none;background:color-mix(in srgb,var(--primary) 84%,var(--on-primary))}}
 .btn.quiet,.btn.ghost,.chip-a,.idea .use-add,.go-mapbtn{background:transparent;border:1.5px solid var(--primary-ring);color:var(--on-primary);box-shadow:none}
 .chip-a.pri{background:var(--primary);border-color:var(--on-primary)}
-.chip{border-radius:var(--r-pill)}
+.chip{border-radius:var(--r-sm)}
 .chip-a,.idea .use-add,.go-mapbtn{border-radius:var(--r-sm)}
+/* (words in the icons' gradient: "Find more") */
+.grad-t{background:linear-gradient(90deg,var(--ig-1),var(--ig-2),var(--ig-3));-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
 .go-mapbtn{font-weight:700;min-height:40px;padding-inline:16px}
 @media (hover:hover){.btn.quiet:hover,.btn.ghost:hover,a.chip-a:hover,button.chip-a:hover,.idea .use-add:hover,.go-mapbtn:hover{background:color-mix(in srgb,var(--primary) 55%,transparent);border-color:var(--on-primary)}}
 /* (a price being watched, a price that dropped, a step still busy: a state, in its own colours) */

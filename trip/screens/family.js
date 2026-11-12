@@ -1,14 +1,13 @@
-/* Waypoint family: on a shared trip, family can heart the places they're excited about and comment on stops.
+/* Waypoint family: on a shared trip, family can heart the places they're excited about.
    Hearts are kept beside the shared copy; the planner gives hearted places a nudge, and you see who loved what.
-   Comments use claude.ai's own comment threads on this page. */
+   (v164: the "Comment" button on a stop is gone, the owner's call; claude.ai's own comments on the page still work.) */
 (function () {
   "use strict";
   var W = window.W,
     esc = W.esc;
   var db = null,
     uid = null,
-    canWrite = false,
-    comments = null;
+    canWrite = false;
   try {
     if (window.claude && window.claude.use) {
       window.claude.use("db").then(
@@ -35,13 +34,6 @@
             },
             function () {}
           );
-        },
-        function () {}
-      );
-      window.claude.use("comments").then(
-        function (c) {
-          comments = c;
-          W.changed();
         },
         function () {}
       );
@@ -158,7 +150,7 @@
       });
   }
 
-  /* the heart and comment buttons (in a stop's details and on idea cards) */
+  /* the heart button (in a stop's details and on idea cards) */
   W.familyActs = function (it, day, x) {
     if (W.readOnly) {
       var on = !!mine[k(it)],
@@ -172,19 +164,10 @@
           '">' +
           (on ? "♥ Loved" : "♡ Love this") +
           "</button>";
-      if (comments)
-        h += '<button type="button" class="linkish" data-comment="1" data-ckey="' + esc((x && x.key) || "") + '">Comment</button>';
       return h ? '<div class="fam">' + h + "</div>" : "";
     }
     var n = counts[k(it)] || 0;
-    return n || comments
-      ? '<div class="fam">' +
-          (n ? '<span class="heart-n">♥ ' + n + " from family</span>" : "") +
-          (comments
-            ? '<button type="button" class="linkish" data-comment="1" data-ckey="' + esc((x && x.key) || "") + '">Comment</button>'
-            : "") +
-          "</div>"
-      : "";
+    return n ? '<div class="fam"><span class="heart-n">♥ ' + n + " from family</span></div>" : "";
   };
   /* the little heart count on a closed card */
   W.heartBadge = function (it) {
@@ -196,18 +179,6 @@
     if (d.heart) {
       mine[d.heart] = !mine[d.heart];
       saveMine();
-      return true;
-    }
-    if (d.comment) {
-      var el =
-        (d.ckey && document.querySelector('.slot[data-slotkey="' + CSS.escape(d.ckey) + '"]')) || b.closest("article, .idea, .slot") || b;
-      if (comments)
-        comments.openComposer({ element: el }).then(null, function (e) {
-          if (e && e.code === "unavailable") {
-            comments = null;
-            W.render();
-          }
-        });
       return true;
     }
     return false;
