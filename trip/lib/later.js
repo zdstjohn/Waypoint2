@@ -87,12 +87,55 @@
     }, 6000);
     document.head.appendChild(l);
   }
+  /* ---------- taps that land before the second script ----------
+     Most of what a tap DOES comes with the second script (screens/flowacts.js, screens/tripacts.js): it registers its
+     click handlers through W.onClickLater. A tap that landed before it arrived is kept and handed to those handlers
+     once it is here, in the order a click reaches them (the capturing ones first, and none after one that stopped
+     it): nothing is lost, it only answers a moment later. */
+  /** @type {Event[]} */ var early = [];
+  /** @type {{ fn: (e: any) => void, cap: boolean }[]} */ var late = [];
+  document.addEventListener(
+    "click",
+    function (e) {
+      if (!W.laterReady && early.length < 8) early.push(e);
+    },
+    true
+  );
+  W.onClickLater = function (fn, capture) {
+    document.addEventListener("click", fn, !!capture);
+    late.push({ fn: fn, cap: !!capture });
+  };
+  function replay() {
+    var taps = early;
+    early = [];
+    taps.forEach(function (e) {
+      late
+        .filter(function (h) {
+          return h.cap;
+        })
+        .concat(
+          late.filter(function (h) {
+            return !h.cap;
+          })
+        )
+        .some(function (h) {
+          try {
+            h.fn(e);
+          } catch (err) {
+            if (W.caught) W.caught(err, "a tap from before the second script");
+          }
+          return e.cancelBubble;
+        });
+    });
+  }
   /** @type {(() => void)[]} */ var waiting = [];
   function done() {
     if (W.laterReady) return;
     W.laterReady = true;
     W.laterLoading = false;
     unhold();
+    /* (the kept taps first: the handlers that watch a tap before the screen acts on it see it first, as they would have) */
+    replay();
     var q = waiting;
     waiting = [];
     q.forEach(function (f) {

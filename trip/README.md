@@ -74,7 +74,8 @@ lib/              the shared library
                   own private corner of the database, data/users/<you>/errlog/d/<YYYY-MM-DD> ({items: [{msg, at, stack,
                   view, tv, build, ua, w, on, n}], updated}). Nothing personal: the message, where in the code, which
                   screen, the build, the browser and the screen width. Read it with ArtifactData get on that path.
-  later.js        loads app2.js (above); loaded right after errlog.js. Also: whether the desktop workspace is on
+  later.js        loads app2.js (above); loaded right after errlog.js. Keeps the taps that land before it has come
+                  and hands them to its click handlers (W.onClickLater). Also: whether the desktop workspace is on
                   (W.desk, W.paneW) and its stylesheet, app.desk.css, fetched only by a wide window
   desk.js         (second script) the desktop workspace's state and shell: panes, the handle, the pane's scroll bar,
                   its buttons (data-ws), what a card carries there (quick actions, the day's line)
@@ -156,6 +157,8 @@ lib/              the shared library
                   holiday or festival is
   shape.js        the trip as a whole: nights per base, day trips instead of hotel moves, the way between bases,
                   what the group (toddlers, grandparents) can take
+  planacts.js     (second script) what changes a plan on request: "not for us", another suggestion, an idea put
+                  on the day, the rescues of the rest of today and their undo (it uses the planner through W.planX)
   plan.js         which cities, how many days each, what to do each day (the chooser and its shape rules; a country
                   suggested from v151 on starts from the best known places, bestScore, and never stays in a park or on
                   a coast, W.dayTrip). A city keeps
@@ -267,7 +270,11 @@ screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.
                   one line for what is on now (today.js, W.todayRow), dims what is over and opens at the stop you are
                   at; Today shows Now and Next in one card with the way to what is next as its one main button, the
                   route under it, and the day bag and journal folded to a line outside their time of day. flow.js has
-                  the next-step bar, undo and drag to reorder; sheet.js (second script) is a stop's sheet (Directions,
+                  the next-step bar and the day buttons (what is drawn); flowacts.js (second script) what a tap then does:
+                  the next step's buttons, undo, drag or lift to reorder. trip.js draws a day and changes day or view;
+                  tripacts.js (second script) has the swap under a stop, a place's details and the screen's other
+                  buttons (the halves share W.tripX). A tap made before the second script is kept and done when it
+                  arrives (W.onClickLater, lib/later.js; test/suites/early.js); sheet.js (second script) is a stop's sheet (Directions,
                   tickets and Swap first, then the facts, then the rarer changes; W.moveStop, the one way a stop goes to another
                   day); dayline.js (second script) is a day in a line (its headline and effort bars, for the rail); rail.js and
                   palette.js (second script) are the desktop workspace's rail and keyboard; daytrip.js (second script) is "Make it a day

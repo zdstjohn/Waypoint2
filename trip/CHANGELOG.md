@@ -2,6 +2,29 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v157
+
+Room in the first download (the owner's follow-up 1 of 4 after v156). The first script and stylesheet were 518.9 KB of
+their 520 KB budget; they are 476.5 KB. No screen changes (every screenshot matches v156), and nothing a tap does is
+lost.
+- What a tap DOES now comes with the second script, a moment after the first screen; what is drawn stays in the first.
+  screens/flow.js keeps the next-step bar, the day buttons and the doors to the sheets; screens/flowacts.js (new) has
+  the next step's buttons, undo, swiping between days and reordering by drag or lift. screens/trip.js keeps drawing a
+  day and changing day or view; screens/tripacts.js (new) has the swap under a stop, a place's details and what the
+  screen's other buttons do. lib/plan.js keeps the planner; lib/planacts.js (new) has "not for us", another suggestion,
+  an idea put on the day and the rescues. The halves share what they must through W.tripX and W.planX.
+- A tap that lands before the second script is kept (lib/later.js): its click handlers register with W.onClickLater
+  and are handed the taps that came early, in the order a click reaches them; the Trip screen's own handler asks for
+  the script and acts when it arrives. test/suites/early.js holds app2.js back 7 s and checks a Swap and a tap on a
+  stop made meanwhile are both done when it comes, and that changing day works at once.
+- Styles follow their code (build/bundle.js LATER_CSS): the swap, the street map's own styles and pins, place search,
+  "not for us", a menu and the plan check's link are drawn only by the second script, so their rules (11 KB) moved to
+  app2.css. The build still refuses a move that would turn the cascade round.
+- Removed: a stop's "more" block in the day list, built for every stop on every draw and never shown since the stop
+  sheet replaced it (screens/trip.js), with its styles; an unused set of icons in screens/flow.js.
+- How it was found: evo/v157/cover.js (what of app.js runs at start-up, by module) and render.js + idle.js (which
+  functions never run when screens are only drawn, across every day, view, clock and size).
+
 ## v156
 
 The redesign, chosen by the owner from three versions (the original, a first revision, and that revision as corrected by

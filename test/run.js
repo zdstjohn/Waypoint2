@@ -10,6 +10,7 @@
    planner   days fit the clock, meals and naps are where they should be, day trips are day trips, energy levels are sane
    shape     the whole-trip planner: nights per base, day trips instead of hotel moves, order, jet lag, trains vs flights
    flow      the actions sheet, move to another day and undo, leave free and undo, swap cards, glance, quick start
+   early     a tap made before the second script has arrived is kept and done when it comes
    bookings  the checklist, the budget, adding a booking by hand
    travel    Travel mode, Today, the storybook
    sync      saved trips: the menu, renaming, a second trip
@@ -46,7 +47,7 @@
 const { spawn, spawnSync } = require('child_process'); const fs = require('fs'); const path = require('path');
 const ROOT = path.resolve(__dirname, '..'); const OUT = path.join(__dirname, 'out'); fs.mkdirSync(OUT, { recursive: true });
 const args = process.argv.slice(2); const flags = new Set(args.filter(a => a.startsWith('--'))); const pick = args.filter(a => !a.startsWith('--'));
-const ALL = ['smoke', 'layout', 'planner', 'shape', 'flow', 'back', 'review', 'bookings', 'stays', 'travel', 'claude', 'draw', 'look', 'airplane', 'standalone', 'cloud', 'accounts', 'tickets', 'holidays', 'firstview', 'together', 'share', 'kept', 'copy', 'tools', 'nope', 'eat', 'money', 'menus', 'storage', 'pdf', 'simple', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'fuzz', 'vitals', 'desktop', 'explore', 'gmaps', 'meals', 'clock', 'daytrip', 'workspace'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
+const ALL = ['smoke', 'layout', 'planner', 'shape', 'flow', 'back', 'review', 'bookings', 'stays', 'travel', 'claude', 'draw', 'look', 'airplane', 'standalone', 'cloud', 'accounts', 'tickets', 'holidays', 'firstview', 'together', 'share', 'kept', 'copy', 'tools', 'nope', 'eat', 'money', 'menus', 'storage', 'pdf', 'simple', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'fuzz', 'vitals', 'desktop', 'explore', 'gmaps', 'meals', 'clock', 'daytrip', 'workspace', 'early'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
 let suites = pick.length ? pick : ALL;
 /* --cov: also collect which code ran (test/lib/cov.js); the suites that time things are left out of such a run */
 const COV = flags.has('--cov') || !!process.env.WP_COV;

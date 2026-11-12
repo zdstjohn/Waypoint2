@@ -1,5 +1,4 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v156: the redesign (new fonts, colours, the timeline's pills, the ticket, pins with icons, the soft indigo main
-# colour). Every screen changes.
-*
+# v157: less in the first download (what a tap does on the Trip screen, the re-planning of a day and the styles of
+# what the second script draws now come with it). No screen may change.

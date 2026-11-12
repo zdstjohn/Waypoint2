@@ -322,6 +322,14 @@ interface Waypoint {
   dayTrip: (c: { name?: string; day?: number; stay?: number }) => boolean;
   /** typeahead lists follow a redraw (lib/typeahead.js) */
   taRedraw: () => void;
+  /** the planner's workings, for its half in the second script (lib/plan.js, lib/planacts.js) */
+  planX: any;
+  /** what the two halves of the Trip screen share (screens/trip.js, screens/tripacts.js) */
+  tripX: any;
+  /** a lifted stop keeps its marks after a redraw (screens/flowacts.js) */
+  liftRedraw: () => void;
+  /** a click handler that comes with the second script: it also gets the taps that landed before it arrived (lib/later.js) */
+  onClickLater: (fn: (e: any) => void, capture?: boolean) => void;
   /** a stay named but not yet found is asked for again (lib/plan.js) */
   stayRetry: (country: string, city: string) => void;
   /** a place as Google Maps directions take it (lib/core.js) */
