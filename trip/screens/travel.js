@@ -275,6 +275,8 @@
         '<button type="button" class="chip-a" data-goprev="' +
         tom.n +
         '">See it</button></div>';
+      /* a travel day: the night-before briefing for the new town (lib/brief.js, second script) */
+      if (tom.moveFrom && W.briefBlock) h += W.briefBlock(tom);
     }
     h += "</section>";
     return h;

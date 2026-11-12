@@ -2,6 +2,23 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v166
+
+The night-before briefing for a new town (the owner's pick from the second list of ideas).
+- On Today, the evening before a travel day, "Tomorrow" offers "Briefing for <town>" (lib/brief.js, new, in the
+  second script; screens/travel.js goTonight). One question to Claude names the town, where you come from and how,
+  when you arrive, the day and any public holiday, the stay, the family and what they eat, and tomorrow's plan, and
+  asks for four parts: from the station (or port, or airport) to the stay with small children and bags (how, how long,
+  about what it costs), two or three easy first-dinner places near the stay, what is closed tomorrow, and three or
+  four local ways worth knowing. Shown as "Arriving in <town>": the name and walk of each dinner place on one line,
+  the local ways as a list, a word to check times and prices on the day, and "Ask again".
+- The answer is kept on the phone with what it was for (the town, the date, the stay, how and when you arrive), so it
+  opens at once and offline; when any of those change it says the plan has changed and offers "Update the briefing".
+  Every word is shown as text (W.briefClean trims and caps each part).
+- Nothing is shown when tomorrow stays in the same town, offline, or in a read-only shared trip.
+- Tests: brief (the button, the four parts, the question, kept and shown as text, out of date when the stay changes,
+  none when tomorrow stays put). 58 suites.
+
 ## v165
 
 Your bookings checked against the plan, in "Check my plan" (the owner's pick from the second list of ideas).

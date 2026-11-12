@@ -433,6 +433,10 @@ interface Waypoint {
   /** lib/bookcore.js: a place's name against a booking's words */
   nameRank: (name: string, text: string) => number;
   nameMatch: (name: string, text: string) => boolean;
+  /** lib/brief.js: the night-before briefing for a new town */
+  briefBlock: (day: Day) => string;
+  briefStart: (day: Day) => void;
+  briefClean: (r: any) => any;
   menuCanRead: () => boolean;
   menuClean: (r: any) => { lang: string; dishes: { n: string; en: string; d: string; p: string; fit: string; why: string }[]; ask: { local: string; en: string }[]; note: string };
   menuRead: (key: string, files: FileList | File[]) => void;

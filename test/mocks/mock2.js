@@ -7,6 +7,13 @@
     const s = await sampleP; const orig = s.json;
     const inner = async (prompt, opts) => {
       window.__prompts = window.__prompts || []; window.__prompts.push(prompt.slice(0, 160)); (window.__full = window.__full || []).push(prompt);
+      /* the night-before briefing (lib/brief.js) */
+      if (/^A family arrives tomorrow in /.test(prompt)) {
+        window.__briefAsk = prompt; await new Promise(r => setTimeout(r, 120));
+        return { arrive: { from: 'Santa Maria Novella station', how: 'A taxi from the rank by the main exit; with a stroller it is easier than the bus.', time: '10 min', cost: '€12–15' },
+          dinner: [{ n: 'Trattoria Test', d: 'Simple pasta, high chairs', far: '4 min walk' }, { n: '<img src=x onerror="window.__xss=1">', d: '', far: '' }],
+          closed: [{ what: 'A museum', why: 'closed on Mondays' }], customs: ['Dinner starts around 7:30 PM.', 'Round up the bill rather than tip.'] };
+      }
       /* a menu read from photos (lib/menuread.js): what was sent is kept; window.__menuFail makes it fail */
       if (/^You are reading photos of a restaurant menu/.test(prompt)) {
         const ims = (opts && opts.images) || [];

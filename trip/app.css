@@ -1793,6 +1793,24 @@ button.menu-btn{border:0;background:transparent;font:inherit;font-weight:800;col
 .mr-say ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .mr-say li{display:grid;gap:1px}
 .mr-err{margin:0;color:var(--note-text)}
+/* ==================== a new town: the night-before briefing (lib/brief.js) ==================== */
+.brief{display:grid;gap:8px;margin-top:4px;padding-top:12px;border-top:var(--hair)}
+.brief > .small{margin:0}
+.brief-go{justify-self:start;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px}
+.brief-go svg,.brief-h svg{width:18px;height:18px;flex:none}
+.brief-h{display:flex;align-items:center;gap:8px;margin:0;font-size:var(--t-lead)}
+.brief-stale{margin:0;padding:8px 10px;border-radius:var(--r-sm);background:var(--accent-soft);font-weight:700;font-size:var(--t-ui)}
+.brief-s{display:grid;gap:4px}
+.brief-s h4{margin:4px 0 0;font:800 var(--t-sm)/1.2 var(--f-body);text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.brief-s p{margin:0}
+.brief-s ul{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.brief-s li{display:grid;gap:1px}
+.brief-s .brief-d{font-size:var(--t-sm);color:var(--muted)}
+.brief-s ul.brief-dots{list-style:disc;padding-left:1.2em;gap:4px}
+.brief-s ul.brief-dots li{display:list-item}
+.brief-s ul.brief-dots li::marker{color:var(--muted)}
+.brief-err{margin:0;color:var(--note-text)}
+.brief > .btn{justify-self:start}
 /* ==================== Claude: check my plan, replan today ==================== */
 .gr-ask{display:grid;gap:8px;margin-top:6px;padding-top:12px;border-top:var(--hair);text-align:left}
 .gr-l{font-weight:700;font-size:var(--t-ui)}
