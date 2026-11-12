@@ -2,7 +2,7 @@
    first screen needs; app2.js (LATER: Plan, drawing the street map, packing, the Prepare screen, the booking autopilot, place search, family, journal, the day bag,
    kids' corner, settings) is fetched by lib/later.js once
    the first screen is up. Sources stay where they are (lib/, screens/, data/); the order below is the dependency order.
-     node build/bundle.js            -> trip/app.js, trip/app2.js, trip/app.min.css, trip/app2.css (+ .map files, kept local)
+     node build/bundle.js            -> trip/app.js, trip/app2.js, trip/app.min.css, trip/app2.css, trip/app.desk.css (+ .map files, kept local)
      node build/bundle.js --check    -> build in memory, run the checks below and report sizes; write nothing
    Checks (a failed one stops the build): every file of the second script is in ORDER, and the second script is joined
    in ORDER's order (one list decides the order of both); no style rule that moves to app2.css would win over a later
@@ -13,9 +13,11 @@ const ORDER = [
   'data/data1.js', 'data/data2.js',
   'lib/validate.js', 'lib/core.js', 'lib/ideastore.js', 'lib/towns.js', 'lib/ideas.js', 'lib/stays.js', 'lib/asks.js', 'lib/icons.js', 'lib/patch.js', 'lib/eat.js', 'lib/links.js', 'lib/errlog.js', 'lib/later.js', 'lib/pwa.js', 'lib/back.js', 'lib/classify.js', 'lib/photos.js', 'lib/places.js', 'lib/nightfood.js', 'lib/fx.js', 'lib/vtindex.js', 'lib/vtmap.js', 'lib/offline.js', 'lib/offcopy.js', 'lib/speedtest.js', 'lib/times.js', 'lib/holidays.js', 'lib/shape.js', 'lib/plan.js', 'lib/packing.js', 'lib/warm.js', 'lib/memories.js',
   'screens/setup.js', 'lib/sharebox.js', 'lib/sync.js', 'lib/bookcore.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/route.js', 'lib/import.js', 'lib/prices.js', 'lib/watch.js', 'lib/gmaps.js', 'lib/search.js', 'lib/replan.js', 'lib/review.js',
-  'screens/today.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/near.js', 'screens/travel.js', 'screens/flow.js', 'screens/quickstart.js', 'screens/sheet.js', 'screens/daytrip.js', 'lib/typeahead.js', 'screens/settings.js', 'screens/trip.js'
+  'screens/today.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/near.js', 'screens/travel.js', 'screens/flow.js', 'screens/quickstart.js', 'screens/sheet.js', 'screens/daytrip.js', 'lib/typeahead.js', 'screens/settings.js', 'screens/trip.js',
+  /* the desktop workspace (v153; all in the second script): its state, the map canvas, the rail, the palette, CSV */
+  'lib/desk.js', 'lib/deskmap.js', 'screens/rail.js', 'screens/palette.js', 'lib/csv.js', 'screens/alldays.js'
 ];
-const LATER = ['lib/nightfood.js', 'lib/memories.js', 'screens/near.js', 'screens/quickstart.js', 'screens/sheet.js', 'screens/daytrip.js', 'lib/typeahead.js', 'lib/import.js', 'screens/setup.js', 'lib/vtmap.js', 'lib/packing.js', 'lib/prices.js', 'lib/watch.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/gmaps.js', 'lib/search.js', 'lib/replan.js', 'lib/review.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/settings.js', 'lib/route.js', 'lib/offcopy.js', 'lib/speedtest.js'];
+const LATER = ['lib/nightfood.js', 'lib/memories.js', 'screens/near.js', 'screens/quickstart.js', 'screens/sheet.js', 'screens/daytrip.js', 'lib/typeahead.js', 'lib/import.js', 'screens/setup.js', 'lib/vtmap.js', 'lib/packing.js', 'lib/prices.js', 'lib/watch.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/gmaps.js', 'lib/search.js', 'lib/replan.js', 'lib/review.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/settings.js', 'lib/route.js', 'lib/offcopy.js', 'lib/speedtest.js', 'lib/desk.js', 'lib/deskmap.js', 'screens/rail.js', 'screens/palette.js', 'lib/csv.js', 'screens/alldays.js'];
 module.exports.ORDER = ORDER; module.exports.LATER = LATER;
 
 async function build() {
@@ -48,9 +50,46 @@ async function build() {
   const css2 = await esbuild.transform(parts.later, { loader: 'css', minify: true });
   out('app.min.css', css.code);
   out('app2.css', css2.code);
+  /* the desktop workspace's stylesheet: all of app.css with its width rules following the pane (deskCss), then desk.css */
+  const css3 = await esbuild.transform(deskCss(fs.readFileSync(path.join(TRIP, 'app.css'), 'utf8')) + '\n' + fs.readFileSync(path.join(TRIP, 'desk.css'), 'utf8'), { loader: 'css', minify: true });
+  out('app.desk.css', css3.code);
   const kb = n => (n / 1024).toFixed(0) + ' KB';
-  console.log(`app.js ${kb(src.length)} -> ${kb(js.code.length)} (+ app2.js ${kb(js2.code.length)} after the first screen); app.min.css ${kb(fs.statSync(path.join(TRIP, 'app.css')).size)} -> ${kb(css.code.length)} (+ app2.css ${kb(css2.code.length)}, ${parts.moved} rules)`);
+  console.log(`app.js ${kb(src.length)} -> ${kb(js.code.length)} (+ app2.js ${kb(js2.code.length)} after the first screen); app.min.css ${kb(fs.statSync(path.join(TRIP, 'app.css')).size)} -> ${kb(css.code.length)} (+ app2.css ${kb(css2.code.length)}, ${parts.moved} rules); app.desk.css ${kb(css3.code.length)} (a wide window only)`);
 }
+/* The desktop stylesheet. On a window 1024px wide or more the app is drawn in a pane of a workspace, and the pane can be
+   narrower than a phone or as wide as the window: so there, every rule that follows the WINDOW's width (@media
+   (max-width:560px), (min-width:921px)...) has to follow the PANE's width instead. This writes app.css again with each
+   such block twice: as it was (a min-width one stopping at 1023px, so the window's width no longer speaks on a
+   desktop), and as a container query on the pane (.wrap is the container "ws", desk.css) inside @media
+   (min-width:1024px). Rules keep their order, so the cascade is the phone's. The header and the sheets are drawn outside
+   the pane on a desktop (CHROME): their rules stay as they are. */
+const CHROME = /^(\.top\b|\.brand\b|\.sheet\b|html\b|body\b|:root\b)/;
+function selectors(list) { const out = []; let d = 0, cur = ''; for (const ch of list) { if (ch === '(') d++; else if (ch === ')') d--; if (ch === ',' && !d) { out.push(cur.trim()); cur = ''; } else cur += ch; } if (cur.trim()) out.push(cur.trim()); return out; }
+function deskCss(text) {
+  let out = '', i = 0;
+  const block = (s, at) => { let d = 0; for (let j = at; j < s.length; j++) { if (s[j] === '{') d++; else if (s[j] === '}' && --d === 0) return j; } throw new Error('unbalanced braces in app.css'); };
+  while (i < text.length) {
+    if (/\s/.test(text[i])) { out += text[i++]; continue; }
+    if (text.startsWith('/*', i)) { i = text.indexOf('*/', i) + 2; continue; }
+    const open = text.indexOf('{', i), semi = text.indexOf(';', i);
+    if (text[i] === '@' && semi > -1 && (open < 0 || semi < open)) { out += text.slice(i, semi + 1); i = semi + 1; continue; }
+    const close = block(text, open), head = text.slice(i, open).trim(), body = text.slice(open + 1, close);
+    const m = /^@media\s+(.*)$/.exec(head);
+    if (m && /\((min|max)-width\s*:\s*[\d.]+px\)/.test(m[1])) {
+      const conds = m[1].split(/\s+and\s+/).map(c => c.trim()), width = conds.filter(c => /^\((min|max)-width\s*:\s*[\d.]+px\)$/.test(c)), other = conds.filter(c => !width.includes(c));
+      const hasMin = width.some(c => /min-width/.test(c));
+      let keep = '', pane = ''; const re = /([^{}]+)\{([^{}]*)\}/g; let r;
+      while ((r = re.exec(body))) { const ss = selectors(r[1]), cs = ss.filter(x => CHROME.test(x)), ps = ss.filter(x => !CHROME.test(x));
+        if (cs.length) keep += cs.join(',') + '{' + r[2] + '}'; if (ps.length) pane += ps.join(',') + '{' + r[2] + '}'; }
+      if (!hasMin) out += head + '{' + body + '}';
+      else { if (keep) out += head + '{' + keep + '}'; if (pane) out += '@media ' + conds.join(' and ') + ' and (max-width:1023px){' + pane + '}'; }
+      if (pane) out += '@media ' + ['(min-width:1024px)'].concat(other).join(' and ') + '{@container ws ' + width.join(' and ') + '{' + pane + '}}';
+    } else out += text.slice(i, close + 1);
+    i = close + 1;
+  }
+  return out;
+}
+module.exports.deskCss = deskCss;
 /* The second script's screens (Plan, Prepare and packing, the journal and recap, settings, the kids' corner) have their
    own sections of app.css. A rule in one of those sections moves to app2.css, which comes with app2.js, only when none
    of its class names appears in the first script's code or index.html: whatever the first screen draws keeps its

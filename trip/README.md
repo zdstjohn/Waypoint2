@@ -1,7 +1,7 @@
 # Waypoint — how the code is laid out
 
 One page. `index.html` is the markup; the code is plain files under data/, lib/ and screens/, joined and minified into
-`app.js` (and app.css into `app.min.css` and `app2.css`) by `build/bundle.js`. All code shares one namespace, `window.W`; the order in
+`app.js` (and app.css into `app.min.css` and `app2.css`, and with desk.css into `app.desk.css` for wide windows) by `build/bundle.js`. All code shares one namespace, `window.W`; the order in
 `build/bundle.js` is the dependency order. `node test/run.js` builds first. The screens a first open never needs (Plan,
 drawing the street map, the Prepare screen, live prices and price watch, the booking autopilot, planning together, place search in Explore, the
 journal, the day bag, family, settings, the kids' corner, the recap, the packing list: LATER in build/bundle.js) go into a second script, `app2.js`, which lib/later.js loads once the first screen has painted (on idle time, or at once when you open one
@@ -18,6 +18,23 @@ How ready you are and the trip's memories (lib/memories.js), Near you on Today (
 for a new trip (screens/quickstart.js) come with the second: none is on a first screen before the second script is
 in (W.whenLater runs a step once it is: the very first open asks its three questions that way).
 The offline copy carries both scripts and both stylesheets.
+
+**The desktop workspace (v153).** On a window 1024px wide or more the app is panes: a rail (screens/rail.js), the
+screen you are on, and the street map beside the days (lib/deskmap.js); lib/desk.js holds the workspace's own state
+(which panes, how wide: per device, localStorage "waypoint-ws") and its shell. Three layers stay apart: the trip's
+state is W.S as ever (the workspace keeps none of it, so a window made narrow and wide again loses nothing); the
+screens draw into the middle pane exactly as they draw on a phone or a tablet, asking only W.desk() (is the workspace
+on) and W.paneW() (how wide is my pane) where a phone would ask the window; the map pane shows what the screens
+publish (W.deskPts, W.deskIdeas) and ties a card to its pin by the slot's key. The styles: a wide window loads
+`app.desk.css` in place of the two phone stylesheets (lib/later.js). It is the whole of app.css with every @media
+width rule written again as a container query on the pane, `.wrap` (build/bundle.js deskCss: the original, stopped at
+1023px when it is a min-width rule, then `@media (min-width:1024px){@container ws (...){...}}`; rules for the header
+and the sheets, which sit outside the pane, are left as they are), then `desk.css`. So one set of rules lays a screen
+out in a 440px pane, a 1200px pane or a phone, and a new width rule in app.css needs nothing more to work on the
+desktop. The middle pane scrolls with the window (the rail and the map are fixed), so everything that scrolls the
+page works unchanged. A stop's sheet, the stay and the day trip are inspectors there (the same elements, docked by
+desk.css; aria-modal false). screens/palette.js is the keyboard (Ctrl/Cmd+K, [ and ]). Below 1024px none of it runs
+and app.desk.css is never fetched.
 Travel mode stays in the first script on purpose: on the trip it is the first screen, often on a weak signal. What the
 first screen reads from Prepare (the book-by checklist, the budget, which booking belongs to a stop) is lib/bookcore.js,
 with W.money and "Prices in": each phone shows costs as listed or all in one currency (localStorage "waypoint-cur"),
@@ -47,7 +64,13 @@ lib/              the shared library
                   own private corner of the database, data/users/<you>/errlog/d/<YYYY-MM-DD> ({items: [{msg, at, stack,
                   view, tv, build, ua, w, on, n}], updated}). Nothing personal: the message, where in the code, which
                   screen, the build, the browser and the screen width. Read it with ArtifactData get on that path.
-  later.js        loads app2.js (above); loaded right after errlog.js
+  later.js        loads app2.js (above); loaded right after errlog.js. Also: whether the desktop workspace is on
+                  (W.desk, W.paneW) and its stylesheet, app.desk.css, fetched only by a wide window
+  desk.js         (second script) the desktop workspace's state and shell: panes, the handle, the pane's scroll bar,
+                  its buttons (data-ws), what a card carries there (quick actions, the day's line)
+  deskmap.js      (second script) the workspace's map pane: pins, the ways between them, Explore's ideas, the tie
+                  between a card and its pin, the route as a list where there is no street map
+  csv.js          (second script) W.saveFile, the one way a file leaves the app, and the itinerary as CSV
   typeahead.js    (second script) a country, city or airport box: a short list of matches under the box once you
                   type, the best known first (W.countryRank, W.builtIn); part of the page, never over the keyboard
   back.js         the Back button in the installed app: what opens on top of the screen is one entry in the browser's
@@ -234,7 +257,9 @@ screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.
                   at; Today shows Now and Next in one card with the way to what is next as its one main button, the
                   route under it, and the day bag and journal folded to a line outside their time of day. flow.js has
                   the next-step bar, undo and drag to reorder; sheet.js (second script) is a stop's sheet (Directions,
-                  tickets and Swap first, then the facts, then the rarer changes); daytrip.js (second script) is "Make it a day
+                  tickets and Swap first, then the facts, then the rarer changes; W.moveStop, the one way a stop goes to another
+                  day); alldays.js (second script) is All days and the day's headline and effort bars; rail.js and
+                  palette.js (second script) are the desktop workspace's rail and keyboard; daytrip.js (second script) is "Make it a day
                   trip": the places an easy day out from a day's town, or any other, and the day planned again there
                   (S.dayTrip); setup.js also draws where to stay as a sheet over any
                   screen (W.staySheet); quickstart.js (second script) the three questions for a
@@ -289,6 +314,14 @@ Checks (node test/run.js, from the folder above trip/)
   money         Prices in: as listed by default; dollars converted with "≈"; text prices ("€15, book ahead", "£8–12");
                 no rate stays as listed; the choice in Prepare's Budget and in Settings, kept on the phone, not in the
                 trip; Prepare's tabs stay in one place whichever tab is open.
+  daytrip       a day trip day: the choice at the end of a full day, a typed place, the day planned there, the
+                planner's own day trips keeping off it, Undo and "Undo day trip", none on a rest day.
+  workspace     the desktop workspace (1024px and wider): the three panes and their sizes, the rail's views and days,
+                the day drawn for its pane, the map pane's list where there is no street map, a card and its pin
+                (a stand-in pin: the tests have no map pack), the inspector beside the plan, the keyboard, moving a
+                stop by its quick action and by dropping it on a day in the rail, what to show, folding the rail, the
+                handle, hiding the map, All days, Plan and Prepare in columns, the CSV, two panes at 1100px, and at
+                800px the phone layout with the same day and open stop; a phone never fetches app.desk.css.
   clock         one clock: a phone in Rome and one in Los Angeles see the same Now and Next at the same moment; "Rome
                 time" shown when the trip's clock is not the phone's; the date turns over there first; before and
                 after the trip the phone's own clock; the zones of countries with several.
@@ -320,7 +353,8 @@ Checks (node test/run.js, from the folder above trip/)
                 after the tap's own frame has painted (they used to redraw and replan five times before it); Prepare
                 builds only the open segment's markup; norm() and findCity() are memoized.
   desktop       the app with a mouse, from a 600 px side panel (the phone layout, as in the Claude app's artifact panel)
-                to a 1920 px monitor, on a seven-place trip: every screen passes the phone's clipping checks and never
+                to a 1920 px monitor (from 1024 px the desktop workspace: there the rail's days and the trip menu in
+                the rail take the place of the page's day arrows, view switch and tabs), on a seven-place trip: every screen passes the phone's clipping checks and never
                 scrolls sideways, and what a phone lets you swipe is reachable without swiping: stays shrink to fit and
                 then wrap to an even second row, the Prepare tabs wrap, the previous/next day arrows stay at every width,
                 the trip menu opens under the trip's name wherever the banner puts it, and the kids' corner stays

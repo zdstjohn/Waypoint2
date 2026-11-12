@@ -1,19 +1,5 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v152: the header gradient ends a deeper red (every screen with the header), badge colours in dark mode, Today's
-# compact First up / Next and After that, Explore's one Add per idea, Plan's stop rows (what the place is under the row)
-# and Where to stay without the Booking.com search, the food line, To book's "Did you book these?", 44px touch sizes,
-# "Make it a day trip" at the end of a day, and desktop banners filling their band.
-today-*
-trip-days-*
-trip-all-*
-explore-*
-book-*
-setup-*
-setup-open-*
-stop-panel-*
-meal-panel-*
-swap-*
-menu-*
-recap-*
-settings-*
+# v153: the desktop workspace. Every screen at the desktop size (1440px) is laid out anew: a rail, the screen, the map
+# pane. No phone, large-text, dark-phone or tablet (900px) screen is listed, and none may change.
+*-desk-*

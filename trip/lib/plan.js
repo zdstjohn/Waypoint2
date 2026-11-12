@@ -953,7 +953,17 @@
         var num = function (v) {
           return typeof v === "number" && isFinite(v) ? v : null;
         };
-        if (m) d.trip = { country: d.country, name: m.name.trim().slice(0, 60), lat: num(m.lat), lng: num(m.lng), min: num(m.min), why: "mine", mine: 1, planned: true };
+        if (m)
+          d.trip = {
+            country: d.country,
+            name: m.name.trim().slice(0, 60),
+            lat: num(m.lat),
+            lng: num(m.lng),
+            min: num(m.min),
+            why: "mine",
+            mine: 1,
+            planned: true
+          };
       });
     });
 

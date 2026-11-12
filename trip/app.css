@@ -74,6 +74,8 @@ button,input,select{font:inherit;color:inherit}
 a{color:var(--accent);text-underline-offset:3px}
 :focus-visible{outline:2.5px solid var(--note);outline-offset:3px}
 .wrap{max-width:1180px;margin:0 auto}
+/* a wide window waits for the desktop workspace (lib/later.js) instead of flashing the phone layout stretched */
+@media (min-width:1024px){html.ws-wait .wrap{visibility:hidden}}
 .muted{color:var(--muted)}
 .small{font-size:var(--t-ui)}
 .scribble{font-family:var(--f-body);font-weight:700;color:var(--note-text);font-size:var(--t-body);line-height:1.4}

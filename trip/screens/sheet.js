@@ -20,7 +20,7 @@
     no: W.icon("no", 2.2)
   };
   var XI =
-      '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
+    '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
   /** @type {{key: string, slot: string, mode: string, ask?: string} | null} */
   var sheet = null,
     drawn = "",
@@ -104,7 +104,9 @@
       nm = W.SLOT_NAME[x.slot],
       can = W.canEdit();
     var h =
-      '<div class="sheet-back" data-sheetclose="1"></div><div class="sheet" role="dialog" aria-modal="true" tabindex="-1" aria-label="' +
+      '<div class="sheet-back" data-sheetclose="1"></div><div class="sheet" role="dialog" aria-modal="' +
+      (W.desk() ? "false" : "true") +
+      '" tabindex="-1" aria-label="' +
       esc(it.n) +
       '"><div class="grab" aria-hidden="true"></div>' +
       '<div class="sh-top"><div><b>' +
@@ -171,11 +173,7 @@
         IC.dir +
         "Directions</a>" +
         (tix ? '<a class="btn quiet" href="' + esc(tix.url) + '" target="_blank" rel="noopener">' + IC.ticket + esc(tix.t) + "</a>" : "") +
-        (can
-          ? '<button type="button" class="btn quiet" data-sheetact="swap">' +
-            IC.swap +
-            "Swap</button>"
-          : "") +
+        (can ? '<button type="button" class="btn quiet" data-sheetact="swap">' + IC.swap + "Swap</button>" : "") +
         "</div>" +
         (W.stopDetails ? W.stopDetails(P, day, x, { noMain: !!tix }) : "") +
         (can ? '<div class="sh-change"><p class="sh-h">Change this stop</p>' + moreBlock(it, x, day, nm) + "</div>" : "");
@@ -225,12 +223,18 @@
     sheet = { key: key, slot: x.slot, mode: "acts" };
     drawn = "";
     draw();
+    if (W.deskSheet) W.deskSheet();
+  };
+  /** the stop whose sheet is open ("" when none): the desktop workspace marks its card and its pin */
+  W.sheetKey = function () {
+    return sheet ? sheet.key : "";
   };
   /** close it: true when it was open */
   W.sheetClose = function () {
     if (!sheet) return false;
     sheet = null;
     draw();
+    if (W.deskSheet) W.deskSheet();
     return true;
   };
   /** the day was drawn again: the sheet follows what changed (a photo that arrived, a booking found) */
@@ -309,27 +313,44 @@
       W.changed();
     }
   }
+  /** a stop to the same part of another day in the same place: the two trade places (this sheet, and on the desktop
+      a card dropped on a day in the rail or its "a day earlier / later"). True when it moved.
+      @param {string} key @param {number} n */
+  W.moveStop = function (key, n) {
+    var P = W.P,
+      has = function (d) {
+        return (d.slots || []).filter(function (z) {
+          return z.key === key;
+        })[0];
+      },
+      from = P.days.filter(has)[0],
+      to = P.days[+n - 1];
+    if (!from || !to || to === from || to.stop !== from.stop || !W.canEdit()) return false;
+    var x = has(from),
+      y = (to.slots || []).filter(function (z) {
+        return z.slot === x.slot;
+      })[0];
+    if (!x || !y) return false;
+    var before = W.snapState();
+    /* make sure both names are stored, then swap */
+    if (x.item) W.S.picks[x.key] = x.item.n;
+    if (y.item) W.S.picks[y.key] = y.item.n;
+    W.exchangeStops(x.key, y.key);
+    W.undoPoint(before, "Moved to Day " + to.n);
+    W.save();
+    W.changed();
+    return true;
+  };
   /* to the same part of another day in this town: the two trade places */
   function move(n) {
     var P = W.P,
       day = today(),
       x = entry(day),
       d = P.days[+n - 1];
-    var y =
-      d &&
-      (d.slots || []).filter(function (z) {
-        return x && z.slot === x.slot;
-      })[0];
-    if (!x || !y) return;
-    var before = W.snapState();
-    /* make sure both names are stored, then swap */
-    if (x.item) W.S.picks[x.key] = x.item.n;
-    if (y.item) W.S.picks[y.key] = y.item.n;
-    W.exchangeStops(x.key, y.key);
+    if (!x || !d) return;
+    var key = x.key;
     W.sheetClose();
-    W.undoPoint(before, "Moved to Day " + d.n);
-    W.save();
-    W.changed();
+    W.moveStop(key, d.n); /* (one way to move a stop to another day: screens/flow.js) */
   }
   /* its own buttons, before the views' handlers; a tap beside the sheet closes it */
   document.addEventListener(

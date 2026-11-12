@@ -15,11 +15,84 @@
   var cssDone = !!window.__WP_LATER,
     jsDone = false,
     cssAsked = false;
+  /* ---------- the desktop workspace (v153): its stylesheet, and whether it is on ----------
+     On a window 1024px wide or more the app is a workspace of panes (lib/desk.js, screens/rail.js, lib/deskmap.js).
+     Its stylesheet, app.desk.css, is the whole of app.css with every width rule following the pane the app is drawn
+     in, not the window (build/bundle.js deskCss); once it is in, the two phone stylesheets are switched off, so only
+     one set of rules is ever in force. It is fetched only by a wide window (a phone never asks for it), and the page
+     is held back until it and the second script are here, so the old layout never flashes first. A copy that cannot
+     get it (the offline file, a failed request) keeps the layout it had. */
+  var html = document.documentElement,
+    mq = typeof window.matchMedia === "function" && !window.__WP_LATER ? window.matchMedia("(min-width:1024px)") : null,
+    deskCss = "idle";
+  /** the workspace is on: a wide window, its stylesheet in force, its code here */
+  W.desk = function () {
+    return deskCss === "ready" && !!mq && mq.matches && W.laterReady && !!W.deskOn;
+  };
+  /** the width the app's screens are drawn in: the window's, or on the workspace the pane's (inside its padding, which
+      is what the stylesheet's container rules measure too) */
+  W.paneW = function () {
+    var w = W.desk() ? /** @type {HTMLElement | null} */ (document.querySelector(".wrap")) : null;
+    if (!w || !w.clientWidth) return window.innerWidth;
+    var cs = getComputedStyle(w);
+    return w.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+  };
+  function unhold() {
+    html.classList.remove("ws-wait");
+  }
+  function deskSheet() {
+    if (deskCss !== "idle" || !mq || !mq.matches) return false;
+    deskCss = "loading";
+    var l = document.createElement("link");
+    l.rel = "stylesheet";
+    l.href = "app.desk.css";
+    l.onload = function () {
+      deskCss = "ready";
+      /* (the same rules and more, in the same order: the phone sheets step aside) */
+      document.querySelectorAll('link[rel="stylesheet"]').forEach(function (x) {
+        var h = x.getAttribute("href") || "";
+        if (x !== l && /^app(\.min|2)\.css/.test(h)) /** @type {HTMLLinkElement} */ (x).disabled = true;
+      });
+      cssDone = true;
+      ready();
+      if (W.laterReady) {
+        unhold();
+        W.changed();
+      }
+    };
+    l.onerror = function () {
+      deskCss = "off";
+      unhold();
+      if (!cssDone) phoneSheet();
+    };
+    document.head.appendChild(l);
+    return true;
+  }
+  function phoneSheet() {
+    if (cssAsked) return;
+    cssAsked = true;
+    var l = document.createElement("link");
+    l.rel = "stylesheet";
+    l.href = "app2.css";
+    if (deskCss === "ready") l.disabled = true;
+    l.onload = l.onerror = function () {
+      cssDone = true;
+      ready();
+    };
+    setTimeout(function () {
+      if (!cssDone) {
+        cssDone = true;
+        ready();
+      }
+    }, 6000);
+    document.head.appendChild(l);
+  }
   /** @type {(() => void)[]} */ var waiting = [];
   function done() {
     if (W.laterReady) return;
     W.laterReady = true;
     W.laterLoading = false;
+    unhold();
     var q = waiting;
     waiting = [];
     q.forEach(function (f) {
@@ -45,23 +118,16 @@
   W.loadLater = function () {
     if (W.laterReady || W.laterLoading || window.__WP_LATER) return;
     W.laterLoading = true;
-    if (!cssAsked && !cssDone) {
-      cssAsked = true;
-      var l = document.createElement("link");
-      l.rel = "stylesheet";
-      l.href = "app2.css";
-      l.onload = l.onerror = function () {
+    /* a wide window gets the workspace's stylesheet in place of app2.css (it holds those rules too) */
+    if (!cssDone && deskCss === "idle" && !deskSheet()) phoneSheet();
+    else if (!cssDone && deskCss === "off") phoneSheet();
+    setTimeout(function () {
+      if (!cssDone) {
         cssDone = true;
+        unhold();
         ready();
-      };
-      setTimeout(function () {
-        if (!cssDone) {
-          cssDone = true;
-          ready();
-        }
-      }, 6000);
-      document.head.appendChild(l);
-    }
+      }
+    }, 6000);
     var s = document.createElement("script");
     s.src = "app2.js";
     s.charset = "utf-8";
@@ -109,5 +175,20 @@
     } catch (e) {}
     if (!watching) idle();
     setTimeout(go, 4000);
+  }
+  /* a wide window: ask for the workspace at once and hold the page until it is here (3 s at most); a window made wide
+     later (a tablet turned, a browser window stretched) gets it then */
+  if (mq) {
+    if (mq.matches) {
+      html.classList.add("ws-wait");
+      setTimeout(unhold, 3000);
+      W.loadLater();
+    }
+    var widened = function () {
+      if (mq && mq.matches && deskCss === "idle") deskSheet();
+      W.changed();
+    };
+    if (mq.addEventListener) mq.addEventListener("change", widened);
+    else if (mq.addListener) mq.addListener(widened);
   }
 })();

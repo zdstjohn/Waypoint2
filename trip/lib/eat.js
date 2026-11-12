@@ -95,7 +95,10 @@
       .split(/,|;|\/|\band\b|\bor\b|\+/)
       .map(function (x) {
         return W.norm(x)
-          .replace(/\b(very|really|food|foods|dishes|dish|anything|lots of|any|good|great|kind of|kinds of|we|our|love|like|the|a|an)\b/g, " ")
+          .replace(
+            /\b(very|really|food|foods|dishes|dish|anything|lots of|any|good|great|kind of|kinds of|we|our|love|like|the|a|an)\b/g,
+            " "
+          )
           .replace(/\s+/g, " ")
           .trim();
       })

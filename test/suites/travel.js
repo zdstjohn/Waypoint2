@@ -63,7 +63,7 @@ exports.run = async t => {
   t.ok(await pg.evaluate(() => !document.documentElement.classList.contains('travel')), 'the Today footer can turn Travel mode off');
   /* Today's map: the lettered pins only. No line from pin to pin (a straight line is a flight path, not the way you walk) */
   const vt = await pg.evaluate(() => fetch('lib/vtmap.js').then(r => r.text()));
-  t.ok(vt.length > 20000 && !/id: "route/.test(vt) && !/route: \{ type: "geojson"/.test(vt) && !/getSource\("route"\)/.test(vt) && /pinEl\(/.test(vt), 'the street map draws the day\'s pins and no line between them (no route layer, no route source)');
+  t.ok(vt.length > 20000 && !/id: "route/.test(vt) && !/route: \{ type: "geojson"/.test(vt) && !/getSource\("route"\)/.test(vt) && /pinEl\(/.test(vt), 'the street map draws the day\'s pins and no route line between them (the desktop workspace alone asks for thin links between pins, W.vtLegs: workspace.js)');
   t.eq(errors(), [], 'no page errors');
   await ctx.close();
 

@@ -6,7 +6,7 @@ import os, shutil, subprocess, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))); REPO = os.path.join(ROOT, "repo")
 ITEMS = ["trip", "test", "tools", "types", "judge", "csp_server.py", "vercel.json", "tsconfig.json", "tsconfig.strict.json", "package.json", "package-lock.json", ".gitignore", ".prettierrc.json", ".github", "supabase"]
 SKIP_DIRS = {"node_modules", "__pycache__", "out", "base", "diffout", "after", "styles-after", "styles-base", "src", "trial"}
-BUILT = {os.path.join("trip", "app.js"), os.path.join("trip", "app.min.css"), os.path.join("trip", "app.js.map"), os.path.join("trip", "app2.js"), os.path.join("trip", "app2.js.map"), os.path.join("trip", "app2.css")}   # npm run build makes these
+BUILT = {os.path.join("trip", "app.js"), os.path.join("trip", "app.min.css"), os.path.join("trip", "app.js.map"), os.path.join("trip", "app2.js"), os.path.join("trip", "app2.js.map"), os.path.join("trip", "app2.css"), os.path.join("trip", "app.desk.css")}   # npm run build makes these
 def keep(rel):
     parts = rel.split(os.sep)
     if any(p in SKIP_DIRS for p in parts[:-1]) or rel in BUILT: return False

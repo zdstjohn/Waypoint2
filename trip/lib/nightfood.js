@@ -87,7 +87,8 @@
       if (have[W.placeKey(x)] || have[W.norm(x.n)]) return;
       /* (a mark from the nightly finder counts only when made for the food needs as they are now; any other is left for
          the check here, lib/asks.js W.loadEatFit) */
-      if (x.fit && sig && (x0.sig === sig || doc.sig === sig)) x.eat = { f: x.fit, w: x.fitw || "", l: W.eatLikeOf ? W.eatLikeOf(x.like) : 0, sig: sig };
+      if (x.fit && sig && (x0.sig === sig || doc.sig === sig))
+        x.eat = { f: x.fit, w: x.fitw || "", l: W.eatLikeOf ? W.eatLikeOf(x.like) : 0, sig: sig };
       delete x.fit;
       delete x.fitw;
       delete x.like;

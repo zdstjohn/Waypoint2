@@ -500,7 +500,8 @@
           num: mapPts.length + 1,
           i: mapPts.length + 1,
           food: !!e.food,
-          slot: e.x.slot
+          slot: e.x.slot,
+          key: e.x.key
         });
       }
     });
@@ -509,16 +510,29 @@
           ? W.vtFor(day.country, day.city, home.lat, home.lng)
           : null,
       mapIn = "",
-      vtWant = null;
-    var mapBtn = vtSlug
-      ? '<button type="button" class="chip go-mapbtn" data-gomap="1" aria-expanded="' +
-        goMapOpen +
-        '">' +
-        W.icon("map", 2.1) +
-        (goMapOpen ? "Hide map" : "Map") +
-        "</button>"
-      : "";
-    if (vtSlug && goMapOpen) {
+      vtWant = null,
+      /* on the desktop workspace the map has its own pane (lib/deskmap.js), fed from here */
+      paneMap = !!(W.deskSplit && W.deskSplit());
+    W.deskPts = {
+      n: day.n,
+      country: day.country,
+      city: day.city,
+      pts: mapPts,
+      home: home.none ? null : home,
+      slug: vtSlug,
+      xp: false,
+      go: true
+    };
+    var mapBtn =
+      vtSlug && !paneMap
+        ? '<button type="button" class="chip go-mapbtn" data-gomap="1" aria-expanded="' +
+          goMapOpen +
+          '">' +
+          W.icon("map", 2.1) +
+          (goMapOpen ? "Hide map" : "Map") +
+          "</button>"
+        : "";
+    if (vtSlug && goMapOpen && !paneMap) {
       var vtOn = !!W.vtActive();
       mapIn =
         '<div class="go-map"><div class="zoom" role="group" aria-label="Map zoom"><button type="button" class="icon-btn" data-zoom="out" aria-label="Zoom out">−</button><button type="button" class="icon-btn" data-zoom="in" aria-label="Zoom in">+</button>' +

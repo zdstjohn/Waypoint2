@@ -717,30 +717,22 @@
         }
         var blob = doc.output("blob"),
           file = (name.replace(/[^\w\- ]+/g, "").trim() || "Trip") + ".pdf";
-        return (window.claude && window.claude.use ? window.claude.use("downloads") : Promise.resolve(null))
-          .then(function (dl) {
-            if (!dl) {
-              doc.save(file);
-              return { status: "saved" };
-            }
-            return dl.save({ filename: file, data: blob });
-          })
-          .then(
-            function () {
-              pdf = { state: "done" };
-              W.render();
-            },
-            function (e) {
-              pdf =
-                e && e.code === "declined"
-                  ? { state: "idle" }
-                  : {
-                      state: "error",
-                      msg: e && e.code === "unavailable" ? "Downloads aren't available in this view." : "Couldn't save the PDF. Try again."
-                    };
-              W.render();
-            }
-          );
+        return W.saveFile(file, blob).then(
+          function () {
+            pdf = { state: "done" };
+            W.render();
+          },
+          function (e) {
+            pdf =
+              e && e.code === "declined"
+                ? { state: "idle" }
+                : {
+                    state: "error",
+                    msg: e && e.code === "unavailable" ? "Downloads aren't available in this view." : "Couldn't save the PDF. Try again."
+                  };
+            W.render();
+          }
+        );
       })
       .catch(function () {
         pdf = { state: "error", msg: "Couldn't make the PDF. Check your connection and try again." };
@@ -823,7 +815,8 @@
   /* a group you folded stays folded; Booked starts folded */
   function isShut(key) {
     var f = fold();
-    return f[key] === undefined ? key === "u-done" || key === "u-past" : !!f[key];
+    /* (on the desktop workspace every group starts open: there is room, and nothing hides behind a tap) */
+    return f[key] === undefined ? !W.desk() && (key === "u-done" || key === "u-past") : !!f[key];
   }
   function fold() {
     if (!foldMem) {
@@ -899,7 +892,12 @@
      the compact copy beside To book and Booked on a big screen (no currency choice, no card: the Budget tab has them) */
   /* a big screen: To book and Booked keep the left column, the budget and the rest stack on the right (app.css) */
   function wide() {
-    return window.innerWidth >= 1100;
+    return W.paneW() >= 1100;
+  }
+  /* the desktop workspace, with room for it: every part of Prepare on one page in columns (To book, Booked and the
+     budget, packing and taking it along), instead of five tabs showing one part at a time */
+  function board() {
+    return W.desk() && W.paneW() >= 900;
   }
   function budgetSeg(P, side) {
     var bud = W.budget(P),
@@ -1197,7 +1195,11 @@
           ["later", "To book"],
           ["done", "Booked"]
         ];
-    var seg = S.prepTab || "tobook";
+    var seg = S.prepTab || "tobook",
+      all = board(),
+      on = function (k) {
+        return all || seg === k;
+      };
     var groupHtml = function (g) {
       /* by deadline, then by day; on the same day the trip's order: getting there, where you sleep, then the day's tickets and tables */
       var ORD = { flight: 0, transport: 1, stay: 2, activity: 3, food: 4 };
@@ -1244,8 +1246,8 @@
       );
     };
     /* only the open segment's markup is built: a tap on Prepare paints one list, not five */
-    var groups = seg === "tobook" ? BK.slice(0, -1).map(groupHtml).join("") : "",
-      doneGroup = seg === "booked" ? groupHtml(BK[BK.length - 1]) : "";
+    var groups = on("tobook") ? BK.slice(0, -1).map(groupHtml).join("") : "",
+      doneGroup = on("booked") ? groupHtml(BK[BK.length - 1]) : "";
     /* one line on top: how many are left and the next deadline */
     var nextAll = list
       .filter(function (c) {
@@ -1256,7 +1258,11 @@
       })[0];
     var top =
       (left ? left + " to book" : "All booked") +
-      (nextAll ? " · next: " + esc(nextAll.short || nextAll.title) + (nextAll.by < today ? ", now" : " by " + fmtDay(nextAll.by, { month: "short", day: "numeric" })) : "") +
+      (nextAll
+        ? " · next: " +
+          esc(nextAll.short || nextAll.title) +
+          (nextAll.by < today ? ", now" : " by " + fmtDay(nextAll.by, { month: "short", day: "numeric" }))
+        : "") +
       (S.start ? "" : ' · add your start date under <a href="#plan" data-view="setup">Plan</a> for book-by dates');
     var nBook = left,
       nBooked =
@@ -1299,7 +1305,12 @@
         );
       }).join("") +
       "</div>";
-    if (seg === "tobook") {
+    /* (the desktop's columns: each part marked, so the rail can go to it) */
+    var col = function (k) {
+      return all ? '<div class="bv-col" data-wssec="' + k + '">' : "";
+    };
+    if (on("tobook")) {
+      h += col("tobook");
       h += section(
         "To book",
         top,
@@ -1313,7 +1324,7 @@
               "</p>"),
         "bk-ahead"
       );
-      if (wide()) h += budgetSeg(P, true);
+      if (wide() && !all) h += budgetSeg(P, true);
       if (!ro)
         h +=
           section(
@@ -1330,28 +1341,32 @@
           );
     }
 
+    if (all) h += '</div><div class="bv-col" data-wssec="booked">';
+
     /* your bookings */
-    if (seg === "booked") {
+    if (on("booked")) {
       h += bookedSeg(P, list, doneGroup, ro, nBooked);
-      if (wide()) h += budgetSeg(P, true);
+      if (wide() && !all) h += budgetSeg(P, true);
     }
 
     /* budget */
-    if (seg === "budget") {
-      h += budgetSeg(P);
+    if (on("budget")) {
+      h += (all ? '<div data-wssec="budget">' : "") + budgetSeg(P) + (all ? "</div>" : "");
     }
+    if (all) h += '</div><div class="bv-col" data-wssec="pack">';
 
     /* what to pack and sort out, read off the plan */
-    if (seg === "pack") h += W.packBlock ? W.packBlock(P) : (W.needLater && W.needLater(), '<p class="loading later-wait">Loading…</p>');
+    if (on("pack")) h += W.packBlock ? W.packBlock(P) : (W.needLater && W.needLater(), '<p class="loading later-wait">Loading…</p>');
+    if (all) h += '<div data-wssec="take">';
     /* the plan in your calendar, as a PDF, or as an offline copy */
-    if (seg === "take" && window.__WP_OFFLINE)
+    if (on("take") && window.__WP_OFFLINE)
       h += section(
         "Take along",
         "You're in the offline copy. To add the trip to your calendar, make a PDF or save a newer copy, open Waypoint when you're online.",
         "",
         "bk-take"
       );
-    else if (seg === "take")
+    else if (on("take"))
       h += section(
         "Take along",
         "The trip on this phone for no-signal days, each stop as a timed event in your own calendar, the whole plan as a PDF, or an offline copy of the app with this trip inside.",
@@ -1360,7 +1375,11 @@
       );
     W.keepInputs(el, function () {
       /* edited in place (lib/patch.js), so a tap is not lost to a redraw that comes while the finger is down */
-      W.draw(el, '<div class="bookview">' + h + "</div>", "book|" + seg + "|" + (S.tripId || ""));
+      W.draw(
+        el,
+        '<div class="bookview' + (all ? " ws-all" : "") + '">' + h + (all ? "</div></div>" : "") + "</div>",
+        "book|" + (all ? "all" : seg) + "|" + (S.tripId || "")
+      );
     });
     if (tickFx) {
       var j = el.querySelector(".chk.just");

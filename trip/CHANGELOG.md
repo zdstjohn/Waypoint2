@@ -2,6 +2,51 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v153
+
+The desktop workspace. On a window 1024px wide or more Waypoint is no longer the phone's page stretched: it is three
+panes (two from 1024 to 1279px). Below 1024px nothing changed: every phone and tablet screen is the same picture as
+in v152, and the workspace's stylesheet is never fetched there.
+- The panes (new lib/desk.js, trip/desk.css). A rail on the left (264 to 280px; a 64px strip of icons and day
+  numbers below 1280px or when folded), the screen you are on in the middle (440 to 500px beside the map, with its own
+  scroll bar at its own edge), and the street map on the right for as long as you look at days (the itinerary,
+  Explore, Today). All days, Plan, Prepare, the kids' corner and Settings take the whole width instead. A handle
+  between the plan and the map resizes them (drag, arrow keys, double-click to reset); buttons fold the rail, hide the
+  map, or show the map alone. What you chose is kept per device (localStorage "waypoint-ws"), never in the trip.
+- How it is built: the screens' own width rules follow the pane, not the window. A wide window loads app.desk.css in
+  place of the two phone stylesheets (lib/later.js): the whole of app.css with every @media width rule written again
+  as a container query on the pane (build/bundle.js deskCss), then desk.css. So a 440px pane lays its cards out as a
+  phone does and a 1200px pane as a big screen does, and the phone's stylesheets are byte for byte what they were.
+  The page is held back until the workspace is here, so the old layout never flashes first; if its stylesheet cannot
+  be had (the offline copy), the layout stays as it was.
+- The rail (new screens/rail.js): the trip switcher and the next step (the phone's own elements, moved), the views
+  (Plan, Itinerary, All days, Explore ideas, Today, Prepare and its five parts), every day of the trip grouped by
+  where you stay (the day's headline, date and effort; a click goes there), what the plan and the map show (Things to
+  do, Meals), and tools: Jump to, Export itinerary (CSV), Import and backups.
+- The map pane (new lib/deskmap.js): the day's lettered pins, the ways between them as thin dashed links (straight
+  ones: they show the order; the list gives each way's real time), and on Explore the ideas as small pins. A card and
+  its pin light each other up under the pointer, a way in the list and its link too. A click on a pin opens the stop
+  beside the plan. A place with no street map shows the day's route as a list with the way to Google Maps.
+- A stop, a meal, Where to stay and Make it a day trip open as an inspector beside the plan: no dimmed page, the plan
+  still scrolls, the map stays live, the open stop's card and pin are marked, Esc closes it.
+- The day, denser: a line adds the day up (stops, time getting around, first and last hour, booked); each way between
+  two stops says how long there is to spare; each card has quick actions on hover or focus (drag, open, a day earlier,
+  a day later, show on the map). A card dragged by its handle onto a day in the rail moves there (the same place only);
+  one way of moving a stop now (W.moveStop, screens/sheet.js), used by the sheet, the quick actions and the drop.
+- Wide screens in columns: Plan's steps side by side and open; Prepare as one page of three columns (To book; Booked
+  and Budget; Pack and Take along) with no tabs; All days as a grid. Folded lists start open on the desktop. Long
+  text is no wider than about 65 characters.
+- The keyboard (new screens/palette.js): Ctrl or Cmd + K opens a palette to jump to any day, place or screen; [ and ]
+  go to the day before and after; Esc closes the palette and the inspector.
+- The itinerary as a file (new lib/csv.js): one row per stop with day, date, times, place, how you get there and
+  whether it is booked; a name starting with = is written as text. W.saveFile is now the one way a file leaves the
+  app (the saved copy of your trips, the PDF and the offline copy used three copies of the same code).
+- Moved to the second script: All days (new screens/alldays.js, with the day headline and effort bars the rail
+  shares). First load stays under 520 KB.
+- Tests: new suite workspace (55 checks: the panes, the map pane without a map, card and pin, the inspector, the
+  keyboard, moving a stop, the columns, the CSV, narrow and wide again with nothing lost, and a phone that loads none
+  of it); desktop follows the workspace from 1024px; evo/v153/check.js runs the same with Rome's real street map.
+
 ## v152
 
 Your requests after v151: a smaller "First up", booking reminders that follow the trip's clock, one Add per idea in

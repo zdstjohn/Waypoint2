@@ -701,7 +701,15 @@
     run(
       "eatlove|" + ck,
       foodAsk(
-        "List " + LOVED_ASK + " MORE places to eat in " + city + ", " + country + " that are especially good for what this group loves: " + n.love + ".",
+        "List " +
+          LOVED_ASK +
+          " MORE places to eat in " +
+          city +
+          ", " +
+          country +
+          " that are especially good for what this group loves: " +
+          n.love +
+          ".",
         namesOf(cur, "food")
       ),
       "default",

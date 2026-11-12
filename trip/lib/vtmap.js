@@ -990,6 +990,15 @@
       el = a;
     }
     el.className = "vt-pin" + (many ? " many" : ps[0].food ? " food" : "");
+    /* (which stops this pin stands for: the desktop workspace lights a pin and its card up together) */
+    el.setAttribute(
+      "data-keys",
+      ps
+        .map(function (p) {
+          return p.key || "";
+        })
+        .join(" ")
+    );
     el.innerHTML = "<b>" + nums + "</b><span>" + W.esc(ps[0].n) + (many ? " +" + (ps.length - 1) : "") + "</span>";
     el.setAttribute(
       "aria-label",
@@ -1050,6 +1059,7 @@
       var ll = S.map.unproject([g.x, g.y]);
       S.pinMarkers.push(new ML.Marker({ element: pinEl(g), anchor: "left", offset: [-13, 0] }).setLngLat(ll).addTo(S.map));
     });
+    if (S.onPins) S.onPins(); /* (new pin elements: the desktop workspace marks the lit and the open one again) */
   }
   function setPins(pts, home) {
     S.markers.forEach(function (m) {
@@ -1068,9 +1078,106 @@
       S.markers.push(new ML.Marker({ element: pinEl({ home: 1 }) }).setLngLat([home.lng, home.lat]).addTo(S.map));
     S.pinPts = all;
     groupPins();
-    /* (no line between the stops: a straight line from pin to pin is a flight path, not the way you would walk or
-       ride; the lettered pins say the order, and the list beside the map gives each hop's real way and time) */
+    /* (no line between the stops on a phone: a straight line from pin to pin is a flight path, not the way you would
+       walk or ride; the lettered pins say the order, and the list gives each hop's real way and time. The desktop
+       workspace asks for the hops as thin dashed links, W.vtLegs below, so a hop in the list can be found on the map) */
   }
+  /* ---------- for the desktop workspace (lib/deskmap.js) ---------- */
+  /** the day's hops as dashed links between its pins, in order; null or [] takes them away. Each is {id, a: [lng, lat],
+      b: [lng, lat]}; onHover(id | "") is told which one the pointer is over @param {any[] | null} legs */
+  W.vtLegs = function (legs, onHover) {
+    if (!S.map || !S.ready) return false;
+    var data = {
+      type: "FeatureCollection",
+      features: (legs || []).map(function (l) {
+        return { type: "Feature", properties: { id: l.id }, geometry: { type: "LineString", coordinates: [l.a, l.b] } };
+      })
+    };
+    try {
+      var src = S.map.getSource("legs");
+      if (src) src.setData(data);
+      else {
+        var dark = palette().dark,
+          none = ["==", ["get", "id"], ""];
+        S.map.addSource("legs", { type: "geojson", data: data });
+        S.map.addLayer({
+          id: "legs",
+          type: "line",
+          source: "legs",
+          layout: { "line-cap": "round" },
+          paint: { "line-color": dark ? "#F1EADC" : "#2E2A27", "line-width": 2, "line-opacity": 0.5, "line-dasharray": [0.6, 2.2] }
+        });
+        S.map.addLayer({
+          id: "legs-hi",
+          type: "line",
+          source: "legs",
+          filter: none,
+          layout: { "line-cap": "round" },
+          paint: { "line-color": dark ? "#F29274" : "#C2452D", "line-width": 5, "line-opacity": 0.9 }
+        });
+        S.map.addLayer({
+          id: "legs-hit",
+          type: "line",
+          source: "legs",
+          paint: { "line-color": "#000", "line-width": 16, "line-opacity": 0 }
+        });
+        S.map.on("mousemove", "legs-hit", function (e) {
+          var f = e.features && e.features[0];
+          if (S.legHover) S.legHover(f && f.properties ? f.properties.id : "");
+        });
+        S.map.on("mouseleave", "legs-hit", function () {
+          if (S.legHover) S.legHover("");
+        });
+      }
+      S.legHover = onHover || null;
+    } catch (e) {
+      W.caught(e, "the map's hops");
+      return false;
+    }
+    return true;
+  };
+  /** light one hop up ("" for none) */
+  W.vtLegHi = function (id) {
+    try {
+      if (S.map && S.ready && S.map.getLayer("legs-hi")) S.map.setFilter("legs-hi", ["==", ["get", "id"], id || ""]);
+    } catch (e) {
+      W.caught(e, "the map's hop");
+    }
+  };
+  /** small unnumbered pins for places not on the day (Explore's ideas): [{n, lat, lng, food}], at most 60; [] clears */
+  W.vtIdeas = function (list) {
+    if (!S.map || !S.ready) return false;
+    (S.ideaMarkers || []).forEach(function (m) {
+      m.remove();
+    });
+    S.ideaMarkers = [];
+    (list || []).slice(0, 60).forEach(function (p) {
+      if (p.lat == null) return;
+      var el = document.createElement("div");
+      el.className = "vt-pin vt-idea" + (p.food ? " food" : "");
+      el.setAttribute("data-idea", p.n);
+      el.title = p.n;
+      el.innerHTML = "<b></b><span>" + W.esc(p.n) + "</span>";
+      S.ideaMarkers.push(new ML.Marker({ element: el, anchor: "left", offset: [-8, 0] }).setLngLat([p.lng, p.lat]).addTo(S.map));
+    });
+    return true;
+  };
+  /** bring a place into view, clear of whatever covers the map's left side (the inspector): pad = px covered */
+  W.vtSee = function (lng, lat, pad) {
+    if (!S.map || !S.ready || lat == null) return;
+    try {
+      var p = S.map.project([lng, lat]),
+        w = S.el.clientWidth,
+        h = S.el.clientHeight,
+        left = (pad || 0) + 40;
+      if (p.x < left || p.x > w - 60 || p.y < 70 || p.y > h - 50) {
+        S.moved = true; /* (you asked to see this place: the map stays here until the day changes) */
+        S.map.easeTo({ center: [lng, lat], offset: [(pad || 0) / 2, 0], duration: 350 });
+      }
+    } catch (e) {
+      W.caught(e, "the map's look at a place");
+    }
+  };
   /* how far out the map goes: the town the pack is made for (its "places" frame) with a margin, stretched to take in
      the day's own stops, and no further. Zooming out stops there (MapLibre keeps the view inside these bounds), so the
      map never shows the sea and the next island where it has nothing to draw. */
@@ -1120,7 +1227,8 @@
       named = window.innerWidth > 920 /* (as .vt-pin span in app.css) */,
       side = Math.min(40, w * 0.1);
     S.map.fitBounds(b, {
-      padding: { top: 40, bottom: 34, left: side, right: named ? Math.min(170, w * 0.3) : side },
+      /* (in the desktop workspace's pane the day's title and the map's buttons lie over its top edge) */
+      padding: { top: S.el.closest(".ws-canvas") ? 88 : 40, bottom: 34, left: side, right: named ? Math.min(170, w * 0.3) : side },
       maxZoom: 16.2,
       duration: animate ? 600 : 0
     });

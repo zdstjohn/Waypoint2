@@ -28,6 +28,11 @@ exports.run = async t => {
   const b = await launch();
   for (const width of [600, 1024, 1440, 1920]) {
     const { pg, ctx, errors } = await open(b, { width, height: 900, touch: false }); await exampleTrip(pg);
+    /* 1024px and wider is the desktop workspace (v153; its own suite is workspace.js): the rail has the days and the
+       views, so the checks of the page's own day arrows, view switch, banner and tabs are for narrower windows */
+    const ws = width >= 1024;
+    if (ws) await pg.evaluate(async () => { W.needLater(); for (let i = 0; i < 80 && !(W.laterReady && W.desk()); i++) await new Promise(r => setTimeout(r, 100)); });
+    t.ok(ws === await pg.evaluate(() => W.desk()), `@${width}: ${ws ? 'the workspace' : 'the page as on a tablet'}`);
     await pg.evaluate(() => {
       W.S.countries = [{ name: 'Greece', mode: 'manual', picked: ['Athens', 'Santorini', 'Crete', 'Naxos', 'Corfu'] }, { name: 'Italy', mode: 'manual', picked: ['Amalfi Coast', 'Lake Como'] }];
       W.S.days = 26; W.S.names = ['Zach', 'Anna', 'Mila', 'Leo']; W.replan(); W.render();
@@ -54,7 +59,8 @@ exports.run = async t => {
       W.S.glanceOpen = false; W.S.day = 3; W.render();
       return [...document.querySelectorAll('#viewTrip .daybar > [data-step]')].filter(e => e.getBoundingClientRect().width > 0).length;
     });
-    t.eq(arrows, 2, `@${width}: the previous/next day arrows are there`);
+    if (!ws) t.eq(arrows, 2, `@${width}: the previous/next day arrows are there`);
+    else t.eq(await pg.evaluate(() => document.querySelectorAll('#wsRail .wr-day').length), 26, `@${width}: the rail lists all 26 days`);
     /* the Day / Explore / All days switch runs the full width of the page, in three equal parts */
     const vsw = await pg.evaluate(() => {
       const v = [...document.querySelectorAll('#viewTrip .vsw')].find(e => e.getBoundingClientRect().width > 0); if (!v) return null;
@@ -63,12 +69,13 @@ exports.run = async t => {
       const bw = [...v.querySelectorAll('button')].map(b => Math.round(b.getBoundingClientRect().width));
       return { w: Math.round(row.getBoundingClientRect().width), inner: Math.round(inner), bw };
     });
-    t.ok(vsw && vsw.w >= vsw.inner - 2 && Math.max(...vsw.bw) - Math.min(...vsw.bw) <= 2, `@${width}: the Day / All days / Explore switch spans the page (${vsw && vsw.w} of ${vsw && vsw.inner} px; buttons ${vsw && vsw.bw.join('/')})`);
+    if (!ws) t.ok(vsw && vsw.w >= vsw.inner - 2 && Math.max(...vsw.bw) - Math.min(...vsw.bw) <= 2, `@${width}: the Day / All days / Explore switch spans the page (${vsw && vsw.w} of ${vsw && vsw.inner} px; buttons ${vsw && vsw.bw.join('/')})`);
     /* a big screen keeps the day's own title and the greeting in the banner (the day in the banner is a phone's) */
     const big = await pg.evaluate(() => { W.S.tview = 'days'; W.S.glanceOpen = false; W.render(); const h = document.querySelector('#viewTrip .day-h'), tl = document.querySelector('#topline .tl-day'); scrollTo(0, 500);
       return { h: Math.round(h.getBoundingClientRect().height), day: tl ? getComputedStyle(tl).display : 'none', greet: getComputedStyle(document.querySelector('#topline .tl-hi')).display, pin: getComputedStyle(document.querySelector('#pin')).display, gm: !!document.querySelector('#viewTrip .gm-row .gmr') && getComputedStyle(document.querySelector('#viewTrip .gm-row .gmr')).display !== 'none' }; });
     await pg.evaluate(() => scrollTo(0, 0));
-    t.ok(big.h > 40 && big.day === 'none' && big.greet !== 'none' && big.pin === 'none' && big.gm, `@${width}: the day keeps its title, the banner its greeting, and nothing is pinned on scroll`);
+    if (!ws) t.ok(big.h > 40 && big.day === 'none' && big.greet !== 'none' && big.pin === 'none' && big.gm, `@${width}: the day keeps its title, the banner its greeting, and nothing is pinned on scroll`);
+    else t.ok(big.h > 40 && big.pin === 'none' && big.gm, `@${width}: the day keeps its title and its Google Maps row, and nothing is pinned on scroll`);
     /* Explore on a big screen: the search across the top, the route on the right below */
     if (width >= 1024) {
       const xp = await pg.evaluate(async () => {
@@ -77,7 +84,7 @@ exports.run = async t => {
         const ps = r('.psearch'), rc = r('.xp-cols > .explorer'), dv = r('.dayflip'); W.S.tview = 'days'; W.render();
         return ps && dv ? { ps: Math.round(ps.width), dv: Math.round(dv.width), map: !!rc, below: !rc || rc.top >= ps.bottom - 1, right: !rc || rc.left > ps.left + ps.width / 2, story: !!document.querySelector('.dsb') } : null;
       });
-      t.ok(xp && Math.abs(xp.ps - xp.dv) <= 2 && xp.below && xp.right && !xp.story, `@${width}: Explore puts the search across the top (${xp && xp.ps} px) and the street map, where there is one, on the right below`);
+      t.ok(xp && Math.abs(xp.ps - xp.dv) <= 2 && !xp.map && !xp.story, `@${width}: Explore puts the search across the top of its pane (${xp && xp.ps} px); the map is the workspace's own pane, not a card in the page`);
     }
     /* the Prepare tabs */
     const tabs = await pg.evaluate(() => {
@@ -85,12 +92,14 @@ exports.run = async t => {
       const seg = document.querySelector('.prep-seg'), sb = seg.getBoundingClientRect();
       return [...seg.querySelectorAll('button')].filter(x => { const r = x.getBoundingClientRect(); return r.left < sb.left - 1 || r.right > sb.right + 1; }).map(x => x.textContent);
     });
-    t.eq(tabs, [], `@${width}: every Prepare tab is in view`);
+    if (!ws) t.eq(tabs, [], `@${width}: every Prepare tab is in view`);
     /* the trip menu opens under the trip's name */
     const menu = await pg.evaluate(async () => {
       W.setView('trip'); W.render(); window.scrollTo(0, 0);
+      /* (on the workspace the trip switcher is in the rail; a folded rail is opened first, as its top button does) */
+      if (W.desk() && document.documentElement.classList.contains('ws-rail-min')) { W.wsSet('rail', 1); await new Promise(r => setTimeout(r, 150)); }
       const sw = [...document.querySelectorAll('[data-sync="menu"]')].find(e => e.getBoundingClientRect().width > 0); sw.click(); await new Promise(r => setTimeout(r, 250));
-      const m = document.querySelector('.top .trip-menu'); if (!m) return null;
+      const m = document.querySelector('.top .trip-menu, #wsRail .trip-menu'); if (!m) return null;
       const sw2 = [...document.querySelectorAll('[data-sync="menu"]')].find(e => e.getBoundingClientRect().width > 0);   /* opening the menu redraws the button */
       const mr = m.getBoundingClientRect(), sr = sw2.getBoundingClientRect(), vw = document.documentElement.clientWidth;
       const out = { inWin: mr.left >= 0 && mr.right <= vw, under: mr.left <= sr.left + 1 && mr.right >= sr.right - 1, w: Math.round(mr.width) };
@@ -99,8 +108,9 @@ exports.run = async t => {
     t.ok(menu && menu.inWin && menu.under, `@${width}: the trip menu opens under the trip's name, inside the window (${menu && menu.w} px wide)`);
     /* the kids' corner */
     if (width >= 1024) {
-      const kw = await pg.evaluate(() => { W.setView('kids'); W.render(); const k = document.querySelector('.kids'); const r = k.getBoundingClientRect(); return { w: Math.round(r.width), mid: Math.round(r.left + r.width / 2 - document.documentElement.clientWidth / 2) }; });
-      t.ok(kw.w <= 820 && Math.abs(kw.mid) <= 12, `@${width}: the kids' corner is ${kw.w} px wide, centred`);
+      /* (centred in the workspace's pane, which starts after the rail) */
+      const kw = await pg.evaluate(() => { W.setView('kids'); W.render(); const k = document.querySelector('.kids'); const r = k.getBoundingClientRect(), w = document.querySelector('.wrap').getBoundingClientRect(); return { w: Math.round(r.width), mid: Math.round(r.left + r.width / 2 - (w.left + w.width / 2)) }; });
+      t.ok(kw.w <= 820 && Math.abs(kw.mid) <= 12, `@${width}: the kids' corner is ${kw.w} px wide, centred in its pane`);
     }
     if (width === 1440) {
       /* Plan, "Where to": the number of days sits midway between − and +, also with the mouse over it */
@@ -112,28 +122,8 @@ exports.run = async t => {
       await pg.addStyleTag({ content: '.stepper input{appearance:auto !important;-moz-appearance:auto !important;padding:1px 2px !important}.stepper input::-webkit-inner-spin-button,.stepper input::-webkit-outer-spin-button{-webkit-appearance:inner-spin-button !important;appearance:auto !important;display:block !important;opacity:1 !important}' });
       let bad = null; for (const el of boxes.slice(0, 6)) { bad = await inkOff(pg, el); if (bad != null) break; }
       t.ok(bad != null && Math.abs(bad) > 3, `@${width}: with the browser's own arrows the digits would sit ${bad == null ? '?' : Math.abs(bad).toFixed(1)} px off centre (so the check above means something)`);
-      /* Prepare: the row of tabs stays where it is whichever tab is open, and the page never shifts sideways
-         (a short tab has no scrollbar, a long one has: the gutter is kept either way) */
-      await pg.evaluate(() => { W.needLater(); W.goView('book'); }); await pg.waitForSelector('#viewBook [data-prep]', { timeout: 15000 });
-      const pos = [];
-      for (const seg of ['tobook', 'booked', 'budget', 'pack', 'take']) {
-        await pg.evaluate(s => document.querySelector('#viewBook [data-prep="' + s + '"]').click(), seg); await pg.waitForTimeout(450);
-        pos.push(await pg.evaluate(() => { const r = document.querySelector('#viewBook .prep-seg').getBoundingClientRect(), h = document.querySelector('#viewBook .prep-seg').previousElementSibling;
-          return { x: Math.round(r.left), y: Math.round(r.top + scrollY), w: Math.round(r.width), client: document.documentElement.clientWidth, scrolls: document.documentElement.scrollHeight > innerHeight + 1, cur: !!document.querySelector('#viewBook .cur-pick'), curInBudget: !!document.querySelector('#viewBook .cur-pick') && !document.querySelector('#viewBook .prep-seg ~ .cur-pick') && !(h && h.classList.contains('cur-pick')) }; }));
-      }
-      t.ok(pos.every(p => p.x === pos[0].x && p.y === pos[0].y && p.w === pos[0].w), `@${width}: Prepare's tabs sit in one place on all five tabs (${pos.map(p => p.x + ',' + p.y).join(' ')})`);
-      /* (and a page too short to scroll: every tab is long enough to scroll now, so one is made short) */
-      const short = await pg.evaluate(() => { const v = document.querySelector('#viewBook'), keep = v.innerHTML; [...v.children].forEach(c => { if (!c.matches('.ready, .prep-seg')) c.remove(); }); const r = { client: document.documentElement.clientWidth, scrolls: document.documentElement.scrollHeight > innerHeight + 1 }; v.innerHTML = keep; return r; });
-      t.ok(pos.concat([short]).every(p => p.client === pos[0].client) && pos.some(p => p.scrolls) && !short.scrolls, `@${width}: the page is as wide with a scrollbar as without (${pos.concat([short]).map(p => p.client + (p.scrolls ? ' scrolls' : '')).join(', ')})`);
-      t.ok(pos.map(p => p.cur).join() === 'false,false,true,false,false' && pos[2].curInBudget, `@${width}: "Prices in" is part of Budget, not of the header above the tabs`);
-      /* To book (and Booked) on the left, the budget at the top of the right column, the booking sites under it */
-      const cols = [];
-      for (const seg of ['tobook', 'booked']) {
-        await pg.evaluate(s => document.querySelector('#viewBook [data-prep="' + s + '"]').click(), seg); await pg.waitForTimeout(450);
-        cols.push(await pg.evaluate(() => { const m = document.querySelector('#viewBook .bk-ahead, #viewBook .bk-done').getBoundingClientRect(), s = document.querySelector('#viewBook .bud-side'), r = s && s.getBoundingClientRect(), nx = s && s.nextElementSibling && s.nextElementSibling.getBoundingClientRect();
-          return { left: Math.round(m.left), side: r ? Math.round(r.left) : 0, top: r ? Math.round(r.top - m.top) : 99, below: nx ? Math.round(nx.left - r.left) + '/' + Math.round(nx.top - r.bottom) : 'none', total: s ? /Total/.test(s.textContent) && /Open the budget/.test(s.textContent) : false }; }));
-      }
-      t.ok(cols.every(c => c.side > c.left + 300 && Math.abs(c.top) <= 2 && c.total) && /^0\//.test(cols[0].below), `@${width}: To book and Booked keep the left column, the budget sits at the top of the right one, with what follows under it (${JSON.stringify(cols)})`);
+      /* (Prepare's tabs staying put, and To book beside the budget, were checked here until v153: on the workspace
+         Prepare is one page of columns with no tabs, checked in workspace.js) */
     }
     t.eq(errors(), [], `@${width}: no page errors`);
     await ctx.close();

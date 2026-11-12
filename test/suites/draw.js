@@ -40,7 +40,8 @@ exports.run = async t => {
       const el = document.getElementById(id); let muts = 0; const mo = new MutationObserver(l => { muts += l.length; });
       W.render(); const d0 = Object.assign({}, W.drawn);
       mo.observe(el, { childList: true, subtree: true, characterData: true });
-      const img = el.querySelector('img'), btn = el.querySelector('button:not([disabled])'); if (btn) btn.focus();
+      /* (the first button on show: on the desktop workspace the day's own row of day numbers is not, the rail has the days) */
+      const img = el.querySelector('img'), btn = [...el.querySelectorAll('button:not([disabled])')].find(x => x.offsetParent !== null); if (btn) btn.focus();
       W.render(); W.render(); muts += mo.takeRecords().length;
       const quiet = muts, same = W.drawn.same - d0.same, focus = !btn || document.activeElement === btn;
       /* a run of real changes: each time, what the edit left must equal a rebuild */

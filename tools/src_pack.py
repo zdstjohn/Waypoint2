@@ -7,7 +7,7 @@ Each file starts at a line "=====8<===== <path>" and runs to the next such line.
 import glob, os, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MARK = "=====8<===== "
-SETS = ["trip/index.html", "trip/app.css", "trip/data/*.js", "trip/lib/*.js", "trip/screens/*.js", "types/waypoint.d.ts", "tsconfig.json", "tsconfig.strict.json",
+SETS = ["trip/index.html", "trip/app.css", "trip/desk.css", "trip/data/*.js", "trip/lib/*.js", "trip/screens/*.js", "types/waypoint.d.ts", "tsconfig.json", "tsconfig.strict.json",
         "package.json", "build/bundle.js", "build/standalone.js", "csp_server.py", "test/run.js", "test/shots.js", "test/styles.js", "test/lib/*.js", "test/lib/*.py",
         "test/mocks/*.js", "test/suites/*.js", "test/screens-expected.txt", ".github/workflows/*.yml", "tools/src_pack.py"]
 

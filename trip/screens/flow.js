@@ -486,6 +486,7 @@
     document.body.appendChild(g);
     drag.ghost = g;
     drag.dy = drag.y - r.top;
+    if (W.desk()) document.documentElement.classList.add("ws-dragging"); /* (the rail shows which days can take it) */
     place(drag.x, drag.y);
   }
   function place(x, y) {
@@ -497,10 +498,16 @@
     drag.target =
       t && t !== drag.card && t.dataset.slotkey && t.classList.contains("food") === drag.food && !t.classList.contains("skel") ? t : null;
     if (drag.target) drag.target.classList.add("droptarget");
+    /* on the desktop: a day in the rail, in the same place, takes the stop (it trades with that day's same part) */
+    var dd = W.desk() && el ? el.closest(".wr-day.can") : null;
+    if (dd && +dd.dataset.wsday === W.S.day) dd = null;
+    if (drag.day && drag.day !== dd) drag.day.classList.remove("drop");
+    drag.day = dd;
+    if (dd) dd.classList.add("drop");
   }
   /** @type {{ x: number; y: number; key: string; id: number; t?: ReturnType<typeof setTimeout> } | null} */ var hold = null;
   document.addEventListener("pointerdown", function (e) {
-    var h = e.target.closest && e.target.closest(".slots .slot .thumb, .slots .slot > .num");
+    var h = e.target.closest && e.target.closest(".slots .slot .thumb, .slots .slot > .num, .slots .slot .ws-grip");
     if (!h || !W.canEdit() || W.view() !== "trip" || e.button > 0) return;
     var card = h.closest(".slot");
     if (!card || !card.dataset.slotkey) return;
@@ -526,7 +533,8 @@
       y: e.clientY,
       on: false,
       id: e.pointerId,
-      target: null
+      target: null,
+      day: null
     };
   });
   function noHold() {
@@ -562,8 +570,12 @@
     drag = null;
     if (!d.on) return;
     d.card.classList.remove("dragging");
+    document.documentElement.classList.remove("ws-dragging");
     if (d.ghost) d.ghost.remove();
-    if (d.target) {
+    if (d.day) {
+      d.day.classList.remove("drop");
+      if (e.type !== "pointercancel") W.moveStop(d.key, +d.day.dataset.wsday);
+    } else if (d.target) {
       d.target.classList.remove("droptarget");
       if (e.type !== "pointercancel") swapStops(d.key, d.target.dataset.slotkey);
     }
@@ -760,130 +772,8 @@
     var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     window.scrollTo({ top: Math.max(0, y), behavior: calm ? "auto" : "smooth" });
   }
-  W.glance = function (P) {
-    if (!W.S.glanceOpen) return "";
-    var tn = W.todayN(P);
-    function row(d) {
-      var T = d.slots && d.slots.length ? W.dayTimes(d, P) : null,
-        E = T && W.dayEnergy ? W.dayEnergy(d, P, T) : null;
-      var hl = "";
-      if (d.moveFrom) {
-        var L = W.legFor(P, d.stop);
-        hl = d.moveFrom + " → " + d.city + (L && L.best ? " by " + W.modeName(L.best.mode).toLowerCase() : "");
-      } else if (d.trip) hl = "Day trip to " + d.trip.name;
-      else
-        (d.slots || []).some(function (x) {
-          if (x.item && !W.isFood(x.slot)) {
-            hl = x.item.n;
-            return true;
-          }
-          return false;
-        });
-      if (d.rest) hl = "Rest day" + (hl ? " · " + hl : "");
-      var bars = E
-        ? '<span class="energy lv' +
-          E.level +
-          '" title="' +
-          esc(E.label) +
-          ' day"><span class="bars">' +
-          [1, 2, 3, 4]
-            .map(function (i) {
-              return "<i" + (i <= E.level ? ' class="on"' : "") + "></i>";
-            })
-            .join("") +
-          "</span></span>"
-        : "";
-      var dt = fmt(W.dateOf(d.n), { weekday: "short", month: "short", day: "numeric" });
-      return (
-        '<button type="button" role="listitem" class="g-day' +
-        (d.n === W.S.day ? " on" : "") +
-        (d.n === tn ? " today" : "") +
-        '" data-day="' +
-        d.n +
-        '"' +
-        (d.n === W.S.day ? ' aria-current="true"' : "") +
-        ">" +
-        '<span class="g-top"><b>Day ' +
-        d.n +
-        "</b>" +
-        (dt ? " · " + esc(dt) : "") +
-        (d.n === tn ? ' <span class="g-now">Today</span>' : "") +
-        "</span>" +
-        bars +
-        '<span class="g-main">' +
-        (hl ? esc(hl) : '<span class="muted">' + esc(d.city) + "</span>") +
-        "</span></button>"
-      );
-    }
-    /* one card per place you stay, in order, its days inside */
-    /* "Check my plan" comes with the second script */
-    var rev = W.reviewBlock ? W.reviewBlock(P) : (W.needLater(), "");
-    return (
-      rev +
-      P.stops
-        .map(function (s, si) {
-          var ds = P.days.filter(function (d) {
-              return d.stop === si;
-            }),
-            r = rangeOf(P, si),
-            n = s.days;
-          var trips = (s.trips || [])
-            .filter(function (t) {
-              return t.planned !== false;
-            })
-            .map(function (t) {
-              return t.name;
-            });
-          /* each place you stay opens with its photo, its name over it */
-          var hero = W.cityPhoto
-            ? W.cityPhoto(
-                s.country,
-                s.name,
-                ds.reduce(function (a, d) {
-                  return a.concat(
-                    (d.slots || [])
-                      .filter(function (x) {
-                        return x.item && !W.isFood(x.slot);
-                      })
-                      .map(function (x) {
-                        return x.item;
-                      })
-                  );
-                }, [])
-              )
-            : null;
-          return (
-            '<section class="g-sec" data-stop="' +
-            si +
-            '"><h3 class="g-stop' +
-            (hero ? " has-hero" : "") +
-            '">' +
-            (hero ? W.heroImg(hero, s.name, si > 0) : "") +
-            '<span class="g-sn">' +
-            esc(s.name) +
-            '</span><span class="g-sm">' +
-            esc(
-              [r, W.nightsText(P, si), trips.length ? "day trip" + (trips.length > 1 ? "s" : "") + " to " + trips.join(", ") : ""]
-                .filter(Boolean)
-                .join(" · ")
-            ) +
-            "</span></h3>" +
-            '<div class="glance sk" role="list">' +
-            ds.map(row).join("") +
-            "</div></section>"
-          );
-        })
-        .join("") +
-      '<p class="g-end">' +
-      esc(
-        "End of the trip" +
-          (P.ap && P.days.length && W.dateOf(P.N)
-            ? " · home from " + P.stops[P.stops.length - 1].name + " " + fmt(W.dateOf(P.N), { month: "short", day: "numeric" })
-            : "")
-      ) +
-      "</p>"
-    );
-  };
+  /** "Jun 7–10": the dates of a place you stay (the stay bar here; All days and the desktop rail, screens/alldays.js) */
+  W.stopRange = rangeOf;
 
   /* ======================= clicks (run before the views' own handlers) ======================= */
   document.addEventListener(

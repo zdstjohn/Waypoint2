@@ -239,18 +239,7 @@
             var name = (W.tripName ? W.tripName() : "Trip").replace(/[^\w\- ]+/g, "").trim() || "Trip";
             var blob = new Blob([page], { type: "text/html" }),
               file = name + " (offline copy).html";
-            return (window.claude && window.claude.use ? window.claude.use("downloads") : Promise.resolve(null)).then(function (dl) {
-              if (!dl) {
-                var a = document.createElement("a");
-                a.href = URL.createObjectURL(blob);
-                a.download = file;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                return;
-              }
-              return dl.save({ filename: file, data: blob });
-            });
+            return W.saveFile(file, blob);
           });
       })
       .then(

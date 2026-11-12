@@ -67,7 +67,9 @@
       })
       .join("");
     return (
-      '<div class="sheet-back" data-dtclose="1"></div><div class="sheet dt-sheet" role="dialog" aria-modal="true" tabindex="-1" aria-label="A day trip from ' +
+      '<div class="sheet-back" data-dtclose="1"></div><div class="sheet dt-sheet" role="dialog" aria-modal="' +
+      (W.desk() ? "false" : "true") +
+      '" tabindex="-1" aria-label="A day trip from ' +
       esc(day.city) +
       '"><div class="grab" aria-hidden="true"></div><div class="sh-top"><div><b>A day trip from ' +
       esc(day.city) +
@@ -79,7 +81,11 @@
       "</button></div>" +
       (rows
         ? '<div class="sh-out">' + rows + "</div>"
-        : '<p class="small muted">No place in ' + esc(day.country) + "'s list is an easy day out from " + esc(day.city) + ". Name one below.</p>") +
+        : '<p class="small muted">No place in ' +
+          esc(day.country) +
+          "'s list is an easy day out from " +
+          esc(day.city) +
+          ". Name one below.</p>") +
       '<label class="fld" for="dtIn"><span>Somewhere else</span></label><div class="row"><input class="field" id="dtIn" data-ta="city" data-tac="' +
       esc(day.country) +
       '" data-tago="dtGo" autocomplete="off" maxlength="60" placeholder="A town or a park near ' +
@@ -104,7 +110,8 @@
       openN = null;
       drawn = "";
       host.innerHTML = "";
-      if (!document.querySelector("#sheethost .sheet, #stayhost .sheet, #qshost .sheet")) document.documentElement.classList.remove("modal-open");
+      if (!document.querySelector("#sheethost .sheet, #stayhost .sheet, #qshost .sheet"))
+        document.documentElement.classList.remove("modal-open");
       W.backShut("daytrip");
       if (opener && document.contains(opener)) opener.focus({ preventScroll: true });
       opener = null;

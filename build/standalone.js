@@ -8,7 +8,7 @@ const fs = require('fs'); const path = require('path'); const crypto = require('
 const ROOT = path.resolve(__dirname, '..'), TRIP = path.join(ROOT, 'trip'), ICONS = path.join(__dirname, 'icon', 'out');
 /* WP_DIST builds somewhere else (the tests' stand-in server build), with its hosting rules next to it, not in the top folder */
 const DIST = process.env.WP_DIST ? path.resolve(process.env.WP_DIST) : path.join(ROOT, 'dist'), HOSTING = process.env.WP_DIST ? DIST + '.vercel.json' : path.join(ROOT, 'vercel.json');
-const ASSETS = ['app.js', 'app2.js', 'app.min.css', 'app2.css'];
+const ASSETS = ['app.js', 'app2.js', 'app.min.css', 'app2.css', 'app.desk.css'];
 /* Waypoint's own server (Supabase project "waypoint"): its address and its publishable key. Both are public by design
    (every visitor's browser gets them); what a signed-in person may read or write is decided by the database's
    row-level security, and Claude's API key stays in the server's secrets. WP_CLOUD_URL / WP_CLOUD_KEY override them
@@ -26,7 +26,7 @@ const V = h.digest('hex').slice(0, 10);
 ASSETS.forEach(f => {
   let s = fs.readFileSync(path.join(TRIP, f), 'utf8').replace(/\n\/\/# sourceMappingURL=.*\n?$/, '\n');
   /* the second script and its styles are fetched by name from the first one: the same version on those names */
-  if (f === 'app.js') s = s.replace(/(["'])app2\.js\1/g, '$1app2.js?v=' + V + '$1').replace(/(["'])app2\.css\1/g, '$1app2.css?v=' + V + '$1');
+  if (f === 'app.js') s = s.replace(/(["'])app2\.js\1/g, '$1app2.js?v=' + V + '$1').replace(/(["'])app2\.css\1/g, '$1app2.css?v=' + V + '$1').replace(/(["'])app\.desk\.css\1/g, '$1app.desk.css?v=' + V + '$1');
   fs.writeFileSync(path.join(DIST, f), s);
 });
 const fonts = fs.readdirSync(path.join(TRIP, 'fonts')).filter(f => f.endsWith('.woff2')).sort();
@@ -80,7 +80,7 @@ fs.writeFileSync(path.join(DIST, 'manifest.webmanifest'), JSON.stringify(manifes
 
 /* the service worker: everything above, kept on the phone at install; the page itself is asked for fresh first (a
    new version shows on the next open) and comes from the phone when there is no connection or it is too slow */
-const PRE = ['./', 'index.html', `standalone.js?v=${V}`, `cloud.js?v=${V}`, 'manifest.webmanifest', 'vt/index.json'].concat(ASSETS.map(f => `${f}?v=${V}`), fonts.map(f => 'fonts/' + f), icons);
+const PRE = ['./', 'index.html', `standalone.js?v=${V}`, `cloud.js?v=${V}`, 'manifest.webmanifest', 'vt/index.json'].concat(ASSETS.filter(f => f !== 'app.desk.css').map(f => `${f}?v=${V}`) /* (the desktop stylesheet is kept when a wide window first asks for it: a phone never fetches it) */, fonts.map(f => 'fonts/' + f), icons);
 fs.writeFileSync(path.join(DIST, 'sw.js'), `/* Waypoint service worker, version ${V} (made by build/standalone.js) */
 const V = ${JSON.stringify(V)}, CACHE = "waypoint-" + V, PRE = ${JSON.stringify(PRE)};
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRE)).then(() => self.skipWaiting())); });

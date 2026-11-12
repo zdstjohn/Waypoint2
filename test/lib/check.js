@@ -4,7 +4,12 @@ module.exports = () => {
   const vw = innerWidth, out = [], seen = new Set();
   /* text kept for a screen reader only (the .vh pattern, by class or by a stylesheet rule: a clipped 1 px box) is not on screen */
   const srOnly = el => { for (let d = el; d && d !== document.body; d = d.parentElement) { const c = getComputedStyle(d); if (c.position === 'absolute' && /rect\(0(px)?,? 0(px)?,? 0(px)?,? 0(px)?\)/.test(c.clip) && d.offsetWidth <= 2) return true; } return false; };
-  const vis = el => { if (el.closest('.vh, .sr-only, .tabs, nav.tabs, [hidden]') || srOnly(el)) return null; for (let d = el.parentElement; d; d = d.parentElement) if (d.tagName === 'DETAILS' && !d.open && !(el.closest('summary') && el.closest('summary').parentElement === d)) return null; const r = el.getBoundingClientRect(); if (!r.width || !r.height) return null; const cs = getComputedStyle(el); if (cs.visibility === 'hidden' || cs.opacity === '0' || cs.display === 'none') return null; return r; };
+  const vis = el => { if (el.closest('.vh, .sr-only, .tabs, nav.tabs, [hidden]') || srOnly(el)) return null; for (let d = el.parentElement; d; d = d.parentElement) if (d.tagName === 'DETAILS' && !d.open && !(el.closest('summary') && el.closest('summary').parentElement === d)) return null; const r = el.getBoundingClientRect(); if (!r.width || !r.height) return null; const cs = getComputedStyle(el); if (cs.visibility === 'hidden' || cs.opacity === '0' || cs.display === 'none') return null; return shown(el) ? r : null; };
+  /* the part of an element a scrolling box around it lets through (the desktop rail's list of days scrolls inside the
+     rail: a day scrolled out of it is not on screen, and is over nothing) */
+  const shown = el => { let r = el.getBoundingClientRect(), box = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+    for (let d = el.parentElement; d && d !== document.body && d !== document.documentElement; d = d.parentElement) { const c = getComputedStyle(d); if (!/auto|scroll|hidden/.test(c.overflowY)) continue; const q = d.getBoundingClientRect(); box = { left: box.left, right: box.right, top: Math.max(box.top, q.top), bottom: Math.min(box.bottom, q.bottom) }; if (box.bottom - box.top < 1) return null; }
+    return box; };
   const label = el => (el.id ? '#' + el.id : el.tagName.toLowerCase() + (el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\s+/).slice(0, 2).join('.') : '')) + ' "' + (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 40) + '"';
   const push = (kind, el, extra) => { const k = kind + '|' + label(el); if (seen.has(k)) return; seen.add(k); out.push({ kind, el: label(el), extra }); };
   // 1. anything poking out of the viewport sideways
@@ -31,7 +36,7 @@ module.exports = () => {
   for (let i = 0; i < texts.length; i++) for (let j = i + 1; j < texts.length; j++) {
     const a = texts[i], b = texts[j]; if (a.contains(b) || b.contains(a)) continue;
     if (a.closest('[aria-hidden="true"]') || b.closest('[aria-hidden="true"]')) continue;
-    const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+    const ra = shown(a), rb = shown(b); if (!ra || !rb) continue;
     const ox = Math.min(ra.right, rb.right) - Math.max(ra.left, rb.left), oy = Math.min(ra.bottom, rb.bottom) - Math.max(ra.top, rb.top);
     if (ox > 4 && oy > 4) {
       if (getComputedStyle(a).display.startsWith('inline') && getComputedStyle(b).display.startsWith('inline') && a.parentElement === b.parentElement) continue;   // wrapped inline text

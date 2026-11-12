@@ -89,24 +89,14 @@
     var blob = new Blob([JSON.stringify(doc)], { type: "application/json" }),
       file = "Waypoint trips " + doc.saved.slice(0, 10) + ".json",
       n = doc.trips.length;
-    (window.claude && window.claude.use ? window.claude.use("downloads") : Promise.resolve(null))
-      .then(function (dl) {
-        if (dl) return dl.save({ filename: file, data: blob });
-        var a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = file;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      })
-      .then(
-        function () {
-          say("Saved " + n + (n === 1 ? " trip" : " trips") + " as " + file + ".");
-        },
-        function () {
-          say("The file was not saved.");
-        }
-      );
+    W.saveFile(file, blob).then(
+      function () {
+        say("Saved " + n + (n === 1 ? " trip" : " trips") + " as " + file + ".");
+      },
+      function () {
+        say("The file was not saved.");
+      }
+    );
   }
   function openTrips(file) {
     var read = new FileReader();

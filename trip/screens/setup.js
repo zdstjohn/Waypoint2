@@ -13,7 +13,10 @@
     );
   var names = [];
   /* the countries most visited, most first: offered before the rest as you type (after the ones with ideas built in) */
-  var POPULAR = "FR ES IT US GB GR PT TR MX DE AT JP TH NL HR CH CA AU IE IS MA EG VN ID SG KR NZ CR NO SE DK CZ HU PL BE PE AR BR CL ZA IN MY PH CY MT AE".split(" "),
+  var POPULAR =
+      "FR ES IT US GB GR PT TR MX DE AT JP TH NL HR CH CA AU IE IS MA EG VN ID SG KR NZ CR NO SE DK CZ HU PL BE PE AR BR CL ZA IN MY PH CY MT AE".split(
+        " "
+      ),
     known = /** @type {Object<string, number>} */ ({});
   /* on its own (no Claude), only the countries with ideas built in can be planned */
   if (!W.standalone || W.cloud)
@@ -317,7 +320,9 @@
     wantLodging(s, W.homebase(s.country, s.name));
     var dates = stayDatesFor(s),
       h =
-        '<div class="sheet-back" data-stayclose="1"></div><div class="sheet stay-sheet" role="dialog" aria-modal="true" tabindex="-1" aria-label="Where to stay in ' +
+        '<div class="sheet-back" data-stayclose="1"></div><div class="sheet stay-sheet" role="dialog" aria-modal="' +
+        (W.desk() ? "false" : "true") +
+        '" tabindex="-1" aria-label="Where to stay in ' +
         esc(s.name) +
         '"><div class="grab" aria-hidden="true"></div><div class="sh-top"><div><b>Where to stay in ' +
         esc(s.name) +
@@ -759,7 +764,7 @@
       '<details class="eat-f" data-fold="eat-' +
       k +
       '"' +
-      ((S.eatOpen || {})[k] ? " open" : "") +
+      (((S.eatOpen || {})[k] === undefined ? W.desk() : (S.eatOpen || {})[k]) ? " open" : "") +
       '><summary><span class="fld-l">' +
       label +
       '</span><span class="eat-s' +
@@ -795,7 +800,8 @@
     FIRST = null;
   function step(id, n, title, sum, body) {
     var sc = (S.stepClosed || {})[id],
-      open = sc === undefined ? id === FIRST : !sc,
+      /* (on the desktop workspace the steps sit side by side: one you have not folded yourself is open) */
+      open = sc === undefined ? W.desk() || id === FIRST : !sc,
       done = !!DONE[id];
     return (
       '<details class="step sk' +

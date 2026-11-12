@@ -90,7 +90,8 @@
             open = /** @type {any} */ (JSON.parse(box["waypoint-v2"] || "null"));
           /* the trip you had open goes into your list whole, with anything not yet sent (it would otherwise be a name
              with nothing behind it, until your account had a newer copy) */
-          if (open && open.tripId) a[open.tripId] = Object.assign({ name: open.tripName || "Trip", updated: Date.now() }, a[open.tripId], { state: open });
+          if (open && open.tripId)
+            a[open.tripId] = Object.assign({ name: open.tripName || "Trip", updated: Date.now() }, a[open.tripId], { state: open });
           Object.keys(b).forEach(function (id) {
             a[id] = b[id];
           });

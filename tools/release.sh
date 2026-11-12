@@ -16,7 +16,7 @@ node build/bundle.js | tail -1
 node build/standalone.js | tail -1
 python3 tools/src_pack.py
 rm -f repo/node_modules
-rm -rf repo/trip/src repo/trip/app.js repo/trip/app2.js repo/trip/app.min.css repo/trip/app2.css repo/trip/app.js.map repo/trip/app2.js.map
+rm -rf repo/trip/src repo/trip/app.js repo/trip/app2.js repo/trip/app.min.css repo/trip/app2.css repo/trip/app.desk.css repo/trip/app.js.map repo/trip/app2.js.map
 python3 tools/repo_sync.py | tail -40
 if grep -rlE "AIza[0-9A-Za-z_-]{30,}" repo --exclude-dir=.git; then echo "A Google API key is in the repository copy: stop."; exit 1; fi
 echo "ready to commit: v$N"

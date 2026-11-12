@@ -917,8 +917,17 @@
       list = "",
       T = W.dayTimes(day, P),
       wasOut = false,
+      /* the desktop workspace (lib/desk.js): each card carries its quick actions and each way between two cards the
+         time to spare before the next one; a line on top adds the day up */
+      desk = W.desk(),
+      prevEnd = /** @type {number | null} */ (null),
+      sum = { stops: 0, move: 0, first: /** @type {number | null} */ (null), last: /** @type {number | null} */ (null), booked: 0 },
       /* today: what is over is dimmed, what is on now is marked (and the day opens there) */
       nowM = W.isToday(day) ? W.nowMin() : null;
+    /* a card's quick actions on the desktop (drag it, open it, a day earlier or later, find it on the map): lib/desk.js */
+    function quick(x, it) {
+      return desk && W.deskQuick ? W.deskQuick(x, it, day, P) : "";
+    }
     /* on its own, a city has only the handful of ideas built into the app: say so where they've run out */
     if (
       W.standalone &&
@@ -1011,9 +1020,33 @@
       if (it && x.trip) wasOut = true;
       if (it) {
         num++;
-        pts.push({ n: it.n, lat: it.lat, lng: it.lng, gid: it.gid, gpin: it.gpin, num: num, i: num, food: food, slot: x.slot, it: it });
+        pts.push({
+          n: it.n,
+          lat: it.lat,
+          lng: it.lng,
+          gid: it.gid,
+          gpin: it.gpin,
+          num: num,
+          i: num,
+          food: food,
+          slot: x.slot,
+          key: x.key,
+          it: it
+        });
         var lg = W.leg(prevPt, it),
           from = prevPt;
+        /* (the desktop's line over the day, and the minutes to spare on the way to this stop) */
+        var spare = desk && lg && prevEnd != null && R && !R.skip && R.start != null ? R.start - prevEnd - lg.min : null;
+        sum.stops++;
+        if (lg) sum.move += lg.min;
+        if (bk) sum.booked++;
+        if (R && !R.skip && R.start != null) {
+          if (sum.first == null) sum.first = R.start;
+          if (R.end != null) {
+            sum.last = R.end;
+            prevEnd = R.end;
+          }
+        }
         var legTag = lg
           ? '<span class="leg" title="' +
             esc(W.fmtMin(lg.min) + " " + lg.label + " · " + W.fmtKm(lg.d) + (from === home ? " from " + home.label : "")) +
@@ -1031,6 +1064,7 @@
           list +=
             '<a class="travel-note nav-leg' +
             (isPast ? " past" : "") +
+            (desk ? ' ws-leg" data-wsleg="' + esc(x.key) : "") +
             '" href="' +
             esc(W.gmapsDir(from === home && home.none ? null : from, it, lg.mode)) +
             '" target="_blank" rel="noopener" aria-label="Navigate to ' +
@@ -1041,6 +1075,13 @@
             W.icon("dir", 2.2) +
             '<b>Navigate</b><span aria-hidden="true">·</span>' +
             legTag +
+            (spare != null && spare >= 10
+              ? '<span class="ws-buf' +
+                (spare < 20 ? " tight" : "") +
+                '"><span aria-hidden="true">· </span>' +
+                esc(W.fmtMin(spare)) +
+                " to spare</span>"
+              : "") +
             '<span class="nl-c" aria-hidden="true">›</span></a>';
         var open = false;
         /* closed: what, when, how long, and the one link you need (tickets or menu). Open: everything else. */
@@ -1090,7 +1131,8 @@
         if (bkd || (bkG && bkG.done)) tags += '<span class="gt ok">Booked</span>';
         else if (bkG && bkG.past) {
           /* (a day gone by: no deadline to show) */
-        } else if (bkG && bkG.by) tags += '<span class="gt due' + (bkG.by < W.now() ? " late" : "") + '">' + esc(W.bookByText(bkG)) + "</span>";
+        } else if (bkG && bkG.by)
+          tags += '<span class="gt due' + (bkG.by < W.now() ? " late" : "") + '">' + esc(W.bookByText(bkG)) + "</span>";
         else if (bkG) tags += '<span class="gt due">Book ahead</span>';
         if (!food && cls.indoor) tags += '<span class="gt in">Indoors</span>';
         if (!food && it.fame === 2) tags += '<span class="gt must">Must-see</span>';
@@ -1110,6 +1152,7 @@
             esc(x.key) +
             '">' +
             nowTag +
+            quick(x, it) +
             W.stopMark(it, true, x.slot, num) +
             '<div class="slot-body"><button type="button" class="slot-toggle" data-open="' +
             esc(x.key) +
@@ -1141,6 +1184,7 @@
             esc(x.key) +
             '">' +
             nowTag +
+            quick(x, it) +
             W.stopMark(it, false, x.slot, num) +
             '<div class="slot-body"><button type="button" class="slot-toggle" data-open="' +
             esc(x.key) +
@@ -1224,7 +1268,7 @@
           (T && T.back ? '<span class="nl-t">about ' + W.clock(T.back) + "</span>" : "") +
           '<span class="nl-c" aria-hidden="true">›</span></a>';
     if (day.tripLast && day.n > 1) list += flightCard(P, day);
-    return { list: list, pts: pts, T: T };
+    return { list: list, pts: pts, T: T, sum: sum };
   }
   /* Every idea for the day's city: on the Day tab folded away under the stops, in Explore the whole screen. What is on
      the trip comes first (in order), then the rest by what they are near, with Explore's filters and sorting, the
@@ -1295,7 +1339,8 @@
     var free = day.slots.filter(function (x) {
         return W.isFood(x.slot) === eat;
       }),
-      folded = S.tripFolded !== false; /* the route card already shows today: what's on the trip starts folded */
+      /* the route card already shows today: what's on the trip starts folded (on the desktop workspace, open) */
+      folded = W.desk() ? S.tripFolded === true : S.tripFolded !== false;
     /* the rest, by what they're near: each idea under the stop of today it is closest to (or where you stay), with
        the time to get there; then what is further out, then what has no pin */
     var groups = [],
@@ -1359,7 +1404,15 @@
         restShown = restShown.concat(g.rows);
       });
     }
-    var moreBusy = W.cityBusy(ck);
+    var moreBusy = W.cityBusy(ck),
+      desk = W.desk();
+    /* (the desktop workspace's map pane shows Explore's ideas as small pins: lib/deskmap.js) */
+    W.deskIdeas =
+      xp && desk
+        ? restShown.map(function (r) {
+            return { n: r.it.n, lat: r.it.lat, lng: r.it.lng, food: !!eat };
+          })
+        : [];
     function ideaCard(row) {
       var it = row.it,
         on = row.on,
@@ -1380,6 +1433,7 @@
       return (
         '<div class="idea' +
         (ph ? " has-photo" : "") +
+        (desk ? '" data-wsidea="' + esc(it.n) : "") +
         '">' +
         (ph ? '<div class="pic-wrap">' + ph + onTag + "</div>" : onTag) +
         "<h4>" +
@@ -1583,8 +1637,10 @@
     var tn = W.todayN(P);
     /* All days: the places in the order you stay in them (sized by nights), stuck to the top while you scroll the
        days below; the place you're looking at is lit, and a tap jumps to it */
-    if (S.glanceOpen && target !== "explore" && W.glance) {
-      W.draw(el, W.stayBar(P, tn) + W.viewSwitch() + '<div class="all-days">' + W.glance(P) + "</div>", "all|" + S.tripId);
+    /* (the days themselves come with the second script, screens/alldays.js: asked for, and a moment's "Loading…") */
+    if (S.glanceOpen && target !== "explore") {
+      var gl = W.glance ? W.glance(P) : (W.needLater(), '<p class="loading later-wait">Loading…</p>');
+      W.draw(el, W.stayBar(P, tn) + W.viewSwitch() + '<div class="all-days">' + gl + "</div>", "all|" + S.tripId);
       W.stayTrack(true);
       nowSeen = "";
       return;
@@ -1767,7 +1823,7 @@
       /* (the hops of the day on show are the ones worth asking Google for: W.legWant, lib/core.js) */
       W.legWant++;
       var lr0 = W.legReal,
-        /** @type {{pts: any[], list: string, T: any}} */ stops;
+        /** @type {{pts: any[], list: string, T: any, sum: any}} */ stops;
       try {
         stops = dayStops(P, day, home, pool, short);
       } finally {
@@ -1799,7 +1855,20 @@
       /* a real street map (street names, buildings, landmarks) only for cities that have a map pack; never a sketch */
       var vtSlug = W.vtFor ? W.vtFor(day.country, day.city, home.lat, home.lng) : null,
         mapBox = "";
-      if (vtSlug && !W.simple() && W.vtState() !== "off" && !xp && window.innerWidth > 920) {
+      /* on the desktop workspace the map has its own pane (lib/deskmap.js), fed from here: this day's stops in order */
+      /* (with the map pane hidden by hand, "Hide the map", the day shows its route as a list, not a map of its own) */
+      var paneMap = !!(W.deskSplit && W.deskSplit()) || (W.desk() && !!W.wsPrefs && !W.wsPrefs.map);
+      W.deskPts = {
+        n: day.n,
+        country: day.country,
+        city: day.city,
+        pts: pts,
+        home: home.none ? null : home,
+        slug: vtSlug,
+        xp: !!xp,
+        gm: gm
+      };
+      if (vtSlug && !W.simple() && W.vtState() !== "off" && !xp && !paneMap && W.paneW() > 920) {
         /* (beside the day on a big screen; on a phone the map is on Today) */ /* Simple view: the stops and walks, no map */
         var vtOn = !!W.vtActive();
         mapBox =
@@ -1836,9 +1905,11 @@
             "</div>" +
             mapBox +
             '<p class="map-note">© OpenMapTiles © OpenStreetMap contributors</p></aside>'
-          : window.innerWidth > 920
+          : W.paneW() > 920 && !(W.deskSplit && W.deskSplit())
             ? routeCard(day, P, T, home, pts, "", "", "")
             : "";
+        /* the desktop's line over the day (how many stops, how long between them, when it starts and ends): lib/desk.js */
+        if (W.desk() && W.deskSum) h += W.deskSum(stops.sum, day);
         h += '<div class="dayview mode-list' + (side ? "" : " solo") + '"><div class="slots">' + list + "</div>" + side + "</div>";
         h += W.dayNav ? W.dayNav(day, P) : "";
         /* the journal lives on Today; here, a way there when the day has one */
@@ -1940,6 +2011,8 @@
       W.navTo(HASH.go);
     }
     firstRender = false;
+    /* the desktop workspace puts its panes in place before the screen is drawn, so the screen is drawn at its real width */
+    if (W.deskLayout) W.deskLayout(P);
     if ($("viewKids")) $("viewKids").hidden = view !== "kids";
     $("viewSetup").hidden = view !== "setup";
     $("viewTrip").hidden = view !== "trip";
@@ -1985,6 +2058,7 @@
     W.save();
     if (W.fxRunAfter) W.fxRunAfter();
     if (W.afterRender) W.afterRender();
+    if (W.deskAfter) W.deskAfter(P);
   };
   function slotEl(slot) {
     var b = document.querySelector('[data-reroll="' + slot + '"]');
@@ -2130,7 +2204,7 @@
       ef[d.exf] = !ef[d.exf];
       showAll = false;
     } else if (d.foldtrip) {
-      S.tripFolded = S.tripFolded === false;
+      S.tripFolded = !(W.desk() ? S.tripFolded === true : S.tripFolded !== false);
       if (S.tripFolded === false)
         W.fxAfter(function () {
           var g = document.querySelector("[data-foldtrip]"),
