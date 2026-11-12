@@ -148,19 +148,39 @@
         esc(L.a.name) +
         "</h3>" +
         (tr
-          ? '<span class="small muted">' + W.clock(tr.start) + "–" + W.clock(tr.end) + (L.guessed && !tk ? " (rough)" : "") + "</span>"
+          ? '<span class="small muted">' +
+            W.clock(tr.start) +
+            "–" +
+            W.clock(tr.end) +
+            W.dayAfter(tr.end) +
+            (L.guessed && !tk ? " (rough)" : "") +
+            "</span>"
           : "") +
         "</div>" +
-        '<div class="tk-band" aria-hidden="true"><span class="tk-end"><i>From</i><b>' +
+        '<div class="tk-band" aria-hidden="true"><span class="tk-end"><i>From</i><b' +
+        (L.a.name.length > 9 ? ' class="lg"' : "") +
+        ">" +
         esc(L.a.name) +
         "</b>" +
         (tr ? '<span class="tk-t">' + W.clock(tr.start) + "</span>" : "") +
         '</span><span class="tk-mid">' +
-        (po ? modeIcon(po.mode) + (po.dur ? '<span class="tk-d">' + esc(po.dur) + "</span>" : "") : "") +
-        '</span><span class="tk-end r"><i>To</i><b>' +
+        /* (booked: the ticket's own way and, when both ends are on one clock, its own length; else the way you chose) */
+        (tk
+          ? modeIcon(tk.kind) + (!tk.zone && tk.arr != null ? '<span class="tk-d">' + esc(W.fmtMin(tk.arr - tk.dep)) + "</span>" : "")
+          : po
+            ? modeIcon(po.mode) + (po.dur ? '<span class="tk-d">' + esc(po.dur) + "</span>" : "")
+            : "") +
+        '</span><span class="tk-end r"><i>To</i><b' +
+        (L.b.name.length > 9 ? ' class="lg"' : "") +
+        ">" +
         esc(L.b.name) +
         "</b>" +
-        (tr ? '<span class="tk-t">' + W.clock(tr.end) + "</span>" : "") +
+        (tr
+          ? '<span class="tk-t">' +
+            W.clock(tr.end) +
+            (tr.zone ? "<i>local time</i>" : tr.end >= 1440 ? "<i>" + W.dayAfter(tr.end).trim() + "</i>" : "") +
+            "</span>"
+          : "") +
         "</span>" +
         (tk
           ? '<span class="tk-st ok">Booked' + (tk.ref ? " · " + esc(tk.ref) : "") + "</span>"
@@ -172,13 +192,13 @@
         '<p class="leg-tk"><b>Your ' +
         esc((W.modeName(tk.kind) || "ticket").toLowerCase()) +
         "</b> " +
-        esc(W.clock(tk.dep) + (tr.arr != null ? "–" + W.clock(tr.arr % 1440) + (tr.arr >= 1440 ? " next day" : "") : "")) +
+        esc(W.clock(tk.dep) + (tr.arr != null ? "–" + W.clock(tr.arr % 1440) + (tr.zone ? " local time" : W.dayAfter(tr.arr)) : "")) +
         (tk.title ? " · " + esc(tk.title) : "") +
         (tk.ref ? ' <span class="muted">· ' + esc(tk.ref) + "</span>" : "") +
         '<span class="small muted"> Leave by ' +
         W.clock(tr.start) +
         (tk.kind === "flight" ? " for check-in" : "") +
-        (T.before ? "; the morning is yours in " + esc(L.a.name) + " (check out first)" : "") +
+        (T.before ? "; the " + (tr.start >= 17 * 60 ? "day" : "morning") + " is yours in " + esc(L.a.name) + " (check out first)" : "") +
         ".</span></p>";
     if (L.opts && L.opts.length) {
       /* one row per way to go; the one you're taking opens up with where to book it */
@@ -408,16 +428,19 @@
     );
   }
   /* the end of the day: where you sleep, and making it a rest day */
-  function dayEnd(day, P, home, geoBusy) {
+  function dayEnd(day, P, home, geoBusy, T) {
     var rk = W.restKey(day),
-      canRest = !(!W.canEdit() || day.tripFirst || day.moveFrom || day.tripLast);
+      canRest = !(!W.canEdit() || day.tripFirst || day.moveFrom || day.tripLast),
+      night = W.nightOut(T);
     return (
       '<div class="day-end sk"><span class="de-i" aria-hidden="true">' +
       W.icon("bed", 2.2) +
       "</span>" +
-      (home.none
-        ? '<div><span class="small muted">Tonight</span><b>No ' + esc(day.city) + " stay picked yet</b>"
-        : '<div><span class="small muted">Staying at</span><b>' + esc(home.label) + "</b>") +
+      (night
+        ? '<div><span class="small muted">Tonight</span><b>' + esc(night) + "</b>"
+        : home.none
+          ? '<div><span class="small muted">Tonight</span><b>No ' + esc(day.city) + " stay picked yet</b>"
+          : '<div><span class="small muted">Staying at</span><b>' + esc(home.label) + "</b>") +
       (geoBusy ? '<span class="small muted">locating…</span>' : "") +
       "</div>" +
       '<div class="de-a">' +
@@ -1674,7 +1697,7 @@
         : "";
       if (!xp) {
         /* the Day tab: Google Maps under the day's stops, as on Today */
-        list += W.gmRow(day, gm, lr0) + dayEnd(day, P, home, geoBusy);
+        list += W.gmRow(day, gm, lr0) + dayEnd(day, P, home, geoBusy, T);
         if (!W.readOnly)
           list +=
             '<button type="button" class="add-place" data-addplace="1"><span aria-hidden="true">+</span> Add a place of your own</button>';

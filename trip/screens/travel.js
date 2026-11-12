@@ -216,12 +216,13 @@
       h = "";
     /* tonight and tomorrow */
     var tom = P.days[n],
-      stay = S.stays[W.cityKey(day.country, day.city)];
+      stay = S.stays[W.cityKey(day.country, day.city)],
+      night = W.nightOut(W.dayTimes(day, P));
     h +=
       '<section class="go-eve sk"><div class="ge-row"><span class="gt-i">' +
       IC.bed +
       '</span><div><span class="small muted">Tonight</span><b>' +
-      (home.none ? "No " + esc(day.city) + " stay picked yet" : esc(home.label)) +
+      (night ? esc(night) : home.none ? "No " + esc(day.city) + " stay picked yet" : esc(home.label)) +
       "</b></div>" +
       '<div class="g-acts">' +
       (!home.none && home.lat != null
@@ -725,11 +726,23 @@
     }
     if (W.awakeTick) W.awakeTick(live);
   };
+  /** a night spent on the way (a journey that ends after midnight, on one clock): what "Tonight" says in place of
+      where you're staying, e.g. "On the ferry: you arrive 5:40 AM"; "" on any other night @param {any} T a day's times */
+  W.nightOut = function (T) {
+    var tr = T && T.travel;
+    if (!tr || tr.zone || tr.end < 1440 || tr.arr == null) return "";
+    var how = tr.ticket ? W.modeName(tr.ticket.kind).toLowerCase() : "";
+    return (how && how !== "travel" ? "On the " + how : "On the way") + ": you arrive " + W.clock(tr.arr % 1440);
+  };
   /* the journey in a line: your ticket when one is booked with a time, else the way you chose */
   function travelLine(L, e) {
     var tk = e && e.tk;
     if (tk)
-      return [W.modeName(tk.kind), W.clock(tk.dep) + (e.arr != null ? "–" + W.clock(e.arr % 1440) : ""), tk.title]
+      return [
+        W.modeName(tk.kind),
+        W.clock(tk.dep) + (e.arr != null ? "–" + W.clock(e.arr % 1440) + (tk.zone ? " local time" : W.dayAfter(e.arr)) : ""),
+        tk.title
+      ]
         .filter(Boolean)
         .join(" · ");
     var o = L && L.best;

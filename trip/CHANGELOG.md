@@ -2,6 +2,30 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v159
+
+Fixes from a sweep of awkward trips and random taps (the owner's follow-up 3 of 4). evo/v158/sweep.js plans nine trips
+nobody would test by hand (30 days in 5 places with an overnight ferry, the date line, New Year in Tokyo, the night the
+clocks change, one day with a baby, a leap day, 60 days in 13 places, a trip long over, a train past midnight on the
+last night), draws every screen for every day and looks for broken text, clock order, dates and width;
+evo/v158/monkey.js taps whatever is on screen, 2,100 taps over seven seeded runs on a phone and on a desktop.
+- A journey that ends after midnight (lib/bookcore.js W.legTicket, screens/trip.js, screens/travel.js). The 11:30 PM
+  ferry that lands at 5:40 AM showed "To Crete 6:30 AM" with no word of the day, its length was the unbooked boat's
+  (2h, not 6h 10m), and the day said "Leave by 10:15 PM; the morning is yours". Now the ticket shows its own way and
+  length, the arrival says "next day" (W.dayAfter), the day before is "yours", breakfast and dinner are in the town you
+  are leaving (lib/times.js: a ticket that leaves after 7:15 PM keeps dinner there), and "Tonight" says "On the ferry:
+  you arrive 5:40 AM" (W.nightOut) instead of "No Crete stay picked yet". A journey of several days counts each day.
+- A flight that lands earlier by the clock than it left, across time zones (Tokyo 9:55 PM to Mexico City 10:15 AM the
+  same date). It was dropped as a mistake, so the day planned the unbooked train instead. Now its times stand as booked,
+  each "local time", and no length is worked out from them (Ticket.zone). A train or ferry "arriving" before it leaves
+  is still taken as a typing mistake: its arrival is left out, as before.
+- Nothing wider than the phone. The day's list (.slots) and the swap under a stop sized their one column to their widest
+  content, so a row of swap cards could push a freed slot 127-165 px past the edge; the column is now minmax(0, 1fr).
+  Plan's route check let a button that names two long places run 8 px past the edge; it wraps.
+- Long place names on a ticket ("Mexico City") were cut to "Mexico C..."; they are smaller and may take two lines.
+- Tests: tickets (the night ferry, the flight across time zones, the mistaken train). 54 suites pass; every screen of
+  the test trip matches v158.
+
 ## v158
 
 Places to eat that may not exist are marked, and picked last (the owner's follow-up 2 of 4: grade Sonnet's

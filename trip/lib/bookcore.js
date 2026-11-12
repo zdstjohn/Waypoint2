@@ -456,7 +456,10 @@
     );
   }
   /* the ticket for the journey into a stop, when its booking has a time: when it leaves and when it arrives (minutes from
-     midnight; an arrival the next day counts on past 24:00). Without a time there is no ticket to plan around. */
+     midnight; an arrival on a later day counts on past 24:00, a day for each day between the two dates). Without a
+     time there is no ticket to plan around. A flight that lands no later than it left, by the clock, crossed time zones
+     (Tokyo 5:20 PM to Los Angeles 11:05 AM the same day): its times stand as booked, each on its own clock (zone), and
+     no length is worked out from them. */
   function hhmm(iso) {
     var m = /T(\d{2}):(\d{2})/.exec(iso || "");
     return m ? +m[1] * 60 + +m[2] : null;
@@ -467,17 +470,20 @@
     if (!b) return null;
     var dep = hhmm(b.start);
     if (dep == null) return null;
-    var arr = hhmm(b.end),
+    var at = hhmm(b.end),
       d0 = String(b.start).slice(0, 10),
-      d1 = String(b.end || "").slice(0, 10);
-    if (arr != null && d1 && d1 > d0) arr += 1440;
+      d1 = String(b.end || "").slice(0, 10) || d0,
+      plus = Math.round((Date.parse(d1 + "T00:00:00Z") - Date.parse(d0 + "T00:00:00Z")) / 864e5),
+      arr = at == null ? null : at + 1440 * (plus > 0 && plus < 4 ? plus : 0),
+      zone = arr != null && arr <= dep && b.kind === "flight" && plus <= 0 && plus >= -1;
     return {
       kind: b.kind,
       title: b.title || "",
       provider: b.provider || "",
       ref: b.ref || "",
       dep: dep,
-      arr: arr != null && arr > dep ? arr : null
+      arr: arr != null && (arr > dep || zone) ? arr : null,
+      zone: zone
     };
   };
   function flightBooking(P, home) {

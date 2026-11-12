@@ -574,7 +574,15 @@
         var lead = { flight: 150, ferry: 75, train: 45, bus: 40 }[tk.kind] || 45,
           after = { flight: 60, ferry: 40, train: 30, bus: 30 }[tk.kind] || 40;
         var arr = tk.arr != null ? tk.arr : tk.dep + L.min;
-        out.travel = { start: Math.max(hm(5), tk.dep - lead), end: up15(arr + after), leg: L, ticket: tk, dep: tk.dep, arr: arr };
+        out.travel = {
+          start: Math.max(hm(5), tk.dep - lead),
+          end: up15(arr + after),
+          leg: L,
+          ticket: tk,
+          dep: tk.dep,
+          arr: arr,
+          zone: !!tk.zone
+        };
         if (out.travel.start - hm(9) >= 90) out.before = { start: hm(9), end: out.travel.start - 15, city: day.moveFrom };
       } else out.travel = { start: s0, end: up15(s0 + L.min + 40), leg: L };
       t = out.travel.end + 20;
@@ -638,7 +646,8 @@
         row.skip = true;
         row.start = out.before ? (p.kid ? hm(8) : hm(8, 30)) : out.travel.start - 50;
         row.end = out.before ? row.start + 40 : out.travel.start - 15;
-        row.info.push("Travel morning: have breakfast before you set off");
+        /* (a ticket that leaves later in the day: breakfast is simply breakfast in the town you're leaving) */
+        row.info.push(out.before ? "Breakfast in " + day.moveFrom : "Travel morning: have breakfast before you set off");
         return;
       }
       /* the latest a slot can still start; a long journey that lands after it leaves that meal or outing out */
@@ -656,6 +665,14 @@
         row.skip = true;
         row.start = out.travel.start + 180;
         row.info.push("Travel day: lunch on the way");
+        return;
+      }
+      /* a ticket that leaves in the evening (a night boat, a late train): dinner is in the town you're leaving too */
+      if (x.slot === "dinner" && out.travel && out.travel.dep != null && out.travel.start >= hm(19, 15)) {
+        row.skip = true;
+        row.start = Math.max(hm(17, 30), Math.min(kd || M[1], out.travel.start - 90));
+        row.end = Math.min(row.start + 75, out.travel.start - 15);
+        row.info.push("Dinner in " + day.moveFrom + " before you set off");
         return;
       }
       /* landing late in the evening: eat on the way or after you land, nothing is planned */

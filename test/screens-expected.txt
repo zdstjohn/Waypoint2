@@ -1,3 +1,4 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v158: places to eat the answer is unsure of are marked "not checked yet" (the test data has none). No screen may change.
+# v159: fixes from the sweep of awkward trips (a journey past midnight or across time zones; nothing wider than the
+# phone). The test trip has neither: no screen may change.

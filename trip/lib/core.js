@@ -331,6 +331,11 @@
   W.fmtMin = function (m) {
     return m < 60 ? m + " min" : Math.floor(m / 60) + "h" + (m % 60 ? " " + (m % 60) + "m" : "");
   };
+  /** for a time counted on past midnight (minutes from the day's own midnight): "" the same day, " next day", or
+      " two days later" @param {number} m */
+  W.dayAfter = function (m) {
+    return m >= 2880 ? " two days later" : m >= 1440 ? " next day" : "";
+  };
   W.fmtKm = function (d) {
     return d < 1 ? Math.round((d * 1000) / 50) * 50 + " m" : (d < 10 ? d.toFixed(1) : Math.round(d)) + " km";
   };

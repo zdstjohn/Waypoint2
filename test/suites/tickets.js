@@ -81,5 +81,28 @@ exports.run = async t => {
   t.ok(swap.other === swap.Y && swap.gone, 'not when the stop has been changed by anything else since');
   t.ok(swap.old === swap.Y && swap.gone2, 'and not after more than a few days');
   t.eq(c2.errors(), [], 'no page errors on the second trip');
+  /* ---- v159: journeys that end on another day, or on another clock (found by the sweep of awkward trips) ---- */
+  const c3 = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(c3.pg);
+  const night = await c3.pg.evaluate(async L => {
+    const next = W.isoDay(W.dateOf(L.n + 1));
+    const put = (kind, dep, arrDay, arr) => { W.S.bookings = [{ id: 'h-n', kind, title: 'Night ' + kind, place: '', to: '', start: L.iso + 'T' + dep, end: arrDay + 'T' + arr, price: 0, cur: 'EUR', ref: 'N1', provider: '', what: '', url: '', src: 'hand' }]; W.changed(); };
+    const read = () => { const P = W.plan(), d = P.days[L.n - 1], T = W.dayTimes(d, P); W.S.day = L.n; W.S.tview = 'days'; W.goView('trip'); W.render();
+      const band = document.querySelector('#viewTrip .tk-band'), tx = s => { const e = document.querySelector(s); return e ? e.textContent.replace(/\s+/g, ' ').trim() : ''; };
+      return { tk: W.legTicket(P, L.stop), end: T.travel.end, zone: !!T.travel.zone, before: !!T.before, dinner: (T.rows.dinner && T.rows.dinner.info || []).join('; '), breakfast: (T.rows.breakfast && T.rows.breakfast.info || []).join('; '),
+        dur: tx('#viewTrip .tk-band .tk-d'), to: band ? band.querySelector('.tk-end.r .tk-t').textContent.replace(/\s+/g, ' ') : '', line: tx('#viewTrip .leg-tk'), tonight: tx('#viewTrip .day-end'), night: W.nightOut(T) }; };
+    put('ferry', '23:30', next, '05:40'); await new Promise(r => setTimeout(r, 300)); const ferry = read();
+    put('flight', '17:20', L.iso, '11:05'); await new Promise(r => setTimeout(r, 300)); const east = read();
+    put('train', '17:20', L.iso, '11:05'); await new Promise(r => setTimeout(r, 300)); const typo = read();
+    return { ferry, east, typo };
+  }, L0);
+  t.ok(night.ferry.tk && night.ferry.tk.arr === 1440 + 340 && !night.ferry.tk.zone && night.ferry.end >= 1440, 'a ferry that leaves at 11:30 PM and arrives 5:40 AM the next day counts on past midnight: ' + JSON.stringify(night.ferry.tk));
+  t.ok(night.ferry.dur === '6h 10m' && /next day/i.test(night.ferry.to) && /5:40.*next day/i.test(night.ferry.line), `its ticket shows its own length and says the arrival is the next day: "${night.ferry.dur}", "${night.ferry.to}", "${night.ferry.line.slice(0, 70)}"`);
+  t.ok(/the day is yours in/.test(night.ferry.line) && /^Breakfast in /.test(night.ferry.breakfast) && /^Dinner in .* before you set off$/.test(night.ferry.dinner), `the day before it is spent where you are: "${night.ferry.breakfast}", "${night.ferry.dinner}"`);
+  t.ok(/^On the ferry: you arrive 5:40/.test(night.ferry.night) && /On the ferry: you arrive/.test(night.ferry.tonight) && !/stay picked yet/.test(night.ferry.tonight), 'and "Tonight" says you are on the ferry, not that no stay is picked: ' + night.ferry.tonight.slice(0, 60));
+  t.ok(night.east.tk && night.east.tk.zone && night.east.tk.arr === 665 && night.east.zone && night.east.dur === '' && /local time/i.test(night.east.to) && /11:05.*local time/i.test(night.east.line) && night.east.night === '',
+    `a flight that lands earlier by the clock than it left (across time zones) keeps its booked times, says "local time" and shows no length: "${night.east.to}", "${night.east.line.slice(0, 60)}"`);
+  t.ok(night.typo.tk && night.typo.tk.arr == null && !night.typo.tk.zone, 'a train "arriving" before it leaves is a mistake in the booking: its arrival is left out, as before');
+  t.eq(c3.errors(), [], 'no page errors on those days');
+  await c3.ctx.close();
   await c2.ctx.close(); await b.close();
 };

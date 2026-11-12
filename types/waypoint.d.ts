@@ -69,7 +69,7 @@ interface Profile { act?: string; min: number; intensity: number; indoor?: boole
 interface Classification { kind: string; act: string | null; min: number; intensity: number; indoor: boolean; weather: boolean; adults: boolean; slots: string[]; stroller?: boolean }
 interface TimeRow { start?: number; end?: number; skip?: boolean; late?: boolean; free?: boolean; label?: string; warn: string[]; info: string[] }
 /** a booked journey with a time (lib/bookcore.js W.legTicket): minutes from midnight; an arrival the next day is past 1440 */
-interface Ticket { kind: string; title: string; provider: string; ref: string; dep: number; arr: number | null }
+interface Ticket { kind: string; title: string; provider: string; ref: string; dep: number; arr: number | null; /** the two ends are on different clocks: the times stand as booked, no length is worked out */ zone?: boolean }
 /** one way of going, as Rome2Rio measured it (minutes door to door) */
 interface R2RRoute { name: string; min: number; carriers: string[] }
 interface DayTimes { rows: Partial<Record<Slot, TimeRow>>; nap?: { start: number; end: number; away?: boolean } | null;
@@ -326,6 +326,10 @@ interface Waypoint {
   planX: any;
   /** what the two halves of the Trip screen share (screens/trip.js, screens/tripacts.js) */
   tripX: any;
+  /** " next day" or " two days later" for a time counted on past midnight (lib/core.js) */
+  dayAfter: (m: number) => string;
+  /** what "Tonight" says on a night spent on the way, "" otherwise (screens/travel.js) */
+  nightOut: (T: any) => string;
   /** a lifted stop keeps its marks after a redraw (screens/flowacts.js) */
   liftRedraw: () => void;
   /** a click handler that comes with the second script: it also gets the taps that landed before it arrived (lib/later.js) */
