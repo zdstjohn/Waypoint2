@@ -2,6 +2,25 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v161
+
+Two fixes for the web app (claude.ai in a phone's browser), from the owner's screenshots, and one for Explore.
+- The tab bar grew tall with empty space under its labels (app.css). Chrome on Android draws the page under the gesture
+  bar and says how tall it is (the bottom safe-area inset); the floating tab bar rose above it and also kept the
+  edge-to-edge bar's bottom padding of the same inset, so it counted it twice. The floating bar now only rises:
+  107 px -> 73 px tall with a 34 px gesture bar, 10 px above it as before; its sides keep clear of a side bar too.
+- The slim top bar came only once the whole banner had left the screen, while the day strip below it had already
+  stuck 44 px down, so the banner's last strip slid on in a gap above the strip and the slim bar then dropped in
+  (lib/warm.js W.pinBar, app.css). It now comes the moment the banner's bottom reaches the line the strip sticks to
+  (44 px plus the status bar's inset, measured), and fades in over the banner's own colours instead of dropping. A
+  scroll check (one per frame) instead of an IntersectionObserver, which inside the Claude app's frame cannot be told
+  to fire early.
+- An idea in Explore with a long official site ("Tickets · gallerieaccademia.it") put its map icon on a line of its
+  own (screens/trip.js, app.css). The picture links (menu, photos, map) are now one group that never splits, beside
+  the tickets link, which wraps inside itself if it must; on phones of 360 px and under the gaps are a little tighter.
+- Tools: evo/v161/film.js (scrolling filmstrip and the tab bar with a simulated gesture bar), rowcheck.js, sheet.js.
+  54 suites pass; only Explore's screens changed, as listed.
+
 ## v160
 
 The design review (the owner's follow-up 4 of 4): every screen looked over in light, dark, large text, tablet and

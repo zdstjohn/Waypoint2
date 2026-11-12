@@ -1,13 +1,6 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v160: the design review. What is chosen is ringed in indigo, not black (Plan's kind of trip, the trips menu, a text
-# box in use); Settings and the recap have the serif title on a phone; less space above Day | Explore; a photo beside
-# a stop has a hairline, not a black frame; desktop quick actions sit on the card's top edge.
-setup*
-menu*
-settings*
-recap*
+# v161: an idea's link row in Explore keeps its picture links (menu, photos, map) together beside the tickets link.
+# The tab bar and the slim top bar change only where the page is drawn under the phone's bars, which the test
+# browser never is: no other screen may change.
 explore*
-trip-days*
-swap*
-stop-panel*

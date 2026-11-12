@@ -1261,12 +1261,14 @@
         (info ? '<p class="small muted">' + esc(info) + "</p>" : "") +
         /* the row: the links only (v118: no "checked" mark, no kids mark, and "Not for us" lives on a stop's own panel
            and on the swap cards, where a place is already on the day) */
+        /* (the picture links are one group that never splits, beside the tickets link, which wraps inside itself) */
         '<div class="small idea-meta">' +
-        (eat ? W.menuLink(it, day.city) : "") +
         W.bookLink(it, day.city, eat, day.country) +
+        '<span class="ilinks">' +
+        (eat ? W.menuLink(it, day.city) : "") +
         W.iconLink(W.photosUrl(it.n, day.city), "photos", "Photos of " + it.n) +
         W.iconLink(W.gmapsPlace(it, day.city), "map", it.n + " in Google Maps") +
-        "</div>" +
+        "</span></div>" +
         ((on && on.n === day.n) || !free.length ? "" : useBlock(it)) +
         "</div>"
       );

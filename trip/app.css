@@ -1791,7 +1791,12 @@ button.menu-btn{border:0;background:transparent;font:inherit;font-weight:800;col
 :root{--danger:#C2362B}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--danger:#FF6F61}}
 :root[data-theme="dark"]{--danger:#FF6F61}
-.idea-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;margin-top:10px}
+/* the tickets link and the picture links keep to one row: a long site name wraps inside its own link, and the
+   pictures (menu, photos, map) stay together beside it, never one on a line of its own */
+.idea-meta{display:flex;flex-wrap:nowrap;align-items:center;gap:6px 18px;margin-top:10px}
+.idea-meta a.book{flex:0 1 auto;min-width:0;overflow-wrap:anywhere}
+.idea-meta .ilinks{flex:none;display:inline-flex;align-items:center;gap:18px}
+@media (max-width:360px){.idea-meta{column-gap:12px}.idea-meta .ilinks{gap:12px}}
 .ilink{display:inline-grid;place-items:center;width:40px;height:40px;margin:-4px -6px;border-radius:var(--r-md);color:var(--accent)}
 .ilink svg{width:24px;height:24px}
 .ilink:hover{background:var(--accent-soft)}
@@ -2014,13 +2019,13 @@ svg.arr.arr-r{margin:0 0 0 .35em}
   .tl-day .tl-go svg{width:19px;height:19px;color:currentColor}
   .tl-day .tl-go[hidden]{display:none}
   html:has(.top[data-day]) #viewTrip .day-h:not(.has-hero):not(.ex-h){position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;margin:0}
-  .pin:not([hidden]){display:flex;align-items:center;gap:10px;position:fixed;z-index:30;top:0;left:0;right:0;border:0;margin:0;width:100%;min-height:44px;padding:calc(6px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 6px max(16px,env(safe-area-inset-left,0px));background:var(--grad);color:var(--on-color);font:800 var(--t-ui)/1.2 var(--f-body);text-align:left;box-shadow:var(--sh-2);cursor:pointer;animation:pinIn .18s ease-out}
+  .pin:not([hidden]){display:flex;align-items:center;gap:10px;position:fixed;z-index:30;top:0;left:0;right:0;border:0;margin:0;width:100%;min-height:44px;padding:calc(6px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 6px max(16px,env(safe-area-inset-left,0px));background:var(--grad);color:var(--on-color);font:800 var(--t-ui)/1.2 var(--f-body);text-align:left;box-shadow:var(--sh-2);cursor:pointer;animation:pinIn .14s ease-out}
   .pin .pin-logo{width:88px;height:auto;flex:none}
   .pin b{font-weight:800;font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .pin span{margin-left:auto;font-weight:700;font-size:var(--t-sm);color:#f6c46b;white-space:nowrap}
   html:has(.top[data-day]) #viewTrip .daybar{position:sticky;top:calc(44px + env(safe-area-inset-top,0px));z-index:19;margin:0 -8px;padding:6px 8px 4px;background:var(--bg) var(--grain)}
 }
-@keyframes pinIn{from{transform:translateY(-100%)}to{transform:none}}
+@keyframes pinIn{from{opacity:0}to{opacity:1}}
 @media (prefers-reduced-motion:reduce){.pin:not([hidden]){animation:none}}
 @media (max-width:560px){.tl-day .tl-go svg,.tl-day .tl-go svg *{stroke:#fff}.tl-day .tl-go svg .ia{fill:#fff}}
 
@@ -2169,9 +2174,9 @@ table.budget td + td *{font-family:var(--f-body);letter-spacing:0}
 .legcard.tk .legopts,.legcard.tk .leg-tk,.legcard.tk .lo-r2r{margin-inline:6px}
 .lo + .lo{border-top:var(--hair)}
 .lo.sel .lo-dot{border-color:var(--move);background:radial-gradient(circle,var(--move) 0 4px,transparent 5px)}
-/* ---- the phone's tab bar: floating glass ---- */
+/* ---- the phone's tab bar: floating glass (the gesture bar's inset lifts it; it is not padding inside it) ---- */
 @media (max-width:560px){
-  .tabs{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));border-radius:var(--r-lg);background:color-mix(in srgb,var(--surface) 85%,transparent);-webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4);border:1px solid color-mix(in srgb,var(--ring) 70%,transparent);box-shadow:0 8px 24px -12px rgba(28,25,23,.28)}
+  .tabs{left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));padding:6px 8px;border-radius:var(--r-lg);background:color-mix(in srgb,var(--surface) 85%,transparent);-webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4);border:1px solid color-mix(in srgb,var(--ring) 70%,transparent);box-shadow:0 8px 24px -12px rgba(28,25,23,.28)}
 }
 .tabs button[aria-current="page"]{background:var(--primary);color:var(--on-primary);box-shadow:var(--primary-edge)}
 .day-h h2,.gt-m b,.tk-end b{font-family:var(--f-serif);font-weight:400;letter-spacing:-.015em;line-height:1.08}

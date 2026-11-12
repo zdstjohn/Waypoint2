@@ -191,7 +191,7 @@
   };
   /* When the banner has scrolled away (a phone, the Day view): one slim row stays, with the logo, the city and where
      in the trip you are, and the day strip stays under it (the stylesheet pins that). A tap goes back to the top */
-  var pinWatch = null;
+  var pinWatch = false;
   W.pinBar = function (P) {
     var el = document.getElementById("pin"),
       top = document.querySelector(".top");
@@ -212,19 +212,42 @@
       "</b>" +
       (where ? "<span>" + esc(where) + "</span>" : "");
     if (el.innerHTML !== html) el.innerHTML = html;
-    if (!pinWatch && "IntersectionObserver" in window) {
-      pinWatch = new IntersectionObserver(function (es) {
-        var gone = !es[es.length - 1].isIntersecting;
-        el.hidden = !(gone && el.hasAttribute("data-on"));
+    if (!pinWatch) {
+      pinWatch = true;
+      pinMeasure();
+      window.addEventListener("scroll", pinSoon, { passive: true });
+      window.addEventListener("resize", function () {
+        pinMeasure();
+        pinSoon();
       });
-      pinWatch.observe(top);
       el.addEventListener("click", function () {
         window.scrollTo({ top: 0, behavior: smooth() });
       });
-    } else if (pinWatch) {
-      el.hidden = !(top.getBoundingClientRect().bottom <= 0);
     }
+    pinCheck();
   };
+  /* The slim bar comes the moment the banner's bottom reaches the line the day strip sticks to (44 px below the
+     top, plus the status bar's inset where the page is drawn under it), so the banner never slides on under nothing */
+  var pinTop = 44,
+    pinTick = 0;
+  function pinMeasure() {
+    var p = document.createElement("div");
+    p.style.cssText = "position:fixed;top:0;left:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px)";
+    document.body.appendChild(p);
+    pinTop = 44 + p.offsetHeight;
+    p.remove();
+  }
+  function pinCheck() {
+    pinTick = 0;
+    var el = document.getElementById("pin"),
+      top = document.querySelector(".top");
+    if (!el || !top) return;
+    var show = el.hasAttribute("data-on") && top.getBoundingClientRect().bottom <= pinTop + 0.5;
+    if (el.hidden === show) el.hidden = !show;
+  }
+  function pinSoon() {
+    if (!pinTick) pinTick = requestAnimationFrame(pinCheck);
+  }
 
   /* ======================= back to the top ======================= */
   /* A round ↑ in the bottom corner, with a gradient ring so it stands out from the cards. It comes when you turn
