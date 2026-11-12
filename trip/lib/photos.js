@@ -161,12 +161,14 @@
 
   /* tell the photo finder which places this trip uses (one write per city, only when the list changes) */
   var written = {},
-    pending = {};
+    pending = {},
+    /** @type {Record<string, string>} */ refused = {}; /* refused while the app is open: not asked again on every redraw */
   try {
     written = JSON.parse(localStorage.getItem("waypoint-wanted-v1") || "null") || {};
   } catch (e) {}
   W.wantPhotos = function (country, city, pool, P) {
-    if (!pool || pool.fallback) return;
+    /* (a shared trip is someone else's to describe; the installable app has no nightly helper reading these) */
+    if (!pool || pool.fallback || W.readOnly || W.standalone) return;
     /* the places this trip has on its days come first (with the day's date), then the best of the rest, up to the city's
        cap: the nightly checks and the photo finder work down these lists, the soonest trip first ("when") */
     var used = {},
@@ -197,7 +199,6 @@
         ln = x.lng;
       return la != null && ln != null ? [Math.round(la * 1e4) / 1e4, Math.round(ln * 1e4) / 1e4] : null;
     });
-    var hb = W.homebase(country, city);
     var info = (pool.spots || [])
       .filter(function (x) {
         return W.isPaid(x) || W.needsBooking(x);
@@ -205,7 +206,6 @@
       .map(function (x) {
         return { n: x.n, ticket: x.ticket || "", book: x.book || "", lat: x.lat, lng: x.lng };
       });
-    var st = W.S.stays[W.cityKey(country, city)];
     var stays = (pool.stay || []).filter(function (x) {
       return x && x.n && x.lat != null;
     });
@@ -223,12 +223,15 @@
       menus: foodL.map(function (x) {
         return x.menu || "";
       }),
-      when: first || null,
+      /* Everyone who can open the app can read this list, so it says nothing about any family: which places are on a
+         trip (by name only), and the month of the first day there (the nightly checks do the soonest trips first),
+         never the dates, the day of each place, where you stay or a hotel you typed. */
+      when: first ? first.slice(0, 7) + "-01" : null,
       used: Object.keys(used).map(function (n) {
-        return [n, used[n]];
+        return [n];
       }),
       paid: info,
-      home: hb && hb.lat != null ? [hb.lat, hb.lng] : null,
+      home: null,
       center: pool.lat != null ? [pool.lat, pool.lng] : null,
       /* where-to-stay areas and the stay you chose by name (not a Booking.com pick, whose pin is real): their pins are checked too */
       stays: stays.map(function (x) {
@@ -237,10 +240,11 @@
       stayPts: stays.map(function (x) {
         return [Math.round((x.lat || 0) * 1e4) / 1e4, Math.round((x.lng || 0) * 1e4) / 1e4];
       }),
-      homeLabel: st && st.label && !st.live && st.lat != null ? st.label : null
+      homeLabel: null
     };
+    /* (v7: the first list without the stay and the dates; every city a trip uses is written again without them) */
     var sig =
-      "v6/" +
+      "v7/" +
       foodL.length +
       "/" +
       (first || "") +
@@ -249,15 +253,11 @@
       "/" +
       (body.used.length ? body.used[body.used.length - 1][0] : "") +
       "/" +
-      (body.homeLabel || "") +
-      "/" +
       body.stays.length +
       "/" +
       info.filter(function (x) {
         return x.book;
       }).length +
-      "/" +
-      (body.home ? body.home.join(",") : "") +
       "/" +
       body.spots.length +
       "/" +
@@ -267,7 +267,7 @@
       "/" +
       (body.food[body.food.length - 1] || "");
     var id = citySlug(country, city);
-    if (written[id] === sig || (pending[id] && pending[id].sig === sig)) return;
+    if (written[id] === sig || refused[id] === sig || (pending[id] && pending[id].sig === sig)) return;
     pending[id] = { sig: sig, body: body };
     flushWanted();
   };
@@ -287,7 +287,10 @@
             localStorage.setItem("waypoint-wanted-v1", JSON.stringify(written));
           } catch (e) {}
         },
-        function () {}
+        function (e) {
+          refused[id] = job.sig;
+          W.caught(e, "the photo finder's list for " + id);
+        }
       )
       .then(function () {
         if (pending[id] === job) delete pending[id];

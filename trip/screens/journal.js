@@ -144,6 +144,9 @@
           function (r) {
             var e = J()[k] || (J()[k] = {});
             (e.photos || (e.photos = [])).push({ id: r.id, at: Date.now() });
+            /* (each photo is sent as it lands: on a slow signal the last one can come minutes after your tap) */
+            W.realChange();
+            W.save();
           },
           function (e) {
             err[k] =
@@ -187,14 +190,44 @@
       pick(b.getAttribute("data-jadd") || "");
     }
   });
+  /* the line is kept as you type (a moment after you stop), and at once when the app goes to the background with the
+     keyboard still up: it used to be kept only when you tapped out of the box */
+  /** @type {any} */ var noteT = null;
+  function keepNote(/** @type {any} */ t) {
+    clearTimeout(noteT);
+    noteT = null;
+    if (!t || !t.dataset || t.dataset.jnote == null || W.readOnly) return;
+    var en = J()[t.dataset.jnote] || (J()[t.dataset.jnote] = {}),
+      v = (t.value || "").slice(0, 2000);
+    if ((en.note || "") === v) return;
+    en.note = v;
+    W.realChange();
+    W.save();
+  }
   document.addEventListener("change", function (e) {
-    var t = e.target;
-    if (t && t.dataset && t.dataset.jnote != null && !W.readOnly) {
-      var en = J()[t.dataset.jnote] || (J()[t.dataset.jnote] = {});
-      en.note = (t.value || "").slice(0, 2000);
-      W.save();
-    }
+    keepNote(e.target);
   });
+  document.addEventListener("input", function (e) {
+    var t = /** @type {any} */ (e.target);
+    if (!t || !t.dataset || t.dataset.jnote == null) return;
+    clearTimeout(noteT);
+    noteT = setTimeout(function () {
+      keepNote(t);
+    }, 700);
+  });
+  /* (before sync.js sends what is waiting as the page is hidden: this listener is added first, in capture) */
+  function keepFocused() {
+    var a = /** @type {any} */ (document.activeElement);
+    if (a && a.dataset && a.dataset.jnote != null) keepNote(a);
+  }
+  document.addEventListener(
+    "visibilitychange",
+    function () {
+      if (document.visibilityState === "hidden") keepFocused();
+    },
+    true
+  );
+  window.addEventListener("pagehide", keepFocused, true);
   W.journalClick = function (d) {
     if (d.jdel == null) return false;
     var e = J()[d.jdel];

@@ -91,11 +91,12 @@ exports.run = async t => {
     const doc = JSON.parse(await window.__dbOp('get', 'wanted/italy-rome', null) || 'null');
     const onTrip = []; W.P.days.filter(d => d.city === 'Rome').forEach(d => d.slots.forEach(x => { if (x.item && !onTrip.includes(x.item.n)) onTrip.push(x.item.n); }));
     const firstDay = W.isoDay(W.dateOf(W.P.days.find(d => d.city === 'Rome').n));
-    return doc && { when: doc.when, firstDay, used: doc.used.length, onTrip: onTrip.length, headOk: onTrip.every(n => doc.spots.concat(doc.food).includes(n)),
+    return doc && { when: doc.when, firstDay: firstDay.slice(0, 7) + '-01', used: doc.used.length, private: !doc.home && !doc.homeLabel && doc.used.every(u => u.length === 1), onTrip: onTrip.length, headOk: onTrip.every(n => doc.spots.concat(doc.food).includes(n)),
       first: onTrip.filter(n => pool.spots.some(x => x.n === n)).every((n, i, a) => doc.spots.indexOf(n) < a.length), pairs: doc.pts.length === doc.spots.length + doc.food.length,
       cap: doc.spots.length <= Math.max(W.IDEA_CAP.spots, onTrip.length) && doc.food.length <= Math.max(W.IDEA_CAP.food + 30, onTrip.length) && (doc.menus || []).length === doc.food.length };   /* (places to eat: the cap plus room for the nightly ones; each with its menu page, in step) */
   });
-  t.ok(want && want.when === want.firstDay && want.used === want.onTrip && want.headOk && want.first && want.pairs && want.cap, 'the nightly lists put this trip\'s stops first with their dates (' + JSON.stringify(want) + ')');
+  t.ok(want && want.when === want.firstDay && want.used === want.onTrip && want.headOk && want.first && want.pairs && want.cap, 'the nightly lists put this trip\'s stops first, with the month of the first day (' + JSON.stringify(want) + ')');
+  t.ok(want && want.private, 'and nothing private: no stay, no hotel name, no dates per place (everyone who can open the app can read this list)');
   /* a city that holds far more ideas than the stay calls for (lists from before the limit, the nightly restaurants):
      only the stay's worth is on show; the rest is set aside, and comes out first when you ask for more */
   const fit = await pg.evaluate(async () => {

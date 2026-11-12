@@ -353,6 +353,7 @@
     var home = W.homebase(day.country, day.city),
       prev = /** @type {LatLng} */ (home),
       walk = 0,
+      legKm = 0 /* (of which on foot between stops: shown in the label; the planner does not lighten days for it) */,
       act = 0,
       effort = 0,
       big = 0,
@@ -366,7 +367,10 @@
         it = x && x.item;
       if (!it || !R || R.skip) return;
       var lg = W.leg(prev, it);
-      if (lg && lg.mode === "walk") walk += lg.d || 0;
+      if (lg && /^walk/.test(lg.mode)) {
+        walk += lg.d || 0;
+        legKm += lg.d || 0;
+      } /* (W.leg says "walking": "walk" never matched) */
       if (!W.isFood(sl)) {
         var c = W.classify ? W.classify(it, false) : { intensity: 1, indoor: false, kind: "" },
           mins = R.end - R.start,
@@ -381,13 +385,19 @@
       if (it.lat != null) prev = it;
     });
     var bk = W.leg(prev, home);
-    if (bk && bk.mode === "walk") walk += bk.d || 0;
+    if (bk && /^walk/.test(bk.mode)) {
+      walk += bk.d || 0;
+      legKm += bk.d || 0;
+    }
     var travel = T.travel ? T.travel.end - T.travel.start : 0;
     /* grandparents along: every kilometre on foot counts for more */
     var score = effort + walk * (P.p.senior ? 0.8 : 0.5) + (travel / 60) * 1.2 + (day.fullDay ? 1 : 0) + (big > 1 ? 1.5 : 0);
     var level = score < 3.5 ? 1 : score < 6 ? 2 : score < 8.5 ? 3 : 4;
     return {
       walk: Math.round(walk * 10) / 10,
+      /* the score as the planner judges it: without the walks between stops (counting them would take outings off
+         days with grandparents along; the label says how tiring the day is, the plan stays as it was) */
+      planScore: score - legKm * (P.p.senior ? 0.8 : 0.5),
       act: act,
       travel: travel,
       score: score,

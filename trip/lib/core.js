@@ -324,8 +324,9 @@
   };
   /** directions in Google Maps from a to b; with no a (no stay picked yet), from wherever you are */
   W.gmapsDir = function (a, b, mode) {
-    var o = !a ? "" : a.lat != null ? a.lat + "," + a.lng : a.label;
-    var d = b.lat != null ? b.lat + "," + b.lng : b.n;
+    var o = W.dirPoint(a),
+      d = W.dirPoint(b) || b.n || b.label || "";
+    mode = MODES[mode || ""] || mode;
     return (
       "https://www.google.com/maps/dir/?api=1" +
       (o ? "&origin=" + encodeURIComponent(o) : "") +
@@ -335,6 +336,25 @@
       (mode || "transit")
     );
   };
+  /** A place as Google Maps directions take it: its pin; a stay you named whose place isn't known yet (pending) by
+      its name and town, never the middle of the town under the hotel's name; a stay not picked (none) is nothing,
+      so the directions start from where the phone is. @param {any} p @returns {string} */
+  W.dirPoint = function (p) {
+    if (!p || p.none) return "";
+    if (p.pending || p.lat == null) {
+      var nm = p.label || p.n || "";
+      return nm && p.city && nm.indexOf(p.city) < 0 ? nm + ", " + p.city : nm;
+    }
+    return p.lat + "," + p.lng;
+  };
+  /* (the app's own names for ways of getting about, as Google Maps spells them) */
+  var MODES = /** @type {Record<string, string>} */ ({
+    walk: "walking",
+    walking: "walking",
+    drive: "driving",
+    car: "driving",
+    bike: "bicycling"
+  });
   /** the whole day in Google Maps: from where you stay, every stop in order (its pin, or else its name and town), and
       back. Driving when any stop is more than a walk away (Google Maps takes no stops on a transit route). */
   W.dayRouteUrl = function (day, stops, home) {
@@ -350,7 +370,7 @@
       });
     var o = open
         ? at(nine[0])
-        : home && home.lat != null
+        : home && home.lat != null && !home.pending
           ? home.lat + "," + home.lng
           : (home && home.label ? home.label : day.city) + ", " + day.city,
       end = open ? at(nine[nine.length - 1]) : o;
@@ -611,7 +631,14 @@
           .then(
             function (res) {
               delete W.status[key];
-              onOk(res);
+              /* an answer in a shape nobody expected must not jam the queue: the request ends either way (the
+                 step after this frees its place), the fault is logged, and the screen offers to try again */
+              try {
+                onOk(res);
+              } catch (e) {
+                W.caught(e, "answer for " + String(key).split("|")[0]);
+                W.status[key] = "Couldn't load this. Try again.";
+              }
             },
             function (err) {
               var code = err && err.code;

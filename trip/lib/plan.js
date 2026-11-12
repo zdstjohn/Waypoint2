@@ -92,11 +92,20 @@
       /* a stay chosen by name (an area, or a hotel typed in) has a guessed pin: a checked one wins; one found far out
          in the water falls back to the city centre. A Booking.com pick's pin is the hotel's own. */
       var fx = !st.live && W.placeInfo ? W.placeInfo({ n: st.label }, country, city) : null;
-      if (fx && fx.lat != null) return { label: st.label, lat: fx.lat, lng: fx.lng, set: true };
-      if (!(fx && fx.nopin)) return { label: st.label, lat: st.lat, lng: st.lng, set: true };
+      if (fx && fx.lat != null) return { label: st.label, n: st.label, lat: fx.lat, lng: fx.lng, set: true };
+      if (!(fx && fx.nopin)) return { label: st.label, n: st.label, lat: st.lat, lng: st.lng, set: true };
       var la = pool && pool.lat != null ? pool.lat : c && c.lat,
         lo = pool && pool.lng != null ? pool.lng : c && c.lng;
-      return { label: st.label, lat: la == null ? null : la, lng: lo == null ? null : lo, set: true };
+      /* (its pin was wrong: the plan reckons from the middle, but directions go by its name: pending) */
+      return {
+        label: st.label,
+        n: st.label,
+        city: city,
+        lat: la == null ? null : la,
+        lng: lo == null ? null : lo,
+        set: true,
+        pending: true
+      };
     }
     /* no stay picked: the plan still starts and ends the day at the city's centre (so the times hold), but nothing on
        screen calls that an address: it is "your stay" (none: true), with no directions to it */
@@ -104,6 +113,7 @@
       lng = pool && pool.lng != null ? pool.lng : c && c.lng;
     return {
       label: st && st.label ? st.label : "your stay",
+      n: st && st.label ? st.label : "your stay",
       none: !(st && st.label),
       city: city,
       lat: lat == null ? null : lat,
@@ -113,6 +123,30 @@
     };
   };
 
+  /* A stay typed by name whose place could not be found yet (no signal, or Claude busy) is asked for again, at most
+     every two minutes while a screen that uses it is open; until then directions go by its name and town. */
+  /** @type {Record<string, number>} */ var stayTried = {};
+  W.stayRetry = function (country, city) {
+    var ck = W.cityKey(country, city),
+      st = W.S.stays[ck];
+    if (!st || !st.label || st.lat != null || st.live || W.readOnly || !W.geocode) return;
+    if ((W.offline && W.offline.off) || Date.now() - (stayTried[ck] || 0) < 120000) return;
+    var gk = "geo|" + ck + "|" + W.norm(st.label);
+    if (W.status[gk] === "loading") return;
+    stayTried[ck] = Date.now();
+    delete W.status[gk];
+    var label = st.label;
+    W.geocode(country, city, label, function (g) {
+      var s2 = W.S.stays[ck];
+      if (s2 && s2.label === label && s2.lat == null) {
+        s2.lat = g.lat;
+        s2.lng = g.lng;
+        W.freshPicks(country, city);
+        W.save();
+        W.changed();
+      }
+    });
+  };
   /* days you set for a place yourself (only for cities you chose, so the list can't shift under them) */
   function setDays(country, name) {
     var c = W.S.countries.filter(function (x) {
@@ -1224,9 +1258,9 @@
     var T = W.dayTimes(d, P),
       E = T && W.dayEnergy(d, P, T);
     if (!E) return 0;
-    if (!noTravel) return E.level;
+    var sc = E.planScore != null ? E.planScore : E.score;
     /* the journey itself can't be lightened: judge what is planned around it */
-    var sc = E.score - (E.travel / 60) * 1.2;
+    if (noTravel) sc -= (E.travel / 60) * 1.2;
     return sc < 3.5 ? 1 : sc < 6 ? 2 : sc < 8.5 ? 3 : 4;
   }
   /* make a day lighter: no evening outing, then an easy afternoon close to where you stay, then no afternoon outing */

@@ -313,6 +313,11 @@
   /* only changes you make get sent: the planner filling in picks on its own is redone on every device anyway,
      and sending those would overwrite what you just changed somewhere else */
   var touched = 0;
+  /** a change the app made for you, that is as much yours as a tap (a photo that finished uploading, a change taken
+      from someone planning with you): it is sent like one, even minutes after your last tap */
+  W.realChange = function () {
+    touched = Date.now();
+  };
   ["click", "change", "input"].forEach(function (ev) {
     document.addEventListener(
       ev,
@@ -1645,16 +1650,13 @@
     "keydown",
     function (e) {
       if (e.key !== "Enter" || !e.target || !e.target.closest || !e.target.closest("#tripbar")) return;
+      /* Enter in the two boxes does their button's job; on a button it is the button's own (it was swallowed here) */
+      var bt = e.target.id === "tripNameIn" ? "savename" : e.target.id === "openCode" ? "openshare" : "";
+      if (!bt) return;
       e.preventDefault();
       e.stopPropagation();
-      if (e.target.id === "tripNameIn") {
-        var s = document.querySelector('[data-sync="savename"]');
-        if (s) s.click();
-      }
-      if (e.target.id === "openCode") {
-        var o = document.querySelector('[data-sync="openshare"]');
-        if (o) o.click();
-      }
+      var s = document.querySelector('[data-sync="' + bt + '"]');
+      if (s) s.click();
     },
     true
   );

@@ -225,9 +225,7 @@
       "</b></div>" +
       '<div class="g-acts">' +
       (!home.none && home.lat != null
-        ? '<a class="chip-a" href="' +
-          esc(W.gmapsDir(null, { n: home.label, lat: home.lat, lng: home.lng }, "transit")) +
-          '" target="_blank" rel="noopener">Directions</a>'
+        ? '<a class="chip-a" href="' + esc(W.gmapsDir(null, home, "transit")) + '" target="_blank" rel="noopener">Directions</a>'
         : "") +
       (!(stay && stay.label) && !W.readOnly
         ? '<button type="button" class="chip-a pri" data-gostay="' + day.stop + '">Pick a place</button>'
@@ -413,6 +411,7 @@
       live = tn === n,
       nm = live ? nowMin() : null,
       T = day.slots && day.slots.length ? W.dayTimes(day, P) : null;
+    W.stayRetry(day.country, day.city); /* (a stay you named whose place isn't known yet: asked for again) */
     var home = W.homebase(day.country, day.city),
       list = entries(day, T),
       h = "";
@@ -590,7 +589,7 @@
         (home.none
           ? ""
           : '<div class="gh-act"><a class="btn" href="' +
-            esc(W.gmapsDir(null, { n: home.label, lat: home.lat, lng: home.lng }, "transit")) +
+            esc(W.gmapsDir(null, home, "transit")) +
             '" target="_blank" rel="noopener">' +
             IC.dir +
             "Directions back</a></div>") +
@@ -737,7 +736,7 @@
      where you are (no starting point: Google Maps starts at the phone) */
   function nextPart(e, from, nm, home) {
     var nap = e.k !== "stop",
-      to = nap ? { n: home.label, lat: home.lat, lng: home.lng } : e.x.item,
+      to = nap ? home : e.x.item,
       lg = W.leg(from, to),
       at = e.start - (lg ? lg.min : nap ? 15 : 10);
     if (nap && (e.away || home.none)) return "";
@@ -798,7 +797,7 @@
       );
     }
     if (e.k === "nap" || e.k === "rest") {
-      var hl = W.leg(from, { n: home.label, lat: home.lat, lng: home.lng }),
+      var hl = W.leg(from, home),
         hm = e.start - (hl ? hl.min : 15) - (live ? nm : 0);
       return (
         '<section class="go-hero sk nap"><div class="gh-b"><span class="gh-k' +
@@ -817,7 +816,7 @@
         (home.none
           ? ""
           : '<div class="gh-act"><a class="btn" href="' +
-            esc(W.gmapsDir(live ? null : from, { n: home.label, lat: home.lat, lng: home.lng }, "transit")) +
+            esc(W.gmapsDir(live ? null : known(from), home, "transit")) +
             '" target="_blank" rel="noopener">' +
             IC.dir +
             "Directions</a></div>") +

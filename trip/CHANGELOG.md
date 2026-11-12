@@ -2,6 +2,33 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v150
+
+The first of the code review's ten suggestions (evo/v149/agents/ten.md), and small faults from it.
+- Privacy (suggestion 3): the list the app leaves for the nightly photo and map checks (wanted/<city>), which anyone
+  who can open the app can read, no longer holds where you stay (its pin, a hotel you typed), the date of each place,
+  or the day you arrive: only the places' names and the month. A shared trip's viewers and the installable app write
+  none. A refused write is not tried again on every redraw. Each city a trip uses is written again without them. (The
+  nightly check of a typed hotel's pin no longer has that pin to check.) lib/photos.js.
+- One odd answer from Claude cannot jam the app (suggestion 6): an answer in an unexpected shape used to leave its
+  place in the queue taken, and after three every list stayed on "Gathering…" until a reload. It now ends with "Try
+  again" and is logged. lib/core.js.
+- Nothing typed or added is left behind (suggestion 4): the journal line is kept as you type and when the app goes
+  to the background with the keyboard up (it was kept only when you tapped out of the box); a photo that finishes
+  uploading, and a change taken from someone planning with you, is sent like a change of yours, even minutes after
+  your last tap (W.realChange, lib/sync.js). screens/journal.js, lib/together.js.
+- A stay you named never leads to the middle of the town (suggestion 5): when its place could not be found (no signal),
+  directions to and from it go by its name and town, and it is asked for again (at most every two minutes while a
+  screen uses it). One helper turns any place into what Google Maps directions take (W.dirPoint), and travel modes
+  are spelled as Google spells them ("walking", not "walk"). lib/core.js, lib/plan.js (W.stayRetry).
+- How tiring a day is now counts the walks between stops (it compared "walk" with "walking" and never matched): some
+  days read a step fuller. As you chose, the planner judges days as before, so no outing is taken off (planScore).
+- Enter on a button in the trip bar does the button's job (it was swallowed).
+- New suite: review.
+- From your look at v149: no "+ Add" beside the Day · All days · Explore switch (it was noise; Explore's search and
+  "Add a place of your own" under the day stay); a place's name on Today's cards is set in the text face at 24px, not
+  the poster face at up to 32px, and its line under it stops at three lines.
+
 ## v149
 
 The other five changes from the design review, and four faults the code review turned up in the same screens.

@@ -315,6 +315,9 @@
     if (any) {
       S.coLog = log.slice(-30);
       if (W.replan) W.replan();
+      /* (what they changed goes on to the trip's own copy, like a change of yours) */
+      if (W.realChange) W.realChange();
+      W.save();
     }
     if (any || moved) {
       mineSnap = snap(S);

@@ -1,14 +1,12 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v149: Prepare's header (a line and a bar) and plain deadlines; a stop's sheet with its actions first, for sights and
-# meals; Explore's add rows; the white selected view and "+ Add" in the Day · All days · Explore row (every Trip screen);
-# labelled Reviews / Photos / Map in the swap's close-up; the trips menu over the Day view; Settings' quiet "Find unused files".
-book-*
-stop-panel-*
-meal-panel-*
-explore-*
+# v150: no "+ Add" beside the Day · All days · Explore switch (every Trip screen); Today's card titles in the text face;
+# a day's effort label counts its walks (the banner and All days).
+today-*
 trip-days-*
 trip-all-*
-swap-*
+explore-*
 menu-*
-settings-*
+swap-*
+stop-panel-*
+meal-panel-*

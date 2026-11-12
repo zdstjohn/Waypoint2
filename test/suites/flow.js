@@ -139,11 +139,10 @@ exports.run = async t => {
   t.ok(await pg.evaluate(() => scrollY < 5), 'and one tap goes back to the top');
   await pg.evaluate(() => { W.S.glanceOpen = false; W.render(); }); await pg.waitForTimeout(300);
   /* v149: Explore's add buttons say what they do and what they replace; the toast leads to the day; "+ Add" is beside the switch */
-  const addBtn = await pg.evaluate(() => { const a = document.querySelector('#viewTrip .vsw-row .vsw-add'); return a ? a.textContent.replace(/\s+/g, ' ').trim() : ''; });
-  await pg.click('#viewTrip .vsw-add'); await pg.waitForTimeout(700);
+  t.ok(await pg.evaluate(() => !document.querySelector('#viewTrip .vsw-add')), 'no "+ Add" beside the Day · All days · Explore switch (v150: it was noise)');
+  await pg.evaluate(() => { W.S.tview = 'map'; W.render(); }); await pg.waitForTimeout(700);
   const ex = await pg.evaluate(() => { const u = document.querySelector('#viewTrip .idea .use'), bs = u ? [...u.querySelectorAll('button')] : [];
-    return { tview: W.S.tview, add: !!document.querySelector('#viewTrip .vsw-add'), focus: (document.activeElement || {}).id, label: u ? u.querySelector('.use-l').textContent : '', btns: bs.map(b2 => b2.textContent.replace(/\s+/g, ' ').trim()), h: bs.length ? Math.round(bs[0].getBoundingClientRect().height) : 0, aria: bs.length ? bs[0].getAttribute('aria-label') : '', day: W.S.day }; });
-  t.ok(addBtn === '+ Add' && ex.tview === 'map' && !ex.add && ex.focus === 'placeQ', '"+ Add" beside the Day · All days · Explore switch opens Explore with the search ready (and is not shown on Explore itself)');
+    return { label: u ? u.querySelector('.use-l').textContent : '', btns: bs.map(b2 => b2.textContent.replace(/\s+/g, ' ').trim()), h: bs.length ? Math.round(bs[0].getBoundingClientRect().height) : 0, aria: bs.length ? bs[0].getAttribute('aria-label') : '', day: W.S.day }; });
   t.ok(ex.label === 'Add to Day ' + ex.day + ':' && ex.btns.length >= 2 && ex.btns.every(x => /^\+ \w+ · (replaces .+|free now)$/.test(x)) && ex.h >= 40 && /^Add .+ to Day \d+, /.test(ex.aria || ''), 'an idea\'s buttons say "Add to Day N", and each names what it would replace or that the time is free: ' + ex.btns.join(' | '));
   const tgt = await pg.evaluate(() => { const b2 = document.querySelector('#viewTrip .idea .use button'); return { slot: b2.dataset.use, name: b2.dataset.name }; });
   await pg.click('#viewTrip .idea .use button'); await pg.waitForTimeout(700);

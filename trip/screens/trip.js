@@ -106,12 +106,7 @@
           );
         })
         .join("") +
-      "</div>" +
-      /* adding a place is always within reach: it opens Explore with the search ready */
-      (W.canEdit() && now !== "map"
-        ? '<button type="button" class="vsw-add" data-addplace="1" aria-label="Add a place: search in Explore"><span aria-hidden="true">+</span> Add</button>'
-        : "") +
-      "</div>"
+      "</div></div>"
     );
   };
   /* the day the banner shows on a phone (lib/warm.js W.topLine): the Day view's own day, or none on any other screen */
@@ -1557,6 +1552,7 @@
       vtWant = null,
       xpCols = false;
 
+    W.stayRetry(day.country, day.city); /* (a stay you named whose place isn't known yet: asked for again) */
     /* day picker (during the trip, today's pill says so) */
     var tn = W.todayN(P);
     /* All days: the places in the order you stay in them (sized by nights), stuck to the top while you scroll the

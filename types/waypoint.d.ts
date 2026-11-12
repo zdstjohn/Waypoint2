@@ -77,7 +77,7 @@ interface DayTimes { rows: Partial<Record<Slot, TimeRow>>; nap?: { start: number
   /** a free morning in the town you're leaving before a booked late departure */
   before?: { start: number; end: number; city: string } | null; [k: string]: any }
 interface Leg { min: number; mode: string; km?: number; [k: string]: any }
-interface Energy { level: number; label: string; walk: number; act: number; travel: number; score: number; big: number }
+interface Energy { planScore?: number; level: number; label: string; walk: number; act: number; travel: number; score: number; big: number }
 interface Countdown { big: string; small: string; line: string }
 interface CheckItem { key: string; title?: string; short?: string; done: boolean; [k: string]: any }
 interface PackItem { key: string; text: string; who?: string; why?: string; own?: boolean; group?: string; [k: string]: any }
@@ -107,7 +107,7 @@ interface Waypoint {
   placeSearch: (q: string, country: string, city: string) => void;
   searchBlock: (day: Day, P: Plan) => string;
   searchClick: (d: DOMStringMap, day: Day, P: Plan) => boolean;
-  dayRouteUrl: (day: Day, stops: { n: string; lat: number | null; lng: number | null; gid?: string }[], home: { label?: string; n?: string; lat: number | null; lng: number | null; none?: boolean }) => string;
+  dayRouteUrl: (day: Day, stops: { n: string; lat: number | null; lng: number | null; gid?: string }[], home: { label?: string; n?: string; lat: number | null; lng: number | null; none?: boolean; pending?: boolean }) => string;
   loadPins: (country: string, city: string, names: string[]) => void;
   $: (id: string) => HTMLElement | null;
   C: Cache;
@@ -262,6 +262,12 @@ interface Waypoint {
   lateClick: any;
   lateDinner: (country: string) => boolean;
   lateFor: (day: Day) => number;
+  /** a stay named but not yet found is asked for again (lib/plan.js) */
+  stayRetry: (country: string, city: string) => void;
+  /** a place as Google Maps directions take it (lib/core.js) */
+  dirPoint: (p: any) => string;
+  /** a change the app made for you, sent like one of your own (lib/sync.js) */
+  realChange: () => void;
   /** a link led to one day: the Trip tab opens on it, not on today */
   keepDay: () => void;
   /** running late: move what has not started `min` minutes later (0: back on time) */
