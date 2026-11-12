@@ -968,6 +968,7 @@
     /** @type {HTMLElement} */ var el = document.createElement("div");
     if (g.home) {
       el.className = "vt-pin home";
+      el.setAttribute("data-keys", "home"); /* (the desktop workspace lights it with the first hop of the day) */
       el.innerHTML =
         '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 7.5 8 3l5.5 4.5V13h-3.5V9.5h-4V13H2.5z" fill="currentColor"/></svg><i>A</i>';
       el.setAttribute("aria-label", "A. Where you're staying");
@@ -1035,8 +1036,67 @@
     });
     return groups;
   };
+  /* In the desktop workspace's pane a pin never moves: each stop keeps its own pin on its own spot at every zoom (only
+     stops on the very same spot share one), and where pins crowd, the later ones' names step aside instead (declutter).
+     On a phone's small map, stops close together on screen share a pin, regrouped as the zoom changes. */
+  function fixedPins() {
+    return !!(S.el && S.el.closest && S.el.closest(".ws-canvas"));
+  }
+  /** stops on the same spot (to about 10 m), in order, each group at its first stop's spot @param {any[]} pts */
+  function spotGroups(pts) {
+    var at = /** @type {Record<string, any>} */ ({}),
+      groups = /** @type {any[]} */ ([]);
+    pts.forEach(function (p) {
+      var k = (+p.lat).toFixed(4) + "," + (+p.lng).toFixed(4);
+      if (at[k]) at[k].items.push(p);
+      else groups.push((at[k] = { ll: [p.lng, p.lat], items: [p] }));
+    });
+    return groups;
+  }
+  /** the pane's pin names, kept clear of each other: a name that would cover a pin or a name before it is hidden
+      (it shows when the pin is pointed at) */
+  function declutter() {
+    if (!fixedPins() || !S.pinMarkers) return;
+    var els = S.pinMarkers.map(function (m) {
+        return m.getElement();
+      }),
+      taken = /** @type {DOMRect[]} */ ([]);
+    els.forEach(function (el) {
+      el.classList.remove("nolabel");
+    });
+    var hit = function (r) {
+      return taken.some(function (q) {
+        return r.left < q.right && r.right > q.left && r.top < q.bottom && r.bottom > q.top;
+      });
+    };
+    els.forEach(function (el) {
+      var dot = el.querySelector("b");
+      if (dot) taken.push(dot.getBoundingClientRect());
+    });
+    els.forEach(function (el) {
+      var name = el.querySelector("span");
+      if (!name) return;
+      var r = name.getBoundingClientRect();
+      if (hit(r)) el.classList.add("nolabel");
+      else taken.push(r);
+    });
+  }
   function groupPins() {
     if (!S.map || !S.pinPts) return;
+    if (fixedPins()) {
+      if (S.groupSig !== "fixed") {
+        S.groupSig = "fixed";
+        (S.pinMarkers || []).forEach(function (m) {
+          m.remove();
+        });
+        S.pinMarkers = spotGroups(S.pinPts).map(function (g) {
+          return new ML.Marker({ element: pinEl(g), anchor: "left", offset: [-13, 0] }).setLngLat(g.ll).addTo(S.map);
+        });
+        if (S.onPins) S.onPins();
+      }
+      declutter();
+      return;
+    }
     var groups = W.pinGroups(S.pinPts, function (p) {
       return S.map.project([p.lng, p.lat]);
     });
@@ -1078,72 +1138,10 @@
       S.markers.push(new ML.Marker({ element: pinEl({ home: 1 }) }).setLngLat([home.lng, home.lat]).addTo(S.map));
     S.pinPts = all;
     groupPins();
-    /* (no line between the stops on a phone: a straight line from pin to pin is a flight path, not the way you would
-       walk or ride; the lettered pins say the order, and the list gives each hop's real way and time. The desktop
-       workspace asks for the hops as thin dashed links, W.vtLegs below, so a hop in the list can be found on the map) */
+    /* (no line between the stops: a straight line from pin to pin is a flight path, not the way you would walk or
+       ride; the lettered pins say the order, and the list gives each hop's real way and time) */
   }
   /* ---------- for the desktop workspace (lib/deskmap.js) ---------- */
-  /** the day's hops as dashed links between its pins, in order; null or [] takes them away. Each is {id, a: [lng, lat],
-      b: [lng, lat]}; onHover(id | "") is told which one the pointer is over @param {any[] | null} legs */
-  W.vtLegs = function (legs, onHover) {
-    if (!S.map || !S.ready) return false;
-    var data = {
-      type: "FeatureCollection",
-      features: (legs || []).map(function (l) {
-        return { type: "Feature", properties: { id: l.id }, geometry: { type: "LineString", coordinates: [l.a, l.b] } };
-      })
-    };
-    try {
-      var src = S.map.getSource("legs");
-      if (src) src.setData(data);
-      else {
-        var dark = palette().dark,
-          none = ["==", ["get", "id"], ""];
-        S.map.addSource("legs", { type: "geojson", data: data });
-        S.map.addLayer({
-          id: "legs",
-          type: "line",
-          source: "legs",
-          layout: { "line-cap": "round" },
-          paint: { "line-color": dark ? "#F1EADC" : "#2E2A27", "line-width": 2, "line-opacity": 0.5, "line-dasharray": [0.6, 2.2] }
-        });
-        S.map.addLayer({
-          id: "legs-hi",
-          type: "line",
-          source: "legs",
-          filter: none,
-          layout: { "line-cap": "round" },
-          paint: { "line-color": dark ? "#F29274" : "#C2452D", "line-width": 5, "line-opacity": 0.9 }
-        });
-        S.map.addLayer({
-          id: "legs-hit",
-          type: "line",
-          source: "legs",
-          paint: { "line-color": "#000", "line-width": 16, "line-opacity": 0 }
-        });
-        S.map.on("mousemove", "legs-hit", function (e) {
-          var f = e.features && e.features[0];
-          if (S.legHover) S.legHover(f && f.properties ? f.properties.id : "");
-        });
-        S.map.on("mouseleave", "legs-hit", function () {
-          if (S.legHover) S.legHover("");
-        });
-      }
-      S.legHover = onHover || null;
-    } catch (e) {
-      W.caught(e, "the map's hops");
-      return false;
-    }
-    return true;
-  };
-  /** light one hop up ("" for none) */
-  W.vtLegHi = function (id) {
-    try {
-      if (S.map && S.ready && S.map.getLayer("legs-hi")) S.map.setFilter("legs-hi", ["==", ["get", "id"], id || ""]);
-    } catch (e) {
-      W.caught(e, "the map's hop");
-    }
-  };
   /** small unnumbered pins for places not on the day (Explore's ideas): [{n, lat, lng, food}], at most 60; [] clears */
   W.vtIdeas = function (list) {
     if (!S.map || !S.ready) return false;

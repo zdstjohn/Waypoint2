@@ -19,8 +19,6 @@
     day: '<path d="M9.5 6h10.5M9.5 12h10.5M9.5 18h10.5"/><circle class="ia" cx="4.8" cy="6" r="1.7"/><circle class="ia" cx="4.8" cy="12" r="1.7"/><circle class="ia" cx="4.8" cy="18" r="1.7"/>',
     explore:
       '<circle cx="12" cy="12" r="8.8"/><path class="ia" d="m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1z"/><path d="m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1z"/>',
-    alldays:
-      '<rect x="3.5" y="4.5" width="17" height="15.5" rx="2.8"/><path d="M3.5 9.5h17M9.2 9.5V20M14.8 9.5V20M3.5 14.7h17"/><rect class="ia" x="9.9" y="10.2" width="4.2" height="3.8" rx=".7"/>',
     /* getting there */
     train:
       '<rect class="ia" x="7.3" y="5.3" width="9.4" height="3.6" rx="1"/><rect x="5" y="3" width="14" height="13" rx="3"/><path d="M5 10.5h14M8.5 20.5 10 16M15.5 20.5 14 16"/><circle cx="9" cy="13.3" r=".5" fill="currentColor"/><circle cx="15" cy="13.3" r=".5" fill="currentColor"/>',

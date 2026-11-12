@@ -8,7 +8,7 @@ exports.run = async t => {
   /* towns an easy day out from Rome, in Italy's list (the test list has none) */
   await pg.evaluate(() => { const C = W.C.country.Italy, I = (name, lat, lng, pop, d) => ({ name, region: 'Lazio', lat, lng, pop, w: 1, t: ['culture'], d });
     C.cities = C.cities.concat([I('Tivoli', 41.963, 12.798, 4, "Hadrian's villa and the fountains of Villa d'Este"), I('Ostia Antica', 41.756, 12.292, 4, 'A Roman port town in ruins'), I('Bracciano', 42.103, 12.176, 3, 'A lake and a castle')]); W.dataV++; W.replan(); });
-  const go = n => pg.evaluate(async n => { W.S.tview = 'days'; W.S.glanceOpen = false; W.S.day = n; W.goView('trip'); W.render(); await new Promise(r => setTimeout(r, 300)); }, n);
+  const go = n => pg.evaluate(async n => { W.S.tview = 'days'; W.S.day = n; W.goView('trip'); W.render(); await new Promise(r => setTimeout(r, 300)); }, n);
   const look = n => pg.evaluate(n => { const d = W.plan().days[n - 1], l = document.querySelector('[data-daytrip="' + n + '"]');
     return { link: l ? l.textContent : null, trip: d.trip ? { name: d.trip.name, mine: !!d.trip.mine } : null, head: (document.querySelector('.day-h') || {}).textContent || '',
       tripSlots: d.slots.filter(x => x.trip).map(x => x.slot), stored: Object.keys(W.S.dayTrip || {}).length, sheet: !!document.querySelector('#dthost .sheet') }; }, n);

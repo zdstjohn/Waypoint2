@@ -78,18 +78,17 @@
     return d.toLocaleDateString(undefined, opts || { weekday: "short", month: "short", day: "numeric" });
   }
   /* travel day: how to get from the last place to this one, with the operators' own sites */
-  /* how to look at the trip: one row of three, Day (one day), All days (every day at a glance) and Explore (that day's
-     place, with ideas around it). Labelled, so it's clear what each does */
+  /* how to look at the trip: Day (one day) and Explore (that day's place, with ideas around it). Labelled, so it's
+     clear what each does */
   function ic(k) {
-    return W.icon(k === "map" ? "explore" : k === "all" ? "alldays" : "day", 2.1);
+    return W.icon(k === "map" ? "explore" : "day", 2.1);
   }
   W.viewSwitch = function () {
-    var now = S.tview === "map" ? "map" : S.glanceOpen ? "all" : "days";
+    var now = S.tview === "map" ? "map" : "days";
     return (
       '<div class="vsw-row"><div class="vsw" role="tablist" aria-label="How to see the trip">' +
       [
         ["days", "Day"],
-        ["all", "All days"],
         ["map", "Explore"]
       ]
         .map(function (v) {
@@ -128,7 +127,7 @@
           }
         : null;
     }
-    if (view !== "trip" || S.tview === "map" || S.glanceOpen) return null;
+    if (view !== "trip" || S.tview === "map") return null;
     var day = P.days[S.day - 1];
     return day ? { city: day.city, date: fmtDate(day.n), level: dayLevel(day, P).replace(/^ · /, "") } : null;
   };
@@ -1635,16 +1634,6 @@
     W.stayRetry(day.country, day.city); /* (a stay you named whose place isn't known yet: asked for again) */
     /* day picker (during the trip, today's pill says so) */
     var tn = W.todayN(P);
-    /* All days: the places in the order you stay in them (sized by nights), stuck to the top while you scroll the
-       days below; the place you're looking at is lit, and a tap jumps to it */
-    /* (the days themselves come with the second script, screens/alldays.js: asked for, and a moment's "Loading…") */
-    if (S.glanceOpen && target !== "explore") {
-      var gl = W.glance ? W.glance(P) : (W.needLater(), '<p class="loading later-wait">Loading…</p>');
-      W.draw(el, W.stayBar(P, tn) + W.viewSwitch() + '<div class="all-days">' + gl + "</div>", "all|" + S.tripId);
-      W.stayTrack(true);
-      nowSeen = "";
-      return;
-    }
     h +=
       '<div class="daybar"><button type="button" class="icon-btn" data-step="-1" aria-label="Previous day"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 3L5 8l5 5"/></svg></button><div class="days" id="dayScroller">' +
       dayGroups(P, tn) +
@@ -1955,7 +1944,7 @@
       nowSeen = nowKey;
       requestAnimationFrame(function () {
         var find = function () {
-          return view !== "trip" || S.tview === "map" || S.glanceOpen
+          return view !== "trip" || S.tview === "map"
             ? null
             : el.querySelector(".slots .slot.is-now") || el.querySelector(".slots .slot.past ~ .slot:not(.past)");
         };
@@ -2163,24 +2152,6 @@
     var day = P.days[S.day - 1];
     if (d.day || d.step) {
       var nd = d.day ? +d.day : Math.max(1, Math.min(P.N, S.day + +d.step));
-      /* a day picked in All days opens at its start (the list was scrolled; the day starts at the top) */
-      if (d.day && b.closest(".all-days")) {
-        S.glanceOpen = false;
-        W.fxFlip("day", nd >= S.day ? 1 : -1, function () {
-          S.day = nd;
-          swapOpen = null;
-          swapAll = false;
-          swapPeek = null;
-          showAll = false;
-          W.render();
-          window.scrollTo(0, 0);
-          /* a card above the day (one year ago today) can push its start below the fold: then bring the day's heading to the top */
-          var hd = document.querySelector("#viewTrip .day-h"),
-            top = hd ? hd.getBoundingClientRect().top : 0;
-          if (top > window.innerHeight * 0.4) window.scrollTo(0, Math.max(0, top - 12));
-        });
-        return;
-      }
       if (nd === S.day) return;
       W.fxFlip("day", nd > S.day ? 1 : -1, function () {
         S.day = nd;

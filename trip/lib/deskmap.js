@@ -1,9 +1,8 @@
 /* Waypoint's desktop workspace, part 3: the map pane, and the tie between the map and the list (second script).
    While you look at days (the itinerary, Explore, Today) the street map stays beside them: the day's stops as
-   lettered pins, the hops between them as thin dashed links (straight ones: the app has no street-by-street path, so
-   they show the order, and the list gives each hop's real way and time), and on Explore the ideas as small pins.
-   A card and its pin light each other up under the pointer, a hop in the list and its link likewise; a click on a
-   pin opens the stop beside the plan. A city with no street map shows the day's route as a list instead, with the way
+   lettered pins that stay on their spots at every zoom (no lines between them: the list gives each hop's real way and
+   time), and on Explore the ideas as small pins. A card and its pin light each other up under the pointer, a hop in
+   the list lights the two pins it joins; a click on a pin opens the stop beside the plan. A city with no street map shows the day's route as a list instead, with the way
    to Google Maps (never a sketch). The map itself is lib/vtmap.js's one map, moved into this pane; the screens say
    what is on the day (W.deskPts: screens/trip.js, screens/travel.js; W.deskIdeas), this file only shows it. */
 (function () {
@@ -12,6 +11,8 @@
     esc = W.esc;
   var hiKeys = /** @type {string[]} */ ([]),
     hiLeg = "",
+    /** a hop in the list -> the two pins it joins (where you were, where it goes; "home" for where you stay) */
+    ends = /** @type {Record<string, string[]>} */ ({}),
     hiIdea = "",
     lastSel = "";
   function canvas() {
@@ -20,7 +21,7 @@
   function esq(v) {
     return String(v).replace(/["\\]/g, "\\$&");
   }
-  /* a day's stops in order when no screen has said (All days): the plan's own order */
+  /* a day's stops in order when no screen has said: the plan's own order */
   function ptsOf(day) {
     var n = 0,
       out = /** @type {any[]} */ ([]);
@@ -51,8 +52,7 @@
       day = P.days[n - 1];
     if (!day) return null;
     var D = W.deskPts,
-      fresh =
-        D && D.n === n && D.country === day.country && D.city === day.city && !!D.go === (v === "go") && !(v === "trip" && W.S.glanceOpen);
+      fresh = D && D.n === n && D.country === day.country && D.city === day.city && !!D.go === (v === "go");
     if (!fresh) {
       var home = W.homebase(day.country, day.city);
       D = { n: n, country: day.country, city: day.city, pts: ptsOf(day), home: home.none ? null : home, slug: null, xp: false };
@@ -67,14 +67,14 @@
       slug: D.slug || (W.vtFor ? W.vtFor(day.country, day.city, D.home && D.home.lat, D.home && D.home.lng) : null)
     };
   }
-  function legsOf(pts, home) {
-    var out = [],
-      prev = home && home.lat != null ? [home.lng, home.lat] : null;
+  /** each hop's two ends, by the key of the stop it goes to @param {any[]} pts @param {any} home */
+  function endsOf(pts, home) {
+    var out = /** @type {Record<string, string[]>} */ ({}),
+      prev = home && home.lat != null ? "home" : "";
     pts.forEach(function (p) {
-      if (p.lat == null || p.gpin) return;
-      var here = [p.lng, p.lat];
-      if (prev && (prev[0] !== here[0] || prev[1] !== here[1])) out.push({ id: p.key || "", a: prev, b: here });
-      prev = here;
+      if (p.lat == null || p.gpin || !p.key) return;
+      if (prev) out[p.key] = [prev, p.key];
+      prev = p.key;
     });
     return out;
   }
@@ -144,19 +144,14 @@
         key: "ws|" + w.day.n + "|" + w.day.city + "|" + (w.D.xp ? "x" : "d"),
         pts: w.pts,
         home: w.D.home,
-        animate: true,
+        animate: false /* (a new day is shown at once: pins never glide across the map) */,
         city: w.day.city
       });
     wrap.classList.toggle("vt-on", !!ok);
     wrap.classList.toggle("vt-want", !ok);
     if (!ok) return;
     W.vt.onPins = paint;
-    W.vtLegs(legsOf(w.pts, w.D.home), function (id) {
-      if (id !== hiLeg) {
-        hiLeg = id;
-        paint();
-      }
-    });
+    ends = endsOf(w.pts, w.D.home);
     W.vtIdeas(w.D.xp ? W.deskIdeas || [] : []);
     /* the stop open beside the plan: marked, and brought out from under the inspector */
     var sel = W.sheetKey ? W.sheetKey() : "";
@@ -170,7 +165,7 @@
     paint();
   };
 
-  /* ---------- lit and open: the same classes on a card, its pin and its hop ---------- */
+  /* ---------- lit and open: the same classes on a card and its pin, a hop and its two pins ---------- */
   function paint() {
     var c = canvas(),
       sel = W.sheetKey ? W.sheetKey() : "";
@@ -180,7 +175,7 @@
       el.classList.toggle(
         "hi",
         ks.some(function (k) {
-          return !!k && (hiKeys.indexOf(k) > -1 || k === hiLeg);
+          return !!k && hiKeys.indexOf(k) > -1;
         })
       );
       el.classList.toggle("sel", !!sel && ks.indexOf(sel) > -1);
@@ -199,7 +194,6 @@
     document.querySelectorAll(".wrap .idea[data-wsidea]").forEach(function (el) {
       el.classList.toggle("ws-hi", !!hiIdea && el.getAttribute("data-wsidea") === hiIdea);
     });
-    if (W.vtLegHi) W.vtLegHi(hiLeg);
   }
   W.deskPaint = paint;
   function set(keys, leg, idea) {
@@ -218,7 +212,10 @@
       return { keys: (pin.getAttribute("data-keys") || "").split(" ").filter(Boolean), leg: "", idea: "" };
     }
     var leg = t.closest(".wrap .ws-leg[data-wsleg]");
-    if (leg) return { keys: [], leg: leg.getAttribute("data-wsleg") || "", idea: "" };
+    if (leg) {
+      var id = leg.getAttribute("data-wsleg") || "";
+      return { keys: ends[id] || [], leg: id, idea: "" };
+    }
     var card = t.closest(".wrap .slot[data-slotkey]");
     if (card) return { keys: [card.getAttribute("data-slotkey") || ""], leg: "", idea: "" };
     var idea = t.closest(".wrap .idea[data-wsidea]");
@@ -230,8 +227,7 @@
       if (!W.desk()) return;
       var u = under(/** @type {HTMLElement} */ (e.target));
       if (u) set(u.keys, u.leg, u.idea);
-      else if (ev === "mouseover" && (hiKeys.length || hiIdea || (hiLeg && !(/** @type {HTMLElement} */ (e.target).closest("#wsCanvas")))))
-        set([], "", "");
+      else if (ev === "mouseover" && (hiKeys.length || hiIdea || hiLeg)) set([], "", "");
     });
   });
   document.addEventListener("mouseleave", function () {

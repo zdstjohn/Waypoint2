@@ -2,6 +2,35 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v154
+
+Desktop fixes asked for after v153, and All days gone everywhere.
+- The map's pins stay on their places. In v153 the desktop eased every pin's position for 0.12 s (a transition on the
+  marker, meant for the dot's grow on hover), so while the map zoomed or moved each pin trailed behind it (measured
+  about 80 px off on a typical frame, up to 1,700 px on the worst) and on a new day each pin slid in from up to 245 px
+  away. The ease is on the dot alone now (desk.css). And the desktop no longer merges close stops into one pin that
+  splits again as you zoom: each stop keeps its own pin on its own spot at every zoom (lib/vtmap.js spotGroups; only
+  stops on the very same spot share one), and where pins crowd, a later pin's name steps aside until it is pointed at
+  (declutter). A new day is shown at once rather than flown to. A phone's small map is as it was.
+- No lines on the map: the dashed links between stops are gone (W.vtLegs, W.vtLegHi removed). A way between two stops
+  in the list now lights the two pins it joins. (This also ends a cost the v154 performance review measured: every
+  hover repainted the whole map through the links' filter.)
+- All days is gone, on the phone and the desktop: the itinerary's switch is Day | Explore, the rail lists the days,
+  and the phone's row of day numbers goes between them. "Check my plan" moved to the end of Plan (and stays in the
+  trip menu, which now opens Plan); its "Open Day 2" links work from any screen (data-goday). screens/alldays.js is
+  now screens/dayline.js (the day's headline and effort bars, for the rail); the stay bar, its scroll tracking and
+  their styles are removed, and S.glanceOpen with them.
+- Plan on a wide screen: two columns, each stacked on its own (about you, steps 1 to 3; the trip, 4 to 6 and Check my
+  plan), so a tall step never leaves a hole beside a short one; at most 1360px wide (setup.js .su-cols, desk.css).
+- Prepare on a wide screen: To book and Pack in a wide column, each list flowing into columns of its own (To book's
+  items side by side, the packing list in newspaper columns with its "kids" tags inline and the × under the pointer);
+  the bookings, budget, sites, price watches and Take along beside it, in two stacks on a very wide screen
+  (book.js .bv-main, .bv-aside). At 1440px the page went from 4,851 to about 2,650 px tall; at 1920px it is about
+  2,200; at 2560px about 1,900. Take along's buttons no longer overlap.
+- Tests: workspace (pins never eased, no lines, Plan's two stacks with no holes, Prepare's main and side columns),
+  flow (Day | Explore; nights agree between To book and the plan), claude (Check my plan on Plan and from the menu),
+  and the suites that visited All days.
+
 ## v153
 
 The desktop workspace. On a window 1024px wide or more Waypoint is no longer the phone's page stretched: it is three

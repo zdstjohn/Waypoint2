@@ -1305,13 +1305,12 @@
         );
       }).join("") +
       "</div>";
-    /* (the desktop's columns: each part marked, so the rail can go to it) */
-    var col = function (k) {
-      return all ? '<div class="bv-col" data-wssec="' + k + '">' : "";
-    };
+    /* each part on its own, then put together: on a phone (and a narrow window) the tab you are on; on the desktop's
+       board every part, the two long lists (To book, Pack) in a wide column that flows them into columns of their own,
+       the rest stacked beside it (in two stacks on a very wide screen). Each part is marked (data-wssec), so the rail can go to it. */
+    var part = { tobook: "", sites: "", booked: "", budget: "", pack: "", take: "" };
     if (on("tobook")) {
-      h += col("tobook");
-      h += section(
+      part.tobook = section(
         "To book",
         top,
         (W.bookTimeline && list.length ? W.bookTimeline(list, today, S.start) : "") +
@@ -1324,9 +1323,9 @@
               "</p>"),
         "bk-ahead"
       );
-      if (wide() && !all) h += budgetSeg(P, true);
+      if (wide() && !all) part.tobook += budgetSeg(P, true);
       if (!ro)
-        h +=
+        part.sites =
           section(
             "Booking sites",
             "Links for the sites you use, next to hotels, trains and tours.",
@@ -1340,44 +1339,51 @@
             "bk-watch"
           );
     }
-
-    if (all) h += '</div><div class="bv-col" data-wssec="booked">';
-
     /* your bookings */
     if (on("booked")) {
-      h += bookedSeg(P, list, doneGroup, ro, nBooked);
-      if (wide() && !all) h += budgetSeg(P, true);
+      part.booked = bookedSeg(P, list, doneGroup, ro, nBooked);
+      if (wide() && !all) part.booked += budgetSeg(P, true);
     }
-
     /* budget */
-    if (on("budget")) {
-      h += (all ? '<div data-wssec="budget">' : "") + budgetSeg(P) + (all ? "</div>" : "");
-    }
-    if (all) h += '</div><div class="bv-col" data-wssec="pack">';
-
+    if (on("budget")) part.budget = budgetSeg(P);
     /* what to pack and sort out, read off the plan */
-    if (on("pack")) h += W.packBlock ? W.packBlock(P) : (W.needLater && W.needLater(), '<p class="loading later-wait">Loading…</p>');
-    if (all) h += '<div data-wssec="take">';
+    if (on("pack")) part.pack = W.packBlock ? W.packBlock(P) : (W.needLater && W.needLater(), '<p class="loading later-wait">Loading…</p>');
     /* the plan in your calendar, as a PDF, or as an offline copy */
     if (on("take") && window.__WP_OFFLINE)
-      h += section(
+      part.take = section(
         "Take along",
         "You're in the offline copy. To add the trip to your calendar, make a PDF or save a newer copy, open Waypoint when you're online.",
         "",
         "bk-take"
       );
     else if (on("take"))
-      h += section(
+      part.take = section(
         "Take along",
         "The trip on this phone for no-signal days, each stop as a timed event in your own calendar, the whole plan as a PDF, or an offline copy of the app with this trip inside.",
         (W.offline && !ro ? W.offline.tripBlock(P) : "") + W.takeItBlock(P) + (W.offline && !ro ? W.offline.takeBlock(P) : ""),
         "bk-take"
       );
+    var mark = function (k, html) {
+      return '<div data-wssec="' + k + '">' + html + "</div>";
+    };
+    if (all)
+      h +=
+        '<div class="bv-main">' +
+        mark("tobook", part.tobook) +
+        mark("pack", part.pack) +
+        '</div><div class="bv-aside"><div class="bv-side">' +
+        mark("booked", part.booked) +
+        mark("budget", part.budget) +
+        '</div><div class="bv-side">' +
+        part.sites +
+        mark("take", part.take) +
+        "</div></div>";
+    else h += part.tobook + part.sites + part.booked + part.budget + part.pack + part.take;
     W.keepInputs(el, function () {
       /* edited in place (lib/patch.js), so a tap is not lost to a redraw that comes while the finger is down */
       W.draw(
         el,
-        '<div class="bookview' + (all ? " ws-all" : "") + '">' + h + (all ? "</div></div>" : "") + "</div>",
+        '<div class="bookview' + (all ? " ws-all" : "") + '">' + h + "</div>",
         "book|" + (all ? "all" : seg) + "|" + (S.tripId || "")
       );
     });

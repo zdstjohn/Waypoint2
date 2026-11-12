@@ -121,7 +121,10 @@
   .wc-empty li b{flex:none;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--accent);color:var(--on-color);font:400 var(--t-micro)/1 var(--f-display)}
   .wc-empty li.food b{background:var(--food)}
   /* a pin and its card light each other up */
-  .ws-canvas .vt-pin{cursor:pointer;transition:transform .12s ease}
+  .ws-canvas .vt-pin{cursor:pointer}
+  .ws-canvas .vt-pin b{transition:transform .12s ease,box-shadow .12s ease}
+  .ws-canvas .vt-pin.nolabel span{display:none}
+  .ws-canvas .vt-pin.nolabel.hi span,.ws-canvas .vt-pin.nolabel.sel span{display:block}
   .ws-canvas .vt-pin.hi{z-index:5}
   .ws-canvas .vt-pin.hi b{transform:scale(1.28);box-shadow:0 0 0 4px color-mix(in srgb,var(--note) 55%,transparent),var(--sh-3)}
   .ws-canvas .vt-pin.hi span{background:#2E2A27;color:#fff}
@@ -159,7 +162,7 @@
   html.ws .daybar,html.ws .vsw-row{display:none}
   html.ws #viewTrip,html.ws #viewExplore{gap:14px}
   /* (a pane beside the map is for the plan: the day's photo is a band, not half the screen) */
-  @container ws (max-width:700px){.day-h.has-hero{min-height:168px}.g-stop.has-hero{min-height:112px}}
+  @container ws (max-width:700px){.day-h.has-hero{min-height:168px}}
   html.ws .slot{position:relative}
   .ws-qa{position:absolute;top:-10px;right:10px;z-index:3;display:flex;gap:2px;padding:2px;border-radius:var(--r-sm);background:var(--surface);border:var(--hair);box-shadow:var(--sh-1);opacity:0;pointer-events:none;transition:opacity .12s}
   html.ws .slot:hover > .ws-qa,html.ws .slot:focus-within > .ws-qa,html.ws .slot.ws-sel > .ws-qa{opacity:1;pointer-events:auto}
@@ -174,24 +177,53 @@
   .ws-buf.tight{color:var(--note-text)}
   html.ws-f-food .slots .slot.food,html.ws-f-food .slots a.ws-leg:has(+ .slot.food),html.ws-f-sight .slots .slot:not(.food):not(.free),html.ws-f-sight .slots a.ws-leg:has(+ .slot:not(.food):not(.free)){display:none}
 
-  /* ---------- wide screens (Plan, Prepare, All days): columns, not one long strip ---------- */
+  /* ---------- wide screens (Plan, Prepare): columns, not one long strip ---------- */
+  /* Plan: two columns, each stacked on its own (about you 01-03, the trip 04-06 and Check my plan), so a tall step
+     never leaves a hole beside a short one; in a narrow pane the columns melt into the phone's one */
+  .su-cols,.su-col{display:contents}
   @container ws (min-width:900px){
-    .setup{max-width:none;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:16px 20px}
-    .setup > .step[data-fold="step-where"],.setup > :not(.step){grid-column:1 / -1}
-    .bookview.ws-all{display:grid;max-width:none;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:none;gap:18px 20px;align-items:start}
+    .setup{max-width:1360px}
+    .su-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start}
+    .su-col{display:grid;gap:16px;align-content:start;min-width:0}
+    .su-col > *{min-width:0}
+    /* Prepare: one page, not five tabs. The two long lists (To book, Pack) in a wide column, each flowing into columns
+       of its own; the bookings, budget, sites and Take along stacked beside it */
+    .bookview.ws-all{display:grid;max-width:1560px;grid-template-columns:minmax(0,1.85fr) minmax(300px,1fr);grid-template-rows:none;gap:18px 20px;align-items:start}
     .bookview.ws-all > *{grid-column:auto;grid-row:auto}
     .bookview.ws-all > .ready{grid-column:1 / -1}
     .bookview.ws-all > .prep-seg{display:none}
-    .bv-col{display:grid;gap:18px;min-width:0;align-content:start}
-    .bv-col > .bk-card{margin:0}
+    .bv-main,.bv-aside,.bv-side{display:grid;gap:18px;min-width:0;align-content:start}
+    .bv-main{container:bvm / inline-size}
+    .bv-main > div,.bv-side > div{display:grid;gap:18px;min-width:0}
+    .bookview.ws-all .bk-card{margin:0}
+    .bookview.ws-all .chk{padding:8px 0}
+    /* packing, dense: the name runs the column's width with its "kids" tag after it, the × shows under the pointer */
+    .bookview.ws-all .pk-list .chk{grid-template-columns:auto minmax(0,1fr);position:relative;padding-right:26px}
+    .bookview.ws-all .pk-list .chk-t{display:block}
+    .bookview.ws-all .pk-list .chk-t b{font-size:var(--t-body)}
+    .bookview.ws-all .pk-list .pk-tag{margin-left:6px;vertical-align:1px}
+    .bookview.ws-all .pk-list .pk-x{position:absolute;top:4px;right:-4px}
+    @media (hover:hover){
+      .bookview.ws-all .pk-list .pk-x{opacity:0;transition:opacity .12s}
+      .bookview.ws-all .pk-list .chk:hover .pk-x,.bookview.ws-all .pk-list .pk-x:focus-visible{opacity:1}
+    }
+    .bookview.ws-all .exp{display:flex;flex-wrap:wrap;gap:14px 26px}
+    .bookview.ws-all .dl-list{gap:4px}
+    .bookview.ws-all .dl-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;padding:6px 10px}
     .goview{max-width:none}
     .settingsview,.recapview{max-width:980px}
   }
-  @container ws (min-width:1040px){
-    .bookview.ws-all{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(0,1fr)}
+  /* a very wide screen: the side in two stacks of its own (bookings and budget; sites, watches and Take along) */
+  @container ws (min-width:1700px){
+    .bookview.ws-all{max-width:2300px;grid-template-columns:minmax(0,2.1fr) minmax(0,2fr)}
+    .bv-aside{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
   }
-  @container ws (min-width:1500px){
-    .setup{grid-template-columns:repeat(3,minmax(0,1fr))}
+  @container bvm (min-width:600px){
+    .bk-ahead .checklist{grid-template-columns:repeat(auto-fill,minmax(280px,1fr));column-gap:24px;row-gap:0}
+    .bk-ahead .checklist > .chk{border-top:0;border-bottom:var(--hair)}
+    .pk-list{display:block;columns:270px;column-gap:24px}
+    .pk-list > li{break-inside:avoid}
+    .pk-list > .pk-g{break-after:avoid}
   }
 
   /* ---------- the palette (Ctrl or Cmd + K) ---------- */

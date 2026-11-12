@@ -850,6 +850,9 @@
         '<p class="small muted qs-imp">Planned it in Wanderlog or a doc already? <a href="#settings" data-view="settings">Import it</a></p></div>' +
         h;
 
+    /* (on a desktop the steps stand in two columns, each stacked on its own: about you (01-03), the trip (04-06)) */
+    var colA = h.length,
+      colB = 0;
     /* 1 · what kind of trip */
     var fc = W.focus();
     h += step(
@@ -986,6 +989,7 @@
       anySet = P.stops.some(function (s) {
         return s.set;
       });
+    colB = h.length;
     h += step(
       "long",
       "04",
@@ -1048,7 +1052,17 @@
           'class="step sk"',
           'class="step sk rtcheck' + (RC.warn ? " has-warn" : "") + '"'
         );
+      /* Claude reads the whole plan and flags real problems (lib/review.js; also from the trip menu) */
+      if (W.reviewBlock) h += W.reviewBlock(P);
     }
+    if (W.desk && W.desk())
+      h =
+        h.slice(0, colA) +
+        '<div class="su-cols"><div class="su-col">' +
+        h.slice(colA, colB) +
+        '</div><div class="su-col">' +
+        h.slice(colB) +
+        "</div></div>";
     h += '<div class="cta"><button type="button" class="btn" data-view="trip">See my trip' + W.arrow("r") + "</button></div>";
     var el = $("viewSetup"),
       a = document.activeElement,

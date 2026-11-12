@@ -37,11 +37,10 @@ exports.run = async t => {
       const out = {}, m = () => document.querySelector('main:not([hidden])'), wait = ms => new Promise(r => setTimeout(r, ms));
       const live = () => [...m().querySelectorAll('#placeQ, [data-psearch], [data-cal], [data-pdf], [data-live], [data-offcopy], [data-review], [data-replan], [data-gostay]')].filter(e => e.getBoundingClientRect().width > 0).map(e => e.id || Object.keys(e.dataset).join(','));
       const bad = [], dead = [];
-      W.S.tview = 'days'; W.S.glanceOpen = false; W.goView('trip'); await wait(300);
+      W.S.tview = 'days'; W.goView('trip'); await wait(300);
       for (let n = 1; n <= W.P.N; n++) { W.S.day = n; W.render(); if (!m().querySelector('.slot')) bad.push(n); }
       dead.push(...live());
-      W.S.glanceOpen = true; W.render(); await wait(200); out.all = m().querySelectorAll('.g-day').length; dead.push(...live());
-      W.S.glanceOpen = false; W.S.tview = 'map'; W.S.day = 2; W.render(); await wait(400); out.explore = m().querySelectorAll('.idea').length; out.searchNote = /needs the live app/.test((m().querySelector('.psearch') || {}).textContent || ''); dead.push(...live());
+      W.S.tview = 'map'; W.S.day = 2; W.render(); await wait(400); out.explore = m().querySelectorAll('.idea').length; out.searchNote = /needs the live app/.test((m().querySelector('.psearch') || {}).textContent || ''); dead.push(...live());
       W.S.tview = 'days';
       for (const tab of ['tobook', 'booked', 'budget', 'pack', 'take']) { W.S.prepTab = tab; W.goView('book'); await wait(tab === 'pack' ? 700 : 250); out[tab] = m().innerText.length > 80; dead.push(...live()); }
       out.take = /open Waypoint when you're online/.test(m().innerText);
@@ -51,7 +50,7 @@ exports.run = async t => {
       out.bad = bad; out.dead = dead; return out;
     });
     t.eq(seen.bad, [], `${label}: every day draws`);
-    t.ok(seen.all === 10 && seen.explore > 3 && seen.tobook && seen.booked && seen.budget && seen.pack, `${label}: All days, Explore (${seen.explore} ideas) and every Prepare tab are there`);
+    t.ok(seen.explore > 3 && seen.tobook && seen.booked && seen.budget && seen.pack, `${label}: Explore (${seen.explore} ideas) and every Prepare tab are there`);
     t.eq(seen.dead, [], `${label}: nothing is offered that needs the network (search, calendar, PDF, live prices, a new copy, Claude)`);
     t.ok(seen.searchNote && seen.take, `${label}: Explore and Take along say plainly what needs the live app`);
     t.ok(seen.setup === 'trip' && seen.settings === 'trip' && !seen.menu.some(x => /^(new|del|settings|openshare)$/.test(x)), `${label}: Plan, Settings, New trip and shared trips are out of reach: ` + seen.menu.join(','));
@@ -60,7 +59,7 @@ exports.run = async t => {
       const wait = ms => new Promise(r => setTimeout(r, ms)), out = {};
       W.S.day = 3; W.goView('go'); await wait(500); out.today = W.view() === 'go' && !!document.querySelector('#viewGo .go-tl, #viewGo .go-now, #viewGo .go');
       out.note = (document.querySelector('#viewGo .go-off.copy') || {}).innerText || '';
-      W.S.tview = 'days'; W.S.glanceOpen = false; W.S.day = 3; W.goView('trip'); await wait(300);
+      W.S.tview = 'days'; W.S.day = 3; W.goView('trip'); await wait(300);
       const d = W.P.days[2], x = d.slots.find(y => y.item && !W.isFood(y.slot)), was = x.item.n; W.reroll(d, x.slot, W.P); W.render(); out.swapped = W.P.days[2].slots.find(y => y.slot === x.slot).item.n !== was;
       W.openStop(W.P.days[2].slots.find(y => y.item).key); await wait(500); out.panel = ((document.querySelector('#sheethost') || {}).innerText || '').length > 60; W.closeStop && W.closeStop();
       W.S.prepTab = 'pack'; W.goView('book'); await wait(800); const pk = document.querySelector('#viewBook [data-pack]'); if (pk) { pk.click(); await wait(300); }

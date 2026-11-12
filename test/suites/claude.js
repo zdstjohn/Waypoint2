@@ -51,13 +51,13 @@ exports.run = async t => {
 
   /* ---- Check my plan ---- */
   await pg.evaluate(() => { W.setAppMode('plan'); }); await pg.waitForTimeout(900);
-  await pg.evaluate(() => { W.S.tview = 'days'; W.S.glanceOpen = true; W.setView('trip'); W.render(); window.scrollTo(0, 0); }); await pg.waitForTimeout(400);
-  t.ok(await pg.$('.all-days [data-review]'), 'All days offers "Check my plan"');
+  await pg.evaluate(() => { W.goView('setup'); window.scrollTo(0, 0); }); await pg.waitForTimeout(600);
+  t.ok(await pg.$('#viewSetup [data-review]'), 'Plan ends with "Check my plan" (it was in All days until v154)');
   const picks0 = await pg.evaluate(() => JSON.stringify(W.S.picks));
-  await pg.click('.all-days [data-review]'); await pg.waitForTimeout(100);
-  const rd = await pg.evaluate(() => (document.querySelector('.pcheck .loading') || {}).textContent || document.querySelector('.all-days').innerHTML.slice(0, 600)); t.ok(/reading your \d+ days/.test(rd), 'it says Claude is reading the plan: ' + rd.slice(0, 300));
+  await pg.click('#viewSetup [data-review]'); await pg.waitForTimeout(100);
+  const rd = await pg.evaluate(() => (document.querySelector('.pcheck .loading') || {}).textContent || document.querySelector('#viewSetup').innerHTML.slice(-600)); t.ok(/reading your \d+ days/.test(rd), 'it says Claude is reading the plan: ' + rd.slice(0, 300));
   await pg.waitForFunction(() => !!document.querySelector('.pcheck .pcheck-l'), null, { timeout: 6000 }).catch(() => {});
-  const rv = await pg.evaluate(() => ({ items: [...document.querySelectorAll('.pcheck-i')].map(li => ({ w: li.querySelector('.pcheck-w').textContent, k: li.querySelector('.pcheck-k').textContent, t: li.querySelector('.pcheck-t').textContent, f: (li.querySelector('.pcheck-f') || {}).textContent || '', go: (li.querySelector('[data-day]') || {}).textContent || '' })),
+  const rv = await pg.evaluate(() => ({ items: [...document.querySelectorAll('.pcheck-i')].map(li => ({ w: li.querySelector('.pcheck-w').textContent, k: li.querySelector('.pcheck-k').textContent, t: li.querySelector('.pcheck-t').textContent, f: (li.querySelector('.pcheck-f') || {}).textContent || '', go: (li.querySelector('[data-goday]') || {}).textContent || '' })),
     ok: (document.querySelector('.pcheck-ok') || {}).textContent, imgs: document.querySelectorAll('.pcheck img, .pcheck-f b b').length, xss: window.__xss || 0, stale: !!document.querySelector('.pcheck-stale') }));
   t.eq(rv.items.length, 3, 'the findings are listed; a day that is not in the trip and one with no text are dropped: ' + JSON.stringify(rv.items.map(i => i.w)));
   t.ok(/^Day 2 · /.test(rv.items[0].w) && rv.items[0].k === 'A lot on foot' && /Try: Drop one stop/.test(rv.items[0].f) && /Open Day 2/.test(rv.items[0].go), 'each says which day, what kind, a fix, and opens the day: ' + JSON.stringify(rv.items[0]));
@@ -71,7 +71,7 @@ exports.run = async t => {
   /* kept across a reload without asking again; a changed plan says so */
   await pg.reload(); await calm(pg, 5000);
   await pg.evaluate(() => { W.setAppMode && W.view() === 'go' && W.setAppMode('plan'); }); await pg.waitForTimeout(600);
-  await pg.evaluate(() => { W.S.tview = 'days'; W.S.glanceOpen = true; W.setView('trip'); W.render(); }); 
+  await pg.evaluate(() => { W.goView('setup'); });
   await pg.waitForFunction(() => !!document.querySelector('.pcheck .pcheck-l'), null, { timeout: 8000 }).catch(() => {});
   /* each card has the page's card colour, not the kids' storybook page (.k-book once matched a "Book ahead" card) */
   const pcBg = await pg.evaluate(() => { const card = getComputedStyle(document.querySelector('.pcheck')).backgroundColor; return [...document.querySelectorAll('.pcheck-i')].map(li => { const c = getComputedStyle(li); return { bg: c.backgroundColor, img: c.backgroundImage, cls: li.className }; }).concat([{ card }]); });
@@ -79,15 +79,15 @@ exports.run = async t => {
   t.ok(await pg.evaluate(() => document.querySelectorAll('.pcheck-i').length === 3 && !window.__reviewAsked), 'the check is still there after a reload, without asking again');
   await pg.evaluate(() => { const d = W.P.days[3] || W.P.days[0], x = d.slots.find(y => y.item && !W.isFood(y.slot)); W.reroll(d, x.slot, W.P); W.render(); }); await pg.waitForTimeout(500);
   t.ok(await pg.evaluate(() => !!document.querySelector('.pcheck-stale')), 'after the plan changes the card says the check is out of date');
-  await pg.click('.pcheck [data-day="2"]'); await pg.waitForTimeout(900);
-  t.ok(await pg.evaluate(() => W.S.day === 2 && !W.S.glanceOpen), '"Open Day 2" opens that day');
+  await pg.click('.pcheck [data-goday="2"]'); await pg.waitForTimeout(900);
+  t.ok(await pg.evaluate(() => W.S.day === 2 && W.view() === 'trip'), '"Open Day 2" opens that day');
 
   /* the trip menu goes straight to it and asks */
   await pg.click('[data-sync="menu"]'); await pg.waitForTimeout(400);
   t.ok(await pg.$('[data-sync="review"]'), 'the trip menu has "Check my plan"');
   await pg.click('[data-sync="review"]');
   await pg.waitForFunction(() => window.__reviewAsked === 1 && !!document.querySelector('.pcheck .pcheck-l') && !document.querySelector('.pcheck-stale'), null, { timeout: 8000 }).catch(() => {});
-  t.ok(await pg.evaluate(() => W.S.glanceOpen && window.__reviewAsked === 1 && !document.querySelector('.pcheck-stale')), 'from the menu it opens All days and checks the plan as it is now');
+  t.ok(await pg.evaluate(() => W.view() === 'setup' && window.__reviewAsked === 1 && !document.querySelector('.pcheck-stale')), 'from the menu it opens Plan and checks the plan as it is now');
   /* ---- the first ideas come sooner: lists taken in as they are written, a smaller first question, and a country's
      best-known places before its whole list ---- */
   { const { pg: ps, ctx: cs, errors: es } = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(ps);

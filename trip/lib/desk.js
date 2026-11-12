@@ -153,9 +153,9 @@
     }
     build();
     if (!adopted) adopt(true);
-    /* the map stays beside a day (the itinerary, Explore, Today); All days, like Plan and Prepare, takes the width */
+    /* the map stays beside a day (the itinerary, Explore, Today); Plan and Prepare take the width */
     var v = W.view(),
-      days = (v === "trip" && !(W.S.glanceOpen && W.S.tview !== "map")) || v === "go" || v === "explore",
+      days = v === "trip" || v === "go" || v === "explore",
       split2 = days && !!prefs.map && !(W.simple && W.simple()) && !!(P && P.stops && P.stops.length);
     html.classList.toggle("ws-wide", !split2);
     html.classList.toggle("ws-rail-min", railMin());
@@ -400,9 +400,8 @@
   });
 
   /* ---------- the workspace's own buttons (data-ws="what[:which]") ---------- */
-  function toDays(tv, glance) {
+  function toDays(tv) {
     W.S.tview = tv;
-    W.S.glanceOpen = !!glance;
     if (W.view() === "trip") {
       W.save();
       W.render();
@@ -424,7 +423,7 @@
       W.save();
       W.render();
       window.scrollTo(0, 0);
-    } else toDays("days", false);
+    } else toDays("days");
   };
   W.wsDo = function (what, which) {
     if (what === "rail") W.wsSet("rail", railMin() ? 1 : 0);
@@ -433,9 +432,8 @@
     else if (what === "zoom") {
       if (W.vtZoom) W.vtZoom(which);
     } else if (what === "view") {
-      if (which === "days") toDays("days", false);
-      else if (which === "all") toDays("days", true);
-      else if (which === "explore") toDays("map", false);
+      if (which === "days") toDays("days");
+      else if (which === "explore") toDays("map");
       else if (which === "setup" || which === "go" || which === "book") W.goView(which);
     } else if (what === "day") W.wsDay(+which);
     else if (what === "prep") {

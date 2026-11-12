@@ -25,7 +25,11 @@ screen you are on, and the street map beside the days (lib/deskmap.js); lib/desk
 state is W.S as ever (the workspace keeps none of it, so a window made narrow and wide again loses nothing); the
 screens draw into the middle pane exactly as they draw on a phone or a tablet, asking only W.desk() (is the workspace
 on) and W.paneW() (how wide is my pane) where a phone would ask the window; the map pane shows what the screens
-publish (W.deskPts, W.deskIdeas) and ties a card to its pin by the slot's key. The styles: a wide window loads
+publish (W.deskPts, W.deskIdeas) and ties a card to its pin by the slot's key; there each stop keeps its own pin on its
+own spot at every zoom (lib/vtmap.js spotGroups; a phone's small map still lets close stops share a pin), and nothing
+eases a pin's position (the map moves it every frame). Plan stands in two columns that stack on their own (setup.js
+.su-cols), Prepare in a wide column for To book and Pack, whose lists flow into columns of their own, beside a side
+column (book.js .bv-main, .bv-aside). The styles: a wide window loads
 `app.desk.css` in place of the two phone stylesheets (lib/later.js). It is the whole of app.css with every @media
 width rule written again as a container query on the pane, `.wrap` (build/bundle.js deskCss: the original, stopped at
 1023px when it is a min-width rule, then `@media (min-width:1024px){@container ws (...){...}}`; rules for the header
@@ -68,8 +72,9 @@ lib/              the shared library
                   (W.desk, W.paneW) and its stylesheet, app.desk.css, fetched only by a wide window
   desk.js         (second script) the desktop workspace's state and shell: panes, the handle, the pane's scroll bar,
                   its buttons (data-ws), what a card carries there (quick actions, the day's line)
-  deskmap.js      (second script) the workspace's map pane: pins, the ways between them, Explore's ideas, the tie
-                  between a card and its pin, the route as a list where there is no street map
+  deskmap.js      (second script) the workspace's map pane: pins (no lines between them), Explore's ideas, the tie
+                  between a card and its pin (a way in the list lights the two pins it joins), the route as a list
+                  where there is no street map
   csv.js          (second script) W.saveFile, the one way a file leaves the app, and the itinerary as CSV
   typeahead.js    (second script) a country, city or airport box: a short list of matches under the box once you
                   type, the best known first (W.countryRank, W.builtIn); part of the page, never over the keyboard
@@ -237,17 +242,17 @@ lib/              the shared library
   The header is one banner: the wordmark, and the trip (its name opens your trips; under it a countdown that
   becomes "Day 4 of 20" on the trip), drawn by sync.js (W.countdown); on wide screens the tabs sit in it too.
 screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.js, also the app controller: a labelled
-                  switch for Day · Explore · All days. Explore: search any place, today's route (each stop with the
+                  switch for Day · Explore. Explore: search any place, today's route (each stop with the
                   walk, transit or drive between them and its directions, and one button that opens the whole day in
                   Google Maps, unpinned stops by name), the street map from the city's map pack (every city in a trip has one; the nightly helper builds packs for
                   new ones, a few a night; tapping a pin opens it in Google Maps; never a sketch or a map picture), the free parts of the day with three picks
                   each, and every idea under the stop of today it is nearest to. On a big screen the Day view shows the
                   street map beside the day where there is one, otherwise today's route. Explore on a big screen puts
                   the search across the top, the route and map on the right below. The
-                  Day · Explore · All days switch runs the full width in three equal parts. A Google map can't be shown
+                  Day · Explore switch runs the full width in two equal parts. A Google map can't be shown
                   in the page (it may only load from its own server, and Google's terms don't allow keeping its map
-                  pictures), so Google Maps is always one tap away instead. All days groups the days by place under a stay bar that sticks to
-                  the top and lights the place you've scrolled to; the storybook opens from the trip menu and All days), Prepare (book.js: To book · Booked · Budget ·
+                  pictures), so Google Maps is always one tap away instead. The storybook opens from the trip menu; "Check my plan" sits at
+                  the end of Plan and in the trip menu), Prepare (book.js: To book · Booked · Budget ·
                   Pack · Take along) and Today (travel.js: Travel mode, also the storybook; near.js: Near you, the
                   closest ideas to your phone's location or to where the plan has you, with Go and Add; travel.js also
                   draws the Google Maps row, W.gmRow: Maps, Save as list, About times, shared with the Day tab). On the
@@ -258,7 +263,7 @@ screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.
                   route under it, and the day bag and journal folded to a line outside their time of day. flow.js has
                   the next-step bar, undo and drag to reorder; sheet.js (second script) is a stop's sheet (Directions,
                   tickets and Swap first, then the facts, then the rarer changes; W.moveStop, the one way a stop goes to another
-                  day); alldays.js (second script) is All days and the day's headline and effort bars; rail.js and
+                  day); dayline.js (second script) is a day in a line (its headline and effort bars, for the rail); rail.js and
                   palette.js (second script) are the desktop workspace's rail and keyboard; daytrip.js (second script) is "Make it a day
                   trip": the places an easy day out from a day's town, or any other, and the day planned again there
                   (S.dayTrip); setup.js also draws where to stay as a sheet over any
@@ -320,7 +325,7 @@ Checks (node test/run.js, from the folder above trip/)
                 the day drawn for its pane, the map pane's list where there is no street map, a card and its pin
                 (a stand-in pin: the tests have no map pack), the inspector beside the plan, the keyboard, moving a
                 stop by its quick action and by dropping it on a day in the rail, what to show, folding the rail, the
-                handle, hiding the map, All days, Plan and Prepare in columns, the CSV, two panes at 1100px, and at
+                handle, hiding the map, Plan and Prepare taking the width, the CSV, two panes at 1100px, and at
                 800px the phone layout with the same day and open stop; a phone never fetches app.desk.css.
   clock         one clock: a phone in Rome and one in Los Angeles see the same Now and Next at the same moment; "Rome
                 time" shown when the trip's clock is not the phone's; the date turns over there first; before and
@@ -345,7 +350,7 @@ Checks (node test/run.js, from the folder above trip/)
                 dinner measured from a stop with no pin while the clock measured it from the last one with a pin.
   vitals        speed as a mid-range Android feels it: a 390px screen, CPU slowed 4x, slow 4G. Cold start must paint
                 within 1.8 s (FCP) and its largest element within 2.5 s (LCP) with no layout shift (CLS < 0.1); then the
-                taps a traveler makes most (next day, a day pill, open and close a stop, All days, Prepare, Pack, a tick,
+                taps a traveler makes most (next day, a day pill, open and close a stop, Explore, Prepare, Pack, a tick,
                 the trip menu) must each paint within 200 ms (the INP "good" line) without moving the layout. Numbers go
                 into the report so a slowdown shows. What it found and fixed: the test server now gzips (the real host
                 already does; a 448 KB script over slow 4G was the whole FCP); page flips (View Transitions) turn off on

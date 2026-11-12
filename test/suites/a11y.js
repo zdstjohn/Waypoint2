@@ -6,10 +6,9 @@ const AXE = path.join(__dirname, '..', '..', 'build', 'node_modules', 'axe-core'
 /* every screen and state a traveler can reach, and how to get there */
 const SCREENS = [
   ['Plan', () => { W.S.stepClosed = { style: false, who: false, long: false, where: false }; W.setView('setup'); W.render(); }],
-  ['Trip · day', () => { W.S.tview = 'days'; W.S.glanceOpen = false; W.S.day = 2; W.setView('trip'); W.render(); }],
+  ['Trip · day', () => { W.S.tview = 'days'; W.S.day = 2; W.setView('trip'); W.render(); }],
   ['Trip · stop sheet', () => { const x = W.P.days[1].slots.find(s => s.item && !W.isFood(s.slot)); W.openStop(x.key); }],
-  ['Trip · All days', () => { W.closeStop && W.closeStop(); W.S.glanceOpen = true; W.render(); }],
-  ['Trip · map', () => { W.S.glanceOpen = false; W.S.tview = 'map'; W.render(); }],
+  ['Trip · map', () => { W.closeStop && W.closeStop(); W.S.tview = 'map'; W.render(); }],
   ['Trip menu', () => { W.S.tview = 'days'; W.render(); document.querySelector('[data-sync="menu"]').click(); }],
   ['Prepare · To book', () => { W.closeTripMenu && W.closeTripMenu(); W.S.prepTab = 'tobook'; W.setView('book'); W.render(); }],
   ['Prepare · Booked', () => { W.S.prepTab = 'booked'; W.render(); }],
@@ -18,7 +17,6 @@ const SCREENS = [
   ['Prepare · Take along', () => { W.S.prepTab = 'take'; W.render(); }],
   ['Today', () => { W.setView('go'); W.render(); }],
   ['For the kids', () => { W.setView('kids'); W.render(); }],
-  ['Trip · All days', () => { W.S.tview = 'days'; W.S.glanceOpen = true; W.setView('trip'); W.render(); }],
   ['Recap', () => { W.S.tview = 'days'; W.setView('recap'); W.render(); }],
   ['Import', () => { W.setView('settings'); W.render(); }],
 ];

@@ -867,7 +867,6 @@
       "tripFolded",
       "mapZoom",
       "jetOpen",
-      "glanceOpen",
       "nextHide",
       "tview",
       "exF",

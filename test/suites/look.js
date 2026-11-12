@@ -4,7 +4,7 @@ const { launch, open, exampleTrip, settle, calm } = require('../lib/page'); cons
 exports.run = async t => {
   const b = await launch();
   { const { pg, errors } = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(pg);
-    await pg.evaluate(() => { W.S.day = 2; W.S.tview = 'map'; W.S.glanceOpen = false; W.setView('trip'); W.render(); }); await settle(pg, 4000);
+    await pg.evaluate(() => { W.S.day = 2; W.S.tview = 'map'; W.setView('trip'); W.render(); }); await settle(pg, 4000);
     const r = await pg.evaluate(() => {
       const rows = [...document.querySelectorAll('#viewTrip .idea .idea-meta')], ilinks = [...document.querySelectorAll('#viewTrip .idea .ilink')];
       return { rows: rows.length, words: /Checked|Photos|Google Maps|Not ideal|Not for us/.test(rows.map(m => m.textContent).join(' ')),
@@ -29,7 +29,7 @@ exports.run = async t => {
     const cr = await pg.evaluate(() => ({ links: document.querySelectorAll('a.credit').length, spans: document.querySelectorAll('span.credit').length, pe: [...document.querySelectorAll('span.credit')].every(s => getComputedStyle(s).pointerEvents === 'none') }));
     t.ok(cr.links === 0 && cr.pe, `photo credits are plain text a tap goes through (${cr.spans} shown)`);
     /* a place's name runs to two lines rather than "Sant'Eustach…" */
-    const nm = await pg.evaluate(() => { W.S.tview = 'days'; W.S.glanceOpen = false; W.render(); return [...document.querySelectorAll('#viewTrip .slot.slim .sl-l')].filter(e => e.querySelector('.nm') && e.querySelector('.nm').textContent.trim()).map(e => { const c = getComputedStyle(e), n = e.querySelector('.nm'), rs = [...n.getClientRects()];
+    const nm = await pg.evaluate(() => { W.S.tview = 'days'; W.render(); return [...document.querySelectorAll('#viewTrip .slot.slim .sl-l')].filter(e => e.querySelector('.nm') && e.querySelector('.nm').textContent.trim()).map(e => { const c = getComputedStyle(e), n = e.querySelector('.nm'), rs = [...n.getClientRects()];
       /* a word split across two lines has two boxes: compare each word's boxes (a hyphen is a fair place to wrap) */
       const words = n.textContent.trim().split(/[\s-]+/).filter(Boolean),   /* (a hyphen is a fair place to wrap) */ range = document.createRange(), split = []; let pos = 0; const tx = n.firstChild && n.firstChild.nodeType === 3 ? n.firstChild : null;
       if (tx) words.forEach(w => { const i = tx.data.indexOf(w, pos); if (i < 0) return; range.setStart(tx, i); range.setEnd(tx, i + w.length); if (range.getClientRects().length > 1) split.push(w); pos = i + w.length; });
@@ -37,7 +37,7 @@ exports.run = async t => {
     t.ok(nm.length >= 2 && nm.every(x => x.whole && x.lines <= 2 && x.clamp === '2' && !x.split.length), 'the day\'s places show their whole names, on two lines at most, never split inside a word: ' + nm.map(x => x.n + ' (' + x.lines + (x.split.length ? ', split: ' + x.split.join(' ') : '') + ')').join(', '));
     /* On a phone the banner's last line is the day (city, date, how full, the route), so the day's title is not a block
        of its own under it, and the first stop starts higher up; the heading stays in the page for a screen reader */
-    const bd = await pg.evaluate(() => { W.S.tview = 'days'; W.S.glanceOpen = false; W.render(); scrollTo(0, 0); const top = document.querySelector('.top'), tl = document.querySelector('#topline .tl-day'), go = tl && tl.querySelector('.tl-go'), h = document.querySelector('#viewTrip .day-h'), gm = document.querySelector('#viewTrip .day-h ~ .day-gm a');
+    const bd = await pg.evaluate(() => { W.S.tview = 'days'; W.render(); scrollTo(0, 0); const top = document.querySelector('.top'), tl = document.querySelector('#topline .tl-day'), go = tl && tl.querySelector('.tl-go'), h = document.querySelector('#viewTrip .day-h'), gm = document.querySelector('#viewTrip .day-h ~ .day-gm a');
       const vis = e => !!e && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().width > 2; const d = W.P.days[W.S.day - 1];
       return { on: top.hasAttribute('data-day'), text: tl ? tl.innerText.replace(/\s+/g, ' ').trim() : '', city: d.city, greet: vis(document.querySelector('#topline .tl-hi')), go: vis(go) && go.getAttribute('href'), goBox: go ? Math.round(go.getBoundingClientRect().width) + 'x' + Math.round(go.getBoundingClientRect().height) : '', goName: go && go.getAttribute('aria-label'),
         hidden: tl && tl.querySelector('.tl-dt').getAttribute('aria-hidden'), h2: h && h.querySelector('h2').textContent, hBox: h ? Math.round(h.getBoundingClientRect().height) : -1, old: vis(gm), want: W.dayRouteUrl ? 1 : 0, first: Math.round(document.querySelector('#viewTrip .slot').getBoundingClientRect().top), logo: Math.round(document.querySelector('.top .brand svg').getBoundingClientRect().width), pin: document.querySelector('#pin').hidden }; });
@@ -57,8 +57,8 @@ exports.run = async t => {
     await pg.click('#pin'); await pg.waitForFunction(() => scrollY < 5, null, { timeout: 4000 }).catch(() => {}); await pg.waitForTimeout(300);
     t.ok(await pg.evaluate(() => scrollY < 5 && document.querySelector('#pin').hidden), 'a tap on it goes back to the top, and it leaves');
     /* other screens keep the greeting */
-    const oth = await pg.evaluate(() => { const out = {}; W.S.glanceOpen = true; W.render(); out.all = document.querySelector('.top').hasAttribute('data-day'); W.S.glanceOpen = false; W.S.tview = 'map'; W.render(); out.map = document.querySelector('.top').hasAttribute('data-day'); out.greet = getComputedStyle(document.querySelector('#topline .tl-hi')).display !== 'none'; W.S.tview = 'days'; W.render(); return out; });
-    t.ok(!oth.all && !oth.map && oth.greet, 'All days and Explore keep the greeting and the time in the banner');
+    const oth = await pg.evaluate(() => { const out = {}; W.S.tview = 'map'; W.render(); out.map = document.querySelector('.top').hasAttribute('data-day'); out.greet = getComputedStyle(document.querySelector('#topline .tl-hi')).display !== 'none'; W.S.tview = 'days'; W.render(); return out; });
+    t.ok(!oth.map && oth.greet, 'Explore keeps the greeting and the time in the banner');
     /* the stop panel's links and "Not for us" too */
     await pg.evaluate(() => { W.S.tview = 'days'; W.render(); const x = W.P.days[1].slots.find(x => x.item && !W.isFood(x.slot)); W.openStop(x.key); }); await pg.waitForTimeout(700);
     const sh = await pg.evaluate(() => { const s = document.querySelector('#sheethost'); const o = s && s.querySelector('.sh-out-r.danger'); return { btns: s ? [...s.querySelectorAll('.links .pl-a')].map(a => a.textContent.trim() + (a.querySelector('svg') ? '+icon' : '')) : [], red: o ? getComputedStyle(o).borderTopColor === getComputedStyle(o.querySelector('b')).color : false }; });

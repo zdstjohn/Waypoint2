@@ -1,6 +1,6 @@
 /* Waypoint flow: the "next step" bar, quick start for a new trip, undo, swiping between days, the stop actions sheet
-   (swap, move to another day, directions, book, remove) with drag to reorder, the all-days overview, and links
-   between My trip, Book ahead and Plan so nothing is a dead end. */
+   (swap, move to another day, directions, book, remove) with drag to reorder, and links between My trip, Book ahead
+   and Plan so nothing is a dead end. */
 (function () {
   "use strict";
   var W = window.W,
@@ -594,7 +594,7 @@
       var t = e.target;
       if (
         t.closest(
-          ".explorer, .daybar, .idea-list, .swapcards, .opts, input, textarea, select, .live-list, .jgrid, .glance, .sheet, .legopts, .vtwrap, .map, canvas, .thumb"
+          ".explorer, .daybar, .idea-list, .swapcards, .opts, input, textarea, select, .live-list, .jgrid, .sheet, .legopts, .vtwrap, .map, canvas, .thumb"
         )
       )
         return;
@@ -658,7 +658,7 @@
     return '<nav class="daynav" aria-label="Other days">' + (a ? side(a, -1) : "") + (b ? side(b, 1) : "") + "</nav>";
   };
 
-  /* ======================= all days at a glance ======================= */
+  /* ======================= a place's dates ======================= */
   function rangeOf(P, si) {
     var ds = P.days.filter(function (d) {
         return d.stop === si;
@@ -669,110 +669,7 @@
     var mo = { month: "short", day: "numeric" };
     return a.getMonth() === b.getMonth() ? fmt(a, mo) + "–" + b.getDate() : fmt(a, mo) + " – " + fmt(b, mo);
   }
-  /* the stays in order: one segment per place, as wide as its share of the nights */
-  W.stayBar = function (P, tn) {
-    var cur = tn ? P.days[tn - 1].stop : -1;
-    return (
-      '<nav class="staybar" aria-label="Your stays, in order">' +
-      P.stops
-        .map(function (s, si) {
-          var r = rangeOf(P, si),
-            n = s.days /* (the segment's width: its share of the days) */,
-            nt = W.nightsText(P, si);
-          return (
-            '<button type="button" class="sb-seg' +
-            (si === 0 ? " on" : "") +
-            (si === cur ? " now" : "") +
-            '" data-staygo="' +
-            si +
-            '" style="flex-grow:' +
-            n +
-            '"' +
-            (si === 0 ? ' aria-current="true"' : "") +
-            ' aria-label="' +
-            esc(s.name + ", " + nt + (r ? ", " + r : "")) +
-            '" title="' +
-            esc(s.name + (r ? " · " + r : "")) +
-            '"><b>' +
-            esc(s.name) +
-            "</b><span>" +
-            esc(r || nt) +
-            "</span></button>"
-          );
-        })
-        .join("") +
-      "</nav>"
-    );
-  };
-  /* which stay is under the bar while you scroll; tapping a stay scrolls to it */
-  var trackOn = false,
-    trackRaf = 0;
-  function trackNow() {
-    trackRaf = 0;
-    var bar = document.querySelector("#viewTrip:not([hidden]) .staybar");
-    if (!bar) return;
-    var secs = document.querySelectorAll("#viewTrip .g-sec");
-    if (!secs.length) return;
-    var line = bar.getBoundingClientRect().bottom + 14,
-      at = 0;
-    secs.forEach(function (sec, i) {
-      if (sec.getBoundingClientRect().top <= line) at = i;
-    });
-    bar.classList.toggle("stuck", bar.getBoundingClientRect().top <= 0.5 && window.scrollY > 0);
-    var si = +secs[at].dataset.stop,
-      segs = bar.querySelectorAll(".sb-seg");
-    segs.forEach(function (b) {
-      var on = +b.dataset.staygo === si;
-      b.classList.toggle("on", on);
-      if (on) b.setAttribute("aria-current", "true");
-      else b.removeAttribute("aria-current");
-    });
-    var on = bar.querySelector(".sb-seg.on");
-    if (on && (on.offsetLeft < bar.scrollLeft || on.offsetLeft + on.offsetWidth > bar.scrollLeft + bar.clientWidth))
-      bar.scrollLeft = on.offsetLeft - (bar.clientWidth - on.offsetWidth) / 2;
-  }
-  /* room after the last stay, so every stay can scroll up under the bar (a tap lands on it; the highlight follows) */
-  function stayRoom() {
-    var wrap = document.querySelector("#viewTrip .all-days"),
-      bar = document.querySelector("#viewTrip .staybar"),
-      secs = document.querySelectorAll("#viewTrip .g-sec");
-    if (!wrap || !bar || !secs.length) return;
-    var tabs = document.querySelector(".tabs"),
-      tb = tabs && getComputedStyle(tabs).position === "fixed" ? tabs.getBoundingClientRect().height : 0;
-    var last = secs[secs.length - 1].getBoundingClientRect().height;
-    wrap.style.paddingBottom = Math.max(0, Math.round(window.innerHeight - bar.getBoundingClientRect().height - last - tb - 24)) + "px";
-  }
-  W.stayTrack = function () {
-    if (!trackOn) {
-      trackOn = true;
-      window.addEventListener(
-        "scroll",
-        function () {
-          if (!trackRaf) trackRaf = requestAnimationFrame(trackNow);
-        },
-        { passive: true }
-      );
-      window.addEventListener(
-        "resize",
-        function () {
-          stayRoom();
-          if (!trackRaf) trackRaf = requestAnimationFrame(trackNow);
-        },
-        { passive: true }
-      );
-    }
-    stayRoom();
-    requestAnimationFrame(trackNow);
-  };
-  function stayGo(si) {
-    var sec = document.querySelector('#viewTrip .g-sec[data-stop="' + si + '"]'),
-      bar = document.querySelector("#viewTrip .staybar");
-    if (!sec || !bar) return;
-    var y = sec.getBoundingClientRect().top + window.scrollY - bar.getBoundingClientRect().height - 10;
-    var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    window.scrollTo({ top: Math.max(0, y), behavior: calm ? "auto" : "smooth" });
-  }
-  /** "Jun 7–10": the dates of a place you stay (the stay bar here; All days and the desktop rail, screens/alldays.js) */
+  /** "Jun 7–10": the dates of a place you stay (the desktop rail's day list, screens/rail.js) */
   W.stopRange = rangeOf;
 
   /* ======================= clicks (run before the views' own handlers) ======================= */
@@ -826,7 +723,6 @@
         undo = null;
         showUndo();
         W.S.tview = "days";
-        W.S.glanceOpen = false;
         goDay(+d.undosee);
         return;
       }
@@ -851,21 +747,6 @@
       }
       /* (the sheet's own buttons are its own: screens/sheet.js) */
       if (d.sheetclose || d.sheetback || d.sheetact || d.sheetmove) return;
-      if (d.staygo != null) {
-        stop();
-        stayGo(+d.staygo);
-        return;
-      }
-      if (d.glance) {
-        stop();
-        W.S.glanceOpen = !W.S.glanceOpen;
-        if (W.S.glanceOpen && W.fxAfter)
-          W.fxAfter(function () {
-            if (W.fxExpand) W.fxExpand(".glance");
-          });
-        W.render();
-        return;
-      }
       if (d.gobook) {
         stop();
         W.closeStop();
@@ -881,9 +762,6 @@
         stop();
         goStay(+d.gostay);
         return;
-      }
-      if (d.day && W.S.glanceOpen && b.closest(".glance")) {
-        W.S.glanceOpen = false;
       }
       if ((d.step || d.day) && W.view() === "trip") toDayTop();
       /* everything else: remember the state, so a change can be undone */

@@ -12,7 +12,7 @@ exports.run = async t => {
     localStorage.setItem('waypoint-now', '2026-11-08T15:00'); W.isExample = false;
     W.C.country.Greece = { cities: G.map(c => ({ name: c[0], lat: c[1], lng: c[2], w: 3, pop: 3, t: ['beach', 'family'], d: c[0] + ' is a harbour town of Venetian lanes.' })) };
     Object.assign(W.S, { tripName: 'Greece trip', styles: ['beach', 'family', 'food'], travelers: [36, 34, 4, 2, 68], names: [], depart: 'Seattle (SEA)', start: '2027-04-23', days: 20, cityDays: {}, picks: {}, seen: {}, mine: {}, legPick: {}, fold: {}, rest: {},
-      day: 2, tview: 'days', glanceOpen: false, stepClosed: { who: false }, celebrated: {}, kidPicks: {}, stamps: {}, hunt: {}, journal: {}, warmSeen: '',
+      day: 2, tview: 'days', stepClosed: { who: false }, celebrated: {}, kidPicks: {}, stamps: {}, hunt: {}, journal: {}, warmSeen: '',
       countries: [{ name: 'Greece', mode: 'manual', picked: ['Chania', 'Rethymno', 'Heraklion'] }] });
     W.setView('setup'); W.render();
   }, GR);

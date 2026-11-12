@@ -5,7 +5,7 @@
      - every stay in the stay bar is fully visible (they shrink, then wrap to a second row, rather than hide past the edge)
      - every Prepare tab is fully visible
      - the previous/next day arrows are there at every width
-     - the Day / Explore / All days switch spans the full width, in three equal parts
+     - the Day / Explore switch spans the full width, in two equal parts
      - Explore: the search across the top, the route on the right below
      - the trip menu opens under the trip's name (right side of the banner), inside the window
      - the kids' corner stays picture-book sized and centred on a big screen */
@@ -46,22 +46,14 @@ exports.run = async t => {
       const wide = await pg.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       if (!t.ok(found.length === 0 && wide <= 1, `${sc.id} @${width}: ${found.length ? found.map(f => f.kind + ' ' + f.el + ' ' + (f.extra || '')).join('; ') : wide > 1 ? 'the page scrolls sideways by ' + wide + ' px' : 'clean'}`)) await t.shot(pg, `desktop-${width}-${sc.id}`);
     }
-    /* the stay bar: all seven stays in view */
-    const bar = await pg.evaluate(() => {
-      W.closeTripMenu && W.closeTripMenu(); W.S.tview = 'days'; W.S.glanceOpen = true; W.setView('trip'); W.render(); window.scrollTo(0, 0);
-      const nav = document.querySelector('#viewTrip .staybar'); if (!nav) return null;
-      const nb = nav.getBoundingClientRect(), segs = [...nav.querySelectorAll('.sb-seg')];
-      return { n: segs.length, hidden: segs.filter(s => { const r = s.getBoundingClientRect(); return r.left < nb.left - 1 || r.right > nb.right + 1 || r.width < 40; }).map(s => s.textContent), rows: new Set(segs.map(s => Math.round(s.getBoundingClientRect().top))).size };
-    });
-    t.ok(bar && bar.n === 7 && !bar.hidden.length, `@${width}: all ${bar && bar.n} stays are in view (${bar && bar.rows} row${bar && bar.rows > 1 ? 's' : ''})` + (bar && bar.hidden.length ? ': hidden ' + bar.hidden.join(', ') : ''));
     /* the day arrows */
     const arrows = await pg.evaluate(() => {
-      W.S.glanceOpen = false; W.S.day = 3; W.render();
+      W.closeTripMenu && W.closeTripMenu(); W.S.tview = 'days'; W.setView('trip'); W.S.day = 3; W.render(); window.scrollTo(0, 0);
       return [...document.querySelectorAll('#viewTrip .daybar > [data-step]')].filter(e => e.getBoundingClientRect().width > 0).length;
     });
     if (!ws) t.eq(arrows, 2, `@${width}: the previous/next day arrows are there`);
     else t.eq(await pg.evaluate(() => document.querySelectorAll('#wsRail .wr-day').length), 26, `@${width}: the rail lists all 26 days`);
-    /* the Day / Explore / All days switch runs the full width of the page, in three equal parts */
+    /* the Day / Explore switch runs the full width of the page, in two equal parts */
     const vsw = await pg.evaluate(() => {
       const v = [...document.querySelectorAll('#viewTrip .vsw')].find(e => e.getBoundingClientRect().width > 0); if (!v) return null;
       /* (the switch and "+ Add" share one row: the row spans the page) */
@@ -69,9 +61,9 @@ exports.run = async t => {
       const bw = [...v.querySelectorAll('button')].map(b => Math.round(b.getBoundingClientRect().width));
       return { w: Math.round(row.getBoundingClientRect().width), inner: Math.round(inner), bw };
     });
-    if (!ws) t.ok(vsw && vsw.w >= vsw.inner - 2 && Math.max(...vsw.bw) - Math.min(...vsw.bw) <= 2, `@${width}: the Day / All days / Explore switch spans the page (${vsw && vsw.w} of ${vsw && vsw.inner} px; buttons ${vsw && vsw.bw.join('/')})`);
+    if (!ws) t.ok(vsw && vsw.w >= vsw.inner - 2 && Math.max(...vsw.bw) - Math.min(...vsw.bw) <= 2, `@${width}: the Day / Explore switch spans the page (${vsw && vsw.w} of ${vsw && vsw.inner} px; buttons ${vsw && vsw.bw.join('/')})`);
     /* a big screen keeps the day's own title and the greeting in the banner (the day in the banner is a phone's) */
-    const big = await pg.evaluate(() => { W.S.tview = 'days'; W.S.glanceOpen = false; W.render(); const h = document.querySelector('#viewTrip .day-h'), tl = document.querySelector('#topline .tl-day'); scrollTo(0, 500);
+    const big = await pg.evaluate(() => { W.S.tview = 'days'; W.render(); const h = document.querySelector('#viewTrip .day-h'), tl = document.querySelector('#topline .tl-day'); scrollTo(0, 500);
       return { h: Math.round(h.getBoundingClientRect().height), day: tl ? getComputedStyle(tl).display : 'none', greet: getComputedStyle(document.querySelector('#topline .tl-hi')).display, pin: getComputedStyle(document.querySelector('#pin')).display, gm: !!document.querySelector('#viewTrip .gm-row .gmr') && getComputedStyle(document.querySelector('#viewTrip .gm-row .gmr')).display !== 'none' }; });
     await pg.evaluate(() => scrollTo(0, 0));
     if (!ws) t.ok(big.h > 40 && big.day === 'none' && big.greet !== 'none' && big.pin === 'none' && big.gm, `@${width}: the day keeps its title, the banner its greeting, and nothing is pinned on scroll`);

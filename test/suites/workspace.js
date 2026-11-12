@@ -9,7 +9,7 @@ const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb
 exports.run = async t => {
   const b = await launch();
   const { pg, ctx, errors } = await open(b, { width: 1440, height: 900, touch: false, db: mkdb() }); await exampleTrip(pg); await settle(pg, 4000);
-  await pg.evaluate(async () => { W.needLater(); for (let i = 0; i < 80 && !(W.laterReady && W.desk()); i++) await new Promise(r => setTimeout(r, 100)); W.S.day = 2; W.S.tview = 'days'; W.S.glanceOpen = false; W.goView('trip'); W.render(); });
+  await pg.evaluate(async () => { W.needLater(); for (let i = 0; i < 80 && !(W.laterReady && W.desk()); i++) await new Promise(r => setTimeout(r, 100)); W.S.day = 2; W.S.tview = 'days'; W.goView('trip'); W.render(); });
   await settle(pg, 3000);
   const box = sel => pg.evaluate(s => { const e = document.querySelector(s); if (!e) return null; const r = e.getBoundingClientRect(), cs = getComputedStyle(e); return { x: Math.round(r.left), w: Math.round(r.width), h: Math.round(r.height), display: cs.display, position: cs.position }; }, sel);
 
@@ -21,7 +21,7 @@ exports.run = async t => {
   t.ok(sh.sheets.some(s => /^app\.desk\.css/.test(s) && !/ off$/.test(s)) && sh.sheets.filter(s => /^app\.min\.css|^app2\.css/.test(s)).every(s => / off$/.test(s)), 'its stylesheet is in force and the phone ones are switched off: ' + sh.sheets.join(', '));
   t.ok(sh.top === 'none' && sh.tabs, 'the banner and its tab bar are gone');
   t.ok(sh.tripbar && sh.brand && sh.next, 'the trip switcher, the logo and the next step are in the rail (the same elements, moved)');
-  t.ok(['Plan', 'Itinerary', 'All days', 'Explore ideas', 'Today', 'Prepare'].every(n => sh.nav.includes(n)), 'the rail has the views: ' + sh.nav.join(' · '));
+  t.ok(['Plan', 'Itinerary', 'Explore ideas', 'Today', 'Prepare'].every(n => sh.nav.includes(n)) && !sh.nav.includes('All days'), 'the rail has the views (no All days: the rail lists the days): ' + sh.nav.join(' · '));
   t.ok(sh.days === sh.N && sh.cur && sh.cur.wsday === '2', 'and every day of the trip, the one you are on marked (' + sh.days + ' days)');
   t.ok(sh.over <= 0, 'nothing runs off the side');
   const rail = await box('#wsRail'), wrap = await box('.wrap'), can = await box('#wsCanvas');
@@ -30,7 +30,7 @@ exports.run = async t => {
   /* the day is drawn as in a pane that wide (a phone's cards), not as on a 1440px page */
   const dv = await pg.evaluate(() => ({ route: !!document.querySelector('#viewTrip .dayview .explorer'), daybar: (document.querySelector('#viewTrip .daybar') || { offsetParent: null }).offsetParent !== null, vsw: (document.querySelector('.vsw-row') || { offsetParent: null }).offsetParent !== null,
     sum: (document.querySelector('.ws-sum') || {}).textContent || '', buf: document.querySelectorAll('.ws-leg .ws-buf').length, legs: document.querySelectorAll('.ws-leg[data-wsleg]').length, qa: document.querySelectorAll('.slot .ws-qa').length, cards: document.querySelectorAll('#viewTrip .slot[data-slotkey]:not(.free)').length }));
-  t.ok(!dv.route && !dv.daybar && !dv.vsw, 'the day has no route card, row of day numbers or Day / All days / Explore switch of its own (the rail and the map are those)');
+  t.ok(!dv.route && !dv.daybar && !dv.vsw, 'the day has no route card, row of day numbers or Day / Explore switch of its own (the rail and the map are those)');
   t.ok(/\d+ stops?/.test(dv.sum) && /getting around/.test(dv.sum) && /to/.test(dv.sum), 'a line adds the day up: ' + dv.sum.replace(/\s+/g, ' '));
   t.ok(dv.legs >= 2 && dv.buf >= 1, 'each way between two stops is a row, with the time to spare where there is some (' + dv.legs + ' ways, ' + dv.buf + ' with spare time)');
   t.ok(dv.qa >= 3, 'each card carries its quick actions (' + dv.qa + ')');
@@ -61,7 +61,12 @@ exports.run = async t => {
   t.ok(await pg.evaluate(() => !document.querySelector('#sheethost .sheet')), 'Esc closes the inspector');
   /* a hop in the list and the pane's scroll bar */
   await pg.evaluate(() => scrollTo(0, 0)); await pg.hover('.wrap .ws-leg[data-wsleg]'); await pg.waitForTimeout(150);
-  t.ok(await pg.evaluate(() => !!document.querySelector('.wrap .ws-leg.ws-hi')), 'the pointer over a way between two stops marks it (and, with a map, its line)');
+  t.ok(await pg.evaluate(() => !!document.querySelector('.wrap .ws-leg.ws-hi')), 'the pointer over a way between two stops marks it (and, with a map, the two pins it joins)');
+  /* the street map places its pins itself, every frame: nothing may ease where a pin is (v153 eased it for 0.12 s, so
+     the pins trailed the map on every zoom and slid in from far away on every new day), and no lines between them */
+  const dcss = require('fs').readFileSync(require('path').join(t.root, 'trip', 'app.desk.css'), 'utf8'), vt = require('fs').readFileSync(require('path').join(t.root, 'trip', 'lib', 'vtmap.js'), 'utf8');
+  t.ok(!/\.vt-pin\{[^}]*transition:[^};]*transform/.test(dcss) && /\.ws-canvas \.vt-pin b\{transition:transform/.test(dcss), 'a pin\'s dot grows under the pointer, but the pin itself never eases: it stays on its place as the map zooms');
+  t.ok(/function spotGroups/.test(vt) && !/W\.vtLegs|"legs-hi"/.test(vt), 'on the desktop each stop keeps its own pin on its own spot at every zoom, with no lines between the pins');
   const bar = await pg.evaluate(async () => { scrollTo(0, 300); await new Promise(r => setTimeout(r, 200)); const b = document.getElementById('wsBar'), r = b.getBoundingClientRect(), w = document.querySelector('.wrap').getBoundingClientRect(); return { on: b.classList.contains('on'), x: Math.round(r.right), wr: Math.round(w.right), native: getComputedStyle(document.documentElement).scrollbarWidth }; });
   t.ok(bar.on && Math.abs(bar.wr - bar.x) <= 12 && bar.native === 'none', 'the plan\'s scroll bar is at the plan\'s own edge, not the window\'s');
 
@@ -123,20 +128,22 @@ exports.run = async t => {
   t.ok(noMap.wide && noMap.canvas === 'none' && noMap.w > 1000 && noMap.back, 'hiding the map gives the plan the whole width, with "Show the map" in the rail');
   await pg.click('#wrTools [data-ws="map"]'); await pg.waitForTimeout(400);
 
-  /* ---------- All days, Plan and Prepare: the width, in columns ---------- */
-  await pg.click('#wrNav [data-ws="view:all"]'); await settle(pg, 1500);
-  const all = await pg.evaluate(() => { const ds = [...document.querySelectorAll('.all-days .g-day')].slice(0, 3).map(e => Math.round(e.getBoundingClientRect().top)); return { wide: document.documentElement.classList.contains('ws-wide'), sameRow: ds.length > 1 && ds[0] === ds[1], cur: (document.querySelector('#wrNav [aria-current="true"]') || {}).textContent }; });
-  t.ok(all.wide && all.sameRow && /All days/.test(all.cur || ''), 'All days takes the width, its days side by side');
+  /* ---------- Plan and Prepare: the width, in columns ---------- */
   await pg.click('#wrNav [data-ws="view:book"]'); await pg.waitForSelector('#viewBook .bookview'); await settle(pg, 2500);
-  const bk = await pg.evaluate(() => { const v = document.querySelector('#viewBook .bookview'), cols = [...v.querySelectorAll(':scope > .bv-col')], heads = [...v.querySelectorAll('h2')].map(h => h.textContent.trim());
-    return { all: v.classList.contains('ws-all'), cols: cols.length, tops: cols.map(c => Math.round(c.getBoundingClientRect().top)), lefts: cols.map(c => Math.round(c.getBoundingClientRect().left)), heads, tabs: (v.querySelector('.prep-seg') || { offsetParent: null }).offsetParent !== null, sub: [...document.querySelectorAll('#wrNav .sub')].map(x => x.textContent.trim()), open: [...v.querySelectorAll('.chk-gb')].every(b => b.getAttribute('aria-expanded') !== 'false') }; });
-  t.ok(bk.all && bk.cols === 3 && new Set(bk.tops).size === 1 && new Set(bk.lefts).size === 3, 'Prepare is three columns side by side');
+  const bk = await pg.evaluate(() => { const v = document.querySelector('#viewBook .bookview'), cols = [...v.querySelectorAll(':scope > .bv-main, :scope > .bv-aside')], heads = [...v.querySelectorAll('h2')].map(h => h.textContent.trim());
+    const main = v.querySelector('.bv-main'), inMain = [...main.querySelectorAll('h2')].map(h => h.textContent.trim()), pk = [...v.querySelectorAll('.pk-list > li.chk')].slice(0, 30).map(li => Math.round(li.getBoundingClientRect().left)), tb = [...v.querySelectorAll('.bk-ahead .checklist > .chk')].slice(0, 2).map(li => Math.round(li.getBoundingClientRect().top));
+    return { all: v.classList.contains('ws-all'), cols: cols.length, tops: cols.map(c => Math.round(c.getBoundingClientRect().top)), lefts: cols.map(c => Math.round(c.getBoundingClientRect().left)), heads, tabs: (v.querySelector('.prep-seg') || { offsetParent: null }).offsetParent !== null, sub: [...document.querySelectorAll('#wrNav .sub')].map(x => x.textContent.trim()), open: [...v.querySelectorAll('.chk-gb')].every(b => b.getAttribute('aria-expanded') !== 'false'), inMain, pkCols: new Set(pk).size, tbRow: tb.length === 2 && tb[0] === tb[1], page: document.documentElement.scrollHeight }; });
+  t.ok(bk.all && bk.cols === 2 && new Set(bk.tops).size === 1 && new Set(bk.lefts).size === 2, 'Prepare is a wide column and a side column');
+  t.ok(bk.inMain.includes('To book') && bk.inMain.some(h => /Pack/.test(h)) && bk.tbRow && bk.pkCols >= 2, 'the long lists (To book, Pack) are in the wide one, each flowing into columns of its own (' + bk.pkCols + ' packing columns)');
+  t.note('Prepare at 1440 px: ' + bk.page + ' px tall');
   t.ok(['To book', 'Booked', 'Budget', 'Take along'].every(h => bk.heads.includes(h)) && bk.heads.some(h => /Pack/.test(h)) && !bk.tabs, 'with every part on the page at once, and no tabs to switch between them: ' + bk.heads.join(' · '));
   t.ok(['To book', 'Booked', 'Budget', 'Pack', 'Take along'].every(s => bk.sub.includes(s)), 'the rail lists Prepare\'s parts, to go to one');
   await pg.click('#wrNav [data-ws="view:setup"]'); await pg.waitForSelector('#viewSetup details.step'); await settle(pg, 2500);
-  const pl = await pg.evaluate(() => { const st = [...document.querySelectorAll('#viewSetup > .setup > details.step, #viewSetup details.step')]; return { n: st.length, open: st.filter(d => d.open).length, tops: st.slice(0, 2).map(d => Math.round(d.getBoundingClientRect().top)), lefts: st.slice(0, 2).map(d => Math.round(d.getBoundingClientRect().left)), eat: [...document.querySelectorAll('#viewSetup details.eat-f')].every(d => d.open) }; });
+  const pl = await pg.evaluate(() => { const st = [...document.querySelectorAll('#viewSetup details.step')], cols = [...document.querySelectorAll('#viewSetup .su-col')];
+    const gaps = cols.map(c => { const k = [...c.children].map(e => e.getBoundingClientRect()); return k.slice(1).map((r, i) => Math.round(r.top - k[i].bottom)); });
+    return { n: st.length, open: st.filter(d => d.open).length, cols: cols.map(c => [...c.querySelectorAll('details.step .step-h b, details.step summary b')].map(b => b.textContent.trim()).join(' ')), tops: cols.map(c => Math.round(c.getBoundingClientRect().top)), lefts: cols.map(c => Math.round(c.getBoundingClientRect().left)), gaps, eat: [...document.querySelectorAll('#viewSetup details.eat-f')].every(d => d.open) }; });
   t.ok(pl.n >= 4 && pl.open === pl.n && pl.eat, 'Plan\'s steps are open, the allergy and diet lists too (' + pl.open + ' of ' + pl.n + ')');
-  t.ok(pl.tops[0] === pl.tops[1] && pl.lefts[0] !== pl.lefts[1], 'and sit side by side');
+  t.ok(pl.cols.length === 2 && pl.tops[0] === pl.tops[1] && pl.lefts[0] < pl.lefts[1] && pl.gaps.every(g => g.every(x => x >= 0 && x <= 24)), 'in two columns side by side, each stacked on its own with no holes: ' + JSON.stringify({ cols: pl.cols, gaps: pl.gaps }));
   /* text is not left to run the width of the screen */
   const prose = await pg.evaluate(() => { const ps = [...document.querySelectorAll('#viewSetup p')].filter(p => p.offsetParent && p.textContent.length > 120); const f = parseFloat(getComputedStyle(document.body).fontSize); return ps.length ? Math.max(...ps.map(p => p.getBoundingClientRect().width / (parseFloat(getComputedStyle(p).fontSize) || f))) : 0; });
   t.ok(prose > 0 && prose < 40, 'a long paragraph is no wider than about 65 characters (' + Math.round(prose) + ' em)');

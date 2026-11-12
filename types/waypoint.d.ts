@@ -36,7 +36,7 @@ interface Stay { label: string; lat?: number | null; lng?: number | null; live?:
 /** the trip, as saved (localStorage "waypoint-v2" and the account) */
 interface TripState { v: 2; algo?: number; tripId?: string; tripName?: string; styles: string[]; focus?: Focus; countries: Country[]; days: number; start: string; depart: string; travelers: (number | "")[]; names?: string[];
   stays: Record<string, Stay>; picks: Record<string, string>; seen: Record<string, string[]>; mine?: Record<string, 1>; free?: Record<string, 1>; rest?: Record<string, 1>; dayTrip?: Record<string, { country: string; name: string; lat: number | null; lng: number | null; min: number | null }>; fold?: Record<string, unknown>; legPick?: Record<string, unknown>; nope?: Record<string, string>; eat?: { al?: string[]; di?: string[]; love?: string; avoid?: string; note?: string }; eatNone?: 1; eatOpen?: { al?: boolean; di?: boolean }; bag?: Record<string, Record<string, 1>>;
-  cityDays: Record<string, number>; day: number; example?: number; tview?: "days" | "map"; glanceOpen?: boolean; allPref?: boolean; stepClosed?: Record<string, boolean>; prepTab?: string; transitOpen?: unknown; jetOpen?: unknown; nextHide?: unknown; tripFolded?: any; mapZoom?: number; late?: any;
+  cityDays: Record<string, number>; day: number; example?: number; tview?: "days" | "map"; allPref?: boolean; stepClosed?: Record<string, boolean>; prepTab?: string; transitOpen?: unknown; jetOpen?: unknown; nextHide?: unknown; tripFolded?: any; mapZoom?: number; late?: any;
   appMode?: string; appModeAt?: string; exF?: unknown; exSort?: unknown; pack?: Record<string, unknown>; packHide?: Record<string, 1>; packOwn?: PackItem[]; journal?: Record<string, { mood?: number; note?: string; photos?: { id: string; [k: string]: any }[] }>;
   kidPicks?: Record<string, string[]>; hunt?: Record<string, Record<string, 1>>; stamps?: Record<string, string>; celebrated?: Record<string, string>; warmSeen?: string; lodge?: Record<string, string>; lodgeSeen?: Record<string, string[]>;
   share?: any; imported?: any; bookings?: Booking[]; booked?: Record<string, any>; rl?: Record<string, number[]>; under?: Record<string, [string, string, number]>; [k: string]: any }
@@ -202,8 +202,6 @@ interface Waypoint {
   railRender: (P: Plan) => void;
   palOpen: () => void;
   palClose: () => boolean;
-  vtLegs: (legs: { id: string; a: number[]; b: number[] }[] | null, onHover?: (id: string) => void) => boolean;
-  vtLegHi: (id: string) => void;
   vtIdeas: (list: { n: string; lat: number | null; lng: number | null; food?: boolean }[]) => boolean;
   vtSee: (lng: number, lat: number, pad?: number) => void;
   sheetKey: () => string;
@@ -259,7 +257,6 @@ interface Waypoint {
   getMcp: () => any;
   /** helpers lib/bookcore.js shares with screens/book.js */
   _bk: any;
-  glance: any;
   gmapsDir: (a: any, b: any, mode?: string) => string;
   gmapsPlace: (place: string | { n?: string; label?: string; gid?: string }, city: string, gid?: string) => string;
   goView: (to: View, anchor?: string) => void;
@@ -594,11 +591,9 @@ interface Waypoint {
   slug: (s: string) => string;
   smallNextToBig: (st: any[], i: number, p: any) => any;
   status: Record<string, string>;
-  stayBar: any;
   stayInput: (ck: string, P: Plan, hotel?: any) => any;
   stayRange: (country: string, city: string) => any;
   stayText: (it: Spot | Food, food: boolean, slot: string) => string;
-  stayTrack: any;
   stopAt: (s: Stop) => LatLng & { label?: string };
   stopDetails: (P: Plan, day: Day, x: any, opt?: { noMain?: boolean }) => string;
   vtArea: any;

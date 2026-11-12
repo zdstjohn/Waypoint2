@@ -8,7 +8,7 @@ exports.run = async t => {
   const { pg, ctx, errors } = await open(b, { width: 390, height: 844, init }); await exampleTrip(pg); await settle(pg, 4000);
   const st = () => pg.evaluate(() => ({ view: W.view(), hash: location.hash, sheet: !!document.querySelector('#sheethost .sheet'), menu: !!document.querySelector('.trip-menu'), len: history.length }));
   const back = async () => { await pg.evaluate(() => history.back()); await pg.waitForTimeout(350); };
-  const day = () => pg.evaluate(() => { W.S.day = 2; W.S.tview = 'days'; W.S.glanceOpen = false; W.setView('trip'); W.render(); });
+  const day = () => pg.evaluate(() => { W.S.day = 2; W.S.tview = 'days'; W.setView('trip'); W.render(); });
   await day(); await pg.waitForTimeout(300);
   const s0 = await st();
 

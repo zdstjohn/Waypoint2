@@ -46,9 +46,8 @@ exports.run = async t => {
         if (m().innerText.trim().length < 60) out.empty.push(name);
       };
       W.goView('go'); await wait(500); look('Today');
-      W.setAppMode && W.setAppMode('plan'); W.S.tview = 'days'; W.S.glanceOpen = false; W.S.day = 2; W.goView('trip'); await wait(400); look('Day');
-      W.S.glanceOpen = true; W.render(); await wait(200); look('All days');
-      W.S.glanceOpen = false; W.S.tview = 'map'; W.render(); await wait(400); look('Explore');
+      W.setAppMode && W.setAppMode('plan'); W.S.tview = 'days'; W.S.day = 2; W.goView('trip'); await wait(400); look('Day');
+      W.S.tview = 'map'; W.render(); await wait(400); look('Explore');
       W.S.tview = 'days';
       for (const tab of ['tobook', 'booked', 'budget', 'pack', 'take']) { W.S.prepTab = tab; W.goView('book'); await wait(tab === 'pack' ? 700 : 250); look('Prepare ' + tab); }
       W.goView('setup'); await wait(500); look('Plan'); W.goView('settings'); await wait(300); look('Settings');
@@ -67,7 +66,7 @@ exports.run = async t => {
     const plan = await pg.evaluate(async () => {
       const wait = ms => new Promise(r => setTimeout(r, ms));
       W.newTripFrom({ v: 2, algo: 2, styles: ['culture', 'food'], countries: [{ mode: 'manual', name: 'Spain', picked: ['Madrid', 'Barcelona'] }], days: 6, start: '2027-06-14', depart: 'Seattle (SEA)', travelers: [41, 40, 8, 6], stays: {}, picks: {}, seen: {}, cityDays: {}, tripName: '' });
-      await wait(1500); W.setAppMode && W.setAppMode('plan'); W.S.tview = 'days'; W.S.glanceOpen = false; W.S.day = 1; W.goView('trip'); await wait(400);
+      await wait(1500); W.setAppMode && W.setAppMode('plan'); W.S.tview = 'days'; W.S.day = 1; W.goView('trip'); await wait(400);
       const filled = W.P.days.reduce((a, d) => a + d.slots.filter(x => x.item).length, 0);
       let note = ''; for (let n = 1; n <= W.P.N && !note; n++) { W.S.day = n; W.render(); note = (document.querySelector('#viewTrip .sa-note') || {}).textContent || ''; }
       return { name: W.tripName(), filled, note };

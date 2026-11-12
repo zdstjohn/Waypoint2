@@ -15,9 +15,9 @@ const ORDER = [
   'screens/setup.js', 'lib/sharebox.js', 'lib/sync.js', 'lib/bookcore.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/route.js', 'lib/import.js', 'lib/prices.js', 'lib/watch.js', 'lib/gmaps.js', 'lib/search.js', 'lib/replan.js', 'lib/review.js',
   'screens/today.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/near.js', 'screens/travel.js', 'screens/flow.js', 'screens/quickstart.js', 'screens/sheet.js', 'screens/daytrip.js', 'lib/typeahead.js', 'screens/settings.js', 'screens/trip.js',
   /* the desktop workspace (v153; all in the second script): its state, the map canvas, the rail, the palette, CSV */
-  'lib/desk.js', 'lib/deskmap.js', 'screens/rail.js', 'screens/palette.js', 'lib/csv.js', 'screens/alldays.js'
+  'lib/desk.js', 'lib/deskmap.js', 'screens/rail.js', 'screens/palette.js', 'lib/csv.js', 'screens/dayline.js'
 ];
-const LATER = ['lib/nightfood.js', 'lib/memories.js', 'screens/near.js', 'screens/quickstart.js', 'screens/sheet.js', 'screens/daytrip.js', 'lib/typeahead.js', 'lib/import.js', 'screens/setup.js', 'lib/vtmap.js', 'lib/packing.js', 'lib/prices.js', 'lib/watch.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/gmaps.js', 'lib/search.js', 'lib/replan.js', 'lib/review.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/settings.js', 'lib/route.js', 'lib/offcopy.js', 'lib/speedtest.js', 'lib/desk.js', 'lib/deskmap.js', 'screens/rail.js', 'screens/palette.js', 'lib/csv.js', 'screens/alldays.js'];
+const LATER = ['lib/nightfood.js', 'lib/memories.js', 'screens/near.js', 'screens/quickstart.js', 'screens/sheet.js', 'screens/daytrip.js', 'lib/typeahead.js', 'lib/import.js', 'screens/setup.js', 'lib/vtmap.js', 'lib/packing.js', 'lib/prices.js', 'lib/watch.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/gmaps.js', 'lib/search.js', 'lib/replan.js', 'lib/review.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/settings.js', 'lib/route.js', 'lib/offcopy.js', 'lib/speedtest.js', 'lib/desk.js', 'lib/deskmap.js', 'screens/rail.js', 'screens/palette.js', 'lib/csv.js', 'screens/dayline.js'];
 module.exports.ORDER = ORDER; module.exports.LATER = LATER;
 
 async function build() {

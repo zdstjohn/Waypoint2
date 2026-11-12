@@ -24,7 +24,7 @@
       v = W.view(),
       ro = W.readOnly,
       trip = v === "trip" || v === "explore",
-      tv = v === "explore" || (v === "trip" && S.tview === "map") ? "explore" : S.glanceOpen ? "all" : "days";
+      tv = v === "explore" || (v === "trip" && S.tview === "map") ? "explore" : "days";
     function main(view, icon, label, on) {
       return (
         '<button type="button" data-ws="view:' +
@@ -55,7 +55,7 @@
     var h = "";
     if (!ro && !window.__WP_OFFLINE) h += main("setup", "plan", "Plan", v === "setup");
     h += main("days", "trip", "Itinerary", trip && tv === "days");
-    h += sub("view:all", "All days", trip && tv === "all") + sub("view:explore", "Explore ideas", trip && tv === "explore");
+    h += sub("view:explore", "Explore ideas", trip && tv === "explore");
     h += main("go", "today", "Today", v === "go");
     h += main("book", "prepare", "Prepare", v === "book");
     if (v === "book") {

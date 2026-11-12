@@ -60,7 +60,6 @@
     });
     if (!W.readOnly && !window.__WP_OFFLINE) add("Screen", "Plan", "Who, where, what you eat", go("view", "setup"), "setup");
     add("Screen", "Itinerary", "Day by day", go("view", "days"), "trip days");
-    add("Screen", "All days", "The whole trip at a glance", go("view", "all"), "overview");
     add("Screen", "Explore ideas", "More to do and eat near each day", go("view", "explore"));
     add("Screen", "Today", "Now, next and the way there", go("view", "go"));
     [

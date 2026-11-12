@@ -74,7 +74,7 @@ exports.run = async t => {
     taps.push(await tap('day pill', '#viewTrip .dpill[data-day="3"]'));
     taps.push(await tap('open a stop', '#viewTrip .slot .slot-h, #viewTrip .slot button, #viewTrip .slot'));
     taps.push(await tap('close it', '[data-sheetclose], .sheet-x, [data-close]', () => { W.closeStop && W.closeStop(); }));
-    taps.push(await tap('All days', '#viewTrip [data-vsw="all"]'));
+    taps.push(await tap('Explore', '#viewTrip [data-vsw="map"]'));
     taps.push(await tap('back to Day', '#viewTrip [data-vsw="days"]'));
     taps.push(await tap('Prepare tab', '.tabbar [data-view="book"], nav [data-view="book"]'));
     taps.push(await tap('Pack segment', '[data-prep="pack"]'));

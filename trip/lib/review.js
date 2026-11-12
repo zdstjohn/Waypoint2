@@ -1,5 +1,5 @@
 /* Waypoint: "Check my plan" (second script).
-   One button in All days (and in the trip menu): Claude reads the whole trip as it is planned here (every day's stops
+   One button at the end of Plan (and in the trip menu): Claude reads the whole trip as it is planned here (every day's stops
    with their times, how far apart they are, what is indoors, what closes when, naps, tickets, travel days) and lists
    the real problems, each with a way to fix it and a way to open that day. It only reads: nothing in the plan changes.
    The answer is kept on this phone with a fingerprint of the plan, so the card can say when the plan has moved on. */
@@ -236,7 +236,7 @@
               esc(i.text) +
               "</p>" +
               (i.fix ? '<p class="pcheck-f"><b>Try:</b> ' + esc(i.fix) + "</p>" : "") +
-              (d ? '<button type="button" class="linkish" data-day="' + i.day + '">Open Day ' + i.day + " →</button>" : "") +
+              (d ? '<button type="button" class="linkish" data-goday="' + i.day + '">Open Day ' + i.day + " →</button>" : "") +
               "</li>"
             );
           })

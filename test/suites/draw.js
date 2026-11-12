@@ -30,9 +30,8 @@ exports.run = async t => {
 
   /* each screen: nothing new, nothing touched; a change gives exactly the page a rebuild would */
   const screens = [
-    ['a day', () => { W.S.tview = 'days'; W.S.glanceOpen = false; W.S.day = 2; W.setView('trip'); W.render(); }, 'viewTrip'],
-    ['All days', () => { W.S.glanceOpen = true; W.setView('trip'); W.render(); }, 'viewTrip'],
-    ['the map view', () => { W.S.glanceOpen = false; W.S.tview = 'map'; W.S.day = 2; W.setView('trip'); W.render(); }, 'viewTrip'],
+    ['a day', () => { W.S.tview = 'days'; W.S.day = 2; W.setView('trip'); W.render(); }, 'viewTrip'],
+    ['the map view', () => { W.S.tview = 'map'; W.S.day = 2; W.setView('trip'); W.render(); }, 'viewTrip'],
   ];
   for (const [name, prep, id] of screens) {
     await pg.evaluate(prep); await settle(pg, 3000);
@@ -72,7 +71,7 @@ exports.run = async t => {
   }
   /* data arriving while you type in a box on these screens redraws around it and keeps the text */
   const typed = await pg.evaluate(async () => {
-    W.S.tview = 'map'; W.S.glanceOpen = false; W.setView('trip'); W.render(); await new Promise(r => setTimeout(r, 300));
+    W.S.tview = 'map'; W.setView('trip'); W.render(); await new Promise(r => setTimeout(r, 300));
     const q = document.getElementById('placeQ'); if (!q) return null; q.focus(); q.value = 'gela';
     const d0 = W.drawn.patched + W.drawn.same; W.changed(); await new Promise(r => setTimeout(r, 100));
     return { drew: W.drawn.patched + W.drawn.same > d0, text: document.getElementById('placeQ').value, focus: document.activeElement && document.activeElement.id };
@@ -92,7 +91,7 @@ exports.run = async t => {
   t.ok(go.view === 'go' && go.quiet === 0, 'Today: a redraw with nothing new touches nothing: ' + JSON.stringify(go));
   t.ok(go.patched >= 1 && go.kept && go.equal, 'Today: running late edits the times in place and equals a rebuild: ' + JSON.stringify(go));
   /* another day is another screen: drawn afresh */
-  const other = await pg.evaluate(() => { W.setAppMode('plan'); W.S.tview = 'days'; W.S.glanceOpen = false; W.S.day = 1; W.setView('trip'); W.render(); const r0 = W.drawn.rebuilt; W.S.day = 3; W.render(); return W.drawn.rebuilt - r0; });
+  const other = await pg.evaluate(() => { W.setAppMode('plan'); W.S.tview = 'days'; W.S.day = 1; W.setView('trip'); W.render(); const r0 = W.drawn.rebuilt; W.S.day = 3; W.render(); return W.drawn.rebuilt - r0; });
   t.ok(other >= 1, 'a different day is drawn afresh, not edited from the last one');
   t.eq(errors(), [], 'no page errors');
   await b.close();

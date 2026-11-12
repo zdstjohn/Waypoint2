@@ -1,5 +1,7 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v153: the desktop workspace. Every screen at the desktop size (1440px) is laid out anew: a rail, the screen, the map
-# pane. No phone, large-text, dark-phone or tablet (900px) screen is listed, and none may change.
+# v154: All days is gone (its screen, trip-all, is no longer taken), so the Day | Explore switch at the top of a day has
+# two parts instead of three (trip-days-*-0, the top of the day); the desktop's map, Plan and Prepare are laid out anew.
+trip-all-*
+trip-days-*-0.png
 *-desk-*

@@ -1062,11 +1062,10 @@
         W.render();
         return;
       }
-      /* Day, All days or Explore */
+      /* Day or Explore */
       if (d.vsw) {
         stop();
         W.S.tview = d.vsw === "map" ? "map" : "days";
-        W.S.glanceOpen = d.vsw === "all";
         W.save();
         W.render();
         return;

@@ -16,7 +16,6 @@
     "jetOpen",
     "late",
     "lateAt",
-    "glanceOpen",
     "nextHide",
     "appMode",
     "appModeAt",
@@ -1546,14 +1545,11 @@
       return;
     }
     if (a === "review") {
-      /* All days, with the check asked for and its card in view (the card comes with the second script) */
+      /* Plan, with the check asked for and its card in view (the card comes with the second script) */
       menuOpen = false;
       renaming = false;
       delAsk = null;
-      S.tview = "days";
-      S.glanceOpen = true;
-      W.save();
-      if (W.goView) W.goView("trip");
+      if (W.goView) W.goView("setup");
       var n = 0;
       (function go() {
         if (!W.reviewStart) {
@@ -1562,7 +1558,7 @@
         }
         W.reviewStart(W.P);
         W.render();
-        var c = document.querySelector("#viewTrip .pcheck, #viewTrip .pcheck-go");
+        var c = document.querySelector("#viewSetup .pcheck, #viewSetup .pcheck-go");
         if (c) c.scrollIntoView({ block: "center" });
       })();
       return;

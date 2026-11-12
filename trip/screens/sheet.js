@@ -243,10 +243,9 @@
   };
   /* Swap and Reorder work on the day's own cards: from Today (or anywhere else) the Day view comes up first */
   function onDay(then) {
-    if (W.view() !== "trip" || W.S.tview !== "days" || W.S.glanceOpen) {
+    if (W.view() !== "trip" || W.S.tview !== "days") {
       W.keepDay(); /* (the day the sheet was opened on, which on Today can be another day you were looking at) */
       W.S.tview = "days";
-      W.S.glanceOpen = false;
       W.setView("trip");
       W.render();
     }
