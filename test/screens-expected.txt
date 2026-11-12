@@ -1,5 +1,6 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v162: every button is one family (round ends, indigo words and ring, the main action filled, gradient icons), and
-# Today's route has one round directions button per stop. Buttons are on nearly every screen.
-*
+# v163: a meal's Menu starts with "Read the menu" (a photo of the menu, read for the family). Only a meal's panel and
+# a stop's sheet show it.
+meal-panel*
+stop-panel*

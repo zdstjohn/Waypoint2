@@ -2,6 +2,27 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v163
+
+Read a menu photo for your family (the owner's pick from the second list of ideas).
+- A meal's Menu (its sheet, or the menu icon on the day) starts with "Read the menu" (lib/menuread.js, new, in the
+  second script; lib/nightfood.js W.menuBlock(it, day, key); screens/tripacts.js passes the stop's key). The phone
+  offers its camera or its photos, up to three pages, in any language. Each photo is shrunk on the phone (longest side
+  1600 px, JPEG) and sent with one question: every dish's printed name, English name, what it is and its price, and
+  how it suits this family from "What do you eat?" (W.eatText) and their ages (W.who): good for everyone, the kids
+  will like, ask first (with the reason), skip (folded away); plus up to three phrases in the menu's language for the
+  waiter about the allergies and diets. The answer is cleaned (W.menuClean: plain short text, a known fit, at most 60
+  dishes) and shown as text only, with "Claude can misread a menu: check allergens with the staff". It lives for the
+  visit, by the stop it was read for.
+- Only where pictures can be sent to Claude (W.menuCanRead asks sample.limits()): the Claude app now declares
+  pictures for its Claude requests (the first menu read asks to allow it once); the installable app sends them through
+  its server: lib/cloud.js passes images (base64, at most three) and its limits say so, and the server function
+  "claude" (supabase/functions/claude/index.ts, in the repository since v162, deployed with this version) accepts
+  up to three JPEG/PNG/WebP pictures and checks their type and size.
+- Tests: menuread (12 checks: the button, the picker with two pages, what is sent, the groups, the reasons, the
+  phrases, the allergen note, markup in an answer shown as text, a failed read, no button on a sight or where
+  pictures can't be sent); the test stand-in answers menus (test/mocks/mock2.js). 55 suites.
+
 ## v162
 
 Buttons as one family, and Today's route with one directions button per stop. The owner chose each step from

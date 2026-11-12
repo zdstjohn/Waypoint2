@@ -333,7 +333,7 @@
       (meta ? '<div class="meta">' + meta + "</div>" : "") +
       (food ? "" : beachCheck(it)) +
       rev +
-      (food && W.menuBlock ? W.menuBlock(it, day) : "") +
+      (food && W.menuBlock ? W.menuBlock(it, day, x.key) : "") +
       (it.st === "unsure" ? "<p class=\"small muted\">Couldn't confirm it's still open. Worth a quick check.</p>" : "") +
       (W.altLinksFor ? W.altLinksFor("activity", { it: it, food: food, day: day }) : "") +
       placeLinks(

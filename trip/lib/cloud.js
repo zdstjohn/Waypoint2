@@ -608,7 +608,28 @@
     }
     throw { code: "transform_error", message: "Claude's answer wasn't in the expected form.", text: t.slice(0, 400) };
   }
+  /* a picture (a menu's photo, lib/menuread.js) goes as its type and its bytes in base64; at most three a question
+     (the server checks again) */
+  function b64(blob) {
+    return new Promise(function (ok, no) {
+      var r = new FileReader();
+      r.onload = function () {
+        var s = String(r.result || "");
+        ok({ type: blob.type || "image/jpeg", data: s.slice(s.indexOf(",") + 1) });
+      };
+      r.onerror = function () {
+        no({ code: "invalid_request", message: "That picture can't be read." });
+      };
+      r.readAsDataURL(blob);
+    });
+  }
   function ask(prompt, opts, whole) {
+    var ims = opts && opts.images ? Array.prototype.slice.call(opts.images instanceof Blob ? [opts.images] : opts.images, 0, 3) : [];
+    return (ims.length ? Promise.all(ims.map(b64)) : Promise.resolve(null)).then(function (pics) {
+      return askWith(prompt, opts, whole, pics);
+    });
+  }
+  function askWith(prompt, opts, whole, pics) {
     var input =
       typeof prompt === "string"
         ? prompt
@@ -625,7 +646,8 @@
           prompt: input,
           tier: (opts && opts.modelTier) || "default",
           effort: (opts && opts.effort) || undefined,
-          stream: (!whole && !!(opts && opts.onText)) || undefined
+          stream: (!whole && !!(opts && opts.onText)) || undefined,
+          images: pics || undefined
         }),
         signal: opts && opts.signal
       });
@@ -714,8 +736,12 @@
             return parseJson(r.text);
           });
         },
+        /* pictures: up to three a question (a menu's pages), shrunk by the app before they go */
         limits: function () {
-          return Promise.resolve({ images: false });
+          return Promise.resolve({
+            maxPromptBytes: 80000,
+            images: { maxCount: 3, maxInputBytes: 20000000, mediaTypes: ["image/jpeg", "image/png", "image/webp"] }
+          });
         }
       }
     );

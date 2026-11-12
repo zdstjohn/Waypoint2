@@ -7,6 +7,21 @@
     const s = await sampleP; const orig = s.json;
     const inner = async (prompt, opts) => {
       window.__prompts = window.__prompts || []; window.__prompts.push(prompt.slice(0, 160)); (window.__full = window.__full || []).push(prompt);
+      /* a menu read from photos (lib/menuread.js): what was sent is kept; window.__menuFail makes it fail */
+      if (/^You are reading photos of a restaurant menu/.test(prompt)) {
+        const ims = (opts && opts.images) || [];
+        window.__menuAsk = { prompt, n: ims.length, types: ims.map(b => b.type), sizes: ims.map(b => b.size), tier: opts && opts.modelTier };
+        await new Promise(r => setTimeout(r, 150));
+        if (window.__menuFail) throw { code: 'unavailable', message: 'no answer' };
+        const nice = window.__menuNice ? [{ n: 'Insalata caprese', en: 'Caprese salad', d: 'Tomato, mozzarella and basil', p: '€10', fit: 'all', why: '' }, { n: 'Pizza margherita', en: 'Margherita pizza', d: 'Tomato, mozzarella, basil', p: '€8', fit: 'kids', why: '' }, { n: 'Penne all\'arrabbiata', en: 'Penne in spicy tomato sauce', d: 'Tomato, garlic and chilli', p: '€10', fit: 'skip', why: 'very spicy' }] : [];
+        return { lang: 'Italian', dishes: nice.concat([
+          { n: 'Spaghetti al pomodoro', en: 'Spaghetti with tomato sauce', d: 'Pasta with a simple tomato sauce', p: '€9', fit: 'kids', why: '' },
+          { n: 'Pesce del giorno', en: 'Fish of the day', d: 'Grilled, with lemon', p: '€18', fit: 'all', why: 'should not show' },
+          { n: 'Trofie al pesto', en: 'Trofie with pesto', d: 'Basil, pine nuts, cheese', p: '€11', fit: 'ask', why: 'may contain tree nuts' },
+          { n: 'Cozze alla marinara', en: 'Mussels', d: '', p: '€14', fit: 'skip', why: 'shellfish' },
+          { n: '<img src=x onerror="window.__xss=1">', en: '<b>bold</b>', d: '', p: '', fit: 'weird', why: '' }
+        ].filter(d => !window.__menuNice || d.n[0] !== '<')), ask: [{ local: 'Sono allergico alla frutta a guscio', en: "I'm allergic to tree nuts" }], note: '' };
+      }
       if (/^How should this group travel from/.test(prompt)) {
         const m = prompt.match(/from (.+?), (.+?) to (.+?), (.+?)\?/);
         await new Promise(r => setTimeout(r, 120));
@@ -126,6 +141,8 @@
       window.__asks.out++; window.__asks.at = Date.now();
       try { return await inner(prompt, opts); } finally { window.__asks.out--; window.__asks.at = Date.now(); }
     };
+    /* pictures can be sent (a menu's photos), unless a test says not (window.__noImages) */
+    s.limits = async () => (window.__noImages ? { maxPromptBytes: 262144 } : { maxPromptBytes: 262144, images: { maxCount: 3, maxInputBytes: 20e6, mediaTypes: ['image/jpeg', 'image/png', 'image/webp'] } });
     return s;
   };
   sampleP = wrap();

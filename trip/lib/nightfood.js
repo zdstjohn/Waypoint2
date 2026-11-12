@@ -143,8 +143,9 @@
     return { src: m.src, at: clean(m.at, 10), sections: secs, kids: kids, note: clean(m.note, 200) };
   };
 
-  /* the menu in a restaurant's panel (flow.js's stop sheet, through W.stopDetails) */
-  W.menuBlock = function (it, day) {
+  /* the menu in a restaurant's panel (flow.js's stop sheet, through W.stopDetails); with the stop's key (a meal on the
+     day) it starts with reading a photo of the menu, for this family (lib/menuread.js) */
+  W.menuBlock = function (it, day, key) {
     var m = W.menuFor(it, day.country, day.city),
       loc = W.curOf ? W.curOf(day.country) : "",
       pt = function (p) {
@@ -155,7 +156,7 @@
       host = m ? new URL(m.src).hostname.replace(/^www\./, "") : "";
     } catch (e) {}
     var gm = W.gmapsPlace(it, day.city);
-    var h = '<div class="menu-b"><h3>Menu</h3>';
+    var h = '<div class="menu-b"><h3>Menu</h3>' + (key && W.menuReadBlock ? W.menuReadBlock(key) : "");
     if (m) {
       h +=
         m.sections

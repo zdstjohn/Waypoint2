@@ -425,7 +425,14 @@ interface Waypoint {
   /** nightly restaurants and menus (lib/nightfood.js) */
   withNightFood: (country: string, city: string, pool: any) => void;
   menuFor: (it: any, country: string, city: string) => { src: string; at: string; sections: { h: string; items: { n: string; p: string; d: string }[] }[]; kids: { n: string; p: string }[]; note: string } | null;
-  menuBlock: (it: any, day: Day) => string;
+  menuBlock: (it: any, day: Day, key?: string) => string;
+  /** lib/menuread.js: a menu read from a photo, for this family */
+  menuCanRead: () => boolean;
+  menuClean: (r: any) => { lang: string; dishes: { n: string; en: string; d: string; p: string; fit: string; why: string }[]; ask: { local: string; en: string }[]; note: string };
+  menuRead: (key: string, files: FileList | File[]) => void;
+  menuPick: (key: string) => void;
+  menuReadBlock: (key: string) => string;
+  menuState: (key: string) => { state: string; res?: any; err?: string; n: number } | null;
   /** the Settings screen's Storage card and its buttons (lib/storage.js) */
   storageCard: (card: (title: string, sub: string, body: string, id?: string) => string) => string;
   storageClick: (d: DOMStringMap) => boolean;

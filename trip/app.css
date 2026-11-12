@@ -1760,6 +1760,31 @@ html.simple #topline,html.simple .go-kids,html.simple .slot .desc,html.simple .o
 .mn-p{font-weight:800;white-space:nowrap;font-size:var(--t-ui)}
 button.menu-btn{border:0;background:transparent;font:inherit;font-weight:800;color:var(--accent);cursor:pointer;padding:6px 8px;border-radius:var(--r-sm)}
 
+/* ==================== a restaurant's menu, read from a photo (lib/menuread.js) ==================== */
+.mr{display:grid;gap:10px;margin:0 0 4px;padding:2px 0 12px;border-bottom:var(--hair)}
+.mr-go{justify-self:start;display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 16px}
+.mr-go svg{width:18px;height:18px}
+.mr > .small{margin:0}
+.mr-g{display:grid;gap:2px}
+.mr-g h4,.mr-say h4,.mr-skip summary{margin:6px 0 0;font:800 var(--t-sm)/1.2 var(--f-body);text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.mr-g h4 span{color:var(--label);font-weight:700}
+.mr-all h4{color:var(--ok-ink)}
+.mr-kids h4{color:var(--on-primary)}
+.mr-ask h4{color:var(--note-text)}
+.mr-skip summary{cursor:pointer;display:flex;align-items:center;min-height:36px}
+.mr-l{list-style:none;margin:0;padding:0;display:grid}
+.mr-d{display:grid;gap:1px;padding:7px 0;border-top:var(--hair)}
+.mr-d:first-child{border-top:0}
+.mr-dn{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.mr-dn b{min-width:0;font-weight:700;font-size:var(--t-body)}
+.mr-p{flex:none;font-weight:800;font-size:var(--t-ui);white-space:nowrap}
+.mr-o{font-size:var(--t-sm);font-style:italic;color:var(--muted)}
+.mr-why{font-size:var(--t-sm);font-weight:700;color:var(--note-text)}
+.mr-say{display:grid;gap:6px;padding:10px 12px;border-radius:var(--r-md);background:var(--sunk)}
+.mr-say h4{margin:0}
+.mr-say ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.mr-say li{display:grid;gap:1px}
+.mr-err{margin:0;color:var(--note-text)}
 /* ==================== Claude: check my plan, replan today ==================== */
 .gr-ask{display:grid;gap:8px;margin-top:6px;padding-top:12px;border-top:var(--hair);text-align:left}
 .gr-l{font-weight:700;font-size:var(--t-ui)}
