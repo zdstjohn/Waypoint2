@@ -202,6 +202,7 @@ interface Waypoint {
   railRender: (P: Plan) => void;
   palOpen: () => void;
   palClose: () => boolean;
+  redraw: () => void;
   vtIdeas: (list: { n: string; lat: number | null; lng: number | null; food?: boolean }[]) => boolean;
   vtSee: (lng: number, lat: number, pad?: number) => void;
   sheetKey: () => string;

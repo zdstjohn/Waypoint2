@@ -113,7 +113,7 @@
     BYCITY = v.BYCITY || {};
     LINKS = v.LINKS || {};
     IDX = {};
-    W.changed();
+    W.redraw(); /* (photos change how a day looks, never the plan) */
   };
   try {
     if (window.claude && window.claude.use)
@@ -128,7 +128,7 @@
               snap.docs.forEach(function (d) {
                 LINKS[d.id] = W.V.shared((d.data() || {}).items) || {};
               });
-              W.changed();
+              W.redraw(); /* (photos change how a day looks, never the plan) */
             },
             function () {}
           );
@@ -149,7 +149,7 @@
                   BYCITY[cn] = seen[cn] > 1 ? null : PHOTOS[d.id];
                 }
               });
-              W.changed();
+              W.redraw(); /* (photos change how a day looks, never the plan) */
             },
             function () {}
           );

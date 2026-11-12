@@ -132,6 +132,8 @@ exports.run = async t => {
       window.__gate.spots(); await new Promise(r => setTimeout(r, 400));
       for (let i = 0; i < 60 && W.cityBusy('Croatia|Zagreb'); i++) await new Promise(r => setTimeout(r, 100));
       await new Promise(r => setTimeout(r, 1500));
+      /* (the follow-up questions for meals still missing come one after another, each drawn once its answers settle: v155) */
+      for (let i = 0; i < 80 && W.cityBusy('Croatia|Zagreb'); i++) await new Promise(r => setTimeout(r, 100));
       const pool = W.C.city['Croatia|Zagreb'], more = window.__asked.filter(x => /MORE/.test(x.head) && /Zagreb/.test(x.head)).map(x => x.head.replace(/ in (and around )?Zagreb.*/, ''));
       W.render();
       return { note: !!document.querySelector('#viewTrip .arriving'), n: pool.spots.filter(x => /written/.test(x.n)).length, order: pool.spots.slice(0, 3).map(x => x.n.slice(-1)).join(''), asked: pool.askedN, more };

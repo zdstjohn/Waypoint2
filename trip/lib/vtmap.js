@@ -331,12 +331,12 @@
     })().then(
       function () {
         S.engine = "ready";
-        W.changed();
+        W.redraw(); /* (the street map coming or going changes the screen, not the plan) */
       },
       function (e) {
         S.engine = "off";
         S.why = String((e && e.message) || e);
-        W.changed();
+        W.redraw(); /* (the street map coming or going changes the screen, not the plan) */
       }
     );
     return S.engineP;
@@ -1145,12 +1145,23 @@
   /** small unnumbered pins for places not on the day (Explore's ideas): [{n, lat, lng, food}], at most 60; [] clears */
   W.vtIdeas = function (list) {
     if (!S.map || !S.ready) return false;
+    var want = (list || []).slice(0, 60).filter(function (p) {
+        return p.lat != null;
+      }),
+      sig = want
+        .map(function (p) {
+          return p.n + "|" + p.lat + "|" + p.lng + "|" + (p.food ? 1 : 0);
+        })
+        .join("~");
+    /* the same ideas on the same map: the pins already there stay (each redraw used to make them all again) */
+    if (sig === S.ideaSig && S.ideaMap === S.map) return true;
+    S.ideaSig = sig;
+    S.ideaMap = S.map;
     (S.ideaMarkers || []).forEach(function (m) {
       m.remove();
     });
     S.ideaMarkers = [];
-    (list || []).slice(0, 60).forEach(function (p) {
-      if (p.lat == null) return;
+    want.forEach(function (p) {
       var el = document.createElement("div");
       el.className = "vt-pin vt-idea" + (p.food ? " food" : "");
       el.setAttribute("data-idea", p.n);
@@ -1316,7 +1327,7 @@
               S.ready = true;
               S.sig = "";
               if (S.pend) W.vtMount(S.pend.slot, S.pend.o);
-              W.changed();
+              W.redraw(); /* (the street map coming or going changes the screen, not the plan) */
             });
             S.got = {};
             S.retries = 0;
@@ -1360,20 +1371,20 @@
               mapErr(msg);
               if (!S.ready && /webgl|context/i.test(msg)) {
                 S.engine = "off";
-                W.changed();
+                W.redraw(); /* (the street map coming or going changes the screen, not the plan) */
               }
             });
           } catch (e) {
             S.engine = "off";
             S.why = String((e && e.message) || e);
-            W.changed();
+            W.redraw(); /* (the street map coming or going changes the screen, not the plan) */
           }
         },
         function () {
           if (turn !== S.turn) return;
           S.creating = false;
           S.engine = "off";
-          W.changed();
+          W.redraw(); /* (the street map coming or going changes the screen, not the plan) */
         }
       );
     }

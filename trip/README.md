@@ -54,7 +54,10 @@ fonts/            Nunito, Dela Gothic One and Patrick Hand SC as woff2, served b
                   letters in separate files the browser fetches only when a label needs them)
 data/             built-in destinations (data1: Europe, data2: the rest, plus airports)
 lib/              the shared library
-  core.js         state, caches, helpers and the queue to Claude. What is asked lives in towns.js (destinations, always
+  core.js         state, caches, helpers and the queue to Claude. Three ways to say something happened: W.changed
+                  (the trip or its data changed: re-plan, save, redraw now), W.arrived (an answer came: re-plan,
+                  redrawn once per burst of answers) and W.redraw (only how a screen looks changed, as photos and the
+                  street map coming or going: no re-plan, redrawn once per burst). What is asked lives in towns.js (destinations, always
                   towns, never whole islands), ideas.js (things to do, places to eat, how many are on show), stays.js
                   (how long, and where to stay) and asks.js (beaches, getting between stops, food needs, events, costs,
                   the time zone, addresses). In ideas.js: "Find more" asks for 10 more things to do (at

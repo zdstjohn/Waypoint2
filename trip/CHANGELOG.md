@@ -2,6 +2,24 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v155
+
+Three speed fixes from the v154 performance review (approved by the owner; the review's other ideas were judged not
+to fit Waypoint). Timed on a phone-size page with the CPU 4x slower, v154 against v155 (evo/v155/bench.js):
+- A burst of answers is drawn once. lib/core.js grouped only what arrived within one frame, so answers coming a few
+  dozen milliseconds apart (read back from this device or the account) were each a re-plan and a redraw. Now an answer
+  that comes within 100 ms of the last joins the same redraw, which happens at most 300 ms after the first. Twelve
+  answers 40 ms apart: 12 re-plans and redraws and 480 KB written (about 710 ms of work) became 2 redraws (about 190 ms) and
+  nothing written.
+- Photos and the street map only redraw (new W.redraw): they change how a screen looks, never the plan, but called
+  W.changed, which threw the plan away (lib/photos.js, lib/vtmap.js). A photo arriving: about 85 ms with a 37-74 KB
+  write became about 60 ms with none.
+- The saved ideas are written only when they differ from what was last written (lib/core.js writeCache): every change
+  to the trip used to rewrite them in full. Leaving "Food you love" after typing: 4-7 rewrites became 3-4 (only when
+  new ideas came) and 5-9 redraws 5-6; its total time varies too much from run to run to name a gain.
+- Explore's idea pins on the desktop are kept while the ideas are the same (lib/vtmap.js W.vtIdeas): each redraw made
+  all of them again. Five redraws: 9 of 9 pins made again before, none now.
+
 ## v154
 
 Desktop fixes asked for after v153, and All days gone everywhere.

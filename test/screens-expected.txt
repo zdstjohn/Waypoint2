@@ -1,7 +1,4 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v154: All days is gone (its screen, trip-all, is no longer taken), so the Day | Explore switch at the top of a day has
-# two parts instead of three (trip-days-*-0, the top of the day); the desktop's map, Plan and Prepare are laid out anew.
-trip-all-*
-trip-days-*-0.png
-*-desk-*
+# v155: speed only (one redraw per burst, photos and the map redraw without re-planning, the saved ideas and Explore's
+# idea pins kept when unchanged). No screen may change.

@@ -199,17 +199,24 @@
   /* The ideas as this device's storage entry holds them: what the trip on screen uses, the rest being in IndexedDB
      (lib/ideastore.js; all of it where there is none). Refused because the entry is full, it is written again with only
      this trip's places: the others stay in memory, and are asked for again when their trip is next opened. */
+  var lastC = ""; /* (what was last written: a change to the trip that brought no new ideas writes nothing) */
   function writeCache(force) {
     if (!force) {
       try {
-        localStorage.setItem("waypoint-cache-v2", JSON.stringify(W.cacheSlim ? W.cacheSlim(false) : W.C));
+        var cj = JSON.stringify(W.cacheSlim ? W.cacheSlim(false) : W.C);
+        /* (and only skipped while the entry is still the one written: signing in or out puts entries away) */
+        if (cj !== lastC || (localStorage.getItem("waypoint-cache-v2") || "").length !== cj.length) {
+          localStorage.setItem("waypoint-cache-v2", cj);
+          lastC = cj;
+        }
         return;
       } catch (e) {
         if (!W.cacheSlim) throw e;
       }
     }
     if (!W.cacheSlim) throw new Error("full");
-    localStorage.setItem("waypoint-cache-v2", JSON.stringify(W.cacheSlim(true)));
+    lastC = JSON.stringify(W.cacheSlim(true));
+    localStorage.setItem("waypoint-cache-v2", lastC);
     if (W.logError && !W.cacheCut) {
       W.cacheCut = true;
       W.logError("storage: this device's saved ideas were cut down to the trip on screen (its storage was full)", "save");
@@ -487,8 +494,15 @@
   W.changed = changed;
   /* answers arriving: the planner is told at once (dataV), but the screen is redrawn once for the whole burst, after the
      frame already on its way has painted. A tap that opens a screen asking for five lists paints its screen first and
-     fills in once, instead of redrawing (and replanning) five times before the first frame. */
-  var flushPending = false;
+     fills in once, instead of redrawing (and replanning) five times before the first frame. A burst is everything that
+     arrives with less than QUIET ms between one answer and the next, drawn at most MAXWAIT ms after its first answer
+     (a follow-up question asked by that redraw waits no longer than that):
+     answers read back from this device or the account come dozens at a time, and were each a re-plan and a redraw. */
+  var flushPending = false,
+    firstAt = 0,
+    lastAt = 0,
+    QUIET = 100,
+    MAXWAIT = 300;
   function flush() {
     flushPending = false;
     W.save();
@@ -497,8 +511,19 @@
     });
   }
   function redraw() {
+    lastAt = Date.now();
     if (flushPending) return;
     flushPending = true;
+    firstAt = lastAt;
+    settle();
+  }
+  function settle() {
+    var now = Date.now(),
+      ms = Math.min(lastAt + QUIET - now, firstAt + MAXWAIT - now);
+    if (ms > 0) {
+      setTimeout(settle, ms);
+      return;
+    }
     var later = function () {
       if (window.requestIdleCallback) requestIdleCallback(flush, { timeout: 300 });
       else setTimeout(flush, 50);
@@ -506,6 +531,9 @@
     if (window.requestAnimationFrame) requestAnimationFrame(later);
     else later();
   }
+  /** the screen drawn again for something that changes how it looks but not the plan (a photo, the street map
+      coming or going): no re-plan, and drawn once with whatever else arrives with it */
+  W.redraw = redraw;
   function arrived() {
     W.dataV++;
     redraw();
