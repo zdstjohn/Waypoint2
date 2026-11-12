@@ -104,7 +104,8 @@ function spec(sel) {
   return (s.match(/#[\w-]+/g) || []).length * 100 + (s.match(/\.[\w-]+|\[[^\]]*\]|:[\w-]+/g) || []).length * 10 + (s.match(/(^|[\s>+~(])[a-z][\w-]*/gi) || []).length;
 }
 /* the class an element must have for a selector to reach it (the last one named in its last part) */
-function target(sel) { const last = sel.trim().split(/[\s>+~]+/).pop() || ''; const cs = last.replace(/:[\w-]+(\([^)]*\))?/g, '').match(/\.[\w-]+/g); return cs ? cs[cs.length - 1] : ''; }
+function target(sel) { const parts = sel.trim().split(/[\s>+~]+/), last = parts.pop() || '', bare = s => s.replace(/:[\w-]+(\([^)]*\))?/g, ''), cs = bare(last).match(/\.[\w-]+/g); if (cs) return cs[cs.length - 1];
+  /* (an element under a class, ".set-h h2": that class and the element) */ const el = (bare(last).match(/^[a-z][\w-]*/i) || [''])[0], up = parts.map(bare).join(' ').match(/\.[\w-]+/g); return el && up ? up[up.length - 1] + ' ' + el : ''; }
 function props(body) { return new Set((body.match(/(^|;)\s*([\w-]+)\s*:/g) || []).map(p => p.replace(/[;:\s]/g, ''))); }
 function splitCss(text, firstSrc) {
   const used = new Set(firstSrc.match(/[A-Za-z][\w-]*/g));

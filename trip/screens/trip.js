@@ -1731,7 +1731,7 @@
         h += W.searchBlock
           ? W.searchBlock(day, P)
           : (W.needLater(),
-            '<section class="psearch sk" aria-label="Search for a place"><div class="ps-row"><input class="field" type="search" disabled placeholder="Search any place in ' +
+            '<section class="psearch sk" aria-label="Search for a place"><div class="ps-row"><input class="field" type="search" disabled placeholder="Search places in ' +
               esc(day.city) +
               '…" aria-label="Search for a place"><button type="button" class="btn" disabled>Search</button></div></section>');
         /* below the search, on a big screen: the route (and street map) on the right, the rest on the left */

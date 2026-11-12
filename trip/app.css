@@ -110,7 +110,7 @@ a{color:var(--accent);text-underline-offset:3px}
 .icon-btn:active{background:var(--sunk);color:var(--fg)}
 .icon-btn svg{width:17px;height:17px}
 .field{border:var(--hair);background:var(--surface);border-radius:var(--r-sm);padding:8px 11px;min-width:0;flex:1 1 160px}
-.field:focus{border-color:var(--ink);outline:none}
+.field:focus{border-color:var(--on-primary);outline:none}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .chips{display:flex;flex-wrap:wrap;gap:7px}
 .chip{border:var(--hair);background:var(--surface);border-radius:var(--r-pill);padding:5px 13px;font-size:var(--t-body);font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:7px;color:var(--fg)}
@@ -170,7 +170,7 @@ main[hidden]{display:none!important}
 .trips{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .trips li{display:flex;align-items:center;gap:8px}
 .trips li > button:first-child{flex:1;min-width:0;text-align:left;border:var(--hair);background:var(--surface);border-radius:var(--r-md);padding:8px 12px;cursor:pointer;display:grid;gap:0}
-.trips li > button[aria-current="true"]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.trips li > button[aria-current="true"]{border-color:var(--on-primary);box-shadow:inset 0 0 0 1px var(--on-primary)}
 .trips li b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .trips .icon-btn{width:32px;height:32px;font-size:var(--t-h4)}
 .warnbtn{background:var(--note);border-color:var(--note);color:var(--bg)}
@@ -214,8 +214,8 @@ main[hidden]{display:none!important}
 .trip > *,.setup > *{min-width:0}
 .step{padding:18px 20px;display:grid;gap:12px}
 .step-h{display:flex;align-items:center;gap:12px}
-.step-h b{font:750 var(--t-sm)/1 var(--f-display);width:30px;height:30px;display:grid;place-items:center;color:var(--fg);background:var(--sunk);border-radius:50%;flex:none}
-.step-h h2{font-family:var(--f-display);font-weight:750;font-size:var(--t-h3);letter-spacing:.01em}
+.step-h b{font:750 12px/1 var(--f-display);width:30px;height:30px;display:grid;place-items:center;color:var(--fg);background:var(--sunk);border-radius:50%;flex:none}
+.step-h h2{font-family:var(--f-display);font-weight:750;font-size:21px;letter-spacing:-.015em;line-height:1.15}
 details.step{display:block}
 details.step > * + *{margin-top:12px}
 details.step > summary{cursor:pointer;list-style:none;flex-wrap:wrap;row-gap:2px}
@@ -284,12 +284,17 @@ a{text-decoration:none}
 .fld{display:grid;gap:6px}
 .fld > span{font-family:var(--f-body);text-transform:uppercase;letter-spacing:.08em;color:var(--label);font-weight:650;font-size:var(--t-cap)}
 /* What kind of trip: the overall feel (Must-sees / Best of both / Hidden gems), then the interests */
-.focus{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:4px;border-radius:var(--r-lg);background:var(--sunk);margin:2px 0 14px}
+.focus{display:grid;grid-template-columns:repeat(3,minmax(min-content,1fr));gap:6px;padding:4px;border-radius:var(--r-lg);background:var(--sunk);margin:2px 0 14px}
 .focus button{display:grid;gap:3px;align-content:start;text-align:left;border:0;border-radius:var(--r-md);background:transparent;color:var(--fg);padding:10px 11px 11px;cursor:pointer;font:inherit;min-height:64px}
 .focus button b{font:800 var(--t-body)/1.15 var(--f-body)}
-.focus button span{font-size:var(--t-sm);line-height:1.3;color:var(--muted);text-wrap:balance}
+.focus button > span{font-size:var(--t-sm);line-height:1.3;color:var(--muted);text-wrap:balance}
+/* (a hyphenated name keeps to one line, its column a little wider; on the narrowest screens it may break) */
+.focus .nw{white-space:nowrap}
+@media (max-width:340px){.focus .nw{white-space:normal}}
 .focus button b{text-wrap:balance}
-.focus button[aria-checked="true"]{background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 2px var(--ink) inset}
+.focus button[aria-checked="true"]{background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.12),0 0 0 2px var(--on-primary) inset}
+/* (a phone: a little less padding, so "Must-sees" fits on one line in its third of the row) */
+@media (max-width:560px){.focus button{padding:9px 8px 10px}}
 @media (hover:hover){.focus button:not([aria-checked="true"]):hover{background:var(--soft)}}
 .fld-l{font-family:var(--f-body);text-transform:uppercase;margin:0 0 8px;letter-spacing:.08em;color:var(--label);font-weight:650;font-size:var(--t-cap)}
 details.eat-f{display:block;border-bottom:var(--hair);padding-bottom:2px}
@@ -322,7 +327,7 @@ details.eat-f > summary:focus-visible{outline:2px solid var(--ink);outline-offse
 .lodges-h{font-family:var(--f-body);text-transform:uppercase;letter-spacing:.08em;color:var(--label);margin-top:6px;font-weight:650;font-size:var(--t-cap)}
 .lodges{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .lodge{border:var(--hair);border-radius:var(--r-md);padding:10px 12px;display:grid;gap:4px;align-content:start;background:var(--surface);overflow:hidden}
-.lodge.on{border:2px solid var(--ink);box-shadow:var(--lift)}
+.lodge.on{border:2px solid var(--on-primary);box-shadow:var(--lift)}
 .lodge-h{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .lodge-h .icon-btn{width:32px;height:32px}
 .lodge-h .icon-btn svg{width:15px;height:15px}
@@ -342,7 +347,6 @@ details.eat-f > summary:focus-visible{outline:2px solid var(--ink);outline-offse
 @media (max-width:760px){.lodges{grid-template-columns:minmax(0,1fr)}}
 .cta{display:flex;justify-content:flex-end}
 .cta .btn{font-size:var(--t-h4);padding:11px 22px}
-@media (max-width:560px){.step-h h2{font-size:var(--t-h4)}}
 @media (max-width:560px){.country-h{align-items:flex-start}}
 @media (max-width:560px){.country-h > .row{width:100%;justify-content:space-between}}
 .rcheck{list-style:none;margin:0;padding:0;display:grid;gap:0}
@@ -356,7 +360,8 @@ details.eat-f > summary:focus-visible{outline:2px solid var(--ink);outline-offse
 .rcheck li.ok .ri{background:var(--ok-bg);color:var(--ok-ink)}
 .rcheck li.warn .ri{background:var(--note-soft);color:var(--note)}
 .rcheck li.tip .ri{background:var(--accent-soft);color:var(--accent)}
-.rtcheck.has-warn .step-h > b{background:var(--note);color:var(--bg)}
+/* (a step with a warning shows it, done or not) */
+.step.rtcheck.has-warn .step-h > b{background:var(--note);color:var(--bg)}
 /* ---------- quick start ---------- */
 .qs .fld{display:grid;gap:6px}
 .qs .fld > span{font-weight:800;font-size:var(--t-body)}
@@ -405,7 +410,7 @@ details.eat-f > summary:focus-visible{outline:2px solid var(--ink);outline-offse
 /* (one column that is never wider than the page: a row of swap cards, or any long word, wraps or scrolls inside it) */
 .slots{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
 .slot{padding:12px 12px 12px 14px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:start}
-.thumb{position:relative;width:96px;aspect-ratio:4/3;border:2px solid var(--ink);border-radius:var(--r-md);overflow:hidden;background:var(--sunk)}
+.thumb{position:relative;width:96px;aspect-ratio:4/3;border:var(--hair);border-radius:var(--r-md);overflow:hidden;background:var(--sunk)}
 .thumb .pic{position:absolute;inset:0;width:100%;height:100%;display:block}
 img.pic{object-fit:cover}
 .credit{position:absolute;right:6px;bottom:5px;font-size:var(--t-micro);font-weight:700;color:var(--on-color);text-decoration:none;background:rgba(20,18,16,.55);padding:1px 6px;border-radius:var(--r-xs);max-width:70%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1274,7 +1279,7 @@ table.budget tfoot th,table.budget tfoot td{border-top:2px solid var(--ink);font
 .recap{display:grid;gap:14px;max-width:760px;margin:0 auto}
 .recap .back{justify-self:start;font-size:var(--t-body)}
 .rc-hero{padding:22px 20px;display:grid;gap:6px;text-align:center}
-.rc-hero h2{font-family:var(--f-display);font-weight:750;font-size:clamp(26px,5vw,38px)}
+.rc-hero h2{font-family:var(--f-serif);font-weight:400;letter-spacing:-.015em;line-height:1.08;font-size:clamp(34px,7vw,48px)}
 .rc-day{padding:14px 16px;display:grid;gap:10px}
 .rc-h{display:flex;justify-content:space-between;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
 .rc-h b{font-weight:800;font-size:var(--t-lead)}
@@ -1304,7 +1309,7 @@ table.budget tfoot th,table.budget tfoot td{border-top:2px solid var(--ink);font
 .settings{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;max-width:680px;margin:0 auto}
 .settings .back{justify-self:start;font-size:var(--t-body)}
 .set-h{display:grid;gap:2px;padding:2px 2px 4px}
-.set-h h2{font-family:var(--f-display);font-weight:750;font-size:clamp(26px,5vw,34px)}
+.set-h h2{font-family:var(--f-serif);font-weight:400;letter-spacing:-.015em;line-height:1.08;font-size:clamp(34px,7vw,46px)}
 .set-c .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .set-c textarea{width:100%;resize:vertical;font:inherit;font-size:var(--t-body);line-height:1.45}
 .set-c > .btn{justify-self:start}
@@ -1406,6 +1411,7 @@ html.offline .brand::after{content:"Offline";position:absolute;right:-6px;top:-8
 
 /* ---------- how to see the trip: Day · Map · All days · Storybook ---------- */
 .vsw-row{display:flex;align-items:stretch;gap:8px;margin:12px 0 4px}
+@media (max-width:560px){.vsw-row{margin-top:2px}}
 .vsw{flex:1;min-width:0;display:flex;gap:3px;background:var(--sunk);border-radius:var(--r-md);padding:4px}
 .vsw button{flex:1 1 0;min-width:0;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:38px;border:0;background:transparent;border-radius:var(--r-sm);padding:6px 8px;font:800 var(--t-ui)/1.1 var(--f-body);color:var(--muted);cursor:pointer;white-space:nowrap}
 .vsw button svg{width:17px;height:17px;flex:none}
@@ -2108,9 +2114,8 @@ svg.arr.arr-r{margin:0 0 0 .35em}
    sights, slate indigo getting around, amber pace and warnings. */
 body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;font-size:15px}
 h1,h2,h3,h4{text-wrap:balance}
-.step-h h2,.bk-h h2,.country-h h3,.legcard-h h3,.explorer-h h3,.ideas-t h2,.go-rh h3,.go-tix h3,.gb-h h3{letter-spacing:-.015em;line-height:1.15}
+.bk-h h2,.country-h h3,.legcard-h h3,.explorer-h h3,.ideas-t h2,.go-rh h3,.go-tix h3,.gb-h h3{letter-spacing:-.015em;line-height:1.15}
 .day-h h2{font-size:clamp(34px,7vw,52px)}
-.step-h h2{font-size:21px}
 .bk-h h2{font-size:22px}
 /* numbers: even-width digits everywhere, so times and counts line up; the monospace only for money in columns */
 body{font-variant-numeric:tabular-nums}
@@ -2120,7 +2125,6 @@ table.budget td + td *{font-family:var(--f-body);letter-spacing:0}
 .when .dur{font-size:13px;font-weight:600;color:var(--muted)}
 .lo-m{font-size:13px;font-weight:650}
 .dpill b{font-size:15px;font-weight:750}
-.step-h b{font-size:12px;font-weight:750}
 .ts-c b{font-weight:800;letter-spacing:-.02em}
 /* buttons: the main colour, soft */
 .btn{background:var(--primary);border-color:transparent;color:var(--on-primary);border-radius:var(--r-sm);box-shadow:var(--primary-edge);font-weight:700;letter-spacing:-.005em}
@@ -2170,7 +2174,7 @@ table.budget td + td *{font-family:var(--f-body);letter-spacing:0}
   .tabs{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));border-radius:var(--r-lg);background:color-mix(in srgb,var(--surface) 85%,transparent);-webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4);border:1px solid color-mix(in srgb,var(--ring) 70%,transparent);box-shadow:0 8px 24px -12px rgba(28,25,23,.28)}
 }
 .tabs button[aria-current="page"]{background:var(--primary);color:var(--on-primary);box-shadow:var(--primary-edge)}
-.day-h h2,.gt-m b,.tk-end b,.rc-hero h2,.set-h h2{font-family:var(--f-serif);font-weight:400;letter-spacing:-.015em;line-height:1.08}
+.day-h h2,.gt-m b,.tk-end b{font-family:var(--f-serif);font-weight:400;letter-spacing:-.015em;line-height:1.08}
 /* (a long place name: smaller, on two lines if it must, never cut short; an arrival on another day or clock says so) */
 .tk-end b.lg{font-size:22px;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-height:1.1}
 .tk-t i{display:block;font-style:normal;font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:0}

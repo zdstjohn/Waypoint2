@@ -342,7 +342,7 @@
       st.added = "";
     }
     var h =
-      '<section class="psearch sk" aria-label="Search for a place"><div class="ps-row"><input class="field" id="placeQ" type="search" enterkeyhint="search" autocomplete="off" placeholder="Search any place in ' +
+      '<section class="psearch sk" aria-label="Search for a place"><div class="ps-row"><input class="field" id="placeQ" type="search" enterkeyhint="search" autocomplete="off" placeholder="Search places in ' +
       esc(day.city) +
       '…" aria-label="Search any place in ' +
       esc(day.city) +

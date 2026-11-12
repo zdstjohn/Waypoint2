@@ -139,7 +139,7 @@
   .ws-canvas .vt-pin.vt-idea span{display:none}
   .ws-canvas .vt-pin.vt-idea.hi span{display:block}
   html.ws .slot.ws-hi.sk::before,html.ws .idea.ws-hi{border-color:var(--note);box-shadow:0 0 0 3px color-mix(in srgb,var(--note) 30%,transparent),var(--lift)}
-  html.ws .slot.ws-sel.sk::before{border-color:var(--ink)}
+  html.ws .slot.ws-sel.sk::before{border-color:var(--on-primary)}
   html.ws a.ws-leg.ws-hi,html.ws .ws-leg.ws-hi{background:var(--note-soft);border-radius:var(--r-sm)}
 
   /* ---------- between the middle pane and the map: the handle, and the pane's scroll bar ---------- */
@@ -170,7 +170,7 @@
   /* (a pane beside the map is for the plan: the day's photo is a band, not half the screen) */
   @container ws (max-width:700px){.day-h.has-hero{min-height:168px}}
   html.ws .slot{position:relative}
-  .ws-qa{position:absolute;top:-10px;right:10px;z-index:3;display:flex;gap:2px;padding:2px;border-radius:var(--r-sm);background:var(--surface);border:var(--hair);box-shadow:var(--sh-1);opacity:0;pointer-events:none;transition:opacity .12s}
+  .ws-qa{position:absolute;top:-24px;right:44px;z-index:3;display:flex;gap:2px;padding:2px;border-radius:var(--r-sm);background:var(--surface);border:var(--hair);box-shadow:var(--sh-1);opacity:0;pointer-events:none;transition:opacity .12s}
   html.ws .slot:hover > .ws-qa,html.ws .slot:focus-within > .ws-qa,html.ws .slot.ws-sel > .ws-qa{opacity:1;pointer-events:auto}
   .ws-qa button{width:28px;height:28px;display:grid;place-items:center;border:0;border-radius:var(--r-xs);background:transparent;color:var(--muted);cursor:pointer}
   .ws-qa button:hover{background:var(--sunk);color:var(--fg)}

@@ -874,7 +874,7 @@
             '" aria-checked="' +
             (fc === o[0]) +
             '"><b>' +
-            esc(W.FOCUS[o[0]]) +
+            esc(W.FOCUS[o[0]]).replace(/\S+-\S+/g, '<span class="nw">$&</span>') /* (a hyphenated word is never split) */ +
             "</b><span>" +
             esc(o[1]) +
             "</span></button>"

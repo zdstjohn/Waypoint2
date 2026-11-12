@@ -2,6 +2,29 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v160
+
+The design review (the owner's follow-up 4 of 4): every screen looked over in light, dark, large text, tablet and
+desktop; the fixes were shown to the owner as before | after sheets and approved.
+- What is chosen is ringed in indigo, not black (app.css, desk.css): Plan's kind of trip (.focus), the open trip in
+  the trips menu (.trips), a chosen stay (.lodge.on), a text box in use (.field:focus), a chosen card on the desktop
+  (.ws-sel). The frames were var(--ink), left from before soft indigo; they are var(--on-primary) now.
+- "Must-sees" stays one word (screens/setup.js: a hyphenated name is wrapped in .nw; .focus columns are
+  minmax(min-content, 1fr), so its column is a little wider). At 340 px and under it may break, as it did.
+- Settings and the recap had the bold sans for their title on a phone and the serif on a desktop: their own rules come
+  with the second stylesheet, after the shared serif rule, and won. The serif is in their own rules now (.set-h h2,
+  .rc-hero h2), at the size of a day's title.
+- The build's check that a moved style rule never wins over a later one (build/bundle.js target()) compared rules by
+  their last class, so ".set-h h2" (no class in its last part) was never compared. It now uses the last class above
+  and the element. It then found two more of the kind on Plan's step headers (.step-h h2, .step-h b): each is one
+  rule now, nothing to see on a phone.
+- Less empty space between the day strip and Day | Explore on a phone (.vsw-row). The search hint is "Search places
+  in Rome", which fits a 360 px phone (lib/search.js, screens/trip.js).
+- A photo beside a stop has a hairline, not a 2 px black frame (.thumb).
+- Desktop: a card's quick actions sat over its photo and buttons; they sit on its top edge (.ws-qa).
+- Tools: evo/v159/snap.js and sheet.js (the before | after sheets), evo/v159/review_sheets.py (every screen at its
+  five sizes). 54 suites pass.
+
 ## v159
 
 Fixes from a sweep of awkward trips and random taps (the owner's follow-up 3 of 4). evo/v158/sweep.js plans nine trips
