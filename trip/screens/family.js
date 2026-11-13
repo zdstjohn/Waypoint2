@@ -13,7 +13,7 @@
       window.claude.use("db").then(
         function (d) {
           db = d;
-          W.changed();
+          W.arrived(); /* (drawn with whatever else arrives as the app starts, not one redraw each) */
         },
         function () {}
       );
@@ -23,14 +23,14 @@
           u.id().then(
             function (id) {
               uid = id;
-              W.changed();
+              W.arrived();
             },
             function () {}
           );
           u.can("data.write").then(
             function (v) {
               canWrite = v !== false;
-              W.changed();
+              W.arrived();
             },
             function () {}
           );

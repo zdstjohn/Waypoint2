@@ -224,7 +224,9 @@
         window.scrollTo({ top: 0, behavior: smooth() });
       });
     }
-    pinCheck();
+    /* (looked at in the next frame, before it is painted: here, halfway through a redraw, asking where the banner is
+       would make the browser lay out the page as it was, only for the rest of the redraw to change it again) */
+    pinSoon();
   };
   /* The slim bar comes the moment the banner's bottom reaches the line the day strip sticks to (44 px below the
      top, plus the status bar's inset where the page is drawn under it), so the banner never slides on under nothing */

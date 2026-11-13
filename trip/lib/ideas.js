@@ -111,7 +111,21 @@
     if (lo < 60) return mins(lo) + " min–" + hrs(hi) + " h";
     return hrs(lo) === hrs(hi) ? hrs(lo) + " h" : hrs(lo) + "–" + hrs(hi) + " h";
   }
+  /* (kept by the text: the planner reads the same few durations again for every slot it tries while it fits a trip's
+     days, and taking one apart builds two patterns each time) */
+  var DURS = /** @type {Record<string, string>} */ ({}),
+    nDurs = 0;
   W.durText = function (raw) {
+    var k = String(raw || "");
+    if (Object.prototype.hasOwnProperty.call(DURS, k)) return DURS[k];
+    if (++nDurs > 2000) {
+      DURS = {};
+      nDurs = 1;
+    }
+    return (DURS[k] = readDur(k));
+  };
+  /** @param {string} raw */
+  function readDur(raw) {
     var s = String(raw || "")
       .toLowerCase()
       .trim();
@@ -129,7 +143,7 @@
     m = s.match(new RegExp("(\\d+(?:\\.\\d+)?)\\s*" + U + "?"));
     if (m) return fmtDur(+m[1] * (m[2] ? unit(m[2]) : +m[1] > 12 ? 1 : 60), null);
     return "";
-  };
+  }
   /* time to plan for a stop: the place's own estimate, else a typical length for the meal */
   var MEAL_DUR = { breakfast: "30–45 min", lunch: "1–1½ h", dinner: "1½–2 h" };
   W.stayText = function (it, food, slot) {

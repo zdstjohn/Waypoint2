@@ -7,6 +7,7 @@
    painted (an animation frame, then a timeout), which is when the new screen is on the glass; lists that arrive after
    the tap fill in on idle time and are not part of the tap. Numbers go into the notes so a slowdown shows up in the report. */
 const { launch, settle } = require('../lib/page');
+const AFTER_MAX = 300;   /* ms, at 4x: the longest task allowed after the first screen until the second script is in (120-150 ms now, the second script running, planning and drawing in tasks of their own; 510-680 ms when they were one) */
 exports.run = async t => {
   const b = await launch();
   /* cold start: no cached plan, the example trip, in a fresh page. On GitHub's machines the first paint now and then waits
@@ -43,16 +44,25 @@ exports.run = async t => {
       /* when the stylesheet and the bundle came in (the first paint needs the one, the app the other) */
       const got = performance.getEntriesByType('resource').filter(e => /app\.min\.css|app\.js/.test(e.name)).map(e => e.name.split('/').pop() + ' ' + Math.round(e.responseEnd) + ' ms').join(', ') + '; fonts ' + performance.getEntriesByType('resource').filter(e => /woff2/.test(e.name)).map(e => Math.round(e.responseEnd)).join('/') + ' ms; first paint (any) ' + Math.round((performance.getEntriesByType('paint').find(e => e.name === 'first-paint') || {}).startTime || 0) + ' ms; long tasks [start, ms] ' + JSON.stringify((v.long || []).slice(0, 8));
       return { fcp: Math.round(v.fcp), lcp: Math.round(v.lcp), cls: +v.cls.toFixed(3), shifts: v.shifts, dcl: Math.round(nav.domContentLoadedEventEnd), loadEv: Math.round(nav.loadEventEnd), slots: document.querySelectorAll('#viewTrip .slot').length, got }; });
+    /* after the first screen: until the second script is in and has been drawn, the main thread's long tasks (a tap
+       waits for the one it lands in). The first screen itself is drawn as the bundle runs, before DOM ready */
+    await pg.waitForFunction(() => window.W && W.laterReady, null, { timeout: 20000 }).catch(() => {});
+    await pg.waitForTimeout(1500);
+    load.after = await pg.evaluate(() => { const nav = performance.getEntriesByType('navigation')[0]; return (window.__v.long || []).filter(l => l[0] >= nav.domContentLoadedEventEnd - 1); });
+    load.afterMax = load.after.reduce((a, l) => Math.max(a, l[1]), 0);
     return { ctx, pg, cdp, errors, load, wall: Date.now() - t0 };
   };
   let C = await cold(), first = null;
-  if (!(C.load.fcp > 0 && C.load.fcp < 1800 && C.load.lcp > 0 && C.load.lcp < 2500)) { first = C.load; await C.ctx.close(); C = await cold(); }
+  if (!(C.load.fcp > 0 && C.load.fcp < 1800 && C.load.lcp > 0 && C.load.lcp < 2500 && C.load.afterMax < AFTER_MAX)) { first = C.load; await C.ctx.close(); C = await cold(); }
   const { ctx, pg, cdp, errors, load } = C;
-  if (first) t.note(`a cold start over budget (FCP ${first.fcp} ms, LCP ${first.lcp} ms; in: ${first.got}) was measured again: FCP ${load.fcp} ms (in: ${load.got})`);
+  if (first) t.note(`a cold start over budget (FCP ${first.fcp} ms, LCP ${first.lcp} ms, longest task after the first screen ${first.afterMax} ms; in: ${first.got}) was measured again: FCP ${load.fcp} ms, longest after ${load.afterMax} ms (in: ${load.got})`);
   t.ok(load.slots > 2, `the first screen shows the day (${load.slots} stops), ${C.wall} ms wall clock`);
   t.ok(load.fcp > 0 && load.fcp < 1800, `first paint under 1.8 s on a slow phone and network (${load.fcp} ms)`);
   t.ok(load.lcp > 0 && load.lcp < 2500, `largest paint under 2.5 s (${load.lcp} ms)`);
   t.ok(load.cls < 0.1, `the layout barely moves while loading (CLS ${load.cls})` + (load.shifts.length ? ': ' + JSON.stringify(load.shifts.slice(0, 4)) : ''));
+  /* once the first screen is up, nothing holds a tap for long while the rest of the app comes in (the second script's
+     parts each re-planned and redrew the trip as they started: ~0.5 s in one block at 4x, until they were drawn together) */
+  t.ok(load.afterMax < AFTER_MAX, `after the first screen, no long task over ${AFTER_MAX} ms while the rest of the app comes in (longest ${load.afterMax} ms: ${JSON.stringify(load.after.slice(0, 8))})`);
 
   /* taps: from the click to the frame that shows the result, the slowest of the common ones */
   await settle(pg, 15000); await pg.waitForTimeout(1500);   /* photos, prices and the map have arrived: now the taps alone are timed */
@@ -90,7 +100,7 @@ exports.run = async t => {
   t.ok(worst.ms < 200, `every tap paints within 200 ms on a slow phone (slowest: ${worst.name} ${worst.ms} ms)`);
   const jumpy = measured.filter(x => x.cls >= 0.1);
   t.eq(jumpy.map(x => x.name), [], 'no tap makes the layout jump' + (jumpy.length ? ': ' + jumpy.map(x => x.name + ' ' + x.cls).join(', ') : ''));
-  t.note(`cold start (4x CPU, slow 4G): FCP ${load.fcp} ms, LCP ${load.lcp} ms, CLS ${load.cls}, DOM ready ${load.dcl} ms (in: ${load.got})`);
+  t.note(`cold start (4x CPU, slow 4G): FCP ${load.fcp} ms, LCP ${load.lcp} ms, CLS ${load.cls}, DOM ready ${load.dcl} ms (in: ${load.got}); after the first screen, until the second script was in: longest task ${load.afterMax} ms ${JSON.stringify(load.after.slice(0, 8))}`);
   t.note('taps: ' + measured.map(x => `${x.name} ${x.ms}`).join(' · ') + ' ms');
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
   t.eq(errors, [], 'no page errors');

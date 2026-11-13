@@ -350,7 +350,7 @@
     if (busy || !q.length) {
       if (!busy && st === "saving") {
         st = "synced";
-        bar();
+        barSoon();
       }
       return;
     }
@@ -358,7 +358,7 @@
     var j = q.shift();
     if (st !== "error" && st !== "full") {
       st = "saving";
-      bar();
+      barSoon();
     }
     Promise.resolve()
       .then(j.fn)
@@ -382,7 +382,7 @@
       )
       .then(function () {
         busy = false;
-        bar();
+        barSoon();
         pumpQ();
       });
   }
@@ -584,7 +584,7 @@
       pullPools();
     }
     if (st === "connecting") st = "synced";
-    bar();
+    barSoon();
     if (menuOpen) W.render();
   }
 
@@ -1225,7 +1225,23 @@
   function bar() {
     if (W.P) W.renderBar(W.P);
   }
+  /* the cloud's own comings and goings (saving, saved, another device's trips): the bar drawn in the next frame, once
+     for all of them (saving and saved often follow each other within one), and not at all when the screen is drawn
+     before then, which draws the bar too */
+  var barT = 0;
+  function barSoon() {
+    if (!window.requestAnimationFrame) return bar();
+    if (!barT)
+      barT = requestAnimationFrame(function () {
+        barT = 0;
+        bar();
+      });
+  }
   W.renderBar = function () {
+    if (barT) {
+      cancelAnimationFrame(barT);
+      barT = 0;
+    }
     var el = $("tripbar");
     if (!el) return;
     W.keepInputs(el, function () {

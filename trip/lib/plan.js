@@ -891,6 +891,10 @@
   W.replan = function () {
     memo = null;
   };
+  /** whether W.plan() would hand back the plan it has (nothing it depends on changed since) */
+  W.planFresh = function () {
+    return !!memo && memo.sig === planSig();
+  };
   function planNow() {
     var S = W.S,
       p = W.party(),

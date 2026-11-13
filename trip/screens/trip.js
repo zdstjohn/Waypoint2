@@ -74,12 +74,22 @@
     '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.2" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="12.8" cy="8" r="1.5"/></svg>';
   var ICON_REROLL = W.icon("reroll", 2.5);
 
+  /* (kept by the trip's start, the day and the format: writing a date out the phone's way is slow, and the day strip
+     writes every day of the trip again on each draw) */
+  var DATES = /** @type {Record<string, string>} */ ({}),
+    nDates = 0;
   function fmtDate(n, opts) {
     if (!S.start) return "";
+    var k = S.start + "|" + n + "|" + (opts ? JSON.stringify(opts) : "");
+    if (Object.prototype.hasOwnProperty.call(DATES, k)) return DATES[k];
     var d = new Date(S.start + "T12:00:00");
     if (isNaN(d.getTime())) return "";
     d.setDate(d.getDate() + n - 1);
-    return d.toLocaleDateString(undefined, opts || { weekday: "short", month: "short", day: "numeric" });
+    if (++nDates > 1000) {
+      DATES = {};
+      nDates = 1;
+    }
+    return (DATES[k] = d.toLocaleDateString(undefined, opts || { weekday: "short", month: "short", day: "numeric" }));
   }
   /* travel day: how to get from the last place to this one, with the operators' own sites */
   /* how to look at the trip: Day (one day) and Explore (that day's place, with ideas around it). Labelled, so it's
@@ -1830,6 +1840,7 @@
     if (e) e.setAttribute("aria-current", on ? "page" : "false");
   }
   W.render = function () {
+    if (W.holdPaneW) W.holdPaneW(); /* (before anything on the page changes: see lib/later.js) */
     if ((W.readOnly || window.__WP_OFFLINE) && (view === "setup" || view === "settings"))
       view = "trip"; /* a shared trip is view only; an offline copy is for the trip itself */
     /* a shared trip: view only ("ro"), or planning together ("co": the plan's controls, not the trip's setup) */

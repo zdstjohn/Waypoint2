@@ -164,7 +164,7 @@
               });
               gen++;
               applied = {};
-              W.changed();
+              W.arrived(); /* (a snapshot: planned and drawn with whatever else arrives with it) */
             },
             function () {}
           );

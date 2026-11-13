@@ -76,5 +76,37 @@ exports.run = async t => {
   } else t.note('no local map part to test with');
 
   t.eq(errors(), [], 'no page errors');
-  await ctx.close(); await b.close();
+  await ctx.close();
+
+  /* the second script arriving: its parts that hear from Claude's runtime as they start (family's database and who you
+     are, the journal's photo store, planning together, the booking helper) are drawn with the second script's own
+     redraw, not one re-plan and redraw each. On a slow phone those were one block of ~0.6 s just after the first screen,
+     where a tap waited. Held back here until the counting is in place */
+  const hold = new Function(`const add = HTMLHeadElement.prototype.appendChild; HTMLHeadElement.prototype.appendChild = function (n) {
+    if (n && n.tagName === 'SCRIPT' && /app2\\.js/.test(n.src || '')) { const self = this; const t = setInterval(function () { if (window.__go) { clearInterval(t); add.call(self, n); } }, 20); return n; }
+    return add.call(this, n); };`);
+  const o2 = await open(b, { width: 390, init: hold });
+  /* and in steps: the task that runs the second script plans nothing and draws nothing, and a plan made for what
+     arrived (the second script, or a burst of answers) is drawn in a task after its own. Script, plan and draw were one
+     stretch of 0.5-0.9 s at 6x just after the first screen. A task is told apart without any clock: a timeout set in a
+     task runs after that task (and before the timeouts set after it), so a flag cleared by one marks the task it was
+     set in */
+  await o2.pg.evaluate(() => {
+    const c = (window.__rc = { draws: 0, plans: 0, atReady: -1, inLoad: 0, loadPlans: 0, loadDraws: 0, apart: 0, sameTask: 0 }), r = W.render, pl = W.plan; let last = W.P, depth = 0, planTask = 0;
+    /* (the script's task: while it runs, it is document.currentScript; then its load event, where the flag is set) */
+    const app2 = x => !!x && x.tagName === 'SCRIPT' && /app2\.js/.test(x.src || ''), inApp2 = () => c.inLoad || app2(document.currentScript);
+    document.addEventListener('load', e => { if (app2(e.target)) { c.inLoad = 1; setTimeout(() => { c.inLoad = 0; }, 0); } }, true);
+    W.render = function () { c.draws++; if (W.laterReady && c.atReady < 0) c.atReady = c.draws; if (inApp2()) c.loadDraws++; if (planTask && !depth) c.sameTask++; depth++; try { return r.apply(this, arguments); } finally { depth--; } };
+    W.plan = function () { const P = pl.apply(this, arguments); if (P !== last) { c.plans++; last = P; if (inApp2()) c.loadPlans++; if (!depth) { c.apart++; planTask = 1; setTimeout(() => { planTask = 0; }, 0); } } return P; };
+    window.__go = 1;
+  });
+  await o2.pg.waitForFunction(() => W.laterReady, null, { timeout: 15000 }).catch(() => {});
+  await calm(o2.pg, 8000);
+  const rc = await o2.pg.evaluate(() => window.__rc);
+  t.ok(rc.atReady >= 1 && rc.atReady <= 2, `the second script's arrival is drawn once, not once for each of its parts that hears from Claude's runtime (${rc.atReady} draws until it was in; it was 7)`);
+  t.ok(rc.loadPlans === 0 && rc.loadDraws === 0, `the task that runs the second script plans and draws nothing (${rc.loadPlans} plans, ${rc.loadDraws} draws there)`);
+  t.ok(rc.apart >= 1 && rc.sameTask === 0, `what arrived is planned in a task of its own and drawn in a later one (${rc.apart} plans made apart, ${rc.sameTask} drawn in the plan's own task)`);
+  t.note(`second script: ${rc.atReady} draws until it was in, ${rc.draws} draws and ${rc.plans} plans until the page was quiet (${rc.apart} of them made apart from a draw)`);
+  t.eq(o2.errors(), [], 'no page errors there either');
+  await o2.ctx.close(); await b.close();
 };

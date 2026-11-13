@@ -2,6 +2,22 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v169
+
+Smooth on older phones (the owner's pick "smooth on older phones", done by a helper and merged here). Measured on a
+phone slowed to a sixth of a laptop's speed, the longest stall after the first screen went from 430–750 ms to about
+100 ms, and the first screen is usable sooner (example trip: 897 → 787 ms; a 21-day, 8-town trip: 987 → 761 ms;
+Today: 852 → 557 ms). Every day's plan and every screen came out the same, byte for byte.
+- What arrives after the first screen (the second script, Claude's handle, the checked place records, the street-map
+  index, saved ideas) no longer re-plans and redraws the whole trip in one long task each: W.changedApart (lib/core.js)
+  plans in the next task and draws in the one after, and the others are batched (W.arrived), one plan and one draw per
+  burst; the task that runs the second script plans and draws nothing (lib/later.js done). Taps made before the
+  second script arrived are still replayed at once.
+- Smaller costs: durations, links' hosts, times and dates read once per text (W.durText, hostOf, textMin, fmtDate);
+  the window's width read once per redraw (W.holdPaneW); the pinned bar's check and the trip bar drawn once per frame.
+- Tests: perf (the second script's own task plans and draws nothing; what arrives is planned, then drawn, in tasks
+  of their own); vitals notes the longest task after the first screen.
+
 ## v168
 
 "Still open" (the owner's pick from the second list of ideas, for the nightly place check, which runs on Fable).

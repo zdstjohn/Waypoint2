@@ -40,7 +40,7 @@
     });
     S.idx = out;
     S.idxState = "ready";
-    W.changed();
+    W.arrived(); /* (planned and drawn with whatever else arrives as the app starts) */
   }
   function loadIndex() {
     if (S.idxState !== "idle") return;

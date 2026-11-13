@@ -415,8 +415,20 @@
 
   /* ---------- durations ---------- */
   /* "1½–2 h", "45 min–1 h", "Full day" (from W.stayText) -> minutes to plan */
+  var MINS = /** @type {Record<string, number | null>} */ ({}),
+    nMins = 0;
   function textMin(t) {
     t = String(t || "");
+    /* (kept by the text: the planner reads the same few durations over and over while it fits a trip's days) */
+    if (Object.prototype.hasOwnProperty.call(MINS, t)) return MINS[t];
+    if (++nMins > 2000) {
+      MINS = {};
+      nMins = 1;
+    }
+    return (MINS[t] = readMin(t));
+  }
+  /** @param {string} t */
+  function readMin(t) {
     if (/^full day/i.test(t)) return 420;
     if (/^half day/i.test(t)) return 210;
     var parts = t.replace(/½/g, ".5").split(/[–-]/),

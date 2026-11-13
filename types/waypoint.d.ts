@@ -169,6 +169,8 @@ interface Waypoint {
   calEvents: any;
   callTool: any;
   changed: () => void;
+  /** W.changed in steps: planned in the next task, drawn in the one after (lib/core.js) */
+  changedApart: () => void;
   checkGroups: any;
   checklist: (P: Plan) => CheckItem[];
   cheer: (title: string, text?: string, opts?: { big?: boolean; go?: View }) => void;
@@ -196,6 +198,8 @@ interface Waypoint {
   /* the desktop workspace (v153): lib/later.js, lib/desk.js, lib/deskmap.js, screens/rail.js, screens/palette.js */
   desk: () => boolean;
   paneW: () => number;
+  /** a redraw starting: the window's width read once for the rest of it (lib/later.js) */
+  holdPaneW: () => void;
   deskOn: boolean;
   wsPrefs: { rail: number | null; map: number; list: number; center: number; hide: Record<string, number> };
   wsSet: (k: string, v: any) => void;
@@ -591,6 +595,8 @@ interface Waypoint {
   renderSetup: any;
   renderTrip: ((P: Plan, target?: string) => void) & { waiting?: any };
   replan: () => void;
+  /** whether W.plan() would hand back the plan it has (lib/plan.js) */
+  planFresh: () => boolean;
   reroll: any;
   rescue: any;
   resetPicks: () => void;

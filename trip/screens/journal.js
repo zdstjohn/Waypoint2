@@ -12,7 +12,7 @@
       window.claude.use("assets").then(
         function (a) {
           assets = a;
-          W.changed();
+          W.arrived(); /* (drawn with whatever else arrives as the app starts, not one redraw each) */
         },
         function () {}
       );

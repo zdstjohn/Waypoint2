@@ -29,7 +29,7 @@
           ]).then(function (u) {
             uid = u[0];
             if (u[1] === false) canWrite = false;
-            W.changed();
+            W.arrived(); /* (drawn with whatever else arrives as the app starts, not one redraw each) */
           });
         },
         function () {}
@@ -126,7 +126,7 @@
               checked: String(x.checked || ""),
               note: String(x.note || "")
             };
-            W.changed();
+            W.arrived();
           },
           function () {}
         );

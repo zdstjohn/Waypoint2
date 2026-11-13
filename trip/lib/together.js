@@ -55,7 +55,7 @@
           return u.id().then(function (id) {
             uid = id;
             tick();
-            W.changed();
+            W.arrived(); /* (drawn with whatever else arrives as the app starts, not one redraw each) */
           });
         },
         function () {}

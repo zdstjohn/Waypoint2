@@ -490,20 +490,48 @@
     listeners.push(fn);
   };
   W.dataV = 0; /* goes up whenever cached data arrives or the state is reported changed; the planner reuses its last plan until it does */
-  function changed() {
-    W.dataV++;
-    W.save();
+  /* (asked counts the redraws asked for, shown the ones a full redraw has already answered: everything listening was
+     told after them, so the batched redraw still to come for them has nothing left to show; see flush) */
+  var asked = 0,
+    shown = 0;
+  function tell() {
+    if (!W.typingHeld || !W.typingHeld()) shown = asked; /* (a box being typed in holds the screen's redraw back) */
     listeners.forEach(function (fn) {
       fn();
     });
   }
+  function changed() {
+    W.dataV++;
+    W.save();
+    tell();
+  }
   W.changed = changed;
+  /** W.changed in steps, for a change that comes on its own (the second script arriving, lib/later.js): the planner is
+      told at once (dataV), the plan is made in the next task and the screen drawn from it in the one after. On a slow
+      phone those are three shorter stretches the page can't answer a tap in, not one long one; a tap in between gets
+      the new plan, and a full redraw meanwhile (the tap's) leaves nothing more to draw */
+  W.changedApart = function () {
+    W.dataV++;
+    var was = ++asked;
+    setTimeout(function () {
+      if (shown >= was) return; /* (drawn meanwhile) */
+      if (W.P && W.planFresh && !W.planFresh() && !(W.typingHeld && W.typingHeld())) W.plan();
+      setTimeout(function () {
+        if (shown >= was) return;
+        W.save();
+        tell();
+      }, 0);
+    }, 0);
+  };
   /* answers arriving: the planner is told at once (dataV), but the screen is redrawn once for the whole burst, after the
      frame already on its way has painted. A tap that opens a screen asking for five lists paints its screen first and
      fills in once, instead of redrawing (and replanning) five times before the first frame. A burst is everything that
      arrives with less than QUIET ms between one answer and the next, drawn at most MAXWAIT ms after its first answer
      (a follow-up question asked by that redraw waits no longer than that):
-     answers read back from this device or the account come dozens at a time, and were each a re-plan and a redraw. */
+     answers read back from this device or the account come dozens at a time, and were each a re-plan and a redraw.
+     On a slow phone a re-plan and a redraw together are one long stretch the page can't answer a tap in, so when the
+     burst needs a new plan, it is made first and the screen drawn from it in the next task (a tap in between gets
+     the new plan too). A burst a full redraw has answered meanwhile (W.changed) draws nothing more. */
   var flushPending = false,
     firstAt = 0,
     lastAt = 0,
@@ -511,12 +539,25 @@
     MAXWAIT = 300;
   function flush() {
     flushPending = false;
+    if (shown === asked) {
+      W.save();
+      return;
+    }
+    if (W.planFresh && W.P && !W.planFresh() && !(W.typingHeld && W.typingHeld())) {
+      var was = asked;
+      W.plan();
+      setTimeout(function () {
+        if (shown >= was) return; /* (drawn meanwhile) */
+        W.save();
+        tell();
+      }, 0);
+      return;
+    }
     W.save();
-    listeners.forEach(function (fn) {
-      fn();
-    });
+    tell();
   }
   function redraw() {
+    asked++;
     lastAt = Date.now();
     if (flushPending) return;
     flushPending = true;
@@ -548,15 +589,17 @@
 
   try {
     if (window.claude && window.claude.use) {
+      /* (Claude's answer to whether it can be asked comes on its own, as the first screen is drawn or just after: the
+         plan it calls for, which asks for what is missing, and the screen drawn from it follow in tasks of their own) */
       window.claude.use("sample").then(
         function (smp) {
           W.SAMPLE = smp;
           W.sampleState = smp ? "on" : "off";
-          changed();
+          W.changedApart();
         },
         function () {
           W.sampleState = "off";
-          changed();
+          W.changedApart();
         }
       );
     } else W.sampleState = "off";
@@ -778,7 +821,9 @@
         if (W.status[k] === "loading") delete W.status[k];
       });
     }
-    changed();
+    /* (planned and drawn with the saved ideas that came, or with whatever else arrives meanwhile: the asks for
+       what is still missing go out from that plan) */
+    arrived();
     pump();
   };
   W.run = run;

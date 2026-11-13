@@ -4,12 +4,22 @@
   "use strict";
   var W = window.W,
     esc = W.esc;
+  /* (kept by the link: the same links are read again on every redraw, the booking list three or four times a draw,
+     and taking a URL apart is the slow part) */
+  var HOSTS = /** @type {Record<string, string>} */ ({}),
+    nHosts = 0;
   function hostOf(u) {
+    var k = String(u);
+    if (Object.prototype.hasOwnProperty.call(HOSTS, k)) return HOSTS[k];
+    var h = "";
     try {
-      return new URL(u).hostname.replace(/^www\./, "");
-    } catch (e) {
-      return "";
+      h = new URL(u).hostname.replace(/^www\./, "");
+    } catch (e) {}
+    if (++nHosts > 2000) {
+      HOSTS = {};
+      nHosts = 1;
     }
+    return (HOSTS[k] = h);
   }
   function regOf(h) {
     var p = h.split("."),

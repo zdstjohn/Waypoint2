@@ -1,3 +1,3 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v168: none (a closure warning shows only for a place the nightly check found shut; the null-safety work changes no look).
+# v169: none (what arrives after the first screen is drawn a moment later, the same).

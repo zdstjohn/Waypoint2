@@ -33,9 +33,20 @@
       is what the stylesheet's container rules measure too) */
   W.paneW = function () {
     var w = W.desk() ? /** @type {HTMLElement | null} */ (document.querySelector(".wrap")) : null;
-    if (!w || !w.clientWidth) return window.innerWidth;
+    if (!w || !w.clientWidth) return heldW >= 0 ? heldW : window.innerWidth;
     var cs = getComputedStyle(w);
     return w.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+  };
+  /** a redraw starting: the window's width read now, before the redraw changes anything on the page, and used for the
+      rest of it. Reading it halfway through makes the browser lay out the page there and then (the width never depends
+      on what is on the page: only the window, or the workspace's pane, which is measured as before) */
+  var heldW = -1;
+  W.holdPaneW = function () {
+    if (heldW >= 0) return;
+    heldW = window.innerWidth;
+    Promise.resolve().then(function () {
+      heldW = -1;
+    });
   };
   function unhold() {
     html.classList.remove("ws-wait");
@@ -145,7 +156,10 @@
         if (W.caught) W.caught(e, "after the second script");
       }
     });
-    W.changed();
+    /* (drawn with it in later tasks: running the second script, planning with it and drawing were one stretch of
+       ~0.5-0.9 s on a slow phone just after the first screen, where a tap waited; see W.changedApart) */
+    if (W.changedApart) W.changedApart();
+    else W.changed();
   }
   function ready() {
     if (cssDone && jsDone) done();
