@@ -138,9 +138,9 @@
   .ws-canvas .vt-pin.vt-idea b{width:16px;height:16px;border-width:1.5px;background:var(--surface);color:transparent;border-color:var(--accent)}
   .ws-canvas .vt-pin.vt-idea span{display:none}
   .ws-canvas .vt-pin.vt-idea.hi span{display:block}
-  html.ws .slot.ws-hi.sk::before,html.ws .idea.ws-hi{border-color:var(--note);box-shadow:0 0 0 3px color-mix(in srgb,var(--note) 30%,transparent),var(--lift)}
+  /* under the pointer: a stop, a place to eat or an idea glows in the buttons' indigo (the ways between stops don't) */
+  html.ws .slot.ws-hi.sk::before,html.ws .idea.ws-hi{border-color:var(--on-primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--on-primary) 30%,transparent),var(--lift)}
   html.ws .slot.ws-sel.sk::before{border-color:var(--on-primary)}
-  html.ws a.ws-leg.ws-hi,html.ws .ws-leg.ws-hi{background:var(--note-soft);border-radius:var(--r-sm)}
 
   /* ---------- between the middle pane and the map: the handle, and the pane's scroll bar ---------- */
   html.ws:not(.ws-wide):not(.ws-nolist) #wsSplit{display:block;position:fixed;top:0;bottom:0;left:calc(var(--ws-rail) + var(--ws-center) - 5px);width:10px;z-index:30;cursor:col-resize;touch-action:none}

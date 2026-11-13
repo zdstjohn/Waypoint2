@@ -2,6 +2,19 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v167
+
+Presses without square corners, and the desktop's hover glow in indigo (the owner's notes, from screenshots).
+- The phone's own tap flash is off everywhere (app.css: html -webkit-tap-highlight-color transparent): it is a square
+  drawn over the element's box, so rounded buttons flashed sharp corners. Buttons already answer a press themselves
+  (they shrink a little); a tab being pressed in the bottom bar shows a soft rounded background; a plain link dims
+  for a moment (phones only).
+- On the desktop, the stop, place to eat or Explore card under the pointer glows in the buttons' indigo
+  (--on-primary), not amber (desk.css .ws-hi).
+- A way between two stops ("21 min · Navigate") no longer glows when the pointer is over it, and no longer lights
+  the two stops in the list; it still lights their two pins on the map (lib/deskmap.js paint).
+- Tests: workspace (a way lights the pins, nothing in the list).
+
 ## v166
 
 The night-before briefing for a new town (the owner's pick from the second list of ideas).

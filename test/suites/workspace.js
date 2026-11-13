@@ -61,7 +61,7 @@ exports.run = async t => {
   t.ok(await pg.evaluate(() => !document.querySelector('#sheethost .sheet')), 'Esc closes the inspector');
   /* a hop in the list and the pane's scroll bar */
   await pg.evaluate(() => scrollTo(0, 0)); await pg.hover('.wrap .ws-leg[data-wsleg]'); await pg.waitForTimeout(150);
-  t.ok(await pg.evaluate(() => !!document.querySelector('.wrap .ws-leg.ws-hi')), 'the pointer over a way between two stops marks it (and, with a map, the two pins it joins)');
+  t.ok(await pg.evaluate(() => !!document.querySelector('.wrap .ws-leg.ws-hi') && !document.querySelector('.wrap .slot.ws-hi') && getComputedStyle(document.querySelector('.wrap .ws-leg.ws-hi')).backgroundColor === 'rgba(0, 0, 0, 0)'), 'the pointer over a way between two stops lights the two pins it joins on the map, but nothing in the list glows');
   /* the street map places its pins itself, every frame: nothing may ease where a pin is (v153 eased it for 0.12 s, so
      the pins trailed the map on every zoom and slid in from far away on every new day), and no lines between them */
   const dcss = require('fs').readFileSync(require('path').join(t.root, 'trip', 'app.desk.css'), 'utf8'), vt = require('fs').readFileSync(require('path').join(t.root, 'trip', 'lib', 'vtmap.js'), 'utf8');

@@ -79,6 +79,10 @@
   --grain:none;
   color-scheme:dark }
 *{box-sizing:border-box}
+/* a phone's own tap flash is a square drawn over the element's box, so a rounded button flashes sharp corners: off
+   everywhere; buttons answer a press themselves (they shrink a little, below), and a plain link dims for a moment */
+html{-webkit-tap-highlight-color:transparent}
+@media (hover:none){a:not(.btn):not(.chip-a):not(.linkish):active{opacity:.6}}
 /* the page keeps room for its scrollbar whether or not it needs one: a short screen and a long one then sit in the
    same place (on a desktop the whole page used to step sideways between Prepare's tabs as the bar came and went) */
 @media (hover:hover) and (pointer:fine){html{scrollbar-gutter:stable}}
@@ -182,6 +186,7 @@ main[hidden]{display:none!important}
 @media (max-width:560px){.tabs button{flex:1;display:grid;justify-items:center;gap:3px;padding:6px 4px 5px;font:800 var(--t-sm)/1.1 var(--f-body);border-radius:var(--r-md);min-height:50px}}
 @media (max-width:560px){.tabs .ti{display:block}}
 @media (max-width:560px){.tabs button[aria-current="page"]{background:var(--sunk);color:var(--fg)}}
+@media (max-width:560px){.tabs button:not([aria-current="page"]):active{background:var(--sunk)}}
 @media (max-width:560px){.ro .tabs,.co .tabs{grid-template-columns:1fr 1fr}}
 @media (max-width:560px){.tripbar{flex-wrap:wrap;row-gap:8px}}
 .top{flex-wrap:nowrap;align-items:center;gap:12px 18px;padding-block:10px 12px;position:relative}

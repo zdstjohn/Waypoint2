@@ -183,9 +183,10 @@
     c.querySelectorAll(".vt-pin.vt-idea").forEach(function (el) {
       el.classList.toggle("hi", !!hiIdea && el.getAttribute("data-idea") === hiIdea);
     });
+    /* a way between two stops lights its two pins on the map, not the stops in the list (only what is under the pointer glows there) */
     document.querySelectorAll(".wrap .slot[data-slotkey]").forEach(function (el) {
       var k = el.getAttribute("data-slotkey") || "";
-      el.classList.toggle("ws-hi", hiKeys.indexOf(k) > -1);
+      el.classList.toggle("ws-hi", !hiLeg && hiKeys.indexOf(k) > -1);
       el.classList.toggle("ws-sel", !!sel && k === sel);
     });
     document.querySelectorAll(".wrap .ws-leg[data-wsleg]").forEach(function (el) {
