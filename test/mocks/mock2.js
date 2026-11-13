@@ -8,7 +8,7 @@
     const inner = async (prompt, opts) => {
       window.__prompts = window.__prompts || []; window.__prompts.push(prompt.slice(0, 160)); (window.__full = window.__full || []).push(prompt);
       /* the night-before briefing (lib/brief.js) */
-      if (/^A family arrives tomorrow in /.test(prompt)) {
+      if (/^A (family|group) arrives tomorrow in /.test(prompt)) {
         window.__briefAsk = prompt; await new Promise(r => setTimeout(r, 120));
         return { arrive: { from: 'Santa Maria Novella station', how: 'A taxi from the rank by the main exit; with a stroller it is easier than the bus.', time: '10 min', cost: '€12–15' },
           dinner: [{ n: 'Trattoria Test', d: 'Simple pasta, high chairs', far: '4 min walk' }, { n: '<img src=x onerror="window.__xss=1">', d: '', far: '' }],
@@ -79,7 +79,7 @@
         return out;
       }
       /* check my plan: two real findings, plus three the app must drop or defuse (a day that doesn't exist, no text, markup) */
-      if (/^Check this family trip plan/.test(prompt)) {
+      if (/^Check this (family )?trip plan/.test(prompt)) {
         window.__reviewPrompt = prompt; window.__reviewAsked = (window.__reviewAsked || 0) + 1; await new Promise(r => setTimeout(r, 700));
         const facts = JSON.parse(prompt.slice(prompt.indexOf('DATA:') + 5).split('\n')[0]), d2 = facts[1] || facts[0], st = (d2.stops || [])[0];
         return { ok: 'Beach days and town days alternate nicely.', issues: [

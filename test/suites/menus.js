@@ -2,7 +2,7 @@
    like any other and never twice; a planned meal's "Menu" opens its panel at the menu read from the restaurant's own site
    (menus/<city>): sections, dishes, prices in the chosen currency, kids' dishes, where and when it was read; without one,
    it says the menu is read overnight; either way a link to its menu photos on Google Maps. */
-const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb = require('../lib/db');
+const { launch, open, exampleTrip, settle, reveal } = require('../lib/page'); const mkdb = require('../lib/db');
 exports.run = async t => {
   const seed = { 'morefood/italy-rome': { city: 'Rome', country: 'Italy', at: '2026-11-09', items: [
       { n: 'Trattoria Nightly Uno', d: 'Roman classics, kids welcome', cuisine: 'Roman', price: '€€', meal: 'both', k: 1, src: 'https://example.org/uno' },
@@ -25,7 +25,7 @@ exports.run = async t => {
   await pg.evaluate(() => { W.S.tview = 'days'; W.render(); });
   const btn = await pg.$(`#viewTrip [data-open="${meal.key}"][data-menu]`);
   t.ok(!!btn, 'a planned meal\'s "Menu" opens it in the app');
-  if (btn) { await btn.click(); await pg.waitForTimeout(500); }
+  if (btn) { await reveal(pg, `#viewTrip [data-open="${meal.key}"][data-menu]`); await btn.click(); await pg.waitForTimeout(500); }
   const m = await pg.evaluate(() => { const b = document.querySelector('#sheethost .menu-b'); return b ? { txt: b.textContent.replace(/\s+/g, ' '), html: b.innerHTML, gm: !!b.querySelector('a[href*="google"]') } : null; });
   t.ok(m && /Cacio e pepe/.test(m.txt) && /€\s?12/.test(m.txt) && /For the kids/.test(m.txt) && /Pasta al pomodoro/.test(m.txt), 'its panel shows the menu: dishes, prices, the kids\' dishes');
   t.ok(m && /example\.org/.test(m.txt) && /read Nov 8/.test(m.txt) && m.gm, 'with where and when it was read, and its menu photos on Google Maps');

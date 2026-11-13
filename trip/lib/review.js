@@ -128,7 +128,9 @@
         return a >= 65;
       }).length;
     return (
-      "Check this family trip plan for real problems before they travel. You are a careful friend who has done this trip with small children.\n" +
+      "Check this trip plan for real problems before they travel. You are a careful friend who has done this trip" +
+      (kids.length ? " with children" : "") +
+      ".\n" +
       "Travelers: " +
       ages.filter(function (a) {
         return a >= 18;
@@ -145,7 +147,8 @@
       "\n" +
       'Look for: too much walking or too many big stops for the youngest or oldest traveler; a place that is closed on its day (from the data, or a closing day you are sure of, such as a museum\'s weekly closing day; say "check" when it comes from your own knowledge); ' +
       "a booking that doesn't fit the plan (booked lists what is already booked that day, with check-in and check-out times, journeys, tickets, tours and tables: a stop planned while a booked tour runs, arriving long before check-in with the bags, a meal clashing with a table booked elsewhere); " +
-      "dinner or an outing running into a small child's nap or bedtime; tickets that sell out and are not marked booked, most urgent first; a heavy day straight after a travel day or jet lag; a day with no real meal stop; outdoor stops stacked in the hottest hours.\n" +
+      (kids.length ? "dinner or an outing running into a small child's nap or bedtime; " : "") +
+      "tickets that sell out and are not marked booked, most urgent first; a heavy day straight after a travel day or jet lag; a day with no real meal stop; outdoor stops stacked in the hottest hours.\n" +
       "Only real problems this family would thank you for; none is a fine answer. At most 8, most important first. Name the place. Give one concrete fix each, in the plan's own terms (swap two stops, move it to another day, book it now, drop one stop).\n" +
       'Answer with JSON only: {"ok": "one sentence on what is already good about this plan", "issues": [{"day": 3, "slot": "pm", "kind": "walk", "text": "the problem in one sentence", "fix": "what to do in one sentence"}]} ' +
       'where kind is one of walk, closed, nap, book, pace, meal, travel, booking, other and slot is one of breakfast, am, lunch, pm, dinner, eve or "".'

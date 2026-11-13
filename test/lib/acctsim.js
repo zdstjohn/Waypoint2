@@ -5,28 +5,34 @@
    sign-out, putAway / bringBack / claim run as written. Stand-ins written here (not snapshot code): core.js's load of
    the saved trip and the example flag, W.save's "write when changed" and its stop while signing out (core.js; keep
    them in step). Prints "-> what: value" lines for the suite to read.
-   node test/lib/acctsim.js <root> */
+   node test/lib/acctsim.js <root>
+   Also a library (v177): require() it for Phone, the account's store and a clock shared by several phones
+   (test/lib/devsim.js: several devices on one trip). Each phone has its own listeners, can lose and regain its signal
+   (ph.signal(false): its reads and writes fail as they do with no network, and nothing reaches it), may run on a
+   clock that is wrong (ph.skew, ms), and draws its random numbers from a seed (ph.seed), so a run can be replayed. */
 const fs = require("fs"), path = require("path"), vm = require("vm");
-const SNAP = process.argv[2];
-const CLOUD = fs.readFileSync(path.join(SNAP, "trip/lib/cloud.js"), "utf8");
-const SYNC = fs.readFileSync(path.join(SNAP, "trip/lib/sync.js"), "utf8");
+const MAIN = require.main === module;
+const SNAP = MAIN ? process.argv[2] : path.resolve(__dirname, "..", "..");
+const CLOUD = new vm.Script(fs.readFileSync(path.join(SNAP, "trip/lib/cloud.js"), "utf8"), { filename: "cloud.js" });
+const SYNC = new vm.Script(fs.readFileSync(path.join(SNAP, "trip/lib/sync.js"), "utf8"), { filename: "sync.js" });
 const clock = { t: Date.UTC(2027, 5, 7, 8, 0, 0) };
 const flush = async () => { for (let i = 0; i < 15; i++) await new Promise(r => setImmediate(r)); };
 
 const store = new Map(), listeners = [];
 function notify(colPath) { listeners.filter(l => l.path === colPath && l.alive).forEach(l => setImmediate(l.emit)); }
-function makeDb() {
+const noNet = () => Promise.reject(new Error("no network"));   /* (no code: what a request that reached nobody looks like) */
+function makeDb(ph) {
   const snapDoc = (p, data) => ({ id: p.slice(p.lastIndexOf("/") + 1), exists: data != null, data: () => (data == null ? undefined : JSON.parse(JSON.stringify(data))), metadata: { fromCache: false, hasPendingWrites: false } });
   const parent = p => p.replace(/\/[^/]*$/, "");
   const docRef = p => ({ id: p.slice(p.lastIndexOf("/") + 1),
-    get: () => Promise.resolve(snapDoc(p, store.get(p))),
-    set: d => { store.set(p, JSON.parse(JSON.stringify(d))); notify(parent(p)); return Promise.resolve(); },
-    delete: () => { store.delete(p); notify(parent(p)); return Promise.resolve(); },
+    get: () => ph.off ? noNet() : Promise.resolve(snapDoc(p, store.get(p))),
+    set: d => { if (ph.off) return noNet(); store.set(p, JSON.parse(JSON.stringify(d))); notify(parent(p)); return Promise.resolve(); },
+    delete: () => { if (ph.off) return noNet(); store.delete(p); notify(parent(p)); return Promise.resolve(); },
     collection: sub => colRef(p + "/" + sub), onSnapshot: () => () => {} });
   const colRef = p => ({ doc: id => docRef(p + "/" + id),
-    get: () => Promise.resolve({ docs: [...store.keys()].filter(k => parent(k) === p).map(k => snapDoc(k, store.get(k))) }),
+    get: () => ph.off ? noNet() : Promise.resolve({ docs: [...store.keys()].filter(k => parent(k) === p).map(k => snapDoc(k, store.get(k))) }),
     onSnapshot: next => { const have = {};
-      const l = { path: p, alive: true, emit: () => { if (!l.alive) return;
+      const l = { path: p, alive: true, ph, emit: () => { if (!l.alive || ph.off) return;
         const now = {}; [...store.keys()].filter(k => parent(k) === p).forEach(k => (now[k] = JSON.stringify(store.get(k))));
         const changes = [];
         Object.keys(have).filter(k => !(k in now)).forEach(k => { changes.push({ type: "removed", doc: snapDoc(k, JSON.parse(have[k])) }); delete have[k]; });
@@ -37,8 +43,8 @@ function makeDb() {
 }
 const EXAMPLE = { v: 2, algo: 2, styles: [], countries: [{ name: "Italy", mode: "manual", picked: ["Rome", "Florence"] }], days: 7, start: "", depart: "Los Angeles (LAX)", travelers: [38, 36, 6, 3], stays: {}, picks: {}, seen: {}, day: 1, cityDays: {} };
 
-function Phone() { this.ls = {}; this.sess = null; }
-Phone.prototype.open = async function () {
+function Phone(seed) { this.ls = {}; this.sess = null; this.off = false; this.skew = 0; this.seed = seed || 0; }
+Phone.prototype.open = async function (noWait) {
   if (this.sess) this.close();
   const ph = this, timers = [], evs = {};
   let reloaded = false, logoutResolve = null;
@@ -46,7 +52,10 @@ Phone.prototype.open = async function () {
     key: i => Object.keys(ph.ls)[i] || null, get length() { return Object.keys(ph.ls).length; } };
   const doc = { addEventListener: (ev, fn) => (evs[ev] = evs[ev] || []).push(fn), visibilityState: "visible", body: null, querySelector: () => null,
     documentElement: { classList: { toggle() {}, add() {}, remove() {} } } };
-  const ctx = { document: doc, localStorage: ls, crypto: globalThis.crypto, console, navigator: { onLine: true }, JSON,
+  /* (a seeded phone draws its ids and its waits from its seed) */
+  let rs = (ph.seed * 2654435761 + 97) >>> 0; const rnd = () => { rs = (rs * 1664525 + 1013904223) >>> 0; ph.seed = rs; return rs / 4294967296; };
+  const cryp = ph.seed ? { getRandomValues: a => { for (let i = 0; i < a.length; i++) a[i] = Math.floor(rnd() * 256); return a; } } : globalThis.crypto;
+  const ctx = { document: doc, localStorage: ls, crypto: cryp, console, navigator: { onLine: !ph.off }, JSON,
     location: { hash: "", reload: () => { reloaded = true; } },
     setTimeout: (fn, ms) => { const id = timers.length + 1; timers.push({ id, at: clock.t + (ms || 0), fn, on: true }); return id; },
     clearTimeout: id => { const t = timers.filter(x => x.id === id)[0]; if (t) t.on = false; },
@@ -59,11 +68,11 @@ Phone.prototype.open = async function () {
   ctx.window = ctx; ctx.addEventListener = (ev, fn) => (evs["w:" + ev] = evs["w:" + ev] || []).push(fn);
   ctx.__WP_STANDALONE = { cloud: { url: "https://example.invalid", key: "anon" } };
   vm.createContext(ctx);
-  vm.runInContext("Date.now = function () { return __clk.t; };", Object.assign(ctx, { __clk: clock }));
-  vm.runInContext(CLOUD, ctx, { filename: "cloud.js" });
+  vm.runInContext("Date.now = function () { return __clk.t + __ph.skew; };" + (ph.seed ? "Math.random = __rnd;" : ""), Object.assign(ctx, { __clk: clock, __ph: ph, __rnd: rnd }));
+  CLOUD.runInContext(ctx);
   const C = ctx.__WP_CLOUD;
   const uid = C.session ? C.session.user.id : null;
-  if (uid) { const db = makeDb(); ctx.claude = { use: n => Promise.resolve(n === "db" ? db : n === "user" ? { id: () => Promise.resolve(uid), can: () => Promise.resolve(true) } : null) }; }
+  if (uid) { const db = makeDb(ph); ctx.claude = { use: n => Promise.resolve(n === "db" ? db : n === "user" ? { id: () => Promise.resolve(uid), can: () => Promise.resolve(true) } : null) }; }
   else delete ctx.claude;
   /* core.js:155-168 and 222-266 (stand-in) */
   const W = { $: () => null, esc: s => String(s), ago: () => "", C: { country: {}, city: {}, legs: {} }, P: null, readOnly: null,
@@ -80,9 +89,10 @@ Phone.prototype.open = async function () {
   W.save = () => { if (ctx.__WP_AWAY) return; if (W.S.example && planSig(W.S) !== exampleSig) { delete W.S.example; W.isExample = false; }
     const js = JSON.stringify(W.S); if (js !== lastS) { ls.setItem("waypoint-v2", js); lastS = js; } if (W.afterSave) W.afterSave(); };
   W.changed = () => W.save();
-  vm.runInContext(SYNC, ctx, { filename: "sync.js" });
+  SYNC.runInContext(ctx);
   this.sess = { W, C, timers, evs, uid, ctx, reloaded: () => reloaded, logout: () => logoutResolve && logoutResolve() };
   W.save();
+  if (noWait) return this;
   await flush(); await this.wait(3500);
   return this;
 };
@@ -94,7 +104,24 @@ Phone.prototype.wait = async function (ms) {
 Phone.prototype.tap = function (target) { (this.sess.evs.click || []).forEach(f => f({ isTrusted: true, target: target || { closest: () => null }, preventDefault() {} })); };
 Phone.prototype.edit = async function (fn) { this.tap(); fn(this.sess.W.S); this.sess.W.save(); await this.wait(2000); };
 Phone.prototype.menu = function (sync, id) { this.tap({ closest: s => (s === "[data-sync]" ? { dataset: { sync, id } } : null) }); };
-Phone.prototype.close = function () { if (this.sess) { this.sess.timers.forEach(t => (t.on = false)); listeners.forEach(l => { l.alive = false; }); this.sess = null; } };
+Phone.prototype.close = function () { if (this.sess) { this.sess.timers.forEach(t => (t.on = false)); listeners.forEach(l => { if (l.ph === this) l.alive = false; }); this.sess = null; } };
+/* the signal goes, or comes back (the listeners then hear how the account stands now, as a real one does on reconnecting) */
+Phone.prototype.signal = function (on) {
+  this.off = !on; if (!this.sess) return;
+  this.sess.ctx.navigator.onLine = !!on;
+  if (on) { (this.sess.evs["w:online"] || []).forEach(f => f()); listeners.filter(l => l.ph === this && l.alive).forEach(l => setImmediate(l.emit)); }
+};
+/* time passes for several phones at once: every open phone's timers run in the order they fall due */
+async function waitAll(phones, ms) {
+  const end = clock.t + ms;
+  for (;;) {
+    let due = null;
+    phones.forEach(p => { if (p.sess) p.sess.timers.forEach(t => { if (t.on && t.at <= end && (!due || t.at < due.at)) due = t; }); });
+    if (!due) break;
+    clock.t = Math.max(clock.t, due.at); due.on = false; due.fn(); await flush();
+  }
+  clock.t = end; await flush();
+}
 Phone.prototype.idx = function () { return JSON.parse(this.ls["waypoint-trips-v1"] || "{}"); };
 Phone.prototype.pagehide = function () { (this.sess.evs["w:pagehide"] || []).forEach(f => f()); };
 const acct = uid => [...store.keys()].filter(k => k.indexOf("data/users/" + uid + "/trips/t/") === 0).map(k => ({ id: k.split("/").pop(), name: store.get(k).name, bookings: store.get(k).state.bookings }));
@@ -114,7 +141,8 @@ async function annSetup() {
   return ph;
 }
 
-(async () => {
+module.exports = { Phone, store, listeners, clock, flush, waitAll, signIn, EXAMPLE };
+if (MAIN) (async () => {
   console.log("\n=== 1. control: Ann signs out, Ann signs in again (the example in between) ===");
   let ph = await annSetup();
   say("Ann's account", acct("ann").map(x => x.name)); const annOpen = ph.sess.W.S.tripId; say("open on the phone", ph.sess.W.S.tripName);

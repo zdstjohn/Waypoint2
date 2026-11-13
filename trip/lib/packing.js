@@ -256,7 +256,7 @@
 
     /* --- documents and money --- */
     if (f.abroad) {
-      P_("Passports for everyone, incl. the kids", "Travelling abroad", "papers");
+      P_(f.kids ? "Passports for everyone, incl. the kids" : "Passports for everyone", "Travelling abroad", "papers");
       T("Check every passport is valid 6 months past your return", "Travelling abroad", "weeks");
     }
     P_("Photos of passports, cards and bookings on your phone", "", "papers");
@@ -291,9 +291,13 @@
       T("Book seats together on long trains; some need reservations", n(f.train, "train leg"), "weeks");
     }
     if (f.ferry.length) {
-      P_("Motion-sickness remedies for the ferry (ask a pharmacist about the kids' options)", n(f.ferry, "ferry"), "travel");
+      P_(
+        "Motion-sickness remedies for the ferry" + (f.kids ? " (ask a pharmacist about the kids' options)" : ""),
+        n(f.ferry, "ferry"),
+        "travel"
+      );
       P_("Layers and a windproof for the deck", n(f.ferry, "ferry"), "travel");
-      T("Check the ferry's stroller and luggage rules", n(f.ferry, "ferry"), "weeks");
+      T(f.toddlers ? "Check the ferry's stroller and luggage rules" : "Check the ferry's luggage rules", n(f.ferry, "ferry"), "weeks");
     }
     if (f.car.length || f.dayTrips) {
       if (f.kids)
@@ -364,10 +368,10 @@
       P_("Light, breathable layers; one warm layer for air-conditioned trains and evenings", "Summer dates", "clothes");
     }
     if (f.cold) {
-      P_("Warm layers, hats and gloves; a warm sleep layer for the kids", "Winter dates", "clothes");
+      P_("Warm layers, hats and gloves" + (f.kids ? "; a warm sleep layer for the kids" : ""), "Winter dates", "clothes");
     }
     if (f.shoulder || !f.hot) {
-      P_("Rain jackets and a stroller rain cover", "Spring or autumn weather", "clothes");
+      P_(f.toddlers ? "Rain jackets and a stroller rain cover" : "Rain jackets", "Spring or autumn weather", "clothes");
     }
     P_("One smart-casual outfit each for a nice dinner", "", "clothes");
 
@@ -376,8 +380,8 @@
     P_("Phone mounts, cables and headphones for everyone", "", "tech");
     T("Set up data abroad: eSIM or your carrier's plan, for two phones", "Travelling abroad", "weeks");
     T("Save the trip for offline in Travel mode (photos and maps on the phone)", "", "days");
-    T("Share the plan with the grandparents and anyone at home", "", "days");
-    T("Pharmacy run: the kids' medicines, motion-sickness, rehydration salts", "", "days");
+    T("Share the plan with family and anyone at home", "", "days");
+    T("Pharmacy run: " + (f.kids ? "the kids' medicines, " : "") + "motion-sickness, rehydration salts", "", "days");
     T("Charge everything and pack the chargers last", "", "day");
 
     return { pack: pack, todo: todo, facts: f };
@@ -450,7 +454,7 @@
       (tab === "todo") +
       '" data-packtab="todo">Before you go</button></div>';
     var whoRow =
-      L.facts.seniors && tab === "pack"
+      L.facts.seniors && L.facts.kids && tab === "pack"
         ? '<div class="pk-who"><button type="button" class="chip' +
           (who === "all" ? " on" : "") +
           '" data-packwho="all" aria-pressed="' +

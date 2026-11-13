@@ -470,7 +470,22 @@
         : c.kind === "beach" || c.kind === "park" || c.kind === "themepark" || c.kind === "waterpark"
           ? m
           : Math.min(m, 120);
-    return slot === "breakfast" ? Math.min(m, 60) : slot === "lunch" ? Math.min(m, 105) : m;
+    /* (a toddler does not sit through a two-hour dinner: an hour and a quarter, which also leaves the evening its
+       short outing before the latest hour a toddler's evening may start, W.slotCap) */
+    return slot === "breakfast"
+      ? Math.min(m, 60)
+      : slot === "lunch"
+        ? Math.min(m, 105)
+        : slot === "dinner" && p.toddler
+          ? Math.min(m, 75)
+          : m;
+  };
+  /** a day out: a place for "any time" of day that does not say it takes under four hours (the morning carries on
+      after lunch, and the day may go far from the stay) @param {any} it @param {string} [slot] */
+  W.isDayOut = function (it, slot) {
+    if (!it || it.s !== "any") return false;
+    var own = textMin(W.stayText(it, false, slot || "am"));
+    return !(own && own < 240);
   };
   W.parseDur = function (raw) {
     return textMin(W.durText(raw));
@@ -650,6 +665,7 @@
           if (na <= hm(16)) {
             out.nap = { start: na, end: na + 60, away: true };
             t = out.nap.end;
+            lastFree = null; /* (the afternoon starts after the nap, also when lunch was free time) */
           }
         } else {
           var bk = W.leg(prev, home),
@@ -658,6 +674,7 @@
             out.nap = { start: ns, end: ns + 90 };
             t = out.nap.end;
             prev = home;
+            lastFree = null;
           } /* too late for a nap: an early night instead */
         }
       }
@@ -766,10 +783,17 @@
           } else row.warn.push("Not open until " + W.clock(h.o));
         }
       }
+      /* (waiting for the doors can take the start past this group's latest hour: an open-air cinema at 8:30 pm with a toddler) */
+      if (cap && start > cap) {
+        row.skip = true;
+        row.late = true;
+        row.start = start;
+        row.info.push("No time left for this today: swap it or save it for another day");
+        return;
+      }
       /* a day trip fills the morning and carries on after lunch */
       /* (a place that says how long it takes, under four hours, is not a day out, whatever its slot says) */
-      var ownMin = textMin(W.stayText(it, false, x.slot)),
-        dayOut = it.s === "any" && !(ownMin && ownMin < 240);
+      var dayOut = W.isDayOut(it, x.slot);
       if (dayOut && x.slot === "am") {
         dur = Math.max(150, minStart("lunch") - start);
         row.info.push("Day trip: carries on after lunch");

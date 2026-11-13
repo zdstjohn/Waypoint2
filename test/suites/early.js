@@ -2,7 +2,7 @@
    sheet) comes with app2.js, a moment after the first screen. On a slow connection that moment can be seconds: a tap
    in it must not be lost. Here app2.js is held back for 7 s; changing day works at once (it stays in the first
    script), and a Swap and a tap on a stop made meanwhile are both done when the script arrives. */
-const { launch, open } = require('../lib/page');
+const { launch, open, reveal } = require('../lib/page');
 exports.run = async t => {
   const b = await launch();
   const HOLD = 7000;
@@ -23,7 +23,7 @@ exports.run = async t => {
   /* Swap on a stop, then a tap on another stop's card: kept */
   const key = await pg.evaluate(() => { const r = document.querySelector('#viewTrip .slots .slot:not(.free) [data-reroll]'); return r ? r.dataset.reroll : null; });
   t.ok(!!key, 'a stop has a Swap button');
-  await pg.click(`#viewTrip [data-reroll="${key}"]`); await pg.waitForTimeout(300);
+  await reveal(pg, `#viewTrip [data-reroll="${key}"]`); await pg.click(`#viewTrip [data-reroll="${key}"]`); await pg.waitForTimeout(300);
   const mid = await pg.evaluate(() => ({ later: !!W.laterReady, swap: !!document.querySelector('.swap') }));
   t.ok(!mid.later && !mid.swap, 'before the second script the swap is not open yet: ' + JSON.stringify(mid));
   await pg.waitForFunction(() => W.laterReady, null, { timeout: HOLD + 8000 });

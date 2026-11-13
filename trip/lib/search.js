@@ -300,7 +300,8 @@
         h +
         (navigator.onLine === false
           ? '<p class="small muted ps-hint">You\'re offline: this finds places already in your lists. Places from the map need a connection.</p></section>'
-          : '<p class="small muted ps-hint">A restaurant you heard about, a beach, "gelato", "rainy day with toddlers"' +
+          : '<p class="small muted ps-hint">A restaurant you heard about, a beach, "gelato", ' +
+            (P.p.toddler ? '"rainy day with toddlers"' : P.p.kid ? '"rainy day with kids"' : '"rainy afternoon"') +
             (W.gmOn && W.gmOn() ? ", or a link from Google Maps" : "") +
             "… then add it to Day " +
             day.n +

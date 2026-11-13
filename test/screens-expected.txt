@@ -1,3 +1,6 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v177: none of the shot screens change (the cut cards are off the shots: Prepare's lower half, Settings for editors).
+# v178: the day's cards have Menu and Swap behind one "more" button (and the planner's fixes move a few stops and
+# times on the example trip's days, so Today's route moves too).
+trip-days-*
+today-*

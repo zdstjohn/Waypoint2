@@ -158,6 +158,15 @@ lib/              the shared library
                   holiday or festival is
   shape.js        the trip as a whole: nights per base, day trips instead of hotel moves, the way between bases,
                   what the group (toddlers, grandparents) can take
+  rules.js        (second script) the planner's promises as code: W.checkPlan(P) reads a finished plan and returns
+                  every place it breaks one of the owner's nine rules (a full day or a stated reason, days that fit the
+                  clock, a real place once, one area a day, no train rides, open when you are there, naps and
+                  grandparents, real names only, what you chose by hand stays), each with its day, slot and rule.
+                  W.checkPlan.table() in the console checks the trip on screen. The planner (plan.js) keeps the rules
+                  by construction: what you chose or booked is put back first on the whole trip; stops that share a
+                  town or lie close share one map of what is planned; one check of a day (dayBads) is what every
+                  pass repairs against; and each empty slot says why (slot.why: journey, light, late, yours, none;
+                  W.WHY has the sentences). test/suites/fuzz.js plans seeded random trips and reads each with it.
   planacts.js     (second script) what changes a plan on request: "not for us", another suggestion, an idea put
                   on the day, the rescues of the rest of today and their undo (it uses the planner through W.planX)
   plan.js         which cities, how many days each, what to do each day (the chooser and its shape rules; a country
@@ -194,6 +203,14 @@ lib/              the shared library
                   (W.loadEatFit, tied to them by W.eatSig) and a few that fit are added; a poor fit is never planned
                   (one you chose stays), a good one is a little ahead; a meal's notes say what you can have and which
                   allergy to tell the staff about; Explore marks good and poor fits.
+  sync.js         saved and shared trips. Your own devices' copies of a trip are joined by the time of each change:
+                  the trip carries S.ct, a stamp (time + device) for each setting and each entry of the per-slot and
+                  per-place maps that a person changed; taking something away keeps its stamp. Two copies are joined
+                  path by path, newer stamp first (join), so any number of devices end with the same trip whatever
+                  order their saves arrive in. Stamps are written at the save that made the change and kept with the
+                  trip on the phone, so offline changes survive the app closing. The planner's own picks are never
+                  stamped (W.planWrote says which it wrote). A document from before v177 (no sv: 2) is read as
+                  "changed when it was written". test/suites/devices.js runs 2-4 simulated devices against it.
   together.js     planning together: when you share a trip and tick "They can change the plan too", the person you
                   shared with can swap stops, set rest days, leave time free, change how you travel between places and
                   say "not for us" to a place.
@@ -315,8 +332,10 @@ Checks (node test/run.js, from the folder above trip/)
   a11y          axe-core (WCAG 2.0/2.1 A and AA) over every screen in light and dark: no violations. Text colors have
                 their own tokens (--muted, --note-text, --food-text) so a fill color can stay bright while text passes.
   validate      the door above, fed the kinds of answers a model can return.
+  nokids        a phone card's "more" button and its menu; with only adults no nap, no children's hours, no kids' corner,
+                packing or diet, and Claude isn't told about children; with a toddler it all comes back.
   phoneday      a phone's Trip day (v174): the first stop right under Day · Explore, the time on one line, whole names,
-                Menu and Swap in words; Simple view keeps only what runs the day (no descriptions, no nice-to-know
+                Menu and Swap in words behind one "more" button (v178); Simple view keeps only what runs the day (no descriptions, no nice-to-know
                 notes, no tags but the booking ones, no photo behind the top card).
   simple        Simple view: the trip menu's switch takes away photos, descriptions and the greeting on the day,
                 photos and the street map in Explore (the route and its directions stay), photos and the kids' banner

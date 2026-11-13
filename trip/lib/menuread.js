@@ -240,9 +240,12 @@
         ? esc((r.lang ? r.lang + " · " : "") + has + (has === 1 ? " dish" : " dishes")) + ". "
         : esc(r.note || "No dishes could be read.") + " ") +
       "Claude can misread a menu: check allergens with the staff.</p>";
+    /* (a dish read as one for the kids is one for everyone when no children come along) */
+    var kid = W.party().kid;
     GROUPS.forEach(function (g) {
+      if (g[0] === "kids" && !kid) return;
       var ds = r.dishes.filter(function (/** @type {any} */ d) {
-        return d.fit === g[0];
+        return d.fit === g[0] || (g[0] === "all" && d.fit === "kids" && !kid);
       });
       if (!ds.length) return;
       var list = '<ul class="mr-l">' + ds.map(dish).join("") + "</ul>";

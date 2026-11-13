@@ -183,7 +183,7 @@
             );
           })
           .join("") +
-        (m.kids.length
+        (m.kids.length && W.party().kid
           ? '<h4>For the kids</h4><ul class="mn-l">' +
             m.kids
               .map(function (d) {

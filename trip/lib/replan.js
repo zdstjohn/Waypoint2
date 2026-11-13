@@ -91,7 +91,9 @@
       JSON.stringify(rest) +
       "\n" +
       "For each stop choose: keep it, leave its time free, or use one of ITS OWN options (copy the name exactly). A stop marked booked must be kept. " +
-      "If they say how much time they have, free what starts after it runs out. Rain: prefer indoor places. Tired, or small children fading: low effort, close to the lodging, fewer stops. " +
+      "If they say how much time they have, free what starts after it runs out. Rain: prefer indoor places. " +
+      (kids.length ? "Tired, or small children fading" : "Tired") +
+      ": low effort, close to the lodging, fewer stops. " +
       "Keep meals unless they ask otherwise or the time runs out. If nothing needs to change, keep everything.\n" +
       'Answer with JSON only: {"say": "one short friendly sentence on what you changed and why, at most 20 words", "slots": [{"slot": "pm", "do": "keep", "name": ""}]} where do is "keep", "free" or "use", and name is set only with "use".'
     );

@@ -38,7 +38,8 @@
     "shareEdit",
     "coSeen",
     "coLog",
-    "coMine"
+    "coMine",
+    "ct" /* (when each thing was changed: for your own devices only) */
   ];
   /* can this view change the plan? your own trip, or a shared one whose owner lets you plan together (lib/together.js) */
   W.canEdit = function () {
@@ -225,17 +226,13 @@
   var remote = {},
     firstSnap = false,
     lastSig = null;
+  /* a different trip is in place (opened, made, taken from the account): how it stands now is what changes are measured from */
   function baseline() {
-    var cur = syncable(S);
-    lastSig = hash(JSON.stringify(cur));
     appliedAt = Date.now();
-    base = cur;
+    resnap();
   }
-  /* Two of your own devices changing the same trip: another device's version no longer replaces what you changed here
-     since the two last agreed (base). Each setting, and each entry of the per-slot and per-place lists (picks, stays,
-     free time, "not for us", days per place, packing ticks...), is taken from whichever side changed it; when both
-     changed the same one, theirs wins (it was saved later). Returns the joined state and whether it differs from theirs. */
-  var base = syncable(S);
+  /* (v176's join of two devices' versions around the one both last had. The trip is joined by the times of its
+     changes now (join, below); this one still turns a trip kept by v176 with changes not yet sent into such times.) */
   function same(a, b) {
     return JSON.stringify(a) === JSON.stringify(b);
   }
@@ -273,6 +270,223 @@
     return { state: out, changed: changed };
   }
   W.merge3 = merge3; /* (for the tests) */
+
+  /* ---------- every change with its time ----------
+     Several phones change one trip, often with no signal. So that they all end with the same trip whatever order
+     their saves arrive in, the trip carries, for each thing a person changed, when it was changed: S.ct maps a path
+     to a stamp. A path is a setting ("days", "start", "countries") or one entry of a per-slot or per-place map
+     ("picks::Italy|Rome|2|am", "stays::Italy|Rome", "free::…", "pack::…"); a stamp is the time (nine base-36
+     digits of milliseconds) followed by the device, so stamps sort by time and no two are equal. Taking a choice
+     away is a change like any other: its path keeps a stamp and has no value, so a copy that still holds the old
+     value can never bring it back, and putting it back later is simply a newer change.
+     Two copies are joined path by path (join): the newer stamp wins, with its value or its absence. A path neither
+     side has a stamp for was never changed by a person (a trip from before v177, or what the planner filled in):
+     such values agree, or the same one is taken on every device (a value beats none, then the greater as text).
+     So joining is the same whichever copy comes first, however often it is done, and in any grouping: every device
+     that has seen the same changes holds the same trip.
+     The clock (stampNow) never runs backwards and always moves past every stamp this device has seen, so a change
+     made after seeing another's is the later one even on a phone whose clock is wrong.
+     Only what a person changed is stamped (note): a change found within two minutes of a tap. The planner's own
+     fill-ins are not: the picks a planning wrote or took off (W.planWrote, lib/plan.js) are the planner's, and the
+     planner's own notes (S.under) and the measured times between stops (S.rl) never count. */
+  var SEP = "::",
+    NOSTAMP = { ct: 1, under: 1, rl: 1, tripId: 1 },
+    hl = 0;
+  function enc(t) {
+    return ("00000000" + Math.max(0, Math.floor(t)).toString(36)).slice(-9);
+  }
+  function seeStamps(ct) {
+    for (var p in ct || {}) {
+      var t = parseInt(String(ct[p]).slice(0, 9), 36);
+      if (t > hl) hl = t;
+    }
+  }
+  function stampNow() {
+    hl = Math.max(Date.now(), hl + 1);
+    return enc(hl) + dev;
+  }
+  /** a value as text, the same text for the same value (an object's keys in order) @param {any} v */
+  function canon(v) {
+    return JSON.stringify(v, function (k, x) {
+      if (!isMap(x)) return x;
+      var o = {};
+      Object.keys(x)
+        .sort()
+        .forEach(function (j) {
+          o[j] = x[j];
+        });
+      return o;
+    });
+  }
+  /** a trip as one text per path; a map's own path holds "{" (it is a map: its entries have paths of their own)
+      @param {any} st @returns {Record<string, string>} */
+  function flat(st) {
+    /** @type {Record<string, string>} */ var out = {};
+    Object.keys(st).forEach(function (k) {
+      if (k === "ct" || k === "tripId" || VIEW_KEYS.indexOf(k) > -1) return;
+      var v = st[k];
+      if (isMap(v)) {
+        out[k] = "{";
+        Object.keys(v).forEach(function (j) {
+          if (v[j] !== undefined) out[k + SEP + j] = canon(v[j]);
+        });
+      } else if (v !== undefined) out[k] = canon(v);
+    });
+    return out;
+  }
+  function keyOf(p) {
+    var i = p.indexOf(SEP);
+    return i < 0 ? p : p.slice(0, i);
+  }
+  /** two copies of a trip, joined (see above) @param {any} a @param {any} b */
+  function join(a, b) {
+    var fa = flat(a),
+      fb = flat(b),
+      ca = a.ct || {},
+      cb = b.ct || {},
+      val = {},
+      ct = {},
+      out = {},
+      done = {};
+    Object.keys(fa)
+      .concat(Object.keys(fb), Object.keys(ca), Object.keys(cb))
+      .forEach(function (p) {
+        if (done[p]) return;
+        done[p] = 1;
+        var va = fa[p],
+          vb = fb[p];
+        if (va === "{" || vb === "{") {
+          val[p] = "{"; /* (a map stays a map: its entries are what changes) */
+          return;
+        }
+        var sa = ca[p] || "",
+          sb = cb[p] || "",
+          takeA = sa > sb || (sa === sb && (vb === undefined || (va !== undefined && va >= vb)));
+        if ((takeA ? va : vb) !== undefined) val[p] = takeA ? va : vb;
+        if (takeA ? sa : sb) ct[p] = takeA ? sa : sb;
+      });
+    Object.keys(val).forEach(function (p) {
+      if (p.indexOf(SEP) < 0) out[p] = val[p] === "{" ? {} : JSON.parse(val[p]);
+    });
+    Object.keys(val).forEach(function (p) {
+      var i = p.indexOf(SEP);
+      if (i < 0) return;
+      var k = p.slice(0, i);
+      if (out[k] === undefined) out[k] = {};
+      if (isMap(out[k])) out[k][p.slice(i + SEP.length)] = JSON.parse(val[p]);
+    });
+    if (Object.keys(ct).length) out.ct = ct;
+    return out;
+  }
+  W.syncJoin = join; /* (for the tests) */
+  function canonTrip(st) {
+    var o = Object.assign({}, st);
+    delete o.tripId;
+    VIEW_KEYS.forEach(function (k) {
+      delete o[k];
+    });
+    return canon(o);
+  }
+  W.syncCanon = canonTrip;
+  /** every path that differs between two flat trips (not the maps' own marks, not what is never stamped)
+      @param {Record<string, string>} x @param {Record<string, string>} y @returns {string[]} */
+  function differ(x, y) {
+    var out = [],
+      done = {};
+    Object.keys(x)
+      .concat(Object.keys(y))
+      .forEach(function (p) {
+        if (done[p]) return;
+        done[p] = 1;
+        if (x[p] !== y[p] && x[p] !== "{" && y[p] !== "{") out.push(p);
+      });
+    return out;
+  }
+  /* how the trip stood at the last save: what differs at the next one is what changed */
+  var appliedAt = 0 /* when another device's version was last put in place here */,
+    snapF = /** @type {Record<string, string> | null} */ (null),
+    dirty = false,
+    noting = false;
+  function resnap() {
+    snapF = W.readOnly ? null : flat(S);
+    seeStamps(S.ct);
+  }
+  /* at every save: what changed since the last one; a person's changes get their stamp, kept with the change itself
+     (the trip is saved again at once with them), so a change made with no signal, or a moment before the app is
+     closed, is already a change with its time when the app next opens */
+  function note() {
+    if (W.readOnly || noting) return;
+    var cur = flat(S);
+    if (!snapF) {
+      snapF = cur;
+      seeStamps(S.ct);
+      return;
+    }
+    var d = differ(snapF, cur),
+      pw = W.planWrote || {};
+    W.planWrote = {};
+    if (!d.length) return;
+    /* (what changes by itself after another device's version was put in place, the planner going over the days
+       again, is not a person's change: only a tap after that makes one. Two phones whose planners disagree about a
+       slot would otherwise send it back and forth) */
+    var person = Date.now() - touched < 120000 && touched >= appliedAt,
+      any = false;
+    snapF = cur;
+    if (!person) return;
+    dirty = true;
+    d.forEach(function (p) {
+      var k = keyOf(p);
+      if (NOSTAMP[k]) return;
+      /* (a pick the planner itself wrote or took off since the last save is not a person's change) */
+      if (k === "picks") {
+        var j = p.slice(k.length + SEP.length);
+        if (j in pw && (pw[j] == null ? cur[p] === undefined : cur[p] === canon(pw[j]))) return;
+      }
+      (S.ct || (S.ct = {}))[p] = stampNow();
+      any = true;
+    });
+    if (any) {
+      noting = true;
+      try {
+        W.save();
+      } finally {
+        noting = false;
+      }
+    }
+  }
+  /* a trip kept by v176 with changes the account had not got (idx[id].unsent, with the version both sides had as
+     idx[id].base): those changes get their stamps now, timed when the trip was last changed */
+  var upgraded = false;
+  function upgrade() {
+    if (upgraded) return;
+    upgraded = true;
+    var any = false;
+    Object.keys(idx).forEach(function (id) {
+      var m = idx[id],
+        cur = id === S.tripId;
+      if (!m || !m.base) return;
+      var st = cur ? S : m.state;
+      if (st && isMap(m.base)) {
+        var t = enc(m.updated || Date.now()) + dev;
+        differ(flat(m.base), flat(st)).forEach(function (p) {
+          if (NOSTAMP[keyOf(p)]) return;
+          var ct = st.ct || (st.ct = {});
+          if (!ct[p]) ct[p] = t;
+        });
+        if (cur) seeStamps(S.ct);
+      }
+      any = true; /* (m.base stays until the account has the trip: it tells this device's changes from an older copy's, remoteState) */
+    });
+    if (any) {
+      noting = true;
+      try {
+        W.save();
+      } finally {
+        noting = false;
+      }
+      saveIdx();
+    }
+  }
   /* only changes you make get sent: the planner filling in picks on its own is redone on every device anyway,
      and sending those would overwrite what you just changed somewhere else */
   var touched = 0;
@@ -391,6 +605,7 @@
       updated: m.updated || Date.now(),
       dev: dev,
       state: state,
+      sv: 2 /* (the state carries the times of its changes, state.ct: see join) */,
       cc: cc,
       legs: isCur ? tripLegs() : {}
     });
@@ -400,21 +615,31 @@
     /* the example never goes to your account, whichever way it got into your list */
     if (id === S.tripId ? S.example : idx[id] && idx[id].state && idx[id].state.example) return;
     enqueue("trip/" + id, function () {
-      var b = tripBody(id);
-      if (!b) return;
-      if (JSON.stringify(b).length > 250000) delete b.cc;
+      /* what the account holds is read first and joined in, so a save another phone made a moment ago is in what goes
+         back (the write replaces the whole document) */
       return col
         .doc(id)
-        .set(b)
-        .then(function () {
-          /* what the account has now is what the two sides agree on: another device putting a choice back to how it
-             was is then a change of theirs, not one to undo with ours */
-          if (id === S.tripId && b.state) base = b.state;
-          if (idx[id] && idx[id].unsent) {
-            delete idx[id].unsent;
-            delete idx[id].base;
-            saveIdx();
+        .get()
+        .then(function (snap) {
+          var r = snap && snap.exists ? snap.data() : null;
+          if (r && r.state && known[id] !== docSig(r)) {
+            known[id] = docSig(r);
+            applyRemote(id, r, true);
           }
+          var b = tripBody(id);
+          if (!b) return;
+          if (JSON.stringify(b).length > 250000) delete b.cc;
+          return col
+            .doc(id)
+            .set(b)
+            .then(function () {
+              known[id] = docSig(b);
+              if (idx[id] && (idx[id].unsent || idx[id].base)) {
+                delete idx[id].unsent;
+                delete idx[id].base;
+                saveIdx();
+              }
+            });
         });
     });
   }
@@ -491,48 +716,103 @@
         if (!c || (c.v || 0) < (legs[k].v || 0)) W.C.legs[k] = clone(legs[k]);
       });
   }
-  function applyRemote(id, b) {
+  /* which version of a trip's document this is (so the same one is not joined twice) */
+  var known = /** @type {Record<string, string>} */ ({}),
+    wantPush = /** @type {Record<string, number>} */ ({});
+  function docSig(b) {
+    return (b.sv || 0) + ":" + (b.updated || 0) + ":" + (b.dev || "") + ":" + hash(JSON.stringify(b.state));
+  }
+  /* The account's copy as a trip with the times of its changes. One written by v177 or later carries them. One from
+     before (or from a phone still running the older app) does not: whatever it holds that differs from this
+     device's copy counts as changed when that document was written, so a newer change here stays and an older one
+     gives way, as it did then. When this device still knows the version both sides had (base, kept by v176 with
+     changes not yet sent), only what differs from that is the other side's change. */
+  function remoteState(b, local, base) {
+    if (b.sv === 2) return b.state;
+    var out = clone(b.state),
+      t = enc(b.updated || 0) + String(b.dev || ""),
+      ct = {};
+    differ(flat(isMap(base) ? base : local), flat(b.state)).forEach(function (p) {
+      if (!NOSTAMP[keyOf(p)]) ct[p] = t;
+    });
+    out.ct = ct;
+    return out;
+  }
+  /* The account's copy of a trip meets this device's: the two are joined (join). What the join adds here is put in
+     place; what this device has and the account lacks goes back to it. quiet: called from the write itself, which
+     sends the joined trip anyway. */
+  function applyRemote(id, b, quiet) {
     if (b.cc)
       Object.keys(b.cc).forEach(function (n) {
         if (!W.C.country[n]) W.C.country[n] = clone(b.cc[n]);
       });
     takeLegs(b.legs);
+    var was = idx[id] || {},
+      own = b.sv === 2 ? canonTrip(b.state) : "",
+      m,
+      back;
     if (W.readOnly && ro && id === ro.S.tripId) {
       /* your own trip changed elsewhere while you look at a shared one */
-      ro.S = clone(b.state);
+      m = join(ro.S, remoteState(b, ro.S, was.base));
+      back = canonTrip(m) !== own;
+      ro.S = m;
       ro.S.tripId = id;
-      idx[id] = { name: b.name, updated: b.updated };
+      idx[id] = { name: b.name, updated: b.updated, seen: 1 };
+      if (was.base) idx[id].base = was.base; /* (until the account has the joined trip) */
+      if (back) idx[id].unsent = 1;
       saveIdx();
       return;
     }
     if (id === S.tripId && !W.readOnly) {
-      /* changes you made here since the two last agreed (only yours: the planner filling a day by itself is redone anyway) */
-      var was = idx[id],
-        held = was && was.unsent && was.base,
-        mp = touched > appliedAt || held ? merge3(held ? was.base : base, syncable(S), b.state) : null,
-        back = mp && mp.changed;
-      replaceState(mp ? mp.state : b.state);
-      S.tripId = id;
-      idx[id] = { name: b.name, updated: back ? Date.now() : b.updated };
-      /* (what was joined is still to go: until it has, the account's version is the one both sides had) */
-      if (back) {
-        idx[id].unsent = 1;
-        idx[id].base = clone(b.state);
+      note(); /* (what was changed here a moment ago has its stamp before the two are joined) */
+      var local = syncable(S);
+      m = join(local, remoteState(b, local, was.base));
+      var cm = canonTrip(m),
+        here = cm !== canonTrip(local);
+      back = cm !== own;
+      if (here) {
+        replaceState(m);
+        S.tripId = id;
+        appliedAt = Date.now();
       }
+      idx[id] = { name: here ? b.name : was.name || b.name, updated: back ? Math.max(Date.now(), b.updated || 0) : b.updated, seen: 1 };
+      if (was.base) idx[id].base = was.base; /* (until the account has the joined trip) */
+      /* (what this device has and the account lacks is still to go) */
+      if (back) idx[id].unsent = 1;
       saveIdx();
-      baseline();
-      fetched = {};
-      if (back && firstSnap) pushTrip(id); /* what was joined goes back to the account */
-      W.isExample = false;
-      delete W.S.example;
-      W.changed();
-      pullPools();
+      if (here) {
+        baseline();
+        fetched = {};
+        W.isExample = false;
+        delete W.S.example;
+        W.changed();
+        pullPools();
+      }
+      if (back && !quiet) {
+        if (firstSnap) pushTrip(id);
+        else wantPush[id] = 1;
+      }
     } else {
-      idx[id] = { name: b.name, updated: b.updated, state: clone(b.state) };
+      if (was.state) {
+        m = join(was.state, remoteState(b, was.state, was.base));
+        m.tripId = id;
+        back = canonTrip(m) !== own;
+      } else {
+        m = clone(b.state);
+        back = false;
+      }
+      idx[id] = { name: b.name, updated: back ? Math.max(Date.now(), b.updated || 0) : b.updated, state: m, seen: 1 };
+      if (was.base) idx[id].base = was.base; /* (until the account has the joined trip) */
+      if (back) idx[id].unsent = 1;
       saveIdx();
+      if (back && !quiet) {
+        if (firstSnap) pushTrip(id);
+        else wantPush[id] = 1;
+      }
     }
   }
   function onTrips(snap) {
+    upgrade();
     snap.docs.forEach(function (d) {
       var b = d.data();
       if (!b || !b.state) return;
@@ -542,8 +822,12 @@
         loc.seen = 1; /* (in the account: if it is ever missing from there, it was deleted on another device) */
         saveIdx();
       }
-      /* newer than this device's copy: another device changed it (our own writes carry our own time, so they never look newer) */
-      if (!loc || (b.updated || 0) > (loc.updated || 0)) applyRemote(d.id, b);
+      /* a version of it this device has not met: the two copies are joined (the one this device wrote itself, coming
+         back, is known) */
+      if (known[d.id] !== docSig(b)) {
+        known[d.id] = docSig(b);
+        applyRemote(d.id, b);
+      }
     });
     snap.docChanges().forEach(function (c) {
       if (c.type !== "removed") return;
@@ -586,7 +870,8 @@
           return;
         }
         if (idx[id].gone) return;
-        if (!remote[id] || (idx[id].updated || 0) > remote[id].updated) pushTrip(id);
+        if (!remote[id] || wantPush[id] || idx[id].unsent) pushTrip(id);
+        delete wantPush[id];
       });
       pullPools();
     }
@@ -662,6 +947,7 @@
       if (W.readOnly.edit && W.coPush) W.coPush();
       return;
     }
+    note();
     clearTimeout(tickT);
     tickT = setTimeout(tick, 1500);
   };
@@ -684,37 +970,22 @@
   function tick() {
     tickT = null;
     if (W.readOnly) return;
-    var sig = hash(JSON.stringify(syncable(S))),
-      rec = idx[String(S.tripId)];
-    /* (the first look after opening: what the trip was when this phone last looked, kept with the trip, so a change
-       made in the first moments after opening, before there is any look, still counts as a change: with no signal
-       it would otherwise be taken for how the trip always was, and never sent) */
-    if (lastSig == null) lastSig = rec && rec.sig != null ? rec.sig : sig;
-    if (sig !== lastSig) {
-      lastSig = sig;
-      if (Date.now() - touched < 120000 && touched > appliedAt) {
-        /* (you changed the example: it is your trip now, sent and kept like any other) */
-        W.isExample = false;
-        delete S.example;
-        var m = meta();
-        delete m.gone; /* (deleted on another device, then changed here: wanted after all) */
-        m.updated = Date.now();
-        m.name = W.tripName();
-        /* changes the account hasn't got yet, kept with the last version both had, so they are joined with another
-           device's later ones even if this phone is offline and the app is closed before they go (v176) */
-        if (!m.unsent) {
-          m.unsent = 1;
-          m.base = clone(base);
-        }
-        saveIdx();
-        if (firstSnap) pushTrip(S.tripId);
-        pushShare();
-      }
-    }
-    rec = idx[String(S.tripId)];
-    if (rec && rec.sig !== lastSig) {
-      rec.sig = lastSig;
+    upgrade();
+    note();
+    if (dirty) {
+      dirty = false;
+      /* (you changed the example: it is your trip now, sent and kept like any other) */
+      W.isExample = false;
+      delete S.example;
+      var m = meta();
+      delete m.gone; /* (deleted on another device, then changed here: wanted after all) */
+      m.updated = Date.now();
+      m.name = W.tripName();
+      /* (marked until the account has it: with no signal, or the app closed first, it goes when the account next answers) */
+      m.unsent = 1;
       saveIdx();
+      if (firstSnap) pushTrip(S.tripId);
+      pushShare();
     }
     lockShare();
     if (firstSnap) {
@@ -1220,6 +1491,8 @@
       ro = null;
     }
     baseline();
+    /* (your own trip was joined with the account's while you were looking at the shared one: what it still lacks goes now) */
+    if (firstSnap && idx[String(S.tripId)] && idx[String(S.tripId)].unsent) pushTrip(S.tripId);
     W.changed();
   }
 
@@ -1407,7 +1680,7 @@
         "</div>" +
         W.simpleSwitch() +
         W.themeSwitch() +
-        (W.P && W.P.stops && W.P.stops.length
+        (W.P && W.P.stops && W.P.stops.length && W.P.p && W.P.p.kid
           ? '<button type="button" class="tm-set" data-sync="kids">' +
             W.icon("star", 2.1) +
             "" +

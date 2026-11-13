@@ -117,6 +117,7 @@ interface Validators { stats: { dropped: number; cleared: number; farPins: numbe
   pin(lat: unknown, lng: unknown): { lat: number; lng: number } | null; pinNear(lat: unknown, lng: unknown, center: LatLng | null | undefined, km?: number): { lat: number; lng: number } | null;
   /** a name that is not one real place (a group of places, two in one, a meal as a thing to do) */
   vague(n: string, food: boolean): boolean;
+  trainRide(n: string): boolean;
   spot(x: unknown, center: LatLng | null): Spot | null; food(x: unknown, center: LatLng | null, dflt?: { meal?: Meal; pic?: string }): Food | null; city(c: unknown): BuiltCity | null; stayArea(x: unknown, center: LatLng | null): StayArea | null;
   lodging(x: unknown, center: LatLng | null, tiers: readonly Tier[], tier?: Tier): Lodging | null; bkStay(a: unknown, center: LatLng | null, nights: number): LiveLodging | null; transit(t: unknown): Transit | null; hours(h: unknown): Hours | null; beach(b: unknown): BeachFacts; status(x: unknown): "open" | "closed" | "unsure"; lead(x: unknown): number;
   tz(x: unknown): string; money(x: unknown): number | null; currency(x: unknown, dflt?: string): string; range(y: unknown): { s: number; r: number } | null; list<T extends { n?: string; name?: string }>(arr: unknown, fn: (x: any) => T | null): T[] }
@@ -500,6 +501,10 @@ interface Waypoint {
   stayLive: (st: Stay | undefined, s: Stop, P: Plan) => Stay["live"] | null;
   /** the latest a stop in this part of the day may start for this group (lib/times.js) */
   slotCap: (slot: string, p: Party) => number | undefined;
+  isDayOut: (it: any, slot?: string) => boolean;
+  RULES: Record<number, string>;
+  WHY: Record<string, string>;
+  checkPlan: { (P?: Plan, opts?: { deep?: boolean; held?: { key: string; name: string }[] }): { day: number; slot: string; rule: number; what: string }[]; table: () => string };
   /** the day's photo, picked with its own places in mind (lib/photos.js) */
   dayPhoto: (day: Day) => Photo | null;
   lodgeSig: any;
@@ -577,6 +582,9 @@ interface Waypoint {
   renderBar: (P?: any) => void;
   /** join this device's changes since the two last agreed (base) with another device's version of the trip */
   merge3: (base: any, mine: any, theirs: any) => { state: any; changed: boolean };
+  syncJoin: (a: any, b: any) => any;
+  planWrote?: Record<string, string | null>;
+  syncCanon: (st: any) => string;
   /** how restaurant requests state the group's food needs ("" when there are none) */
   eatAsk: () => string;
   /** mark a list of places with how each fits the food needs (from the answer's fit / fitw) */

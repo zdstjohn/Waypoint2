@@ -76,6 +76,77 @@
     )
   };
   var ICON_REROLL = W.icon("reroll", 2.5);
+  /* A stop card's buttons (Menu, Swap) sit behind one "more" button on a phone, in a small menu that opens under it
+     (the owner's pick, v178: a card a row shorter, so a day needs less scrolling). Wider screens show the buttons as
+     before; the "more" button is hidden there. One menu open at a time (actsOpen: its slot's key); it closes on any
+     choice in it, a tap elsewhere, Escape, or a new day. */
+  var actsOpen = /** @type {string | null} */ (null);
+  function actsWrap(key, name, inner) {
+    if (!inner) return "";
+    var on = actsOpen === key;
+    return (
+      '<span class="acts-w' +
+      (on ? " open" : "") +
+      '" data-k="' +
+      esc(key) +
+      '"><button type="button" class="more-btn" data-acts="' +
+      esc(key) +
+      '" aria-haspopup="true" aria-expanded="' +
+      on +
+      '" aria-label="More for ' +
+      esc(name) +
+      '" title="More">' +
+      W.icon("more", 2.2) +
+      '</button><span class="sl-acts">' +
+      inner +
+      "</span></span>"
+    );
+  }
+  /* open (or close, with null) one card's menu without drawing the day again */
+  function actsShow(key) {
+    actsOpen = key;
+    document.querySelectorAll("#viewTrip .acts-w").forEach(function (w) {
+      var el = /** @type {HTMLElement} */ (w),
+        on = el.dataset.k === key,
+        bt = el.querySelector(".more-btn"),
+        card = el.closest(".slot");
+      el.classList.toggle("open", on);
+      if (bt) bt.setAttribute("aria-expanded", String(on));
+      if (card) card.classList.toggle("acts-on", on);
+    });
+  }
+  /* a tap anywhere but the open menu's own "more" button closes it (a choice in it closes it, then does its thing) */
+  document.addEventListener(
+    "click",
+    function (e) {
+      if (actsOpen == null) return;
+      var t = /** @type {HTMLElement} */ (e.target),
+        w = t && t.closest ? t.closest(".acts-w") : null;
+      if (!w || t.closest(".sl-acts")) {
+        var k = actsOpen,
+          kb = /** @type {MouseEvent} */ (e).detail === 0 && !!(w && t.closest(".sl-acts"));
+        actsShow(null);
+        /* (a choice made from the keyboard: once its redraw is done, the keyboard is on the card's "more" button, unless
+           what it opened took it, as a sheet does) */
+        if (kb)
+          W.fxAfter(function () {
+            var a = document.activeElement;
+            if (a && a !== document.body && !a.closest(".acts-w")) return;
+            var m = /** @type {HTMLElement | null} */ (
+              document.querySelector('#viewTrip .acts-w[data-k="' + CSS.escape(k || "") + '"] .more-btn')
+            );
+            if (m) m.focus({ preventScroll: true });
+          });
+      }
+    },
+    true
+  );
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape" || actsOpen == null) return;
+    var bt = /** @type {HTMLElement | null} */ (document.querySelector("#viewTrip .acts-w.open .more-btn"));
+    actsShow(null);
+    if (bt) bt.focus();
+  });
 
   /* (kept by the trip's start, the day and the format: writing a date out the phone's way is slow, and the day strip
      writes every day of the trip again on each draw) */
@@ -961,6 +1032,7 @@
           list +=
             '<article class="slot sk food slim' +
             (ph ? " haspic" : "") +
+            (actsOpen === x.key ? " acts-on" : "") +
             (R && R.skip ? " skipped" : "") +
             liveCls +
             '" data-slotkey="' +
@@ -985,15 +1057,14 @@
             '<div class="slim-a">' +
             (ph ? '<div class="thumb sm">' + ph + "</div>" : "") +
             booked +
-            '<span class="sl-acts">' +
-            W.menuBtn(x.key) +
-            (W.canEdit() ? rr : "") +
-            "</span></div></article>";
+            actsWrap(x.key, it.n, W.menuBtn(x.key) + (W.canEdit() ? rr : "")) +
+            "</div></article>";
         } else {
           var th = ph ? '<div class="thumb">' + ph + "</div>" : "";
           list +=
             '<article class="slot sk' +
             (ph ? " haspic" : "") +
+            (actsOpen === x.key ? " acts-on" : "") +
             (R && R.skip ? " skipped" : "") +
             liveCls +
             '" data-slotkey="' +
@@ -1019,9 +1090,7 @@
             (main || booked ? '<div class="slot-act">' + booked + main + "</div>" : "") +
             (notes ? '<div class="slot-notes">' + notes + "</div>" : "") +
             "</div>" +
-            (th || W.canEdit()
-              ? '<div class="slot-btns">' + th + (W.canEdit() ? '<span class="sl-acts">' + rr + "</span>" : "") + "</div>"
-              : "") +
+            (th || W.canEdit() ? '<div class="slot-btns">' + th + (W.canEdit() ? actsWrap(x.key, it.n, rr) : "") + "</div>" : "") +
             "</article>";
         }
       } else if (R && R.skip && !swap) {
@@ -1042,7 +1111,7 @@
           '"><span class="num" style="background:var(--soft)"></span><div class="slot-body"><span class="sl-l">' +
           tm +
           '<span class="nm muted">' +
-          (x.rest ? "Rest, pool or playground" : x.free ? "Left free" : "Free time") +
+          (x.rest ? (P.p.kid ? "Rest, pool or playground" : "Rest or a swim") : x.free ? "Left free" : "Free time") +
           '</span></span><span class="when">' +
           esc(label) +
           (x.free && !W.readOnly ? " · swap to add something" : "") +
@@ -1917,6 +1986,16 @@
     if (!b || b.closest("#tripbar")) return;
     var d = b.dataset,
       P = W.P;
+    if (d.acts) {
+      actsShow(actsOpen === d.acts ? null : d.acts);
+      /* (from the keyboard, into the menu; a tap leaves the focus where it was) */
+      var first =
+        actsOpen && e.detail === 0
+          ? /** @type {HTMLElement | null} */ (b.parentElement && b.parentElement.querySelector(".sl-acts button"))
+          : null;
+      if (first) first.focus();
+      return;
+    }
     /* a shared trip: look around, change nothing */
     /* a shared trip: looking around only; planning together adds swapping stops, rest days, free time and the way you travel */
     var coOk =
@@ -1992,6 +2071,7 @@
       if (nd === S.day) return;
       W.fxFlip("day", nd > S.day ? 1 : -1, function () {
         S.day = nd;
+        actsOpen = null;
         swapOpen = null;
         swapAll = false;
         swapPeek = null;

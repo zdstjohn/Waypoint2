@@ -5,14 +5,14 @@
    Day bag: Today lists what to take out for the day, read off its stops (a beach, a church, a market, a travel day),
    each line saying which stop asked; ticks are kept with the trip; while the trip is on, the screen is kept on (the wake
    lock is asked for on Today, let go elsewhere or when switched off). */
-const { launch, open, exampleTrip } = require('../lib/page'); const mkdb = require('../lib/db');
+const { launch, open, exampleTrip, reveal } = require('../lib/page'); const mkdb = require('../lib/db');
 exports.run = async t => {
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(pg);
   const cityNames = () => pg.evaluate(() => { const d = W.P.days[W.S.day - 1]; return W.P.days.filter(x => x.city === d.city).reduce((a, x) => a.concat((x.slots || []).filter(y => y.item).map(y => y.item.n)), []); });
 
   /* 1. the swap panel: "Not for us" on the morning's stop */
   const am0 = await pg.evaluate(() => { const d = W.P.days[W.S.day - 1], x = d.slots.find(y => y.slot === 'am'); return x.item.n; });
-  await pg.click('#viewTrip [data-reroll="am"]'); await pg.waitForTimeout(500);
+  await reveal(pg, '#viewTrip [data-reroll="am"]'); await pg.click('#viewTrip [data-reroll="am"]'); await pg.waitForTimeout(500);
   await pg.click('#viewTrip .swap .sw-no'); await pg.waitForTimeout(700);
   const r1 = await pg.evaluate(name => {
     const d = W.P.days[W.S.day - 1], x = d.slots.find(y => y.slot === 'am');

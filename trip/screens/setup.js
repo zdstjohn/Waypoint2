@@ -1085,7 +1085,16 @@
       "What do you eat?",
       eatSum ? eatSum.charAt(0).toUpperCase() + eatSum.slice(1) : S.eatNone ? "Nothing special" : "Allergies, diets, favorites",
       eatFold("al", "Allergies", W.EAT_AL, eat.al || [], "Tap any that anyone in the group has.") +
-        eatFold("di", "Diet", W.EAT_DI, eat.di || [], "") +
+        eatFold(
+          "di",
+          "Diet",
+          /* picky kids only when children come (or it was picked already) */
+          W.EAT_DI.filter(function (x) {
+            return x[0] !== "plain" || W.party().kid || (eat.di || []).indexOf("plain") > -1;
+          }),
+          eat.di || [],
+          ""
+        ) +
         '<label class="fld" for="eatLove"><span>Food you love</span><input class="field" id="eatLove" data-eat="love" maxlength="120" value="' +
         esc(eat.love || "") +
         '" placeholder="Grilled fish, pizza, mezze" autocomplete="off"></label>' +

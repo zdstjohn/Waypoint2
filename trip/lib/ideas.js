@@ -524,7 +524,9 @@
           n0 +
           " places to eat in " +
           where +
-          ": the best-loved local classics, casual and family-friendly spots, a couple of special dinners, and at least " +
+          ": the best-loved local classics, casual " +
+          (W.party().kid ? "and family-friendly " : "") +
+          "spots, a couple of special dinners, and at least " +
           Math.max(4, Math.round(n0 / 4)) +
           " breakfast cafés or bakeries, spread across the city or region." +
           (W.focus() === "gems" ? " Favor the places locals go." : ""),
@@ -960,7 +962,9 @@
     return (
       "place = the exact name of the real place, as on its sign or on a map (for an outing such as a stroll, a tasting or a cruise, the real place where it happens, e.g. 'Piazza Duomo' or 'Marina Grande'); never an invented or descriptive name. n may be descriptive, place may not. pic = the picture that fits best, one of: " +
       W.SPOT_PICS.join(", ") +
-      ". s = best time: am, pm, eve, or any (a full-day outing). dur = the recommended time to spend there for these travelers (allow for children's ages), e.g. '45m', '1-2h', 'half day' or 'full day'. ticket = 'Free', or price and whether to book ahead, e.g. '€18, book ahead'. " +
+      ". s = best time: am, pm, eve, or any (a full-day outing). dur = the recommended time to spend there for these travelers" +
+      (W.party().kid ? " (allow for children's ages)" : "") +
+      ", e.g. '45m', '1-2h', 'half day' or 'full day'. ticket = 'Free', or price and whether to book ahead, e.g. '€18, book ahead'. " +
       BOOKRULE +
       " Use accurate coordinates." +
       TAGRULE +
@@ -1049,7 +1053,11 @@
         city +
         ", " +
         country +
-        " for a rainy or too-hot afternoon: aquariums, science and children's museums, covered markets, indoor play centres, swimming pools, planetariums, cinemas, big bookshops with a cafe, covered arcades. Real places only, each one open to walk-in visitors most days; never invent places. " +
+        " for a rainy or too-hot afternoon: " +
+        (W.party().kid
+          ? "aquariums, science and children's museums, covered markets, indoor play centres, swimming pools,"
+          : "museums, galleries, aquariums, covered markets, food halls, spas and pools,") +
+        " planetariums, cinemas, big bookshops with a cafe, covered arcades. Real places only, each one open to walk-in visitors most days; never invent places. " +
         who() +
         " Do not repeat any of these: " +
         cur.spots

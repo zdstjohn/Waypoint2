@@ -38,6 +38,21 @@
     if (!food && /^(evening |late |long |early )?(dinner|lunch|breakfast|brunch)\s+(in|at|on|by|near|along)\b/i.test(s)) return true;
     return false;
   };
+  /** A train journey offered as a thing to do ("Scenic train ride to Sóller", "Bernina Express", "A day on the Jacobite
+   *  steam train"): trains are for moving between towns, never a day's outing. A place about trains is still a place
+   *  (a railway museum, a grand station, a viaduct to look at), and so is a funicular or a cable car up a hill.
+   *  @param {string} n */
+  V.trainRide = function (n) {
+    var s = String(n || "");
+    if (!/\b(trains?|railways?|railroad|rail|express)\b/i.test(s)) return false;
+    if (
+      /\b(museum|museo|mus[ée]e|station|market|bridge|viaduct|park|memorial|hotel|caf[eé]|restaurant|bar|pub|cemetery|trail|path|greenway)\b/i.test(
+        s
+      )
+    )
+      return false;
+    return /\b(trains?|railways?|railroad|rail)\b/i.test(s) || /\bexpress\b.*\b(ride|journey|trip|line)\b/i.test(s);
+  };
   /** @returns {number|null} */
   V.num = function (x) {
     var n = typeof x === "number" ? x : parseFloat(String(x));
@@ -213,7 +228,7 @@
     }
     var x = /** @type {Record<string, any>} */ (x0);
     var n = V.name(x.n);
-    if (!n || V.vague(n, false)) {
+    if (!n || V.vague(n, false) || V.trainRide(n)) {
       V.stats.dropped++;
       return null;
     }

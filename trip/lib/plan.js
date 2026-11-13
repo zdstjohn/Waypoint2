@@ -487,15 +487,36 @@
         }, 0) / pts.length
     };
   }
+  /* Rule 4, a day stays in one area, for one more stop on a day (lib/rules.js checks the finished day the same way).
+     The morning, lunch and the afternoon lie within four day radii of each other; breakfast, dinner and the evening
+     are near the stay, or (unless the day is a day out) in the day's area. Only a day out goes farther from the stay
+     than the town's ideas usually are. ctx.core: the planner's own pinned morning, lunch and afternoon stops already
+     on the day; ctx.away: the day is a day trip or a day out. */
+  function areaOK(item, slot, ctx) {
+    if (item.lat == null || item.lng == null) return true;
+    var lim = 4 * ctx.geo.R,
+      core = ctx.core || [],
+      hk = ctx.home.lat != null && ctx.home.lng != null ? W.km(ctx.home, item) : null;
+    if (slot === "am" || slot === "lunch" || slot === "pm") {
+      for (var i = 0; i < core.length; i++) if ((W.km(core[i], item) || 0) > lim) return false;
+      var out = ctx.away || (slot === "am" && ctx.allowFull && W.isDayOut(item, slot));
+      return out || hk == null || hk <= Math.max(6 * ctx.geo.R, 2 * ctx.geo.med);
+    }
+    if (hk == null || hk <= lim) return true;
+    if (ctx.away) return false;
+    for (var j = 0; j < core.length; j++) if ((W.km(core[j], item) || 0) <= lim) return true;
+    return false;
+  }
   /* ctx: { home, prev (point before this slot), pts (other stops already on this day), geo, allowFull } */
   function geoPenalty(item, slot, ctx, strict) {
     /* (a pin missing its other half counts as no pin) */
     if (item.lat == null || item.lng == null || ctx.home.lat == null || ctx.home.lng == null) return 2;
+    if (!areaOK(item, slot, ctx)) return null;
     var R = ctx.geo.R,
       food = W.isFood(slot);
     if (!ctx.pts.length) {
       var dh = W.km(ctx.home, item) || 0; /* (both pins are there, checked above) */
-      if (item.s === "any" && slot === "am") return Math.min(8, (dh / 40) * 3); /* a day trip: allowed to go far */
+      if (slot === "am" && W.isDayOut(item, slot)) return Math.min(8, (dh / 40) * 3); /* a day trip: allowed to go far */
       if (strict && dh > Math.max(3 * R, ctx.geo.med * 1.5)) return null;
       if (dh > Math.max(6 * R, ctx.geo.med * 2)) return null; /* never a cross-region trek for one slot */
       /* arrival, travel and departure days stay close to your lodging */
@@ -515,6 +536,7 @@
     if (item.s === "any" && slot === "am" && !ctx.allowFull) return null;
     if (W.gone(item)) return null; /* closed for good, or the check found no such place */
     if (W.V.vague(item.n, W.isFood(slot))) return null; /* not one real place (V.vague): from a list kept from before */
+    if (!W.isFood(slot) && W.V.trainRide(item.n)) return null; /* a train journey is not a thing to do (rule 5) */
     /* the group's food needs: a place that can't feed them is never planned; one that clearly can is a little ahead */
     var eatF = W.isFood(slot) && W.eatFit ? W.eatFit(item) : "",
       /* what you love counts for more than a good rating (a place for it: +7; one with some of it: +3) */
@@ -529,6 +551,7 @@
         return /relax|beach|nature|family|wellness|scenic/.test(t);
       });
       if (!easy || (W.km(ctx.home, item) || 0) > Math.max(1.5, ctx.geo.R)) return null;
+      if (W.classify(item, false).intensity >= 2) return null; /* (a boat tour or a play park is no rest) */
     }
     /* shut that day of the week */
     if (item.hours && ctx.wd != null && item.hours.closed.indexOf(ctx.wd) > -1) return null;
@@ -681,6 +704,15 @@
     }
     return u;
   }
+  /** a copy of a stop's map to try things on (bare: an empty one), knowing the same town words
+      @param {Record<string, any>} used @param {boolean} [bare] */
+  function likeUsed(used, bare) {
+    /** @type {Record<string, any>} */ var u = {};
+    try {
+      Object.defineProperty(u, "_town", { value: used._town || {}, enumerable: false });
+    } catch (e) {}
+    return bare ? u : Object.assign(u, used);
+  }
   function isUsed(used, it) {
     return keysOf(used, it).some(function (k) {
       return !!used[k];
@@ -700,6 +732,18 @@
     keysOf(used, it).forEach(function (q) {
       if (used[q] === k) delete used[q];
     });
+  }
+  /** booked: ticked as booked on Prepare, or matched by a booking of yours for that day. A booked place is yours like
+      one you chose by hand: the planner never moves it or takes it off. @param {Day} d @param {any} it */
+  function booked(d, it) {
+    var S = W.S,
+      t = S.booked ? S.booked["item|" + W.cityKey(d.country, d.city) + "|" + W.norm(it.n)] : undefined;
+    if (t === 1) return true;
+    return t !== 0 && !!(S.bookings && S.bookings.length && W.bookingFor && W.bookingFor(it, d));
+  }
+  /** what the owner put there by hand (rule 9): the planner works around it @param {Day} d @param {SlotEntry} x */
+  function held(d, x) {
+    return !!mine()[x.key] || (!!x.item && booked(d, x.item));
   }
   function byName(list, n) {
     var k = W.norm(n);
@@ -794,6 +838,29 @@
     }
     return null;
   }
+  /* every idea that could go in a slot, best first: the ones close by in the order choose() would take them, then
+     the ones a little farther (for the fit pass, which tries each against the day's clock until one fits) */
+  function ranked(pool, slot, used, seen, ctx, p) {
+    var list = W.isFood(slot) ? pool.food || [] : pool.spots || [],
+      out = [],
+      have = {};
+    [true, false].forEach(function (strict) {
+      var sc = [];
+      list.forEach(function (it, i) {
+        var k = W.norm(it.n);
+        if (have[k] || isUsed(used, it) || seen.indexOf(k) > -1) return;
+        var v = score(it, i, list.length, slot, ctx, p, strict);
+        if (v != null) sc.push([v, i, it]);
+      });
+      sc.sort(function (a, b) {
+        return b[0] - a[0] || a[1] - b[1];
+      }).forEach(function (q) {
+        have[W.norm(q[2].n)] = 1;
+        out.push(q[2]);
+      });
+    });
+    return out;
+  }
   /* geographic context for one slot, from the other stops already on that day */
   var CUR = null; /* the plan being built or repaired, so a slot's context can read the day's clock */
   function ctxFor(day, x, home, geo, allowFull) {
@@ -801,9 +868,14 @@
       prev = home,
       idx = day.slots.indexOf(x),
       big = false;
-    var afterFull = day.fullDay && (x.slot === "dinner" || x.slot === "eve");
+    var afterFull = day.fullDay && (x.slot === "dinner" || x.slot === "eve"),
+      core = [],
+      away = !!day.trip;
     day.slots.forEach(function (o, i) {
       if (o === x || !o.item) return;
+      if (o.slot === "am" && W.isDayOut(o.item, "am")) away = true;
+      if ((o.slot === "am" || o.slot === "lunch" || o.slot === "pm") && o.item.lat != null && o.item.lng != null && !held(day, o))
+        core.push(o.item);
       if (!W.isFood(o.slot)) {
         var c = W.classify(o.item, false);
         if (c.intensity >= 3 || c.min >= 240 || o.item.s === "any") big = true;
@@ -845,6 +917,8 @@
       prev: prev,
       pts: pts,
       geo: geo,
+      core: core,
+      away: away,
       allowFull: allowFull,
       light: !!(day.tripFirst || day.moveFrom || day.tripLast || day.jet),
       wd: W.weekday(day.n),
@@ -918,7 +992,8 @@
       "stamps",
       "celebrated",
       "warmSeen",
-      "bag"
+      "bag",
+      "ct" /* (when each thing was changed, for joining your devices' copies: lib/sync.js) */
     ];
   function planSig() {
     var o = {},
@@ -931,7 +1006,18 @@
   W.plan = function () {
     var sig = planSig();
     if (memo && memo.sig === sig) return memo.P;
-    var P = planNow();
+    var was = Object.assign({}, W.S.picks),
+      P = planNow(),
+      now = W.S.picks || {},
+      wrote = W.planWrote || (W.planWrote = {});
+    /* which picks this planning wrote or took off: they are the planner's, not a person's change (lib/sync.js sends
+       and stamps only what a person changed, and reads this to tell the two apart) */
+    Object.keys(now).forEach(function (k) {
+      if (now[k] !== was[k]) wrote[k] = now[k];
+    });
+    Object.keys(was).forEach(function (k) {
+      if (!(k in now)) wrote[k] = null;
+    });
     memo = { sig: planSig(), P: P }; /* planning writes its picks into the state; the signature is taken after */
     return P;
   };
@@ -1006,191 +1092,258 @@
       });
     });
 
-    /* fill each city's days from its own pool. A place the plan already used at an earlier stop close by (two stays on
-       one island, or coming back to a city) isn't planned again; marks from that stop start with "~" */
+    /* Fill each city's days from its own pool, in three rounds over the stops. Round 0 lays out every stop's days.
+       Round 1 puts back what you chose by hand, on the whole trip, before the planner chooses anything anywhere.
+       Round 2 puts back the planner's own picks and fills the rest, stop by stop. Stops that draw on the same town (two stays in
+       one town, a town stayed in and also visited for a day from another) or lie close together (two stays on one
+       island) share one map of what is planned, so a place is planned once among them (rule 3), also when the fit
+       pass changes an earlier stop's day after a later stop was filled. */
     var before = [];
-    st.forEach(function (s, si) {
-      var found = W.pool(s.country, s.name);
-      var cdays = days.filter(function (d) {
-        return d.stop === si;
-      });
-      if (!found) {
-        W.loadCity(s.country, s.name, false, s.days);
-        cdays.forEach(function (d) {
-          d.loading = true;
-          d.slots = [];
+    [0, 1, 2].forEach(function (round) {
+      st.forEach(function (s, si) {
+        var found = W.pool(s.country, s.name);
+        var cdays = days.filter(function (d) {
+          return d.stop === si;
         });
-        return;
-      }
-      var pool = found;
-      if (!pool.fallback && W.loadEatFit) {
-        W.loadEatFit(s.country, s.name); /* the group's food needs: check these places */
-        if (W.loadLoved) W.loadLoved(s.country, s.name); /* and a few places for what you love, if the list has few */
-      }
-      if (!pool.fallback && W.loadFame) W.loadFame(s.country, s.name); /* ratings for the ideas already there (no new ones) */
-      var home = W.homebase(s.country, s.name),
-        used = newUsed(s.name);
-      cdays.forEach(function (d) {
-        d.slots = slotsFor().map(function (sl) {
-          var k = key(d, sl);
-          return {
-            slot: sl,
-            key: k,
-            rest: d.rest && (sl === "am" || sl === "eve"),
-            free: !!(W.S.free || {})[k],
-            trip: !!(d.trip && (sl === "am" || sl === "lunch" || sl === "pm"))
-          };
-        });
-        /* a day trip: the morning, lunch and afternoon come from the other town's list (fetched if needed) */
-        if (d.trip) {
-          d.fullDay = true;
-          if (!W.pool(d.trip.country, d.trip.name)) {
-            W.loadCity(d.trip.country, d.trip.name);
-            d.slots.forEach(function (x) {
-              if (x.trip) x.loading = true;
+        if (!found) {
+          if (round) return;
+          W.loadCity(s.country, s.name, false, s.days);
+          cdays.forEach(function (d) {
+            d.loading = true;
+            d.slots = [];
+          });
+          return;
+        }
+        var pool = found;
+        if (round === 0 && !pool.fallback && W.loadEatFit) {
+          W.loadEatFit(s.country, s.name); /* the group's food needs: check these places */
+          if (W.loadLoved) W.loadLoved(s.country, s.name); /* and a few places for what you love, if the list has few */
+        }
+        if (round === 0 && !pool.fallback && W.loadFame)
+          W.loadFame(s.country, s.name); /* ratings for the ideas already there (no new ones) */
+        var home = W.homebase(s.country, s.name),
+          used = round ? s.used : newUsed(s.name);
+        if (!round)
+          cdays.forEach(function (d) {
+            d.slots = slotsFor().map(function (sl) {
+              var k = key(d, sl);
+              return {
+                slot: sl,
+                key: k,
+                rest: d.rest && (sl === "am" || sl === "eve"),
+                free: !!(W.S.free || {})[k],
+                trip: !!(d.trip && (sl === "am" || sl === "lunch" || sl === "pm"))
+              };
             });
-          }
-        }
-      });
-      before.forEach(function (b) {
-        var dk = W.km(b.home, home); /* null when either has no pin */
-        if (!(b.city === W.cityKey(s.country, s.name) || (dk != null && dk <= 40))) return;
-        Object.keys(b.used).forEach(function (k) {
-          if (!used[k] && String(b.used[k]).charAt(0) !== "~") used[k] = "~" + b.used[k];
-        });
-      });
-      markNope(used, s, cdays);
-      /* reserve the picks you already have */
-      cdays.forEach(function (d) {
-        d.slots.forEach(function (x) {
-          if (x.rest || x.free || x.loading)
-            return; /* a rest day keeps its morning and evening free (your picks come back if you undo it); a slot you cleared stays free */
-          if (d.rest && x.slot === "pm" && !mine()[x.key]) return; /* its one outing is chosen fresh: something easy nearby */
-          var pl = dayPool(d, x, s),
-            lp = pl.pool || pool /* (a day trip's town, else this stop's own list: a day's town is its stop's) */,
-            nm = S.picks[x.key],
-            food = W.isFood(x.slot),
-            list = food ? lp.food || [] : lp.spots || [];
-          var find = function (n) {
-            return n ? byName(list, n) || (!lp.fallback && W.fromRest ? W.fromRest(lp, n, food) : null) : null;
-          };
-          /* a pick the planner made (not you) that turns out to be shut that day, a dinner that opens too late for the kids, or a
-             meal the place doesn't serve, is replanned */
-          var fine = function (y) {
-            return !(
-              W.badForDay(y, W.weekday(d.n), x.slot, W.kidDinner(), d.n) ||
-              (W.holidayShut && W.holidayShut(y, d)) ||
-              (food && W.eatFit && W.eatFit(y) === "poor") ||
-              /* (a meal it turns out not to serve: the check found a "breakfast café" is a dinner restaurant) */
-              (food && !fits(y, x.slot))
-            );
-          };
-          var it = find(nm);
-          if (it && !mine()[x.key] && !fine(it)) it = null;
-          /* what the fit pass moved aside here (under(), below) is where this slot starts again, with the place that
-             stood in for it kept for the slot too. Not once the pick has changed by any other hand since. */
-          var un = /** @type {[string, string, number] | null} */ (under()[x.key] || null);
-          if (un && (mine()[x.key] || lp.fallback || (nm || "") !== un[1] || today() - (un[2] || 0) > UNDER_DAYS)) {
-            delete under()[x.key];
-            un = null;
-          }
-          var own = un ? find(un[0]) : null;
-          if (own && W.gone && W.gone(own)) {
-            delete under()[x.key]; /* it has closed since: nothing to go back to */
-            un = own = null;
-          }
-          if (own && fine(own) && !isUsed(used, own)) {
-            if (it && !isUsed(used, it)) {
-              x.alt = it;
-              mark(used, it, x.key);
+            /* a day trip: the morning, lunch and afternoon come from the other town's list (fetched if needed) */
+            if (d.trip) {
+              d.fullDay = true;
+              if (!W.pool(d.trip.country, d.trip.name)) {
+                W.loadCity(d.trip.country, d.trip.name);
+                d.slots.forEach(function (x) {
+                  if (x.trip) x.loading = true;
+                });
+              }
             }
-            x.item = own;
-            x.stood = true;
-            mark(used, own, x.key);
-            return;
-          }
-          /* a place you chose yourself stays even if an earlier stop had it; one the planner chose doesn't */
-          if (it && (mine()[x.key] ? !usedHere(used, it) : !isUsed(used, it))) {
-            x.item = it;
-            x.stood = true; /* it was on the plan as last made (a place tried and taken off within one plan never is) */
-            mark(used, it, x.key);
-          }
-        });
-      });
-      countMix(
-        cdays.reduce(function (a, d) {
-          return a.concat(
-            d.slots.map(function (x) {
-              return W.isFood(x.slot) ? null : x.item;
-            })
-          );
-        }, [])
-      );
-      /* fill the rest: morning first (it sets where the day happens), then the other slots near it */
-      var geo = geoScale(pool, home),
-        fullDays = 0,
-        maxFull = Math.floor(cdays.length / 3);
-      s.geo = geo;
-      cdays.forEach(function (d) {
-        /* a day trip in the morning keeps every slot: lunch and the afternoon stay near it, dinner and the evening come back near your lodging */
-        function dropForFull() {
-          d.fullDay = true;
-          fullDays++;
+          });
+        if (round === 0) {
+          /* (the towns this stop's days draw on: its own, and the ones it visits for a day) */
+          var towns = {};
+          towns[W.cityKey(s.country, s.name)] = 1;
+          cdays.forEach(function (d) {
+            if (d.trip) towns[W.cityKey(d.trip.country, d.trip.name)] = 1;
+          });
+          before.forEach(function (b) {
+            var dk = W.km(b.home, home); /* null when either has no pin */
+            /* (a town seen on a day trip from an earlier stop and stayed in later, or the other way round, is one town) */
+            var shared = Object.keys(b.towns).some(function (k) {
+              return !!towns[k];
+            });
+            if (!(shared || (dk != null && dk <= 40)) || b.used === used) return;
+            /* one map for both from here on: what this one holds so far joins it, and every earlier stop that was on
+             this one's map (a stop that ties two groups together) moves over with it */
+            var old = used,
+              into = b.used;
+            Object.keys(old).forEach(function (k) {
+              if (!into[k]) into[k] = old[k];
+            });
+            Object.keys(old._town || {}).forEach(function (w) {
+              if (into._town) into._town[w] = 1;
+            });
+            before.forEach(function (e) {
+              if (e.used === old) e.used = into;
+            });
+            st.forEach(function (o) {
+              if (o.used === old) o.used = into;
+            });
+            used = into;
+          });
+          /* (the words of every town the map serves: a real place that is only one of them names no place, keysOf) */
+          Object.keys(towns).forEach(function (ck) {
+            W.norm(ck.slice(ck.indexOf("|") + 1))
+              .split(" ")
+              .forEach(function (w) {
+                if (w && used._town) used._town[skel(w)] = 1;
+              });
+          });
+          markNope(used, s, cdays);
+          s.used = used;
+          s.geo = geoScale(pool, home);
+          before.push({ city: W.cityKey(s.country, s.name), home: home, used: used, towns: towns });
         }
-        var am = d.slots.filter(function (x) {
-          return x.slot === "am";
-        })[0];
-        if (am && !am.item && !am.rest && !am.free && !am.loading) {
-          var pa = dayPool(d, am, s),
-            apool = pa.pool || pool; /* (as above) */
-          var a1 = choose(
-            apool,
-            "am",
-            used,
-            S.seen[am.key] || [],
-            ctxFor(d, am, pa.home, pa.geo, !d.trip && fullDays < maxFull && !(d.tripFirst || d.moveFrom || d.tripLast || d.jet)),
-            p
-          );
-          if (a1) {
-            am.item = a1;
-            mark(used, a1, am.key);
-            addMix(a1);
-            if (!apool.fallback) S.picks[am.key] = a1.n;
-          }
-        }
-        if (am && am.item && am.item.s === "any" && !d.trip) dropForFull();
-        d.slots.forEach(function (x) {
-          if (x.item || x.rest || x.free || x.loading) return;
-          var px = dayPool(d, x, s),
-            xpool = px.pool || pool; /* (as above) */
-          var it = choose(xpool, x.slot, used, S.seen[x.key] || [], ctxFor(d, x, px.home, px.geo, false), p);
-          if (it) {
-            x.item = it;
-            mark(used, it, x.key);
-            if (!W.isFood(x.slot)) addMix(it);
-            if (!xpool.fallback) S.picks[x.key] = it.n;
-          }
+        /* reserve the picks you already have: first what you put there by hand (chosen, or booked), so nothing the
+         planner chose can take its place; then the planner's own */
+        if (round === 0) return;
+        [round === 1].forEach(function (handPass) {
+          cdays.forEach(function (d) {
+            d.slots.forEach(function (x) {
+              if (x.rest || x.free || x.loading || x.item || x.lost)
+                return; /* a rest day keeps its morning and evening free (your picks come back if you undo it); a slot you cleared stays free */
+              var pl = dayPool(d, x, s),
+                lp = pl.pool || pool /* (a day trip's town, else this stop's own list: a day's town is its stop's) */,
+                nm = S.picks[x.key],
+                food = W.isFood(x.slot),
+                list = food ? lp.food || [] : lp.spots || [];
+              var find = function (n) {
+                return n ? byName(list, n) || (!lp.fallback && W.fromRest ? W.fromRest(lp, n, food) : null) : null;
+              };
+              /* (a mark that you chose this slot's place, with no place: you moved it to another day. The slot is the planner's again) */
+              if (!nm && mine()[x.key]) delete mine()[x.key];
+              var it = find(nm),
+                hand = !!mine()[x.key] || (!!it && booked(d, it));
+              if (hand !== handPass) return;
+              if (hand) {
+                delete under()[x.key];
+                if (it) {
+                  x.item = it;
+                  x.stood = true;
+                  mark(used, it, x.key);
+                } else if (nm) x.lost = nm; /* your place is not in this town's lists now: nothing else takes its slot */
+                return;
+              }
+              if (d.rest && x.slot === "pm") return; /* its one outing is chosen fresh: something easy nearby */
+              /* a pick the planner made (not you) that turns out to be shut that day, a dinner that opens too late for the kids, or a
+               meal the place doesn't serve, is replanned */
+              var fine = function (y) {
+                return !(
+                  W.badForDay(y, W.weekday(d.n), x.slot, W.kidDinner(), d.n) ||
+                  (W.holidayShut && W.holidayShut(y, d)) ||
+                  (food && W.eatFit && W.eatFit(y) === "poor") ||
+                  /* (a meal it turns out not to serve: the check found a "breakfast café" is a dinner restaurant) */
+                  (food && !fits(y, x.slot)) ||
+                  /* (what the rules never plan: a name that is not one place, a train ride, a climb with grandparents) */
+                  W.V.vague(y.n, food) ||
+                  /* (the day has become a jet-lag or a travel day since: no timed entry first thing, no day out) */
+                  (x.slot === "am" && ((d.jet && W.needsBooking(y)) || ((d.jet || d.moveFrom) && W.isDayOut(y, "am")))) ||
+                  (!food && (W.V.trainRide(y.n) || (p.senior && W.classify(y, false).intensity >= 3)))
+                );
+              };
+              if (it && !fine(it)) it = null;
+              /* what the fit pass moved aside here (under(), below) is where this slot starts again, with the place that
+               stood in for it kept for the slot too. Not once the pick has changed by any other hand since. */
+              var un = /** @type {[string, string, number] | null} */ (under()[x.key] || null);
+              if (un && (lp.fallback || (nm || "") !== un[1] || today() - (un[2] || 0) > UNDER_DAYS)) {
+                delete under()[x.key];
+                un = null;
+              }
+              var own = un ? find(un[0]) : null;
+              if (own && W.gone && W.gone(own)) {
+                delete under()[x.key]; /* it has closed since: nothing to go back to */
+                un = own = null;
+              }
+              if (own && fine(own) && !isUsed(used, own)) {
+                if (it && !isUsed(used, it)) {
+                  x.alt = it;
+                  mark(used, it, x.key);
+                }
+                x.item = own;
+                x.stood = true;
+                mark(used, own, x.key);
+                return;
+              }
+              /* a place the planner chose is not planned again where an earlier stop (or your own hand) already has it */
+              if (it && !isUsed(used, it)) {
+                x.item = it;
+                x.stood = true; /* it was on the plan as last made (a place tried and taken off within one plan never is) */
+                mark(used, it, x.key);
+              }
+            });
+          });
         });
-        /* how far today goes from your lodging, for the day header */
-        var far = 0;
-        d.slots.forEach(function (x) {
-          var k = x.item && W.km(home, x.item);
-          if (k && k > far) far = k;
+        if (round === 1) return;
+        countMix(
+          cdays.reduce(function (a, d) {
+            return a.concat(
+              d.slots.map(function (x) {
+                return W.isFood(x.slot) ? null : x.item;
+              })
+            );
+          }, [])
+        );
+        /* fill the rest: morning first (it sets where the day happens), then the other slots near it */
+        var geo = geoScale(pool, home),
+          fullDays = 0,
+          maxFull = Math.floor(cdays.length / 3);
+        s.geo = geo;
+        cdays.forEach(function (d) {
+          /* a day trip in the morning keeps every slot: lunch and the afternoon stay near it, dinner and the evening come back near your lodging */
+          function dropForFull() {
+            d.fullDay = true;
+            fullDays++;
+          }
+          var am = d.slots.filter(function (x) {
+            return x.slot === "am";
+          })[0];
+          if (am && !am.item && !am.rest && !am.free && !am.loading && !am.lost) {
+            var pa = dayPool(d, am, s),
+              apool = pa.pool || pool; /* (as above) */
+            var a1 = choose(
+              apool,
+              "am",
+              used,
+              S.seen[am.key] || [],
+              ctxFor(d, am, pa.home, pa.geo, !d.trip && fullDays < maxFull && !(d.tripFirst || d.moveFrom || d.tripLast || d.jet)),
+              p
+            );
+            if (a1) {
+              am.item = a1;
+              mark(used, a1, am.key);
+              addMix(a1);
+              if (!apool.fallback) S.picks[am.key] = a1.n;
+            }
+          }
+          if (am && am.item && am.item.s === "any" && !d.trip) dropForFull();
+          d.slots.forEach(function (x) {
+            if (x.item || x.rest || x.free || x.loading || x.lost) return;
+            var px = dayPool(d, x, s),
+              xpool = px.pool || pool; /* (as above) */
+            var it = choose(xpool, x.slot, used, S.seen[x.key] || [], ctxFor(d, x, px.home, px.geo, false), p);
+            if (it) {
+              x.item = it;
+              mark(used, it, x.key);
+              if (!W.isFood(x.slot)) addMix(it);
+              if (!xpool.fallback) S.picks[x.key] = it.n;
+            }
+          });
+          /* how far today goes from your lodging, for the day header */
+          var far = 0;
+          d.slots.forEach(function (x) {
+            var k = x.item && W.km(home, x.item);
+            if (k && k > far) far = k;
+          });
+          d.farthest = far;
         });
-        d.farthest = far;
-      });
-      s.used = used;
-      before.push({ city: W.cityKey(s.country, s.name), home: home, used: used });
-      /* a city keeps its first ideas (15 of each, more for a longer stay) until someone taps "Find more". Two things grow
+        /* a city keeps its first ideas (15 of each, more for a longer stay) until someone taps "Find more". Two things grow
          them without being asked: a stay made longer, and a meal left without a place (mealGaps, below) */
-      if (!pool.fallback) {
-        var stay = st.reduce(function (a, o) {
-          return a + (o.country === s.country && o.name === s.name ? o.days || 0 : 0);
-        }, 0);
-        if (!fitted[before[before.length - 1].city])
-          fitted[before[before.length - 1].city] = W.fitIdeas(s.country, s.name, stay) ? 2 : 1; /* (2: its lists changed) */
-        W.growIdeas(s.country, s.name, stay);
-      }
+        if (!pool.fallback) {
+          var stay = st.reduce(function (a, o) {
+            return a + (o.country === s.country && o.name === s.name ? o.days || 0 : 0);
+          }, 0);
+          var sck = W.cityKey(s.country, s.name);
+          if (!fitted[sck]) fitted[sck] = W.fitIdeas(s.country, s.name, stay) ? 2 : 1; /* (2: its lists changed) */
+          W.growIdeas(s.country, s.name, stay);
+        }
+      });
     });
     /* a place visited only as a day trip shows a day's worth of ideas */
     days.forEach(function (d) {
@@ -1250,13 +1403,6 @@
      time you'd arrive, closing almost as you get there) are swapped for something that fits, or left out. After a long
      journey, and between two heavy days, the day is made lighter. Places you picked yourself are never touched: if one
      of those doesn't fit, the day says so. */
-  function conflict(R) {
-    if (!R) return false;
-    if (R.skip) return true;
-    return R.warn.some(function (w) {
-      return /^Closed on|^Not open until|before you'd get there|^Kitchen opens|: about \d+ min there/.test(w);
-    });
-  }
   function slotOf(d, sl) {
     return d.slots.filter(function (y) {
       return y.slot === sl;
@@ -1325,74 +1471,198 @@
       if (!towns[k.split("|").slice(0, 2).join("|") + "|"]) delete U[k];
     });
   }
-  /* another idea for this slot that fits the clock, or none */
-  function refit(d, x, P, avoid) {
+  /* The day's own check: the planner's stops that break a promise as the day stands, in clock order (lib/rules.js
+     reads the finished plan the same way). What you put there by hand is never among them. A stop is named when its
+     row has no time or the place is not open for the visit; when it gets under half an hour; when the meal after it
+     falls outside meal times (the outing before a late lunch or dinner is the one to change, the meal itself when
+     there is none); when it leaves a toddler's day without a nap; or when it lies outside the day's area (rule 4). */
+  var SHUT = /^Closed on|^Closed for|^Closed [A-Z][a-z]{2} \d|^Not open until|before you'd get there|^Kitchen opens|: about \d.* there$/;
+  function dayBads(d, P, T) {
+    var out = [],
+      p = P.p,
+      /** @param {string} sl */ at = function (sl) {
+        return slotOf(d, sl);
+      },
+      /** @param {SlotEntry | null | undefined} x */ own = function (x) {
+        return !!x && !!x.item && !held(d, x);
+      },
+      /** @param {SlotEntry | null | undefined} x */ add = function (x) {
+        if (x && out.indexOf(x) < 0) out.push(x);
+      };
+    (T.order || []).forEach(function (sl) {
+      var x = at(sl),
+        R = T.rows[sl];
+      if (!own(x) || !R) return;
+      if (
+        R.skip ||
+        R.warn.some(function (w) {
+          return SHUT.test(w);
+        })
+      )
+        return add(x);
+      if (R.start == null || R.end == null) return;
+      if (R.end - R.start < (W.isFood(sl) ? 20 : 30)) return add(x);
+      var late = false;
+      if (sl === "lunch") late = R.start < 690 || R.start > 870;
+      if (sl === "dinner") {
+        var kidCap = Math.max(1110 + (d.jet ? 0 : 30), T.travel ? T.travel.end + 60 : 0);
+        late =
+          R.start < 1020 ||
+          R.start > 1305 ||
+          (p.kid && R.start > kidCap) ||
+          (d.jet && R.start > Math.max(1110, T.travel ? T.travel.end + 60 : 0));
+      }
+      if (late) {
+        var prev = at(sl === "lunch" ? "am" : "pm");
+        add(own(prev) && T.rows[prev.slot] && !T.rows[prev.slot].skip ? prev : x);
+      }
+    });
+    /* a toddler's nap (a journey that takes lunch takes the nap with it) */
+    if (p.toddler && !T.nap && !(T.travel && T.rows.lunch && T.rows.lunch.skip)) {
+      var b = at("breakfast"),
+        am = at("am"),
+        lu = at("lunch");
+      if (!((b && b.item && held(d, b)) || (am && am.item && held(d, am)) || (lu && lu.item && held(d, lu))))
+        add(own(am) ? am : own(lu) ? lu : own(b) ? b : null);
+    }
+    /* the day's area */
+    var home = W.homebase(d.country, d.city),
+      s = P.stops[d.stop],
+      /** @param {SlotEntry | null | undefined} x */ pin = function (x) {
+        return own(x) && x.item.lat != null && x.item.lng != null;
+      },
+      core = [at("am"), at("lunch"), at("pm")].filter(pin),
+      amx = at("am"),
+      away = !!d.trip || !!(amx && amx.item && W.isDayOut(amx.item, "am")),
+      g = dayPool(d, at("dinner"), s).geo,
+      gc = dayPool(d, amx, s).geo;
+    core.forEach(function (a, i) {
+      core.slice(i + 1).forEach(function (c) {
+        if ((W.km(a.item, c.item) || 0) > 4 * gc.R) add(c);
+      });
+      var hk = W.km(home, a.item);
+      if (!away && hk != null && home.lat != null && hk > Math.max(6 * g.R, 2 * g.med)) add(a);
+    });
+    [at("breakfast"), at("dinner"), at("eve")].filter(pin).forEach(function (e) {
+      var hk = W.km(home, e.item);
+      if (hk == null || hk <= 4 * g.R) return;
+      if (
+        away ||
+        !core.some(function (a) {
+          return (W.km(a.item, e.item) || 0) <= 4 * g.R;
+        })
+      )
+        add(e);
+    });
+    return out;
+  }
+  /* A place for an empty slot that keeps the whole day's promises: every idea that could go there is tried against
+     the day's clock, best first, until one leaves the day with no new problem (ranked, dayBads). With commit it goes
+     on the plan; without, the slot is left as it was and the place is only named (W.planX.wouldFill: how the check
+     of the rules proves a slot marked "nothing fits" true). avoid: names not to take. */
+  function tryFill(d, x, P, commit, avoid) {
+    CUR = P;
+    var s = P.stops[d.stop],
+      pl = dayPool(d, x, s),
+      pool = pl.pool;
+    if (!pool || !s.geo || x.item || x.rest || x.free || x.loading || x.lost) return null;
+    var used = s.used || (s.used = newUsed(s.name)),
+      T0 = W.dayTimes(d, P),
+      R0 = T0 && T0.rows[x.slot];
+    if (!T0 || !R0 || R0.skip) return null; /* no time at all (after a long journey, or late in the day): nothing would fit */
+    var u = used;
+    if (avoid) {
+      u = Object.assign(likeUsed(used), avoid);
+    }
+    /* (how the stop's days stand for the mix of styles and of famous and hidden places, as when the days were first filled) */
+    if (!W.isFood(x.slot)) {
+      var items = [];
+      P.days.forEach(function (o) {
+        if (o.stop === d.stop)
+          (o.slots || []).forEach(function (y) {
+            if (y !== x && y.item && !W.isFood(y.slot)) items.push(y.item);
+          });
+      });
+      countMix(items);
+    }
+    var was = dayBads(d, P, T0),
+      cut = x.cut,
+      list = ranked(pool, x.slot, u, W.S.seen[x.key] || [], ctxFor(d, x, pl.home, pl.geo, false), P.p);
+    for (var i = 0; i < list.length; i++) {
+      x.item = list[i];
+      x.cut = false;
+      var T = W.dayTimes(d, P),
+        ok =
+          !!T &&
+          dayBads(d, P, T).every(function (b) {
+            return b !== x && was.indexOf(b) > -1;
+          });
+      if (ok && commit) {
+        mark(used, list[i], x.key);
+        if (!pool.fallback) W.S.picks[x.key] = list[i].n;
+        return list[i];
+      }
+      x.item = null;
+      x.cut = cut;
+      if (ok) return list[i];
+    }
+    return null;
+  }
+  /* another idea for this slot that fits the day, or none */
+  function refit(d, x, P) {
     CUR = P;
     var s = P.stops[d.stop],
       pl = dayPool(d, x, s),
       pool = pl.pool;
     if (!pool || !s.geo) return false;
     var used = s.used || (s.used = newUsed(s.name)),
-      home = pl.home,
-      tried = {};
+      avoid = {};
     var was = x.item,
       alt = x.alt;
     drop(d, x, P);
-    if (was) tried[W.norm(was.n)] = 1; /* not the one that didn't fit */
+    if (was) avoid[W.norm(was.n)] = 1; /* not the one that didn't fit */
     /* the place that stood in for it last time comes first, so the day does not change from one plan to the next */
     x.alt = null;
-    if (alt && !(avoid && avoid[W.norm(alt.n)])) {
+    if (alt) {
+      var T0 = W.dayTimes(d, P),
+        before = T0 ? dayBads(d, P, T0) : [];
       x.item = alt;
       x.cut = false;
       var Ta = W.dayTimes(d, P);
-      if (Ta && !conflict(Ta.rows[x.slot])) {
+      if (
+        Ta &&
+        dayBads(d, P, Ta).every(function (b) {
+          return b !== x && before.indexOf(b) > -1;
+        })
+      ) {
         mark(used, alt, x.key);
         if (!pool.fallback) W.S.picks[x.key] = alt.n;
         return true;
       }
       unmark(used, alt, x.key);
-      tried[W.norm(alt.n)] = 1;
+      avoid[W.norm(alt.n)] = 1;
       x.item = null;
       x.cut = true;
     }
-    for (var i = 0; i < 4; i++) {
-      var u = Object.assign({}, used, tried, avoid || {});
-      var it = choose(pool, x.slot, u, W.S.seen[x.key] || [], ctxFor(d, x, home, pl.geo, false), P.p);
-      if (!it) break;
-      x.item = it;
-      x.cut = false;
-      var T = W.dayTimes(d, P);
-      if (T && !conflict(T.rows[x.slot])) {
-        mark(used, it, x.key);
-        if (!pool.fallback) W.S.picks[x.key] = it.n;
-        return true;
-      }
-      tried[W.norm(it.n)] = 1;
-      x.item = null;
-      x.cut = true;
-    }
-    return false;
+    return !!tryFill(d, x, P, true, avoid);
   }
   function fitDay(d, P) {
-    for (var guard = 0; guard < 8; guard++) {
+    for (var guard = 0; guard < 14; guard++) {
       var T = W.dayTimes(d, P);
       if (!T) return;
-      var bad = /** @type {SlotEntry | null} */ (null) /* (set in the loop below) */,
-        rows = T.rows;
-      (T.order || []).some(function (sl) {
-        var x = slotOf(d, sl);
-        if (x && x.item && !mine()[x.key] && conflict(rows[sl])) {
-          bad = x;
-          return true;
-        }
-        return false;
-      });
+      var bad = dayBads(d, P, T)[0];
       if (!bad) return;
       var R = T.rows[bad.slot];
       /* no time at all (after a long journey, or late in the day): nothing else will fit either */
       if (!R || R.skip) drop(d, bad, P);
       else if (!refit(d, bad, P)) drop(d, bad, P);
     }
+    /* (still not right after all that: what does not fit is left out) */
+    var Tl = W.dayTimes(d, P);
+    if (Tl)
+      dayBads(d, P, Tl).forEach(function (x) {
+        drop(d, x, P);
+      });
   }
   function level(d, P, noTravel) {
     var T = W.dayTimes(d, P),
@@ -1403,15 +1673,30 @@
     if (noTravel) sc -= (E.travel / 60) * 1.2;
     return sc < 3.5 ? 1 : sc < 6 ? 2 : sc < 8.5 ? 3 : 4;
   }
-  /* make a day lighter: no evening outing, then an easy afternoon close to where you stay, then no afternoon outing */
-  function lighten(d, P, target, noTravel) {
+  /* Make a day lighter. A travel day (leaveOut) may lose its evening outing, then get an easy afternoon close to where
+     you stay, then lose the afternoon too: the journey is part of the day, and the slot says so ("light"). Any other
+     day keeps all its parts (rule 1: no shortened days): there the afternoon is only swapped for an easy one nearby
+     and the morning for a nearer one, and when nothing lighter fits the day stays as it was. */
+  function lighten(d, P, target, noTravel, leaveOut) {
     CUR = P;
-    var steps = ["eve", "pmEasy", "pm", "amNear"];
+    var steps = leaveOut ? ["eve", "pmEasy", "pm", "amNear"] : ["pmEasy", "amNear"];
+    if (!leaveOut) {
+      /* (a day that would be light enough without its evening outing keeps the evening and everything else: the
+         evening is not left out any more, and a day is not rearranged for an evening stroll) */
+      var ev = slotOf(d, "eve");
+      if (ev && ev.item && !held(d, ev)) {
+        var kept = ev.item;
+        ev.item = null;
+        var without = level(d, P, noTravel);
+        ev.item = kept;
+        if (without < target) return;
+      }
+    }
     for (var i = 0; i < steps.length && level(d, P, noTravel) >= target; i++) {
       var st = steps[i],
         sl = st.slice(0, 2) === "am" ? "am" : st.slice(0, 2) === "pm" ? "pm" : "eve",
         x = slotOf(d, sl);
-      if (!x || !x.item || mine()[x.key] || x.rest) continue;
+      if (!x || !x.item || held(d, x) || x.rest) continue;
       if (st === "pmEasy" || st === "amNear") {
         var s = P.stops[d.stop],
           pl = dayPool(d, x, s),
@@ -1420,13 +1705,14 @@
         var home = pl.home,
           was = x.item,
           alt = x.alt,
+          stood = x.stood,
           used = s.used || {};
         drop(d, x, P);
         x.alt = null;
         var cx = ctxFor(d, x, home, pl.geo, false);
         cx.light = true;
         if (st === "pmEasy") cx.rest = true;
-        var av = Object.assign({}, used);
+        var av = likeUsed(used);
         av[W.norm(was.n)] = 1;
         /* (the lighter place it gave way to last time, when there was one: see under()) */
         var it = alt || choose(pool, sl, av, W.S.seen[x.key] || [], cx, P.p);
@@ -1436,50 +1722,97 @@
           mark(used, it, x.key);
           if (!pool.fallback) W.S.picks[x.key] = it.n;
           fitDay(d, P);
-        } else if (st === "amNear") {
+        }
+        if (!x.item && (st === "amNear" || !leaveOut)) {
+          /* nothing lighter that fits: keep what was there */
+          if (it) unmark(used, it, x.key);
           x.item = was;
+          x.stood = stood;
           x.cut = false;
           mark(used, was, x.key);
           if (!pool.fallback) W.S.picks[x.key] = was.n;
-        } /* nothing nearer: keep the morning */
-      } else drop(d, x, P);
+          var u = under()[x.key];
+          if (u && W.norm(u[0]) === W.norm(was.n) && !u[1]) delete under()[x.key];
+          fitDay(d, P);
+        } else if (!x.item) x.light = true;
+      } else {
+        drop(d, x, P);
+        x.light = true;
+        fitDay(d, P); /* (a meal chosen near the outing that has gone may now be out of the day's area) */
+      }
     }
   }
   /* The fit pass. It starts from the planner's own picks (the reserve step put back what an earlier pass had moved),
-     takes off or swaps what does not fit, then gives each slot it left empty one more try with a different place and
-     runs once more over the result; last, it notes what it moved (settleUnder). */
+     takes off or swaps what does not fit, then gives every slot it left empty one more try with each place that could
+     go there and runs once more over the result; then it notes what it moved (settleUnder), and last each part of a
+     day still without a place says why (explain). */
   function fitDays(P) {
     fitOnce(P);
-    if (refill(P)) fitOnce(P);
+    if (refill(P)) {
+      fitOnce(P);
+      refill(P);
+    }
     settleUnder(P);
+    /* (the places kept in reserve for a slot are free again now: one more look at what is still empty) */
+    if (refill(P)) settleUnder(P);
+    /* (nothing the day's own check objects to is left standing, whatever the passes above did: what still does not
+       fit is taken off, what that makes room for is put in, until nothing changes; then each empty slot says why) */
+    for (var i = 0, moved = true; moved && i < 4; i++) {
+      moved = false;
+      P.days.forEach(function (d) {
+        if (!d.slots || !d.slots.length || d.loading) return;
+        var T = W.dayTimes(d, P);
+        if (T)
+          dayBads(d, P, T).forEach(function (x) {
+            drop(d, x, P);
+            moved = true;
+          });
+      });
+      if (moved) moved = refill(P);
+    }
+    explain(P);
   }
-  /* a slot the pass emptied, whose own pick is remembered: another place that might fit, as a fresh plan would try */
+  /* every part of a day left without a place (not by you, a rest day or a travel day kept light) gets each place
+     that could go there tried against the day's clock; a day is gone over again while that fills anything, since a
+     new stop can bring a meal's place within reach */
   function refill(P) {
     CUR = P;
-    var any = false,
-      U = under();
+    var any = false;
     P.days.forEach(function (d) {
       if (!d.slots || !d.slots.length || d.loading) return;
-      var s = P.stops[d.stop],
-        used = s.used || (s.used = newUsed(s.name)),
-        /** @type {any} */ T = null;
-      d.slots.forEach(function (x) {
-        if (x.item || !x.cut || x.rest || x.free || x.loading || !U[x.key] || W.S.picks[x.key] || mine()[x.key]) return;
-        T = T || W.dayTimes(d, P);
-        var R = T && T.rows[x.slot];
-        if (!R || R.skip) return; /* no time at all: nothing else would fit either */
-        var pl = dayPool(d, x, s);
-        if (!pl.pool || pl.pool.fallback || !s.geo) return;
-        var it = choose(pl.pool, x.slot, used, W.S.seen[x.key] || [], ctxFor(d, x, pl.home, pl.geo, false), P.p);
-        if (!it) return;
-        x.item = it;
-        x.cut = false;
-        mark(used, it, x.key);
-        W.S.picks[x.key] = it.n;
-        any = true;
-      });
+      for (var sweep = 0, got = true; got && sweep < 3; sweep++) {
+        got = false;
+        d.slots.forEach(function (x) {
+          if (x.item || x.rest || x.free || x.loading || x.lost || x.light) return;
+          if (tryFill(d, x, P, true)) got = any = true;
+        });
+      }
     });
     return any;
+  }
+  /* Why a part of a day has no place (rule 1: every day is full, or says why not). x.why is one of W.WHY's keys:
+     the checker (lib/rules.js) accepts an empty slot only with one of them, and proves "none" by looking for a
+     place itself. Slots you freed (x.free), a rest day's (x.rest) and ones whose lists are on their way (x.loading)
+     already say so. */
+  W.WHY = {
+    journey: "The journey takes this part of the day",
+    light: "Left open so the travel day stays light",
+    late: "Too late in the day for this group",
+    yours: "The place you chose is not in this town's list any more",
+    none: "Nothing in this town's ideas fits here"
+  };
+  function explain(P) {
+    P.days.forEach(function (d) {
+      if (!d.slots || !d.slots.length || d.loading) return;
+      /** @type {any} */ var T = null;
+      d.slots.forEach(function (x) {
+        delete x.why;
+        if (x.item || x.rest || x.free || x.loading) return;
+        T = T || W.dayTimes(d, P);
+        var R = T && T.rows[x.slot];
+        x.why = x.lost ? "yours" : R && R.skip ? (d.moveFrom && T.travel ? "journey" : "late") : x.light && d.moveFrom ? "light" : "none";
+      });
+    });
   }
   function fitOnce(P) {
     P.days.forEach(function (d) {
@@ -1490,7 +1823,7 @@
       if (!d.moveFrom || d.rest || d.loading || !d.slots) return;
       var L = W.legFor(P, d.stop);
       if (!L) return;
-      lighten(d, P, L.min >= 240 || P.p.toddler || P.p.senior ? 2 : 3, true);
+      lighten(d, P, L.min >= 240 || P.p.toddler || P.p.senior ? 2 : 3, true, true);
     });
     /* the day after a long journey stays gentle */
     P.days.forEach(function (d, j) {
@@ -1528,7 +1861,7 @@
       pool = pl.pool;
     if (!pool) return null;
     var used = P.stops[day.stop].used || {},
-      u = newUsed(P.stops[day.stop].name || "");
+      u = likeUsed(used, true);
     Object.keys(used).forEach(function (n) {
       if (used[n] !== k) u[n] = 1;
     });
@@ -1644,6 +1977,40 @@
     key: key,
     ctxFor: ctxFor,
     byName: byName,
+    keysOf: keysOf,
+    newUsed: newUsed,
+    ranked: ranked,
+    dayBads: dayBads,
+    held: held,
+    /** the scale of the town a slot's ideas come from: { med, R (the day radius) } @param {Day} d @param {SlotEntry} x @param {Plan} P */
+    geoOf: function (d, x, P) {
+      return dayPool(d, x, P.stops[d.stop]).geo;
+    },
+    /** a place that would fit this empty slot as the plan stands, or null; nothing is changed
+        @param {Day} d @param {SlotEntry} x @param {Plan} P */
+    wouldFill: function (d, x, P) {
+      return tryFill(d, x, P, false);
+    },
+    /** why an empty slot stayed empty: how many of the town's ideas are on the trip already (used), are not for this
+        part of this day (unfit: the wrong meal or time of day, shut, too far, not for this group), or do not fit the
+        day's clock or area once put there (clock) @param {Day} d @param {SlotEntry} x @param {Plan} P */
+    whyNot: function (d, x, P) {
+      CUR = P;
+      var s = P.stops[d.stop],
+        pl = dayPool(d, x, s),
+        out = { ideas: 0, used: 0, unfit: 0, clock: 0 };
+      if (!pl.pool || x.item) return out;
+      var list = W.isFood(x.slot) ? pl.pool.food || [] : pl.pool.spots || [],
+        used = s.used || {},
+        ctx = ctxFor(d, x, pl.home, pl.geo, false);
+      out.ideas = list.length;
+      list.forEach(function (it, i) {
+        if (isUsed(used, it)) out.used++;
+        else if (score(it, i, list.length, x.slot, ctx, P.p, false) == null) out.unfit++;
+        else out.clock++;
+      });
+      return out;
+    },
     /** the plan being repaired, so a slot's context can read the day's clock @param {any} P */
     cur: function (P) {
       CUR = P;

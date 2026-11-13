@@ -615,7 +615,21 @@
       /* a stop's swap open on the Day view, with the keyboard in it: Escape closes it, and the keyboard is back on its Swap */
       var tog = /** @type {HTMLElement | null} */ (document.querySelector('#viewTrip:not([hidden]) [data-reroll][aria-expanded="true"]')),
         a = /** @type {HTMLElement | null} */ (document.activeElement);
-      if (tog && a && (a === tog || a.closest(".swap"))) {
+      if (tog && a && (a === tog || a.closest(".swap") || a.closest(".acts-w"))) {
+        /* (on a phone Swap is in its card's "more" menu: the keyboard goes back to that button) */
+        var w = /** @type {HTMLElement | null} */ (tog.closest(".acts-w")),
+          more = w && /** @type {HTMLElement | null} */ (w.querySelector(".more-btn")),
+          key = w && w.dataset.k;
+        if (more && getComputedStyle(more).display !== "none") {
+          tog.click();
+          W.fxAfter(function () {
+            var m = /** @type {HTMLElement | null} */ (
+              document.querySelector('#viewTrip .acts-w[data-k="' + CSS.escape(key || "") + '"] .more-btn')
+            );
+            if (m) m.focus({ preventScroll: true });
+          });
+          return;
+        }
         tog.focus({ preventScroll: true });
         tog.click();
       }

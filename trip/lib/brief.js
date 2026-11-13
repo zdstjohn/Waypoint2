@@ -54,9 +54,11 @@
     };
   }
   function prompt(f) {
-    var needs = W.eatText ? W.eatText() : "";
+    var needs = W.eatText ? W.eatText() : "",
+      kid = W.party().kid;
     return (
-      "A family arrives tomorrow in " +
+      (kid ? "A family" : "A group") +
+      " arrives tomorrow in " +
       f.town +
       ", " +
       f.country +
@@ -72,13 +74,20 @@
       (W.who ? W.who() : "") +
       (needs ? " What they eat: " + needs + "." : "") +
       (f.plan.length ? "\nTomorrow's plan: " + f.plan.join("; ") + "." : "") +
-      "\nWrite the briefing a parent wants the evening before. arrive: how to get from where they arrive (name the station, port " +
-      "or airport) to the stay with small children and bags: the easiest way, how long, about what it costs; one short line each " +
+      "\nWrite the briefing " +
+      (kid ? "a parent" : "a traveler") +
+      " wants the evening before. arrive: how to get from where they arrive (name the station, port " +
+      "or airport) to the stay with " +
+      (kid ? "small children and " : "") +
+      "bags: the easiest way, how long, about what it costs; one short line each " +
       "(if no stay is picked, to the centre). dinner: 2 or 3 easy places for a first dinner near the stay, open tomorrow evening, " +
-      "good with children, real places you are sure of, each with what it is and how far. closed: what in tomorrow's plan or " +
+      (kid ? "good with children, " : "") +
+      "real places you are sure of, each with what it is and how far. closed: what in tomorrow's plan or " +
       "nearby will be shut or short of hours tomorrow (its weekday closing, the holiday), only what you are sure of; an empty " +
       "list is fine. customs: 3 or 4 short local ways worth knowing (when people eat, tipping, greetings, quiet hours, what " +
-      "to wear in churches), the ones that matter with children first.\n" +
+      "to wear in churches)" +
+      (kid ? ", the ones that matter with children first" : "") +
+      ".\n" +
       'Reply with JSON only: {"arrive":{"from":"","how":"","time":"","cost":""},"dinner":[{"n":"","d":"","far":""}],' +
       '"closed":[{"what":"","why":""}],"customs":[""]}'
     );
@@ -171,7 +180,9 @@
                 "</button>"
               : "") +
             (s ? '<p class="small brief-err" role="status">' + esc(s) + "</p>" : "") +
-            '<p class="small muted">Getting from the station to your stay with the kids and bags, a first dinner nearby, what\'s closed, local ways.</p></div>'
+            '<p class="small muted">Getting from the station to your stay' +
+            (W.party().kid ? " with the kids and bags" : " with your bags") +
+            ", a first dinner nearby, what's closed, local ways.</p></div>"
         : "";
     var f = facts(day),
       stale = v.sig !== JSON.stringify([f.town, f.date, f.stay, f.how, f.arrive]),

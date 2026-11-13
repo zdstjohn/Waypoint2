@@ -79,7 +79,8 @@
     var k = key(day, slot),
       used = P.stops[day.stop].used || {},
       other = used[W.norm(name)];
-    if (other && String(other).charAt(0) === "~") other = null; /* it was on an earlier stop's day: nothing to trade */
+    /* (it is on another stop's day, or was only said no to: nothing to trade) */
+    if (other && String(other).indexOf(day.country + "|" + day.city + "|") !== 0) other = null;
     var cur = W.S.picks[k],
       x = (day.slots || []).filter(function (y) {
         return y.slot === slot;
@@ -89,7 +90,10 @@
       if (cur) {
         W.S.picks[other] = cur;
         mine()[other] = 1;
-      } else delete W.S.picks[other];
+      } else {
+        delete W.S.picks[other];
+        delete mine()[other]; /* (its place moved here: that slot is the planner's again) */
+      }
     }
     W.S.picks[k] = name;
     mine()[k] = 1;

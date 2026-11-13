@@ -2,6 +2,39 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v178
+
+The planner's rules and syncing between phones, made sound (two deep jobs, done by Fable in its own copy and merged
+here; its full notes are with the session), the owner's pick for the stop cards' buttons, and no limits for people
+who aren't coming.
+- The owner's nine planner rules as code (lib/rules.js, W.checkPlan; W.checkPlan.table() on the trip on screen): every
+  meal and part of the day, enough time, a real place once a trip, one area a day, no train outings, opening hours and
+  the children's hours, a toddler's nap and nothing strenuous with grandparents, real named places, your own picks
+  kept. Every empty part of a day says why (slot.why: journey, light, late, yours, none). The fuzz suite builds each
+  town's places itself (test/lib/fuzzworld.js); 2,000 seeded trips (and 3,500 more) break no rule.
+- Planner fixes from it (lib/plan.js, times.js, validate.js, planacts.js): hand picks and booked places are put back
+  first across the whole trip and never overwritten; stops in one town or within 40 km share one list of planned
+  places (no place twice); one day check that every pass repairs against, the area a hard test; only a travel day may
+  lose an outing; train rides refused (V.trainRide); the afternoon never starts before a nap ends; a place opening
+  after the group's latest hour isn't planned; with a toddler dinner is planned at 1¼ hours, so the evening keeps its
+  short outing before 8 pm.
+- Syncing (lib/sync.js): each change a person makes carries its time and device (S.ct), deletions included, and two
+  copies join setting by setting and entry by entry, newer first (W.syncJoin), so phones agree whatever order their
+  saves arrive in; nothing comes back after an undo, and offline changes survive closing the app. The planner's own
+  fill-ins are never stamped (W.planWrote). Trips saved before load and join as "unchanged since the start". New
+  suite devices (test/lib/devsim.js on acctsim.js): 500 seeded runs of 2-4 phones editing, undoing, losing signal,
+  closing and reopening, saving in any order (SYNC=3000 passes too).
+- The stop cards on a phone: Menu and Swap behind one "more" button (the owner's pick of five, screens/trip.js
+  actsWrap/actsShow), top right or under the photo; its menu closes on a choice, a tap elsewhere or Escape, and takes
+  the keyboard in and back. A card is a row shorter. Wider screens keep their buttons.
+- Nothing for someone who isn't on the trip (the owner: "If there are no children going the app shouldn't make
+  suggestions or limit things based on a person that's not there"). The rules already went by who is going
+  (W.party); now also: the kids' corner in the trip menu, "Rest, pool or playground", the packing list (passports,
+  ferry, cold, rain, pharmacy) and its Kids' bag tab, the picky-kids diet, "For the kids" on menus and the menu
+  reader, the search hint, and what Claude is asked (the plan check, the evening briefing, places to eat, rainy-day
+  places, idea times, running behind).
+- Tests: new suites devices and nokids; fuzz rewritten; look waits a frame for the slim bar.
+
 ## v177
 
 The owner's cuts, from asking each reviewer for the one thing they'd take out (the owner: "Do your picks").

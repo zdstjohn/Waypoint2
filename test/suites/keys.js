@@ -245,12 +245,23 @@ exports.run = async t => {
     "Escape from inside the menu closes it, the keyboard back on its button " + (await on())
   );
 
-  /* a stop's swap: Escape closes it, the keyboard back on Swap */
-  await focus("#viewTrip .slot:not(.food) [data-reroll]");
+  /* a stop's swap (on a phone, in its card's "more" menu): Enter opens the menu with the keyboard in it, Enter on Swap
+     opens the choices and the keyboard is back on "more"; Escape from the choices closes them, the keyboard on "more" */
+  await focus("#viewTrip .slot:not(.food) .more-btn");
+  await key("Enter", 300);
+  t.ok(
+    await pg.evaluate(() => document.activeElement.matches("[data-reroll]") && !!document.activeElement.closest(".acts-w.open")),
+    "Enter on a card's more button opens its menu, the keyboard on its first choice " + (await on())
+  );
   await key("Enter", 1000);
   t.ok(
-    await pg.evaluate(() => document.activeElement.getAttribute("aria-expanded") === "true" && !!document.querySelector("#viewTrip .swap")),
-    "Enter on Swap opens the choices (aria-expanded)"
+    await pg.evaluate(
+      () =>
+        !!document.querySelector("#viewTrip .swap") &&
+        document.querySelector('#viewTrip .slot:not(.food) [data-reroll][aria-expanded="true"]') !== null &&
+        document.activeElement.matches(".more-btn")
+    ),
+    "Enter on Swap opens the choices (aria-expanded), the keyboard back on more " + (await on())
   );
   await key("Tab", 100);
   await key("Escape", 1000);
@@ -258,10 +269,10 @@ exports.run = async t => {
     await pg.evaluate(
       () =>
         !document.querySelector("#viewTrip .swap") &&
-        document.activeElement.matches("[data-reroll]") &&
+        document.activeElement.matches(".more-btn") &&
         document.activeElement.getAttribute("aria-expanded") === "false"
     ),
-    "Escape closes the swap, the keyboard back on Swap " + (await on())
+    "Escape closes the swap, the keyboard back on the card's more button " + (await on())
   );
 
   /* another screen by a link in the page: the keyboard goes to that screen, which is named */

@@ -8,7 +8,7 @@
 
    A second phone is opened with no signal from the start (the page itself from the phone's memory) and the signal
    comes later: the lists, the Google times and the account catch up. */
-const { launch, open, exampleTrip, settle, calm } = require('../lib/page'); const mkdb = require('../lib/db');
+const { launch, open, exampleTrip, settle, calm, reveal } = require('../lib/page'); const mkdb = require('../lib/db');
 const MOCKS = ['test/mocks/mockdur.js', 'test/mocks/mock2.js', 'test/mocks/flightnet.js'];
 exports.run = async t => {
   if (process.env.FLIGHT !== 'app') await artifact(t);
@@ -47,7 +47,7 @@ async function artifact(t) {
     return s;
   };
   const note = () => pg.evaluate(() => (document.querySelector('#nethost') || {}).innerText || '');
-  const click = async (sel, ms = 500) => { await pg.click(sel, { timeout: 5000 }); await wait(ms); };
+  const click = async (sel, ms = 500) => { await reveal(pg, sel); await pg.click(sel, { timeout: 5000 }); await wait(ms); };
   /* a person taps what needs the internet: it says so, and nothing is asked of the network */
   const needs = async (sel, what, label) => {
     const before = (await pg.evaluate(() => window.__netTried.length));

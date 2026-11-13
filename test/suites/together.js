@@ -2,7 +2,7 @@
    another phone) opens it with the code, says who they are, swaps a stop; the owner's app takes the change, logs who
    made it, saves it and shares it back; a later change of the owner's to the same slot stands; switching back to
    view-only takes the controls away. */
-const { launch, open, exampleTrip, settle, calm, until } = require('../lib/page'); const mkdb = require('../lib/db');
+const { launch, open, exampleTrip, settle, calm, until, reveal } = require('../lib/page'); const mkdb = require('../lib/db');
 /* a shared document, opened with the trip's code (it is kept sealed: lib/sharebox.js) */
 const peek = (pg, code, sub) => pg.evaluate(async ({ code, sub }) => { const bx = await W.shareBox(code), raw = JSON.parse(await window.__dbOp('get', 'shared/' + bx.id + (sub || ''), null) || 'null'); return raw ? bx.open(raw) : null; }, { code, sub });
 exports.run = async t => {
@@ -29,7 +29,7 @@ exports.run = async t => {
   t.ok(await B.pg.evaluate(() => /as Sam/.test(document.querySelector('.co-bar').innerText)), 'and say who they are');
   /* Sam swaps a stop */
   const before = await B.pg.evaluate(() => { const r = document.querySelector('#viewTrip [data-reroll="am"]') || document.querySelector('#viewTrip [data-reroll]'); const slot = r.dataset.reroll, day = W.P.days[W.S.day - 1], x = day.slots.find(y => y.slot === slot); return { slot, key: x.key, was: x.item && x.item.n, day: day.n }; });
-  await B.pg.click(`#viewTrip [data-reroll="${before.slot}"]`); await B.pg.waitForTimeout(700);
+  await reveal(B.pg, `#viewTrip [data-reroll="${before.slot}"]`); await B.pg.click(`#viewTrip [data-reroll="${before.slot}"]`); await B.pg.waitForTimeout(700);
   const pick = await B.pg.evaluate(() => { const o = document.querySelector('.swap [data-peek][data-name]'); return o && o.dataset.name; });
   if (pick) { await B.pg.click('.swap [data-peek][data-name]', { timeout: 5000 }); await B.pg.click('.swap .swp-act [data-use]', { timeout: 5000 }); }
   const ed = await until(async () => { const d = await peek(B.pg, code, '/edits/u-two'); return d && d.ops && Object.keys(d.ops).length ? d : null; });
@@ -52,7 +52,7 @@ exports.run = async t => {
   /* the owner changes the same slot afterwards: theirs stands, Sam's older change is not taken again */
   await A.pg.evaluate(() => { const m = document.querySelector('.trip-menu'); if (m) document.querySelector('[data-sync="menu"]').click(); });
   await A.pg.evaluate(d => { W.S.day = d; W.render(); }, before.day); await A.pg.waitForTimeout(300);
-  await A.pg.click(`#viewTrip [data-reroll="${before.slot}"]`); await A.pg.waitForTimeout(700);
+  await reveal(A.pg, `#viewTrip [data-reroll="${before.slot}"]`); await A.pg.click(`#viewTrip [data-reroll="${before.slot}"]`); await A.pg.waitForTimeout(700);
   const own = await A.pg.evaluate(p => { const o = [...document.querySelectorAll('.swap [data-peek][data-name]')].find(x => x.dataset.name && x.dataset.name !== p); return o && o.dataset.name; }, pick);
   if (own) { await A.pg.click(`.swap [data-peek][data-name="${own}"]`, { timeout: 5000 }); await A.pg.click('.swap .swp-act [data-use]', { timeout: 5000 }); }
   await A.pg.waitForTimeout(3000);

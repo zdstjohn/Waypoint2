@@ -65,4 +65,10 @@ async function settle(pg, ms = 2500) {
   } while (!(await quiet()) && Date.now() < end);
   await pg.waitForTimeout(200);
 }
-module.exports = { launch, open, exampleTrip, settle, ROOT, calm, started, until };
+/* A stop card's Swap and Menu sit behind its "more" button on a phone (v178): open that menu first when the button
+   asked for is in one, so a suite can click it as before. */
+async function reveal(pg, sel) {
+  await pg.evaluate(sel => { const el = document.querySelector(sel), w = el && el.closest('.acts-w'), mb = w && w.querySelector('.more-btn');
+    if (mb && getComputedStyle(mb).display !== 'none' && !w.classList.contains('open')) mb.click(); }, sel);
+}
+module.exports = { launch, open, exampleTrip, settle, ROOT, calm, started, until, reveal };

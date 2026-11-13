@@ -1,6 +1,6 @@
 /* Getting around the plan: the actions sheet, moving a stop to another day and undoing it, leaving a slot free and undoing,
    the swap cards, swiping between days, the next-step bar and quick start. */
-const { launch, open, exampleTrip, settle, calm } = require('../lib/page');
+const { launch, open, exampleTrip, settle, calm, reveal } = require('../lib/page');
 exports.run = async t => {
   /* the very first open asks where you're headed, over the example trip; the sheet can be put aside */
   { const b0 = await launch(); const { pg: p0, ctx: c0 } = await open(b0, { width: 390, firstRun: true });
@@ -51,7 +51,7 @@ exports.run = async t => {
 
   /* swap cards */
   const sl = await pg.evaluate(k => W.P.days[W.S.day - 1].slots.find(x => x.key === k).slot, k0);
-  await pg.click(`[data-reroll="${sl}"]`); await pg.waitForTimeout(700);
+  await reveal(pg, `#viewTrip [data-reroll="${sl}"]`); await pg.click(`#viewTrip [data-reroll="${sl}"]`); await pg.waitForTimeout(700);
   const sw = await pg.evaluate(() => ({ cards: document.querySelectorAll('.swapcards .scard').length, list: document.querySelectorAll('.swap .opt').length }));
   t.ok(sw.cards === 3, 'three swap cards: ' + JSON.stringify(sw));
   /* a card opens the idea up close, with Add and Skip: nothing is swapped in until Add */
@@ -73,7 +73,7 @@ exports.run = async t => {
   t.eq(await nowN(), pickN, 'Add puts that place in');
   t.ok(await pg.evaluate(() => !!document.querySelector('[data-undo]') && !document.querySelector('.swap')), 'and can be undone, the swap closed');
   /* Next suggestion shows the best idea up close too, rather than swapping it in */
-  await pg.click(`[data-reroll="${sl}"]`); await pg.waitForTimeout(600);
+  await reveal(pg, `#viewTrip [data-reroll="${sl}"]`); await pg.click(`#viewTrip [data-reroll="${sl}"]`); await pg.waitForTimeout(600);
   await pg.click('.swap [data-next]'); await pg.waitForTimeout(500);
   t.ok(await pg.evaluate(() => !!document.querySelector('.swap .sw-peek .swp-act [data-use]')), 'Next suggestion shows the idea up close, with Add');
   t.eq(await nowN(), pickN, 'and changes nothing until Add');
