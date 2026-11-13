@@ -1,3 +1,3 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v184: none (places arrive sooner from the shared city library; the country list is shorter but only shows as you type).
+# v185: none (the library fills more cities; nothing is drawn differently).

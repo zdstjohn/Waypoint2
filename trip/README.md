@@ -243,11 +243,12 @@ lib/              the shared library
                   the day you pick. The page can't reach the internet itself: the map comes through the connection.
   sharebox.js     a shared trip's documents, named and sealed from its code (W.shareBox, W.sharePlain)
   ideastore.js    ideas in IndexedDB, one record a place; the storage entry keeps this trip's only (W.kept, W.cacheSlim)
-  citylib.js      the city library (v184; in the "ask" piece): Claude's answers for a country's towns and a city's
+  citylib.js      the city library (v184-185; in the "ask" piece): Claude's answers for a country's towns and a city's
                   first lists, kept for everyone in citylib/<place> by the question's words with the place left out, so
-                  the same question is answered at once next time (lib/core.js run looks it up first); the words are
-                  noted privately (data/users/<you>/libq/q) for the nightly task, tools/citylib.js, which asks them
-                  ahead for the 150 most visited countries (data/data2.js TOP_COUNTRIES)
+                  the same question is answered at once next time (lib/core.js run looks it up first). The general
+                  answers (asked for no one in particular: W.libGeneral) are filled nightly at random across the 150
+                  most visited countries by tools/citylib.js, with the same words (tools/citylib-questions.json); a
+                  trip with only those for a city starts from them and asks its own question after, last in line
   speedtest.js    one measurement, once, for the artifact's owner: is a list asked with low effort faster and as good?
                   (second script; writes data/users/<id>/diag/effort; W.EFFORT stays empty until that is read)
   offline.js      the trip without a signal: the photo index and photos kept on the phone (IndexedDB), map packs

@@ -726,7 +726,7 @@
     });
     pump();
   };
-  /** @param {string} key @param {string | { ask: string, a: any[], lib?: { place: string[], kind: string } }} prompt the question, or the name of one in
+  /** @param {string} key @param {string | { ask: string, a: any[], lib?: { place: string[], kind: string, own?: boolean } }} prompt the question, or the name of one in
       W.ASKS with what its words and its answer need @param {string} tier @param {(r: any) => void} [onOk0]
       @param {{ list: string, take: (items: any[], head: any) => void, min?: number }} [stream] a list in the answer
       whose items are handed over as they are written (take), min at a time, before the whole answer comes (onOk) */
@@ -739,6 +739,7 @@
       onOk = onOk0 || function () {},
       /* a question the city library may already hold the answer to (lib/citylib.js): its place and kind */
       lib = named && named.lib,
+      own = named,
       libQ = /** @type {any} */ (null);
     /* a named question's words, its answer's handler and its stream, once the piece that holds them is in */
     var words = function () {
@@ -760,7 +761,7 @@
         if (libQ && W.libGet) {
           var q = libQ;
           libQ = null;
-          W.libGet(q, function (r) {
+          W.libGet(q, function (r, general) {
             if (!r) return ask(q);
             /* answered from the library: the same handler and checks as Claude's answer, at once */
             delete W.status[key];
@@ -770,12 +771,18 @@
               /* an answer kept in a shape this version can't take: Claude is asked instead */
               W.caught(e, "library answer for " + String(key).split("|")[0]);
               W.status[key] = "loading";
-              return ask(null);
+              return ask(q);
             }
-            if (W.libNote) W.libNote(q);
             running--;
             arrived();
             pump();
+            /* the library's general answer (asked for no one in particular) fills the days at once; this trip's own
+               question (its interests, travelers, food needs) is asked after it, last in line, and adds what suits it */
+            if (general && own && lib) {
+              var k2 = key + "|own";
+              W.loadLow([k2]);
+              run(k2, { ask: own.ask, a: own.a, lib: { place: lib.place, kind: lib.kind, own: true } }, tier);
+            }
           });
           return;
         }

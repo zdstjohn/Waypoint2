@@ -1,0 +1,209 @@
+#!/usr/bin/env node
+/* Waypoint's nightly city library fill (v185). The app keeps Claude's answers for a country's towns and a city's first
+   lists in its shared database (trip/lib/citylib.js: citylib/<place>), keyed by the question's words with the place
+   left out. Its general questions (asked for no one in particular) are in tools/citylib-questions.json, word for word
+   as the app asks them (the citylib suite keeps the two equal). A scheduled task runs this script each night to build
+   up the library for anyone who uses the app: random countries of the 150 most visited, and random towns in them.
+   The task answers the questions itself; this script only plans, fills in the place and checks.
+
+     node citylib.js plan  <db_dir> <work_dir> [cities_a_night=15] [countries_a_night=6]
+         <db_dir> holds the database as ArtifactData saves it with out_dir: citylib/*.json
+         Writes <work_dir>/tasks.json [{id, kind, country, city, slug, h, prompt}] and <work_dir>/<id>.prompt.txt
+     node citylib.js check <db_dir> <work_dir>
+         Reads each answer <work_dir>/<id>.json (the JSON the question asks for), checks its shape, and writes
+         <work_dir>/out/<slug>.json (the document's fields to write) and <work_dir>/writes.json
+         [{collection: "citylib", doc_id, op: "set" | "update", if_version, file}]
+     node citylib.js pack  > citylib.js.txt
+         This script with the country list and the questions built in, for the scheduled task to fetch.
+
+   Countries come from trip/data/data2.js TOP_COUNTRIES, named as the app names them (English). A country's towns are
+   its towns as the library lists them: places to stay (base 1), the most popular, 8 for the 20 most visited
+   countries, 4 for the next 40, 2 for the rest. Each night takes countries without a town list and towns without both
+   lists at random (a night with few towns to fill takes twice the countries). */
+"use strict";
+const fs = require("fs"),
+  path = require("path");
+const EMBED_TOP = ["FR","ES","US","IT","TR","MX","GB","DE","GR","AT","TH","CN","JP","PT","NL","HR","SA","AE","MY","CA","PL","HK","HU","VN","CH","SG","ID","KR","MA","DK","EG","IN","CZ","IE","BE","ZA","SE","NO","AU","MO","TN","BG","RO","DO","NZ","IL","BR","AR","CL","PE","CO","CR","JO","IS","CY","MT","PH","LK","KH","LA","MM","NP","AL","ME","SI","SK","EE","LV","LT","FI","LU","GE","AM","AZ","UZ","KZ","BA","RS","MK","MD","QA","OM","BH","KW","LB","TW","BS","JM","BB","CU","PR","PA","GT","EC","BO","UY","PY","HN","NI","SV","BZ","TT","AW","CW","KY","BM","LC","AG","KN","GD","VC","MV","MU","SC","FJ","PF","NC","KE","TZ","UG","RW","BW","NA","ZM","ZW","MZ","MG","ET","GH","SN","CV","MN","KG","BT","BN","TL","SR","GY","DM","MC","LI","AD","SM","VA","GI","FO","GL","TC","VG","VI"]; /* (pack fills these in) */
+const EMBED_Q = {"cities":{"t":"List the cities, towns and areas that travelers visit in {COUNTRY}, the best known first. Be thorough: 80 to 120 places covering every region, from major cities to small towns. Only real places.\nAn island or a group of islands is never an entry. For an island, list its towns instead (not \"Crete\" but Heraklion, Chania, Rethymno; for a small island its main town or port by its usual name, like \"Hydra Town\" or \"Naxos Town\"), each with the island's name in isl. isl is \"\" for a place on the mainland or on the country's main island.\nReply with JSON only: {\"blurb\":\"one sentence about traveling in {COUNTRY}\",\"cities\":[{\"name\":\"\",\"region\":\"\",\"isl\":\"\",\"lat\":0,\"lng\":0,\"w\":2,\"pop\":3,\"base\":1,\"t\":[\"tag\"],\"d\":\"what it is known for, max 12 words\"}]}\nw = suggested days (1-4). pop = how popular with visitors, 1-5. base = 1 for a place to stay a few nights (a city, town or resort with hotels and restaurants), 0 for a day trip (a national park, nature reserve, mountain range, lake, single sight, or a village with few places to stay or eat). Tags (t) only from: relax,adventure,food,beach,mountain,culture,nature,nightlife,shopping,family,wellness,scenic.","h":"1151:1xce0zp"},"spots":{"t":"List the 15 best things to do in and around {CITY}, {COUNTRY}, most important first. Lean toward the most popular, best-reviewed places. Include at least 3 evening options (sunset spots, evening strolls, shows), at least 2 indoor options for a rainy or too-hot afternoon, and a day trip if there is a classic one. If it is a large region or island, give options in each main area so a day can stay in one area. Do not include trains, transfers or transport as activities. Travelers' interests: anything. Travelers' ages: adults.\nReply with JSON only: {\"d\":\"what {CITY} is known for, one sentence\",\"lat\":0,\"lng\":0,\"spots\":[{\"n\":\"name\",\"d\":\"what it is or what it is known for, one short sentence\",\"t\":[\"tag\"],\"fame\":1,\"rating\":4.6,\"k\":0,\"s\":\"am\",\"dur\":\"2h\",\"ticket\":\"Free\",\"pic\":\"oldtown\",\"place\":\"the real place\",\"lat\":0,\"lng\":0}]}\nplace = the exact name of the real place, as on its sign or on a map (for an outing such as a stroll, a tasting or a cruise, the real place where it happens, e.g. 'Piazza Duomo' or 'Marina Grande'); never an invented or descriptive name. n may be descriptive, place may not. pic = the picture that fits best, one of: beach, island, mountain, gorge, ruins, temple, church, museum, castle, oldtown, harbor, park, garden, market, viewpoint, lake, waterfall, cave, nightlife, themepark, zoo, spa, vineyard, bridge, square. s = best time: am, pm, eve, or any (a full-day outing). dur = the recommended time to spend there for these travelers, e.g. '45m', '1-2h', 'half day' or 'full day'. ticket = 'Free', or price and whether to book ahead, e.g. '€18, book ahead'. Use accurate coordinates. Tags (t) only from: relax,adventure,food,beach,mountain,culture,nature,nightlife,shopping,family,wellness,scenic. k: 1 = great for small kids, 0 = fine, -1 = better for older kids and adults. fame = 2 for the essential must-sees most visitors come for (a city's top handful), 1 for popular, well-known places, 0 for hidden gems and local favorites most visitors miss. rating = its typical visitor review score out of 5 on Google or Tripadvisor, one decimal (0 if you do not know). Only suggest places that are consistently well reviewed (about 4.3 or more); never a tourist trap.","h":"2197:1yg4038"},"food":{"t":"List 15 places to eat in {CITY}, {COUNTRY}: the best-loved local classics, casual spots, a couple of special dinners, and at least 4 breakfast cafés or bakeries, spread across the city or region. Travelers' interests: anything. Travelers' ages: adults.\nReply with JSON only: {\"transit\":{\"system\":\"how public transit works and what a ticket costs, one sentence\",\"pass\":\"best pass or card for visitors\",\"airport\":\"how to get from the main airport or station to the center\",\"tip\":\"one practical tip\"},\"stay\":[{\"n\":\"neighborhood\",\"d\":\"why stay here, short\",\"lat\":0,\"lng\":0}],\"food\":[{\"n\":\"name\",\"d\":\"what it is known for or what to order, one short sentence\",\"fame\":1,\"rating\":4.5,\"cuisine\":\"\",\"price\":\"€€\",\"meal\":\"both\",\"dur\":\"1h\",\"fav\":false,\"k\":0,\"sure\":true,\"reserve\":false,\"pic\":\"taverna\",\"lat\":0,\"lng\":0}]}\npic = the picture that fits best, one of: pasta, pizza, seafood, grill, taverna, cafe, bakery, gelato, streetfood, wine, sushi, noodles, tacos, curry, deli. reserve = true if booking a table ahead is recommended. meal = breakfast, lunch, dinner, both (lunch and dinner) or all (all three). dur = the recommended time to allow for a meal there, e.g. '30m' for a bakery, '1-1.5h' for a sit-down lunch, '2h' for a long dinner. fav = true for places food lovers seek out (a famous classic, a top market, a destination restaurant). Use real places and accurate coordinates. n = the exact name on its sign: never a name made from the kind of place and the town ('Pasticceria Positano', 'Elounda Gelato'), never an area's places as one entry ('Plaka seaside tavernas'). sure = false when you are not certain the place exists under this exact name in this town (it may have closed, or you may be thinking of a place somewhere else), true otherwise; a place you are unsure of may still be listed, marked so. k: 1 = very family friendly, 0 = fine, -1 = adults-oriented. fame = 2 for the essential famous institutions visitors seek out, 1 for popular, well-known places, 0 for neighborhood places locals love. rating = its typical visitor review score out of 5 on Google or Tripadvisor, one decimal (0 if you do not know). Only suggest places that are consistently well reviewed (about 4.3 or more); never a tourist trap. Give 4 stay neighborhoods.","h":"2246:1umvch4"}};
+
+function top() {
+  if (EMBED_TOP) return EMBED_TOP;
+  const src = fs.readFileSync(path.join(__dirname, "..", "trip", "data", "data2.js"), "utf8");
+  const m = src.match(/window\.TOP_COUNTRIES\s*=\s*"([^"]+)"/);
+  if (!m) throw new Error("TOP_COUNTRIES not found in trip/data/data2.js");
+  return m[1].split(" ");
+}
+/* the app's own name rules (lib/core.js W.norm, lib/photos.js W.slug and W.citySlug) */
+const norm = s =>
+  String(s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+const slug = s => norm(s).replace(/ /g, "-").slice(0, 80) || "x";
+const citySlug = (country, city) => slug(country + " " + city);
+function questions() {
+  return EMBED_Q || JSON.parse(fs.readFileSync(path.join(__dirname, "citylib-questions.json"), "utf8"));
+}
+/* the app's fingerprint of a question (trip/lib/ideastore.js W.textHash) */
+function textHash(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) | 0;
+  return s.length + ":" + (h >>> 0).toString(36);
+}
+/** a shuffled copy (seed: a number, for tests; otherwise random) */
+function shuffle(list, seed) {
+  let x = seed || Math.floor(Math.random() * 2147483646) + 1;
+  const rnd = () => (x = (x * 48271) % 2147483647) / 2147483647;
+  const a = list.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+const countryName = code => new Intl.DisplayNames(["en"], { type: "region" }).of(code) || code;
+
+/** every *.json under dir (as ArtifactData saves them: the document, or {id, data, version}) */
+function docsIn(dir) {
+  const out = {};
+  if (!fs.existsSync(dir)) return out;
+  for (const f of fs.readdirSync(dir)) {
+    if (!f.endsWith(".json")) continue;
+    try {
+      const j = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
+      const data = j && typeof j === "object" && j.data && typeof j.data === "object" ? j.data : j;
+      out[f.slice(0, -5)] = { data, version: j && j.version };
+    } catch (e) {
+      console.error("unreadable", f, e.message);
+    }
+  }
+  return out;
+}
+const answer = (lib, s, h) => {
+  const e = lib[s] && lib[s].data && lib[s].data.q && lib[s].data.q[h];
+  return e && e.r && typeof e.r === "object" ? e.r : null;
+};
+const fill = (t, country, city) => t.split("{CITY}").join(city || "").split("{COUNTRY}").join(country);
+
+function plan(db, work, citiesN = 15, countriesN = 6, seed = 0) {
+  const lib = docsIn(path.join(db, "citylib")),
+    Q = questions();
+  for (const k of ["cities", "spots", "food"]) if (textHash(Q[k].t) !== Q[k].h) throw new Error("the " + k + " question's fingerprint does not match");
+  const codes = top();
+  /* every town that could be filled: the countries with a town list, their most popular towns to stay in */
+  const open = [],
+    bare = [];
+  codes.forEach((code, rank) => {
+    const country = countryName(code),
+      cs = slug(country),
+      r = answer(lib, cs, Q.cities.h);
+    if (!r || !Array.isArray(r.cities)) return bare.push(country);
+    const k = rank < 20 ? 8 : rank < 60 ? 4 : 2;
+    r.cities
+      .map((c, i) => ({ c, i }))
+      .filter(x => x.c && typeof x.c.name === "string" && x.c.name && x.c.base !== 0)
+      .sort((a, b) => (+b.c.pop || 0) - (+a.c.pop || 0) || a.i - b.i)
+      .slice(0, k)
+      .forEach(x => {
+        const s = citySlug(country, x.c.name);
+        const kinds = ["spots", "food"].filter(kind => !answer(lib, s, Q[kind].h));
+        if (kinds.length) open.push({ country, city: x.c.name, slug: s, kinds });
+      });
+  });
+  const tasks = [];
+  const nCountries = open.length < citiesN ? countriesN * 2 : countriesN;
+  shuffle(bare, seed)
+    .slice(0, nCountries)
+    .forEach(country => tasks.push({ kind: "cities", country, city: "", slug: slug(country), h: Q.cities.h, prompt: fill(Q.cities.t, country, "") }));
+  const towns = shuffle(open, seed && seed + 1).slice(0, citiesN);
+  towns.forEach(t => t.kinds.forEach(kind => tasks.push({ kind, country: t.country, city: t.city, slug: t.slug, h: Q[kind].h, prompt: fill(Q[kind].t, t.country, t.city) })));
+  fs.mkdirSync(work, { recursive: true });
+  tasks.forEach((t, i) => {
+    t.id = "t" + (i + 1);
+    fs.writeFileSync(path.join(work, t.id + ".prompt.txt"), t.prompt);
+  });
+  fs.writeFileSync(path.join(work, "tasks.json"), JSON.stringify(tasks, null, 1));
+  const filled = codes.length - bare.length;
+  console.log(JSON.stringify({ tasks: tasks.length, countryLists: tasks.filter(t => t.kind === "cities").length, towns: towns.length, library: { countries: filled + " of " + codes.length, townsLeft: open.length } }));
+}
+
+/** the answer's JSON (a fenced block or the first {...} in the text) */
+function parse(text) {
+  const t = String(text).replace(/^﻿/, "");
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const body = fence ? fence[1] : t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1);
+  return JSON.parse(body);
+}
+const named = (list, min, key) =>
+  Array.isArray(list) && list.filter(x => x && typeof x === "object" && typeof x[key] === "string" && x[key].trim()).length >= min;
+function ok(kind, r) {
+  if (!r || typeof r !== "object") return "not an object";
+  if (kind === "cities") return named(r.cities, 10, "name") ? "" : "fewer than 10 towns with a name";
+  if (kind === "spots") return named(r.spots, 8, "n") ? "" : "fewer than 8 things to do with a name";
+  if (kind === "food") return named(r.food, 8, "n") ? "" : "fewer than 8 places to eat with a name";
+  return "unknown kind " + kind;
+}
+
+function check(db, work) {
+  const lib = docsIn(path.join(db, "citylib")),
+    tasks = JSON.parse(fs.readFileSync(path.join(work, "tasks.json"), "utf8")),
+    by = {},
+    report = { kept: 0, missing: 0, refused: [] };
+  for (const t of tasks) {
+    const f = path.join(work, t.id + ".json");
+    if (!fs.existsSync(f)) {
+      report.missing++;
+      continue;
+    }
+    let r;
+    try {
+      r = parse(fs.readFileSync(f, "utf8"));
+    } catch (e) {
+      report.refused.push(t.id + " " + t.slug + ": not JSON");
+      continue;
+    }
+    const why = ok(t.kind, r);
+    if (why) {
+      report.refused.push(t.id + " " + t.slug + ": " + why);
+      continue;
+    }
+    const d = (by[t.slug] = by[t.slug] || { country: t.country, city: t.city, q: {} });
+    d.q[t.h] = { r, at: Date.now() };
+    report.kept++;
+  }
+  const out = path.join(work, "out");
+  fs.mkdirSync(out, { recursive: true });
+  const writes = Object.entries(by).map(([s, body]) => {
+    const file = path.join(out, s + ".json");
+    const size = Buffer.byteLength(JSON.stringify(body));
+    if (size > 200000) throw new Error(s + " is " + size + " bytes: too big for one document");
+    fs.writeFileSync(file, JSON.stringify(body));
+    const had = lib[s];
+    /* update merges q into what is there (the app's other answers stay); a new place is set */
+    return had ? { collection: "citylib", doc_id: s, op: "update", if_version: had.version, file } : { collection: "citylib", doc_id: s, op: "set", file };
+  });
+  fs.writeFileSync(path.join(work, "writes.json"), JSON.stringify(writes, null, 1));
+  console.log(JSON.stringify(Object.assign(report, { documents: writes.length })));
+}
+
+function pack() {
+  const src = fs
+    .readFileSync(__filename, "utf8")
+    .replace("const EMBED_TOP = null;", "const EMBED_TOP = " + JSON.stringify(top()) + ";")
+    .replace("const EMBED_Q = null;", "const EMBED_Q = " + JSON.stringify(questions()) + ";");
+  process.stdout.write(src);
+}
+
+module.exports = { norm, slug, citySlug, textHash, shuffle, parse, ok, plan, check };
+if (require.main === module) {
+  const [cmd, a, b, c, d] = process.argv.slice(2);
+  if (cmd === "plan") plan(a, b, +c || 15, +d || 6, +process.env.CITYLIB_SEED || 0);
+  else if (cmd === "check") check(a, b);
+  else if (cmd === "pack") pack();
+  else {
+    console.error("usage: citylib.js plan <db_dir> <work_dir> [cities] [countries] | check <db_dir> <work_dir> | pack");
+    process.exit(2);
+  }
+}

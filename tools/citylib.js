@@ -1,30 +1,30 @@
 #!/usr/bin/env node
-/* Waypoint's nightly city library fill (v184). The app keeps Claude's answers for a country's towns and a city's first
+/* Waypoint's nightly city library fill (v185). The app keeps Claude's answers for a country's towns and a city's first
    lists in its shared database (trip/lib/citylib.js: citylib/<place>), keyed by the question's words with the place
-   left out; it notes the words its owner's trips ask (data/users/<owner>/libq/q/<hash>). A scheduled task runs this
-   script to ask those same questions ahead of time, for the most visited countries first, so a city is ready before
-   anyone picks it. The task answers the questions itself; this script only plans, fills in the place and checks.
+   left out. Its general questions (asked for no one in particular) are in tools/citylib-questions.json, word for word
+   as the app asks them (the citylib suite keeps the two equal). A scheduled task runs this script each night to build
+   up the library for anyone who uses the app: random countries of the 150 most visited, and random towns in them.
+   The task answers the questions itself; this script only plans, fills in the place and checks.
 
      node citylib.js plan  <db_dir> <work_dir> [cities_a_night=15] [countries_a_night=6]
-         <db_dir> holds the database as ArtifactData saves it with out_dir: citylib/*.json and data/users/<id>/libq/q/*.json
+         <db_dir> holds the database as ArtifactData saves it with out_dir: citylib/*.json
          Writes <work_dir>/tasks.json [{id, kind, country, city, slug, h, prompt}] and <work_dir>/<id>.prompt.txt
      node citylib.js check <db_dir> <work_dir>
          Reads each answer <work_dir>/<id>.json (the JSON the question asks for), checks its shape, and writes
          <work_dir>/out/<slug>.json (the document's fields to write) and <work_dir>/writes.json
          [{collection: "citylib", doc_id, op: "set" | "update", if_version, file}]
      node citylib.js pack  > citylib.js.txt
-         This script with the country list built in, for the scheduled task to fetch from the artifact.
+         This script with the country list and the questions built in, for the scheduled task to fetch.
 
-   Countries come in the app's order (trip/data/data2.js TOP_COUNTRIES, the most visited first), named as the app names
-   them (English). A country's cities are its towns as the library's answer lists them: places to stay (base 1), the
-   most popular first, 8 for the 20 most visited countries, 4 for the next 40, 2 for the rest. Only questions noted in
-   the last 30 days are asked, and of each kind the two noted last (a trip whose interests changed asks the new way). */
+   Countries come from trip/data/data2.js TOP_COUNTRIES, named as the app names them (English). A country's towns are
+   its towns as the library lists them: places to stay (base 1), the most popular, 8 for the 20 most visited
+   countries, 4 for the next 40, 2 for the rest. Each night takes countries without a town list and towns without both
+   lists at random (a night with few towns to fill takes twice the countries). */
 "use strict";
 const fs = require("fs"),
   path = require("path");
-const EMBED_TOP = null; /* (pack fills this in) */
-const NOTE_DAYS = 30,
-  KINDS_KEPT = 2;
+const EMBED_TOP = null; /* (pack fills these in) */
+const EMBED_Q = null;
 
 function top() {
   if (EMBED_TOP) return EMBED_TOP;
@@ -43,6 +43,26 @@ const norm = s =>
     .trim();
 const slug = s => norm(s).replace(/ /g, "-").slice(0, 80) || "x";
 const citySlug = (country, city) => slug(country + " " + city);
+function questions() {
+  return EMBED_Q || JSON.parse(fs.readFileSync(path.join(__dirname, "citylib-questions.json"), "utf8"));
+}
+/* the app's fingerprint of a question (trip/lib/ideastore.js W.textHash) */
+function textHash(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) | 0;
+  return s.length + ":" + (h >>> 0).toString(36);
+}
+/** a shuffled copy (seed: a number, for tests; otherwise random) */
+function shuffle(list, seed) {
+  let x = seed || Math.floor(Math.random() * 2147483646) + 1;
+  const rnd = () => (x = (x * 48271) % 2147483647) / 2147483647;
+  const a = list.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 const countryName = code => new Intl.DisplayNames(["en"], { type: "region" }).of(code) || code;
 
 /** every *.json under dir (as ArtifactData saves them: the document, or {id, data, version}) */
@@ -61,73 +81,52 @@ function docsIn(dir) {
   }
   return out;
 }
-function notesIn(db) {
-  /* data/users/<id>/libq/q/*.json: the owner's id is whatever ArtifactData resolved "me" to */
-  const users = path.join(db, "data", "users"),
-    out = {};
-  if (!fs.existsSync(users)) return out;
-  for (const u of fs.readdirSync(users)) Object.assign(out, docsIn(path.join(users, u, "libq", "q")));
-  return out;
-}
 const answer = (lib, s, h) => {
   const e = lib[s] && lib[s].data && lib[s].data.q && lib[s].data.q[h];
   return e && e.r && typeof e.r === "object" ? e.r : null;
 };
 const fill = (t, country, city) => t.split("{CITY}").join(city || "").split("{COUNTRY}").join(country);
 
-function plan(db, work, citiesN = 15, countriesN = 6) {
+function plan(db, work, citiesN = 15, countriesN = 6, seed = 0) {
   const lib = docsIn(path.join(db, "citylib")),
-    notes = notesIn(db),
-    now = Date.now();
-  const fresh = Object.entries(notes)
-    .map(([h, d]) => ({ h, kind: d.data.kind, t: d.data.t, at: +d.data.at || 0 }))
-    .filter(n => n.t && now - n.at < NOTE_DAYS * 864e5)
-    .sort((a, b) => b.at - a.at);
-  const of = kind => fresh.filter(n => n.kind === kind).slice(0, KINDS_KEPT);
-  const cityQ = of("cities"),
-    listQ = of("spots").concat(of("food"));
-  const tasks = [];
-  let countries = 0,
-    cities = 0;
-  if (!cityQ.length) console.log("No question for a country's towns noted yet: the owner opens the app once to note them.");
-  top().forEach((code, rank) => {
+    Q = questions();
+  for (const k of ["cities", "spots", "food"]) if (textHash(Q[k].t) !== Q[k].h) throw new Error("the " + k + " question's fingerprint does not match");
+  const codes = top();
+  /* every town that could be filled: the countries with a town list, their most popular towns to stay in */
+  const open = [],
+    bare = [];
+  codes.forEach((code, rank) => {
     const country = countryName(code),
-      cs = slug(country);
-    let towns = null;
-    for (const q of cityQ) {
-      const r = answer(lib, cs, q.h);
-      if (r && Array.isArray(r.cities)) towns = towns || r.cities;
-      else if (countries < countriesN) {
-        tasks.push({ kind: "cities", country, city: "", slug: cs, h: q.h, prompt: fill(q.t, country, "") });
-        countries++;
-      }
-    }
-    if (!towns || cities >= citiesN) return;
+      cs = slug(country),
+      r = answer(lib, cs, Q.cities.h);
+    if (!r || !Array.isArray(r.cities)) return bare.push(country);
     const k = rank < 20 ? 8 : rank < 60 ? 4 : 2;
-    const pick = towns
+    r.cities
       .map((c, i) => ({ c, i }))
       .filter(x => x.c && typeof x.c.name === "string" && x.c.name && x.c.base !== 0)
       .sort((a, b) => (+b.c.pop || 0) - (+a.c.pop || 0) || a.i - b.i)
       .slice(0, k)
-      .map(x => x.c.name);
-    for (const city of pick) {
-      if (cities >= citiesN) break;
-      const s = citySlug(country, city);
-      const missing = listQ.filter(q => !answer(lib, s, q.h));
-      if (!missing.length) continue;
-      missing.forEach(q => tasks.push({ kind: q.kind, country, city, slug: s, h: q.h, prompt: fill(q.t, country, city) }));
-      cities++;
-    }
+      .forEach(x => {
+        const s = citySlug(country, x.c.name);
+        const kinds = ["spots", "food"].filter(kind => !answer(lib, s, Q[kind].h));
+        if (kinds.length) open.push({ country, city: x.c.name, slug: s, kinds });
+      });
   });
+  const tasks = [];
+  const nCountries = open.length < citiesN ? countriesN * 2 : countriesN;
+  shuffle(bare, seed)
+    .slice(0, nCountries)
+    .forEach(country => tasks.push({ kind: "cities", country, city: "", slug: slug(country), h: Q.cities.h, prompt: fill(Q.cities.t, country, "") }));
+  const towns = shuffle(open, seed && seed + 1).slice(0, citiesN);
+  towns.forEach(t => t.kinds.forEach(kind => tasks.push({ kind, country: t.country, city: t.city, slug: t.slug, h: Q[kind].h, prompt: fill(Q[kind].t, t.country, t.city) })));
   fs.mkdirSync(work, { recursive: true });
   tasks.forEach((t, i) => {
     t.id = "t" + (i + 1);
     fs.writeFileSync(path.join(work, t.id + ".prompt.txt"), t.prompt);
   });
   fs.writeFileSync(path.join(work, "tasks.json"), JSON.stringify(tasks, null, 1));
-  console.log(
-    JSON.stringify({ tasks: tasks.length, countryLists: tasks.filter(t => t.kind === "cities").length, cities, questionsNoted: { cities: cityQ.length, lists: listQ.length } })
-  );
+  const filled = codes.length - bare.length;
+  console.log(JSON.stringify({ tasks: tasks.length, countryLists: tasks.filter(t => t.kind === "cities").length, towns: towns.length, library: { countries: filled + " of " + codes.length, townsLeft: open.length } }));
 }
 
 /** the answer's JSON (a fenced block or the first {...} in the text) */
@@ -190,14 +189,17 @@ function check(db, work) {
 }
 
 function pack() {
-  const src = fs.readFileSync(__filename, "utf8").replace("const EMBED_TOP = null;", "const EMBED_TOP = " + JSON.stringify(top()) + ";");
+  const src = fs
+    .readFileSync(__filename, "utf8")
+    .replace("const EMBED_TOP = null;", "const EMBED_TOP = " + JSON.stringify(top()) + ";")
+    .replace("const EMBED_Q = null;", "const EMBED_Q = " + JSON.stringify(questions()) + ";");
   process.stdout.write(src);
 }
 
-module.exports = { norm, slug, citySlug, parse, ok, plan, check };
+module.exports = { norm, slug, citySlug, textHash, shuffle, parse, ok, plan, check };
 if (require.main === module) {
   const [cmd, a, b, c, d] = process.argv.slice(2);
-  if (cmd === "plan") plan(a, b, +c || 15, +d || 6);
+  if (cmd === "plan") plan(a, b, +c || 15, +d || 6, +process.env.CITYLIB_SEED || 0);
   else if (cmd === "check") check(a, b);
   else if (cmd === "pack") pack();
   else {

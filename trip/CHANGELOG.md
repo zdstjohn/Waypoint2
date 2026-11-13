@@ -2,6 +2,26 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v185
+
+The city library is built up for anyone who uses the app (the owner: "building up the library ... so someone can use
+the website and it'll have plenty to bring up"), not only from the questions one person's trips ask.
+- General answers: each kind of question (a country's towns, a city's things to do, its places to eat) also has a
+  general form, asked for no one in particular (no interests, adults, no food needs: lib/citylib.js W.libGeneral).
+  A trip's own answer is used when the library has one; when it only has the general one, that fills the days at
+  once and the trip's own question is asked after it, last in line, adding what suits its interests, travelers and
+  food needs (lib/core.js run, key "<kind>|<city>|own").
+- The nightly task fills general answers at random across the 150 most visited countries (tools/citylib.js plan:
+  6 countries' towns and 15 towns' two lists a night, twice the countries while few towns are open), with the app's
+  own words (tools/citylib-questions.json, which the citylib suite keeps equal to the app's). Nothing waits for the
+  app: the private notes of a trip's questions (v184) are gone.
+- The website gets the library too: the nightly task copies it to the website's database after filling it
+  (tools/copy_to_cloud.js now carries citylib; its staged import, import_begin and import_finish, as for photos).
+  The website reads that copy and never writes to it (its database lets no one else write there).
+- Tests: citylib (a city with only the general lists fills from them at once, then asks its own question once and
+  adds to them; the general questions name no interests, ages or food needs and match the nightly task's); tools
+  (random but repeatable nights, the app's ids and fingerprints).
+
 ## v184
 
 Places for a city in seconds, not twenty or more (the owner: "it shouldn't take more than 3-5 seconds to populate the

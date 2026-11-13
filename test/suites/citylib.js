@@ -38,27 +38,23 @@ exports.run = async t => {
   const asked = c => pa.filter(p => p.includes('best things to do in and around ' + c + ', Croatia')).length;
   t.ok(pa.some(p => /List the cities, towns and areas that travelers visit in Croatia/.test(p)) && three.every(c => asked(c) === 1),
     'the first phone asks Claude for Croatia\'s towns and, once each, the three offered cities: ' + three.map(asked).join(','));
-  /* kept: the towns, each offered city's two lists, and the questions' words in the person's own space */
+  /* kept: the towns and each offered city's two lists (this trip's own questions: it has interests and children) */
   await A.pg.waitForTimeout(800);
   const kept = await A.pg.evaluate(async () => { const d = await window.claude.use('db');
     const c = await d.doc('citylib/croatia').get(); const t0 = (await d.collection('citylib').get()).docs.map(x => x.id).sort();
-    const q = (await d.collection('data/users/u-test/libq/q').get()).docs.map(x => x.data().kind).sort();
     const any = (await d.doc('citylib/' + t0.find(x => x !== 'croatia')).get()).data();
-    return { towns: c.exists && Object.values(c.data().q).some(e => e.r && e.r.cities && e.r.cities.length > 50), docs: t0, q,
-      words: JSON.stringify(c.data()).includes('List the cities'), both: Object.keys(any.q).length };
+    return { towns: c.exists && Object.values(c.data().q).some(e => e.r && e.r.cities && e.r.cities.length > 50), docs: t0,
+      words: JSON.stringify(c.data()).includes('List the cities') || JSON.stringify(any).includes('best things to do'), both: Object.keys(any.q).length,
+      notes: (await d.collection('data/users/u-test/libq/q').get()).docs.length };
   });
   t.ok(kept.towns && kept.docs.length >= 4 && kept.both === 2, 'kept in the shared library: the towns and each city\'s two lists: ' + JSON.stringify({ docs: kept.docs.length, both: kept.both }));
-  t.ok(!kept.words, 'the shared library keeps only answers, never the question\'s words');
-  t.ok(kept.q.includes('cities') && kept.q.includes('spots') && kept.q.includes('food'), 'the questions\' words are noted in the person\'s own space, for the nightly task: ' + kept.q.join(','));
-  const tpl = await A.pg.evaluate(async () => { const d = await window.claude.use('db'); const q = (await d.collection('data/users/u-test/libq/q').get()).docs.map(x => x.data()).find(x => x.kind === 'spots'); return q.t; });
-  t.ok(/\{CITY\}, \{COUNTRY\}/.test(tpl) && !/Croatia/.test(tpl), 'the noted words name no place ({CITY}, {COUNTRY}): ' + tpl.slice(0, 80));
-  /* the questions noted ahead (when the app is idle) are word for word the ones a city then asks */
-  await A.pg.waitForTimeout(8500);
-  const same = await A.pg.evaluate(async c => { const d = await window.claude.use('db');
-    const notes = (await d.collection('data/users/u-test/libq/q').get()).docs.map(x => x.id);
-    const got = Object.keys((await d.doc('citylib/' + W.citySlug('Croatia', c)).get()).data().q);
-    return { notes: notes.length, both: got.every(h => notes.includes(h)) }; }, three[0]);
-  t.ok(same.both, 'the questions noted ahead for the nightly task are the very ones a city asks: ' + JSON.stringify(same));
+  t.ok(!kept.words && !kept.notes, 'the library keeps only answers, never a question\'s words (they can carry food needs), and writes nothing else');
+  /* the general questions (for no one in particular) are word for word the ones the nightly task asks */
+  const gen = await A.pg.evaluate(() => ['cities', 'spots', 'food'].map(k => { const t = W.libGeneral(k); return { k, t, h: W.textHash(t) }; }));
+  const file = JSON.parse(require('fs').readFileSync(require('path').join(t.root, 'tools/citylib-questions.json'), 'utf8'));
+  if (gen.some(g => !file[g.k] || file[g.k].t !== g.t)) require('fs').writeFileSync(require('path').join(t.root, 'test/out/citylib-questions.json'), JSON.stringify(Object.fromEntries(gen.map(g => [g.k, { t: g.t, h: g.h }])), null, 1) + '\n');
+  t.ok(gen.every(g => file[g.k] && file[g.k].t === g.t && file[g.k].h === g.h), 'the app\'s general questions are the nightly task\'s (tools/citylib-questions.json; if not, the new ones are in test/out)');
+  t.ok(gen.every(g => !/Lean toward the travelers|food needs|Travelers' ages: \d/.test(g.t)) && /Travelers' ages: adults/.test(gen[1].t), 'and they are asked for no one in particular: no interests, no ages, no food needs');
   t.eq(A.errors(), [], 'no page errors (first phone)');
   await A.ctx.close();
 
@@ -86,6 +82,37 @@ exports.run = async t => {
   t.ok(other >= 1, 'the same city asked with other interests is asked of Claude (another question, another answer): ' + other);
   t.eq(B.errors(), [], 'no page errors (second phone)');
   await B.ctx.close();
+
+  /* ---- 2b. a city only the nightly task has filled (its general lists): they fill the days at once, and this trip's
+     own question (interests, children) is asked after, last in line, adding what suits it ---- */
+  const Q = JSON.parse(require('fs').readFileSync(require('path').join(t.root, 'tools/citylib-questions.json'), 'utf8'));
+  /* (where the stand-in puts a town it doesn't know, so its own answer's places are near the general ones) */
+  const at = [40, 10], now = Date.now();
+  const spots = Array.from({ length: 15 }, (_, i) => ({ n: 'General sight ' + i, d: 'A sight.', t: ['culture'], fame: 1, rating: 4.5, k: 0, s: ['am', 'pm', 'eve', 'any'][i % 4], dur: '2h', ticket: 'Free', pic: 'museum', place: 'General sight ' + i, lat: at[0] + (i % 5) * 0.002, lng: at[1] + (i % 3) * 0.002 }));
+  const food = Array.from({ length: 15 }, (_, i) => ({ n: 'General eatery ' + i, d: 'Good food.', fame: 1, rating: 4.5, cuisine: 'Croatian', price: '€€', meal: i < 4 ? 'breakfast' : ['lunch', 'dinner', 'both'][i % 3], dur: '1h', fav: false, k: 0, sure: true, reserve: false, pic: 'restaurant', lat: at[0] + (i % 4) * 0.002, lng: at[1] + (i % 5) * 0.002 }));
+  const store2 = mkdb({ 'citylib/croatia-town-50': { country: 'Croatia', city: 'Town 50', q: { [Q.spots.h]: { r: { d: 'A town.', lat: at[0], lng: at[1], spots }, at: now }, [Q.food.h]: { r: { food }, at: now } } } });
+  const G = await open(b, { width: 390, db: store2, uid: 'u-third' }); await exampleTrip(G.pg);
+  const g = await G.pg.evaluate(async () => { window.__full = []; const t0 = Date.now(); W.loadCity('Croatia', 'Town 50');
+    for (let i = 0; i < 60 && !(W.pool('Croatia', 'Town 50') && W.pool('Croatia', 'Town 50').spots.length); i++) await new Promise(r => setTimeout(r, 100));
+    const first = Date.now() - t0, p0 = W.pool('Croatia', 'Town 50');
+    const names0 = p0 ? p0.spots.map(x => x.n) : [];
+    /* (all it holds: W.pool hands out only as many as the stay can use) */
+    const all = () => (W.C.city[W.cityKey('Croatia', 'Town 50')] || { spots: [] }).spots;
+    for (let i = 0; i < 100 && !all().some(x => !/^General sight/.test(x.n)); i++) await new Promise(r => setTimeout(r, 100));
+    const own = (window.__full || []).filter(p => /best things to do in and around Town 50, Croatia/.test(p));
+    return { first, general: names0.filter(n => /^General sight/.test(n)).length, own: own.length, ages: own.length && /Travelers' ages: 38, 36, 6, 3/.test(own[0]),
+      added: all().filter(x => !/^General sight/.test(x.n)).length, kept: all().filter(x => /^General sight/.test(x.n)).length, st: W.status['spots|Croatia|Town 50|own'] || '' }; });
+  t.ok(g.first < 3000 && g.general >= 10, 'a city with only the general lists fills from them at once (' + g.first + ' ms, ' + g.general + ' things to do)');
+  t.ok(g.own === 1 && g.ages && g.added > 0 && g.kept >= 10, 'then this trip\'s own question is asked once (its travelers\' ages and interests) and adds what suits it: ' + JSON.stringify(g));
+  /* the website reads its copy of the library (sent there nightly) but never writes to it */
+  const web = await G.pg.evaluate(async () => { const was = W.cloud; W.cloud = true; const n0 = window.__writes.length;
+    W.libSave({ slug: 'croatia-town-51', h: 'x', gh: '', kind: 'spots', place: ['Croatia', 'Town 51'] }, { spots: [{ n: 'a' }] });
+    await new Promise(r => setTimeout(r, 600)); const wrote = window.__writes.slice(n0).filter(p => /^citylib\//.test(p));
+    const read = await new Promise(r => W.libGet({ slug: 'croatia-town-50', h: 'none', gh: W.textHash(W.libGeneral('spots')), kind: 'spots', place: ['Croatia', 'Town 50'] }, (x, g) => r(!!x && g)));
+    W.cloud = was; return { wrote, read }; });
+  t.ok(!web.wrote.length && web.read, 'the website reads the library and never writes to it: ' + JSON.stringify(web));
+  t.eq(G.errors(), [], 'no page errors (general lists)');
+  await G.ctx.close();
 
   /* ---- 3. Plan offers the 150 most visited countries ---- */
   const C = await open(b, { width: 390 }); await exampleTrip(C.pg);

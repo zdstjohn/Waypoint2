@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /* The nightly copy, step 2 of 3. Step 1 (Supabase connector): select public.import_begin(10);
    Step 2: node tools/copy_to_cloud.js <dir> [--packs <dir2>]   — <dir> holds <collection>/<id>.json files exported
-   from the Claude version's database (photos, places, menus, morefood, links, fx, maps). It sends them to the staging
+   from the Claude version's database (photos, places, menus, morefood, links, fx, maps, and the city library
+   citylib, v185, which the nightly city library task sends on its own after it fills it). It sends them to the staging
    table with the public key (only accepted while the window is open) and prints the count and fingerprint.
    Map packs: a maps/<slug> document lists its pack's parts in the Claude version's file store ("/_blob/<id>"), which
    other sites can't open. Each part is stored once in this project's file storage (bucket "maps", named by its id);
@@ -11,7 +12,7 @@
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
 const URL0 = process.env.WP_CLOUD_URL || "https://fbgubkesrlvtcnbaxuef.supabase.co";
 const KEY = process.env.WP_CLOUD_KEY || "sb_publishable_oPm5lh5CA7zbkLH-xxlhMQ_k1ZSN-xj";
-const KINDS = ["photos", "places", "menus", "morefood", "links", "fx", "maps"], OK = /^[A-Za-z0-9_.:@+~-]{1,200}$/;
+const KINDS = ["photos", "places", "menus", "morefood", "links", "fx", "maps", "citylib"], OK = /^[A-Za-z0-9_.:@+~-]{1,200}$/;
 /* Photos in the Claude version point at its own file store ("/_blob/..."), which other sites can't open;
    here each one points at the same picture on Wikimedia Commons instead (its "page" says which file). */
 function commonsSized(it) {
