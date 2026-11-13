@@ -1,4 +1,7 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v175. Where to stay shows Booking.com's places with their prices (an open stay panel is in none of the screens);
-# no screen in the shots should change.
+# v176. No journal anywhere (Today's fold, the recap's photos and notes, Settings' backup words); Today's top card has
+# the day's photo and how full a day, as on Trip.
+today-*
+recap-*
+settings-*

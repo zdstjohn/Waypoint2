@@ -253,6 +253,15 @@
       return (cur || "") + " " + Math.round(n);
     }
   }
+  /** A chosen stay's Booking.com price, while it is still for the nights it was found for: change the dates or the
+   *  nights and it was the price of other nights (the place is still yours; the price is asked for again)
+   *  @param {Stay | undefined} st @param {Stop} s @param {Plan} P */
+  function liveOf(st, s, P) {
+    var L = st && st.live,
+      dt = L && L.total && L.in && W.stayDates ? W.stayDates(s, P) : null;
+    return L && L.total && (!L.in || (dt && dt.in === L.in && dt.out === L.out)) ? L : null;
+  }
+  W.stayLive = liveOf;
   /* an amount, in the currency you chose to see (≈ when converted), else as given; raw = always as given */
   W.money = function (n, cur, raw) {
     var c = cur || "EUR",
@@ -366,7 +375,6 @@
           .join(" + ")
       : "—";
   }
-  W.sumText = sumText;
 
   /* ---------- matching bookings to the trip ---------- */
   var STOP = {
@@ -699,6 +707,7 @@
           ((W.C.city[ck] && W.C.city[ck].lodging) || []).filter(function (l) {
             return l.n === st.label;
           })[0];
+        var stLive = liveOf(st, s, P);
         push({
           key: "stay|" + ck,
           kind: "Stay",
@@ -707,7 +716,7 @@
           lead: 90,
           day: fd.n,
           short: s.name + " · " + W.nightsText(P, si),
-          sub: st && st.label ? st.label + (st.live && st.live.total ? " · " + W.money(st.live.total, st.live.cur) : "") : "Not picked yet",
+          sub: st && st.label ? st.label + (stLive ? " · " + W.money(stLive.total, stLive.cur) : "") : "Not picked yet",
           url:
             st && st.live && st.live.url
               ? st.live.url
@@ -724,7 +733,7 @@
                 : "Compare prices",
           why:
             st && st.label
-              ? "Chosen: " + st.label + (st.live && st.live.total ? " · " + W.money(st.live.total, st.live.cur) + " on Booking.com" : "")
+              ? "Chosen: " + st.label + (stLive ? " · " + W.money(stLive.total, stLive.cur) + " on Booking.com" : "")
               : "Not picked yet. Suggestions are under Plan.",
           match: stayBooking(s, P)
         });
@@ -837,7 +846,8 @@
               return l.n === st.label;
             })[0],
           per = lodge && amount(lodge.price);
-        if (st && st.live && st.live.total) add(B.stay.est, st.live.cur, st.live.total); /* the live price for your dates */
+        var lv = liveOf(st, s, P);
+        if (lv) add(B.stay.est, lv.cur, lv.total); /* the live price for your dates */
         else if (per) add(B.stay.est, curOf(lodge.price, cur), per * nights);
         else if (c && c.lodge) add(B.stay.est, cur, c.lodge * nights);
         else B.stay.open++;

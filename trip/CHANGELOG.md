@@ -2,6 +2,40 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v176
+
+The owner's asks: the journal gone everywhere, Today's top card like Trip's, and a review for size and bugs.
+- No journal (the owner: "Get rid of journal everywhere"): Today's Journal fold, the Trip day's Journal button, the
+  photos, notes and "How was today?" moods, and their place in the recap are gone (screens/journal.js deleted, its
+  styles too). The recap stays (the trip in numbers, the highlight reel to send, each day's places), now in
+  lib/memories.js (W.renderRecap). Trips from before keep their journal data, unused, so photos they point at are
+  still "in use" for Settings → Storage. Sync no longer joins journals specially (lib/sync.js mergeJournal gone).
+- Today's top card on a phone has the day's photo behind it, its credit and how full a day, as on Trip (the owner's
+  ask; lib/photos.js W.dayPhoto shared by both, html.on-go). On the day itself the time there takes the date's place,
+  so the line stays one line.
+- Fixes from a code review (five readers, each finding checked before it was fixed):
+  - Sync: another device putting a choice back is no longer undone by this one (what the account has after our own
+    write is the common base); changes made offline and never sent survive the app closing and another device saving
+    later (kept with the last version both had: idx unsent/base, joined on arrival); a listener that met an error in
+    what the app did with an answer kept listening (lib/cloud.js listen).
+  - A Booking.com price counts only while it is for the nights you have (lib/bookcore.js W.stayLive).
+  - The price watch no longer takes any hotel's price for a name with no Latin letters (lib/watch.js).
+  - "Way behind" sets free what no longer fits once the day has moved back (lib/times.js W.slotCap, shared by the
+    planner); undoing a rescue takes back only the minutes it added, not a "running late" you said after it.
+  - Calendar times past midnight are the next day (W.iso); the booking timeline says "leaving today" and "leaving
+    tomorrow" on the right days; the booking helper's list goes under the trip it was made for.
+  - CSV keeps negative numbers (a pin's longitude) as numbers; an imported place with no coordinates has no pin, not
+    one at 0,0; the quick start no longer turns an empty age into a baby.
+  - The plan check and the travel-day briefing are kept under the trip they were asked for; the nightly places join a
+    city's list after a reload too (by what the lists hold, not a counter that restarted).
+  - The map search can't stay on "Searching the map…" after a newer search; the offline copy's street-map index
+    doesn't stay "loading"; Explore draws with an idea that has half a pin; an offline save and the offline copy are
+    of the trip you started them on.
+- Smaller: dead code out (unused icons and exports in trip.js, autopilot.js, setup.js, bookcore.js, ahead.js, times.js,
+  plan.js, deskmap.js, sync.js, warm.js; the old Booking.com pick and calendar branches nothing could reach). With
+  the journal: app.js 388 → 386 KB, app2.js 356 → 349 KB, app.min.css 120 → 119 KB, app2.css 45 → 43 KB.
+- Tests: new suite fixes176; journal checks out of warm, travel, review, sync, a11y; banner checks Today's photo.
+
 ## v175
 
 The owner's asks: Where to stay from Booking.com, and the pin-matcher fix pushed.

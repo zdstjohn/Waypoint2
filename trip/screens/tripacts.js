@@ -513,13 +513,7 @@
     } else if (d.unrescue) {
       var ud = P.days[(S.day || 1) - 1];
       if (ud && W.unrescue) W.unrescue(ud);
-    } else if (d.jdel != null && W.journalClick) W.journalClick(d);
-    else if (d.journalgo) {
-      if (W.goToDay) W.goToDay(+d.journalgo);
-      if (W.goOpen) W.goOpen("journal"); /* (on Today it may be folded to a line: this is the way to it, so it opens) */
-      W.goView("go", "#viewGo .journal");
-      return false;
-    } else if ((d.live || d.livepick != null || d.site) && W.liveClick) W.liveClick(d, P);
+    } else if ((d.live || d.site) && W.liveClick) W.liveClick(d, P);
     else if (d.daytrip) {
       /* "Make it a day trip" / "Change day trip" open the choice; "Undo day trip" gives the day back to its town */
       var dn = +d.daytrip,

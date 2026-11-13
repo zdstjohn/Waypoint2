@@ -12,9 +12,9 @@
   var qs = { open: false, adults: 2, kids: [], msg: "" };
   W.qsOpen = function (first) {
     var S = W.S,
-      ages = (S.travelers || []).map(Number).filter(function (a) {
+      ages = W.ages().filter(function (a) {
         return a >= 0;
-      });
+      }); /* (W.ages leaves out an age not filled in: Number("") would be a baby) */
     var grown = ages.filter(function (a) {
       return a >= 18;
     });

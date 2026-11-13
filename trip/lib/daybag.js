@@ -1,6 +1,6 @@
 /* Waypoint day bag: on Today, a short list of what to take out for the day, read off the day's own stops (a beach asks
    for swimsuits, a church for covered shoulders, a market for cash, a travel day for snacks and the tickets in one
-   pocket). Each line says which stop asked for it. Ticks are kept with the trip by city and day there, like the journal
+   pocket). Each line says which stop asked for it. Ticks are kept with the trip by city and day there
    (S.bag: {"<country>|<city>|<day in city>": {"<item>": 1}}), so adding or removing a day elsewhere never moves them.
    While the trip is on and Today is open, the screen can stay on (the browser's screen wake lock), so directions and the
    next stop don't vanish while you walk; a setting on this phone turns that off. */

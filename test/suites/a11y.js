@@ -26,7 +26,7 @@ exports.run = async t => {
   const seen = {};
   for (const dark of [false, true]) {
     const { pg, ctx, errors } = await open(b, { width: 390, height: 844, dark }); await exampleTrip(pg);
-    await pg.evaluate(() => { localStorage.setItem('waypoint-now', '2027-06-09T10:30'); W.S.names = ['Zach', 'Anna', 'Mila', 'Leo']; W.S.journal = { 2: { mood: 3, note: 'Gelato twice.' } }; W.render(); });
+    await pg.evaluate(() => { localStorage.setItem('waypoint-now', '2027-06-09T10:30'); W.S.names = ['Zach', 'Anna', 'Mila', 'Leo']; W.render(); });
     await pg.addScriptTag({ content: axeSrc });
     for (const [name, go] of SCREENS) {
       await pg.evaluate(go); await pg.waitForTimeout(350); await settle(pg, 2500);

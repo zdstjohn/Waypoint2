@@ -393,7 +393,6 @@
   W.staySheetRedraw = function () {
     if (staySi != null) drawStay();
   };
-  W.stayClose = closeStay;
   /* the sheet's buttons are Plan's own (W.setupClick), whatever screen is under it */
   document.addEventListener(
     "click",
@@ -1454,18 +1453,7 @@
           W.fxExpand(".browse", { reveal: false });
         });
     } else if (d.setstay != null) return setStay(+d.setstay, P);
-    else if (d.stayarea != null) {
-      /* (the area tapped, from the place's list as it is now: a list that has changed since it was drawn may not have it) */
-      var s = P.stops[+d.stayarea],
-        pool = s ? W.C.city[W.cityKey(s.country, s.name)] : null,
-        area = ((pool && pool.stay) || []).filter(function (x) {
-          return x.n === d.name;
-        })[0];
-      if (s && area) {
-        S.stays[W.cityKey(s.country, s.name)] = { label: area.n, lat: area.lat, lng: area.lng };
-        W.freshPicks(s.country, s.name);
-      }
-    } else if (d.lreroll && d.si != null) {
+    else if (d.lreroll && d.si != null) {
       var ls = P.stops[+d.si],
         li = +d.si,
         lt = d.lreroll;

@@ -439,6 +439,22 @@
      of the stops' photos and the second script (fetchpriority) */
   var HERO_SIZES = "(max-width:760px) 60vw, 1180px";
   /* a phone (the narrow layout, not the desktop workspace): the Day tab's photo goes behind the top card (v174) */
+  /** the day's photo: its town's, picked with the day's own places in mind (the Trip and Today screens) @param {Day} day */
+  W.dayPhoto = function (day) {
+    return W.cityPhoto
+      ? W.cityPhoto(
+          day.country,
+          day.city,
+          (day.slots || [])
+            .filter(function (x) {
+              return x.item && !W.isFood(x.slot);
+            })
+            .map(function (x) {
+              return /** @type {Spot | Food} */ (x.item);
+            })
+        )
+      : null;
+  };
   W.phoneTop = function () {
     return !(W.desk && W.desk()) && !!window.matchMedia && window.matchMedia("(max-width:560px)").matches;
   };

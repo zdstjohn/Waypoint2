@@ -66,9 +66,6 @@
         text: urgent.short || urgent.title,
         go: { gobook: urgent.key }
       });
-    var last = W.dateOf && W.dateOf(P.N);
-    if (last && last < today && W.journalHas && W.journalHas())
-      out.push({ key: "recap", text: "Your trip recap is ready", go: { view: "recap" } });
     var hide = S.nextHide || {};
     return (
       out.filter(function (x) {

@@ -103,7 +103,9 @@
     );
   };
 
+  /* a coordinate, or null when there is none (not 0: an empty one would put the place off the coast of Africa) */
   function num(v) {
+    if (v == null || v === "" || typeof v === "boolean") return null;
     v = +v;
     return isFinite(v) ? v : null;
   }
@@ -153,6 +155,7 @@
         var food = it.food === true,
           lat = num(it.lat),
           lng = num(it.lng);
+        if (lat == null || lng == null || (lat === 0 && lng === 0)) lat = lng = null;
         var item = {
           n: String(it.name).slice(0, 80),
           d: String(it.d || "").slice(0, 120),

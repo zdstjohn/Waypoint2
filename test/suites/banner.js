@@ -1,7 +1,8 @@
 /* The day's header on Day and Explore. On a wide screen both tabs draw the same band (the town's photo, its name and the
    date), so switching tabs moves nothing. On a phone (v174, the owner's pick) neither tab has a header of its own: the
    day's photo is behind the top card, with its credit, and the day starts right under Day / Explore. The town's street
-   map that Explore drew over the photo from v171 to v173 is gone (the owner's call): no second layer, no map picture. */
+   map that Explore drew over the photo from v171 to v173 is gone (the owner's call): no second layer, no map picture.
+   v176: Today's top card has the day's photo too, and how full a day (the owner liked it on Trip). */
 const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb = require('../lib/db');
 const px = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400"><rect width="800" height="400" fill="#7a6a8a"/></svg>');
 const seed = { 'photos/italy-rome': { items: { rome: { url: px, credit: 'Test' } }, city: 'Rome', country: 'Italy' } };
@@ -33,6 +34,11 @@ exports.run = async t => {
     } else {
       for (const [tn, x] of [['Day', day], ['Explore', ex]])
         t.ok(!x.head && x.top.photo && /url\(/.test(x.top.bg) && /Photo: /.test(x.top.credit), tag + tn + ": no header of its own, the day's photo and its credit on the top card: " + JSON.stringify(x.top));
+      /* v176 (the owner's ask): Today's top card has the day's photo, its credit and how full a day, as on Trip */
+      await pg.evaluate(() => { W.goView('go'); W.render(); }); await settle(pg);
+      const go = await boxes(pg), line = await pg.evaluate(() => (document.querySelector('#topline .tl-day') || {}).textContent || '');
+      t.ok(go.top.photo && /url\(/.test(go.top.bg) && /Photo: /.test(go.top.credit) && /(Easy|Moderate|Full|Heavy|Rest) day/.test(line), tag + "Today: the day's photo, its credit and how full a day on the top card: " + JSON.stringify({ top: go.top, line }));
+      await pg.evaluate(() => { W.goView('trip'); W.render(); }); await settle(pg);
     }
     t.eq(ex.above, day.above, tag + 'what is above the day does not move between the tabs');
     t.ok(day.old === 0 && ex.old === 0, tag + 'no street-map picture or its layers anywhere: ' + ex.old);

@@ -29,7 +29,7 @@
      named "=SUM(...)" is text in a spreadsheet, never a formula */
   function cell(v) {
     var s = v == null ? "" : String(v);
-    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    if (/^[=+\-@\t\r]/.test(s) && !/^[+-]?\d+(\.\d+)?$/.test(s)) s = "'" + s; /* (a number such as -9.1393 stays a number) */
     return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }
   var HEAD = [

@@ -254,6 +254,7 @@
     st.mb = [];
     st.gg = [];
     st.msgMb = "";
+    st.busyMb = false; /* (an older search's answer is dropped: it must not leave "Searching the map…" on for this one) */
     st.link = false;
     if (q.length < 2) return;
     if (W.gmIsLink && W.gmIsLink(q)) return fromLink(W.gmIsLink(q), country, city, st.seq);

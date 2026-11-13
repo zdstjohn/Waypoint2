@@ -53,7 +53,6 @@
     if (idx == null) return 1;
     return idx < 6 ? 2 : idx < 14 ? 1 : 0;
   }
-  W.fameOf = fameOf;
   /* Must-sees: the famous first. Hidden gems: where locals go. Best of both: the icons and the gems, taking turns.
      Whatever the choice, places visitors review well come first and poorly reviewed ones fall away. */
   var FOCUS_W = { icons: [-1, 4, 10], gems: [9, 2, -4], both: [6, 2, 6] };
@@ -912,7 +911,7 @@
       "pack",
       "packHide",
       "packOwn",
-      "journal",
+      "journal" /* (trips from before v176 keep theirs, unused) */,
       "names",
       "kidPicks",
       "hunt",

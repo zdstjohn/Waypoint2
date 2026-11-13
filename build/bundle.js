@@ -1,5 +1,5 @@
 /* Waypoint build: the source scripts become two minified files, and app.css becomes app.min.css and app2.css. app.js holds what the
-   first screen needs; app2.js (LATER: Plan, drawing the street map, packing, the Prepare screen, the booking autopilot, place search, family, journal, the day bag,
+   first screen needs; app2.js (LATER: Plan, drawing the street map, packing, the Prepare screen, the booking autopilot, place search, family, the recap, the day bag,
    kids' corner, settings) is fetched by lib/later.js once
    the first screen is up. Sources stay where they are (lib/, screens/, data/); the order below is the dependency order.
      node build/bundle.js            -> trip/app.js, trip/app2.js, trip/app.min.css, trip/app2.css, trip/app.desk.css (+ .map files, kept local)
@@ -13,11 +13,11 @@ const ORDER = [
   'data/data1.js', 'data/data2.js',
   'lib/validate.js', 'lib/core.js', 'lib/ideastore.js', 'lib/towns.js', 'lib/ideas.js', 'lib/stays.js', 'lib/asks.js', 'lib/icons.js', 'lib/patch.js', 'lib/eat.js', 'lib/links.js', 'lib/errlog.js', 'lib/later.js', 'lib/pwa.js', 'lib/back.js', 'lib/a11y.js', 'lib/classify.js', 'lib/photos.js', 'lib/places.js', 'lib/nightfood.js', 'lib/fx.js', 'lib/vtindex.js', 'lib/vtmap.js', 'lib/offline.js', 'lib/offcopy.js', 'lib/speedtest.js', 'lib/times.js', 'lib/holidays.js', 'lib/shape.js', 'lib/plan.js', 'lib/planacts.js', 'lib/packing.js', 'lib/warm.js', 'lib/ahead.js', 'lib/memories.js',
   'screens/setup.js', 'lib/sharebox.js', 'lib/sync.js', 'lib/bookcore.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/route.js', 'lib/import.js', 'lib/prices.js', 'lib/watch.js', 'lib/gmaps.js', 'lib/search.js', 'lib/replan.js', 'lib/bookcheck.js', 'lib/review.js', 'lib/brief.js',
-  'screens/today.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/near.js', 'screens/travel.js', 'screens/flow.js', 'screens/flowacts.js', 'screens/quickstart.js', 'screens/sheet.js', 'lib/menuread.js', 'screens/daytrip.js', 'lib/typeahead.js', 'screens/settings.js', 'screens/trip.js', 'screens/tripacts.js',
+  'screens/today.js', 'screens/family.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/near.js', 'screens/travel.js', 'screens/flow.js', 'screens/flowacts.js', 'screens/quickstart.js', 'screens/sheet.js', 'lib/menuread.js', 'screens/daytrip.js', 'lib/typeahead.js', 'screens/settings.js', 'screens/trip.js', 'screens/tripacts.js',
   /* the desktop workspace (v153; all in the second script): its state, the map canvas, the rail, the palette, CSV */
   'lib/desk.js', 'lib/deskmap.js', 'screens/rail.js', 'screens/palette.js', 'lib/csv.js', 'screens/dayline.js'
 ];
-const LATER = ['lib/planacts.js', 'screens/flowacts.js', 'screens/tripacts.js', 'lib/nightfood.js', 'lib/memories.js', 'lib/ahead.js', 'screens/near.js', 'screens/quickstart.js', 'screens/sheet.js', 'lib/menuread.js', 'screens/daytrip.js', 'lib/typeahead.js', 'lib/import.js', 'screens/setup.js', 'lib/vtmap.js', 'lib/packing.js', 'lib/prices.js', 'lib/watch.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/gmaps.js', 'lib/search.js', 'lib/replan.js', 'lib/bookcheck.js', 'lib/review.js', 'lib/brief.js', 'screens/family.js', 'screens/journal.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/settings.js', 'lib/route.js', 'lib/offcopy.js', 'lib/speedtest.js', 'lib/desk.js', 'lib/deskmap.js', 'screens/rail.js', 'screens/palette.js', 'lib/csv.js', 'screens/dayline.js'];
+const LATER = ['lib/planacts.js', 'screens/flowacts.js', 'screens/tripacts.js', 'lib/nightfood.js', 'lib/memories.js', 'lib/ahead.js', 'screens/near.js', 'screens/quickstart.js', 'screens/sheet.js', 'lib/menuread.js', 'screens/daytrip.js', 'lib/typeahead.js', 'lib/import.js', 'screens/setup.js', 'lib/vtmap.js', 'lib/packing.js', 'lib/prices.js', 'lib/watch.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/gmaps.js', 'lib/search.js', 'lib/replan.js', 'lib/bookcheck.js', 'lib/review.js', 'lib/brief.js', 'screens/family.js', 'lib/daybag.js', 'lib/storage.js', 'screens/kids.js', 'screens/settings.js', 'lib/route.js', 'lib/offcopy.js', 'lib/speedtest.js', 'lib/desk.js', 'lib/deskmap.js', 'screens/rail.js', 'screens/palette.js', 'lib/csv.js', 'screens/dayline.js'];
 module.exports.ORDER = ORDER; module.exports.LATER = LATER;
 
 async function build() {
@@ -90,12 +90,12 @@ function deskCss(text) {
   return out;
 }
 module.exports.deskCss = deskCss;
-/* The second script's screens (Plan, Prepare and packing, the journal and recap, settings, the kids' corner) have their
+/* The second script's screens (Plan, Prepare and packing, the recap, settings, the kids' corner) have their
    own sections of app.css. A rule in one of those sections moves to app2.css, which comes with app2.js, only when none
    of its class names appears in the first script's code or index.html: whatever the first screen draws keeps its
    style in app.min.css. Rules keep their order; @media blocks are split rule by rule; @keyframes, @font-face and other
    at-rules stay. */
-const LATER_CSS = [/^warmly\b/, /^quick start\b/, /^Typeahead\b/, /^Today: near you\b/, /^Today: the day bag\b/, /^Prepare: the tabs\b/, /^Setup\b/, /^Bookings\b/, /^journal, recap/, /^Trip settings\b/, /^pack and prepare\b/, /^prepare: segments\b/, /^the kids' corner\b/, /^Settings: stored files\b/, /^Claude: check my plan\b/, /^a stop's details and the actions sheet\b/,
+const LATER_CSS = [/^warmly\b/, /^quick start\b/, /^Typeahead\b/, /^Today: near you\b/, /^Today: the day bag\b/, /^Prepare: the tabs\b/, /^Setup\b/, /^Bookings\b/, /^recap, family hearts/, /^Trip settings\b/, /^pack and prepare\b/, /^prepare: segments\b/, /^the kids' corner\b/, /^Settings: stored files\b/, /^Claude: check my plan\b/, /^a stop's details and the actions sheet\b/,
   /* (v157: the swap under a stop, the street map's own styles and its pins, place search, "not for us", a menu, the plan check's link: all drawn by the second script) */
   /^My trip: day picker\b/, /^Explore: the day's map\b/, /^Explore: find a place\b/, /^"Not for us"/, /^a restaurant's menu\b/, /^how to see the trip\b/];
 /* how specific a selector is (ids, classes and the like, elements), as one number to compare */

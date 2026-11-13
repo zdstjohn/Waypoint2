@@ -108,7 +108,6 @@
     tick: "Updated a booking",
     rest: "Changed the rest day",
     routeorder: "Changed the order",
-    livepick: "Changed where you stay",
     legpick: "Changed how you travel",
     style: "Changed the trip style",
     cdays: "Changed the days",
@@ -468,7 +467,7 @@
         !t ||
         !t.closest ||
         t.closest(
-          ".explorer, .daybar, .idea-list, .swapcards, .opts, input, textarea, select, .live-list, .jgrid, .sheet, .legopts, .vtwrap, .map, canvas, .thumb"
+          ".explorer, .daybar, .idea-list, .swapcards, .opts, input, textarea, select, .live-list, .sheet, .legopts, .vtwrap, .map, canvas, .thumb"
         )
       )
         return;

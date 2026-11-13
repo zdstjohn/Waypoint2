@@ -66,6 +66,7 @@
     S.idxState = "loading";
     if (window.__WP_OFFLINE) {
       FILES = {};
+      dbState = "off"; /* (no database either: without this the index would stay "loading" for good) */
       merge();
       return;
     } /* a file on the phone has no map index to fetch */

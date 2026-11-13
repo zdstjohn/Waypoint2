@@ -1,5 +1,5 @@
-/* Waypoint storage (second script): housekeeping for the app's stored files (place photos, street-map parts, journal
-   photos), on the Settings screen, for people who can edit the app. "Find unused files" lists every stored file
+/* Waypoint storage (second script): housekeeping for the app's stored files (place photos, street-map parts, and the
+   journal photos of trips from before v176, which the saved trips still point at), on the Settings screen, for people who can edit the app. "Find unused files" lists every stored file
    (assets.list) and every id anything points at: the app's own lists (photos, maps, links, places, wanted), your saved
    trips, the shared trips, what this phone keeps, and the app's own scripts; a 32-character id appearing anywhere in
    them counts as in use. Files uploaded in the last two days are kept (the nightly photo run uploads first and records
@@ -189,9 +189,7 @@
     if (!A || W.readOnly) return "";
     var u = st.r && st.r.usage,
       sub =
-        u && u.files != null
-          ? n0(u.files) + " files · " + mb(u.bytes) + " of " + mb(u.maxBytes)
-          : "Photos, street maps and journal photos the app keeps";
+        u && u.files != null ? n0(u.files) + " files · " + mb(u.bytes) + " of " + mb(u.maxBytes) : "Photos and street maps the app keeps";
     var h = "";
     if (st.phase === "idle")
       h =

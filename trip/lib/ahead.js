@@ -37,7 +37,6 @@
     }
     return true;
   }
-  W.aheadOk = unmetered;
   /* nothing at all in Simple view, offline, or from an offline copy (its photos are already on the phone) */
   function allowed() {
     if (W.simple && W.simple()) return false;

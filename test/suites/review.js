@@ -1,6 +1,5 @@
 /* v150: what the code review found, held down. One odd answer from Claude cannot jam the queue; the shared list for
-   the photo finder carries nothing private (in explore.js); the journal is kept as you type and when the page is
-   hidden, and a photo that lands minutes after your last tap is sent; a stay you named whose place is not known yet
+   the photo finder carries nothing private (in explore.js); (v176: no journal any more) a photo that lands minutes after your last tap is sent; a stay you named whose place is not known yet
    gives directions by its name and town (never the middle of the town under its name), and is asked for again;
    walking counts towards a day's effort; Enter in the trip bar. v151: the country and city boxes; suggested places;
    the build's checks of its own split; no more errors dropped unseen. */
@@ -36,18 +35,6 @@ exports.run = async t => {
     return { got, status: keys.map(k => W0.status[k]) };
   });
   t.ok(q.got && q.status.every(s => /Try again/.test(s || '')), 'answers in a shape nobody expected end with "try again", and the next request still goes through: ' + JSON.stringify(q));
-
-  /* the journal: typed, then the app goes to the background with the keyboard up, then a reload */
-  const jn = await pg.evaluate(async () => {
-    localStorage.setItem('waypoint-now', '2027-06-08T20:30:00'); W.needLater(); W.goView('go'); W.render(); await new Promise(r => setTimeout(r, 1200)); W.render();
-    const d = document.querySelector('#viewGo details[data-gofold="journal"]'); if (d && !d.open) d.querySelector('summary').click(); await new Promise(r => setTimeout(r, 300));
-    const ta = document.querySelector('#viewGo [data-jnote]'); if (!ta) return null; ta.focus(); ta.value = 'Gelato by the river'; ta.dispatchEvent(new Event('input', { bubbles: true }));
-    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true }); document.dispatchEvent(new Event('visibilitychange'));
-    delete document.visibilityState; const k = ta.dataset.jnote; return { k, kept: ((W.S.journal || {})[k] || {}).note };
-  });
-  t.ok(jn && jn.kept === 'Gelato by the river', 'the journal line is kept as the app goes to the background, without tapping out of the box: ' + JSON.stringify(jn));
-  await pg.reload(); await settle(pg, 4000);
-  t.eq(await pg.evaluate(k => ((W.S.journal || {})[k] || {}).note, jn && jn.k), 'Gelato by the river', 'and it is there after a reload');
 
   /* a stay you named that could not be found: directions by its name and town, and it is asked for again */
   const st = await pg.evaluate(async () => {

@@ -1,5 +1,5 @@
 /* Waypoint's second script (app2.js, with its styles in app2.css): the parts no first screen needs (Plan, drawing the street map, the packing list, the Prepare screen, the booking
-   autopilot, place search in Explore, the kids' corner, the journal and recap, family hearts and comments, trip settings)
+   autopilot, place search in Explore, the kids' corner, the recap, family hearts and comments, trip settings)
    load once the first screen is up, so the phone has
    less to read before it can draw anything. A view that needs one of them before it has arrived asks for it at once
    (W.needLater) and draws when it comes. The offline copy carries both scripts inline (window.__WP_LATER). */

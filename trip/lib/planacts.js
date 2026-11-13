@@ -111,7 +111,8 @@
       s = P.stops[day.stop],
       home = W.homebase(day.country, day.city),
       used = s.used || (s.used = {});
-    var undo = { picks: {}, mine: {}, free: {}, late: W.lateFor(day) },
+    /* behind = the minutes this rescue itself added to "running late" (undo takes back those, not a later +15) */
+    var undo = { picks: {}, mine: {}, free: {}, late: W.lateFor(day), behind: 0 },
       changed = [],
       freed = 0;
     day.slots.forEach(function (x) {
@@ -245,6 +246,7 @@
         setFree(x, "tired");
       });
     } else if (mode === "behind") {
+      undo.behind = 45;
       W.lateAdd(day, 45);
       var T2 = /** @type {DayTimes} */ (W.dayTimes(day, P)); /* (the same day as T above, so it has times) */
       (T2.order || []).forEach(function (sl) {
@@ -252,7 +254,10 @@
             return y.slot === sl;
           })[0],
           R = T2.rows[sl];
-        if (x && x.item && R && R.skip && R.start > nm && !booked(x.item)) setFree(x, "behind");
+        /* what no longer fits once the rest of the day has moved back (the running-late shift moves times, it doesn't
+           mark what is now too late: W.slotCap says) */
+        var cap = W.slotCap(sl, P.p);
+        if (x && x.item && R && (R.skip || (cap != null && R.start > cap)) && R.start > nm && !booked(x.item)) setFree(x, "behind");
       });
       changed.push({ slot: "", why: "behind" });
     } else if (mode === "closed") {
@@ -366,8 +371,11 @@
       }
     });
     var lk = W.restKey(day) + "|" + W.isoDay(W.now());
-    if (S.late) {
-      if (u.late) S.late[lk] = u.late;
+    if (S.late && (u.behind == null || u.behind)) {
+      /* (only what the rescue added goes: "running late" you said after it stays. An undo kept before v176 has no
+         count, and puts it back as it was) */
+      var back = u.behind == null ? u.late || 0 : Math.max(0, (S.late[lk] || 0) - u.behind);
+      if (back) S.late[lk] = back;
       else {
         delete S.late[lk];
         if (S.lateAt) delete S.lateAt[lk];

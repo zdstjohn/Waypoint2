@@ -41,9 +41,6 @@
   W.autoFound = function (key) {
     return (auto.found || {})[key] || null;
   };
-  W.autopilot = function () {
-    return auto;
-  };
 
   /* the list the helper works from: one row per thing to book, with its deadline */
   var lastSig = null,
@@ -90,7 +87,7 @@
       try {
         db.doc("data/users/" + uid + "/bookby")
           .collection("t")
-          .doc(S.tripId)
+          .doc(body.trip) /* (the trip this list is for, even if another was opened meanwhile) */
           .set(body)
           .then(null, function () {
             lastSig = null;
@@ -196,7 +193,7 @@
       dep = new Date(start + "T12:00"),
       span = dep.getTime() - t0.getTime();
     if (!(span > 0)) return "";
-    var days = Math.round(span / 864e5),
+    var days = Math.floor(span / 864e5 + 0.05) /* (departure is at noon: a trip tomorrow is 1.5 days away, and is "tomorrow") */,
       W0 = 100;
     function x(d) {
       return Math.max(0, Math.min(W0, ((d.getTime() - t0.getTime()) / span) * W0));
@@ -243,9 +240,12 @@
       dots +
       '</div><div class="tl-ends"><span>Today</span><span>' +
       (left ? left + " to book · " : "") +
-      (days === 1
-        ? "leaving tomorrow"
-        : "leaving in " + (days < 21 ? days + " days" : days < 90 ? Math.round(days / 7) + " weeks" : Math.round(days / 30) + " months")) +
+      (days < 1
+        ? "leaving today"
+        : days === 1
+          ? "leaving tomorrow"
+          : "leaving in " +
+            (days < 21 ? days + " days" : days < 90 ? Math.round(days / 7) + " weeks" : Math.round(days / 30) + " months")) +
       "</span></div></div>"
     );
   };

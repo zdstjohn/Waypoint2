@@ -223,9 +223,25 @@
       return pad(Math.floor(m / 60)) + ":" + pad(m % 60);
     }
   };
+  /** a day and minutes from its midnight as local ISO time; past midnight is the next day (an evening journey that
+   *  lands at 00:30 ends the day after it began) @param {Date} d @param {number} m */
   W.iso = function (d, m) {
-    return W.isoDay(d) + "T" + pad(Math.floor(m / 60) % 24) + ":" + pad(m % 60) + ":00";
+    var day = new Date(d.getFullYear(), d.getMonth(), d.getDate() + Math.floor(m / 1440));
+    m = ((m % 1440) + 1440) % 1440;
+    return W.isoDay(day) + "T" + pad(Math.floor(m / 60)) + ":" + pad(m % 60) + ":00";
   };
+  /** the latest a stop in this part of the day may start, for this group (later, and it is left out: "No time left")
+   *  @param {string} slot @param {Party} p */
+  function slotCap(slot, p) {
+    return {
+      am: hm(16),
+      lunch: hm(15),
+      pm: hm(17, 30),
+      dinner: p.kid ? hm(20, 30) : hm(21, 45),
+      eve: p.toddler ? hm(20) : p.kid ? hm(20, 45) : hm(22, 30)
+    }[slot];
+  }
+  W.slotCap = slotCap;
 
   /* ---------- time zones (for calendar events) ---------- */
   var TZ = {
@@ -536,7 +552,6 @@
               ? "car"
               : "";
   }
-  W.r2rMode = r2rMode;
   W.r2rFor = function (routes, mode) {
     var m = String(mode || "").toLowerCase(),
       want = /flight|plane|fly/.test(m)
@@ -624,7 +639,7 @@
     out.order = order.map(function (x) {
       return x.slot;
     });
-    var EVE_CAP = p.toddler ? hm(20) : p.kid ? hm(20, 45) : hm(22, 30);
+    var EVE_CAP = slotCap("eve", p);
     order.forEach(function (x) {
       doRow(x);
       /* toddlers: after lunch, a nap or rest back at your lodging (whatever lunch was) */
@@ -669,7 +684,7 @@
         return;
       }
       /* the latest a slot can still start; a long journey that lands after it leaves that meal or outing out */
-      var capF = { am: hm(16), lunch: hm(15), pm: hm(17, 30), dinner: p.kid ? hm(20, 30) : hm(21, 45), eve: EVE_CAP }[x.slot];
+      var capF = slotCap(x.slot, p);
       /* a ticket that leaves after lunchtime: lunch is in the town you're leaving, before you set off */
       if (x.slot === "lunch" && out.travel && out.travel.dep != null && out.travel.start >= hm(12, 45)) {
         row.skip = true;

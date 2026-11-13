@@ -97,28 +97,14 @@ exports.run = async t => {
   t.ok(prep.by === '' || /rgba\(0, 0, 0, 0\)|transparent/.test(prep.by), 'a booking\'s deadline is plain words, not a pill');
   t.ok(!prep.i || (prep.hidden === true && prep.shown && prep.exp === 'true'), 'what the autopilot does is behind an (i): ' + JSON.stringify(prep));
 
-  /* during the trip: a great day is saved and the recap counts it */
+  /* during the trip
   await pg.evaluate(() => { localStorage.setItem('waypoint-now', '2027-04-26T19:30'); W.S.appMode = 'plan'; W.S.appModeAt = '2027-04-26'; W.S.day = 4; W.goView('trip'); }); await pg.waitForTimeout(700);
-  /* the journal lives on Today: Trip has a button that goes there */
-  const jt = await pg.evaluate(() => ({ card: !!document.querySelector('#viewTrip .journal'), btn: !!document.querySelector('#viewTrip .j-go') }));
-  t.ok(!jt.card && jt.btn, 'on Trip the journal is a button to Today, not the card itself: ' + JSON.stringify(jt));
-  await pg.click('#viewTrip .j-go'); await pg.waitForTimeout(800);
-  const jl = await pg.evaluate(() => { const j = document.querySelector('#viewGo .journal'), r = j && j.getBoundingClientRect(), max = document.documentElement.scrollHeight - innerHeight;
-    return { go: W.view() === 'go', top: r ? Math.round(r.top) : null, y: Math.round(window.pageYOffset), atEnd: Math.abs(window.pageYOffset - max) < 3, vh: innerHeight }; });
-  /* at the top of the screen, or as far as the page goes when the journal is near its end, with the journal in view */
-  t.ok(jl.go && jl.top != null && jl.top >= 0 && jl.y > 0 && (jl.top < 80 || (jl.atEnd && jl.top < jl.vh - 120)), 'and it opens Today on that day, scrolled to the journal (not the top): ' + JSON.stringify(jl));
-  /* Add photos: the picker lives outside the card, so Today redrawing while you choose doesn't lose the photos */
-  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAAFUlEQVR4XmM8UWHDAANMcBYDAyoHADgUAYI1WdN0AAAAAElFTkSuQmCC', 'base64');
-  const [chooser] = await Promise.all([pg.waitForEvent('filechooser', { timeout: 5000 }).catch(() => null), pg.click('#viewGo .journal [data-jadd]')]);
-  await pg.evaluate(() => { W.render(); W.changed(); W.render(); });
-  if (chooser) await chooser.setFiles({ name: 'beach.png', mimeType: 'image/png', buffer: png });
-  await pg.waitForFunction(() => Object.values(W.S.journal || {}).some(e => (e.photos || []).length), null, { timeout: 8000 }).catch(() => {});
-  t.ok(!!chooser && await pg.evaluate(() => Object.values(W.S.journal || {}).some(e => (e.photos || []).length) && window.__assets.length > 0), '"Add photos" opens the photo picker, and a photo chosen while Today redraws is added to the day');
-  await pg.click('#viewGo .journal [data-mood="3"]'); await pg.waitForTimeout(400);
-  const mood = await pg.evaluate(() => { const k = Object.keys(W.S.journal || {}).find(k => W.S.journal[k].mood === 3); return { k, on: !!document.querySelector('.journal [data-mood="3"][aria-checked="true"]'), cheer: (document.querySelector('#cheerhost b') || {}).textContent }; });
-  t.ok(mood.k && mood.on && mood.cheer === 'Wonderful!', 'a great day is saved with the journal, with a cheer');
+  /* no journal anywhere (v176, the owner's call): not on Trip, not on Today */
+  const nj = await pg.evaluate(async () => { const t = !!document.querySelector('#viewTrip .journal, #viewTrip .j-go, [data-journalgo]'); W.goView('go'); W.render(); await new Promise(r => setTimeout(r, 600));
+    return { trip: t, today: !!document.querySelector('#viewGo .journal, [data-gofold="journal"], [data-mood], [data-jadd]') }; });
+  t.ok(!nj.trip && !nj.today, 'no journal on Trip or Today: ' + JSON.stringify(nj));
   const reel = await pg.evaluate(() => { localStorage.setItem('waypoint-now', '2027-05-20T10:00'); W.goView('recap'); const r = document.querySelector('.reel'); return r ? { n: r.querySelectorAll('.rt').length, txt: r.textContent.replace(/\s+/g, ' '), send: !!document.querySelector('[data-sendhome]') } : null; });
-  t.ok(reel && reel.n >= 4 && /20\s*days/.test(reel.txt) && /1\s*great day/.test(reel.txt) && reel.send, `the recap's highlight reel (${reel && reel.txt.slice(0, 70)})`);
+  t.ok(reel && reel.n >= 4 && /20\s*days/.test(reel.txt) && !/great day|photo/.test(reel.txt) && reel.send, `the recap's highlight reel (${reel && reel.txt.slice(0, 70)})`);
 
   /* a year later */
   const ann = await pg.evaluate(() => { localStorage.setItem('waypoint-now', '2028-04-26T10:00'); W.goView('trip'); const a = document.querySelector('.postcard.ann'); return a ? a.textContent.replace(/\s+/g, ' ') : ''; });

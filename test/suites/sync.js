@@ -31,14 +31,6 @@ exports.run = async t => {
   });
   const it0 = el && el.find(x => x.msg === 'Test boom');
   t.ok(it0 && it0.n === 2 && it0.at === 'app.js:1:99' && it0.build && it0.view && el.length === 1 && !/http/.test(it0.stack), `errors go to the viewer's private log, repeats counted (${it0 && JSON.stringify({ n: it0.n, at: it0.at, view: it0.view, build: it0.build, ua: it0.ua })})`);
-  /* the journal is joined, never replaced: with unsent changes here, both devices' photos and notes are kept */
-  const mj = await pg.evaluate(() => {
-    const mine = { 'Italy|Rome|1': { photos: [{ id: 'a1' }], note: 'Gelato by the fountain' }, 'Italy|Rome|2': { note: 'Rain all day' } };
-    const theirs = { 'Italy|Rome|1': { photos: [{ id: 'b1' }], note: 'Colosseum at opening' } };
-    const r = W.mergeJournal(mine, theirs), same = W.mergeJournal(theirs, theirs);
-    return { ids: r.journal['Italy|Rome|1'].photos.map(p => p.id).sort(), note: r.journal['Italy|Rome|1'].note, day2: r.journal['Italy|Rome|2'].note, changed: r.changed, same: same.changed };
-  });
-  t.ok(mj.ids.join() === 'a1,b1' && /Colosseum/.test(mj.note) && /Gelato/.test(mj.note) && mj.day2 === 'Rain all day' && mj.changed && !mj.same, 'two devices\' journals are joined (both photos, both notes, the extra day): ' + JSON.stringify(mj));
   /* a device that can't save says so, and clears nothing */
   const full = await pg.evaluate(() => {
     const real = Storage.prototype.setItem; Storage.prototype.setItem = function () { const e = new Error('full'); e.name = 'QuotaExceededError'; throw e; };
@@ -49,13 +41,13 @@ exports.run = async t => {
   t.ok(full.on && full.kept && full.off, 'a refused save is flagged (and nothing cleared), and the flag goes when saving works again: ' + JSON.stringify(full));
   /* two of your devices: each side's own changes survive; the same slot changed on both goes to the other (later) one */
   const m3 = await pg.evaluate(() => {
-    const base = { days: 10, start: '2027-06-07', picks: { a: 'Cafe 1', b: 'Museum', c: 'Park' }, free: {}, stays: { 'Italy|Rome': { label: 'Hotel A' } }, journal: { x: { note: 'base' } } };
-    const mine = JSON.parse(JSON.stringify(base)); mine.picks.a = 'Cafe 9'; mine.picks.c = 'Zoo'; mine.free.d = 1; mine.start = '2027-06-08'; delete mine.picks.b; mine.journal.x.note = 'mine';
+    const base = { days: 10, start: '2027-06-07', picks: { a: 'Cafe 1', b: 'Museum', c: 'Park' }, free: {}, stays: { 'Italy|Rome': { label: 'Hotel A' } } };
+    const mine = JSON.parse(JSON.stringify(base)); mine.picks.a = 'Cafe 9'; mine.picks.c = 'Zoo'; mine.free.d = 1; mine.start = '2027-06-08'; delete mine.picks.b;
     const theirs = JSON.parse(JSON.stringify(base)); theirs.picks.c = 'Garden'; theirs.days = 12; theirs.stays['Italy|Rome'] = { label: 'Hotel B' }; theirs.picks.e = 'Market';
     const r = W.merge3(base, mine, theirs), none = W.merge3(base, base, theirs);
     return { s: r.state, changed: r.changed, none: none.changed, noneSame: JSON.stringify(none.state) === JSON.stringify(theirs) };
   });
-  t.ok(m3.s.picks.a === 'Cafe 9' && m3.s.picks.c === 'Garden' && !('b' in m3.s.picks) && m3.s.picks.e === 'Market' && m3.s.free.d === 1 && m3.s.start === '2027-06-08' && m3.s.days === 12 && m3.s.stays['Italy|Rome'].label === 'Hotel B' && m3.s.journal.x.note === 'base' && m3.changed,
+  t.ok(m3.s.picks.a === 'Cafe 9' && m3.s.picks.c === 'Garden' && !('b' in m3.s.picks) && m3.s.picks.e === 'Market' && m3.s.free.d === 1 && m3.s.start === '2027-06-08' && m3.s.days === 12 && m3.s.stays['Italy|Rome'].label === 'Hotel B' && m3.changed,
     'your changes here and theirs there are joined (the same slot changed on both: theirs): ' + JSON.stringify(m3.s.picks));
   t.ok(!m3.none && m3.noneSame, 'with nothing changed here, theirs is taken as it is');
   t.eq(errors(), [], 'no page errors');

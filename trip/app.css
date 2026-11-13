@@ -254,7 +254,7 @@ details.step > summary:focus-visible{outline:2px solid var(--ink);outline-offset
 .stay-btn.set{color:var(--fg)}
 .stay-btn span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .stay-btn svg{width:19px;height:15px;flex:none}
-.stay-btn .chev{width:14px;height:14px;transition:transform .15s}
+.stay-btn .chev{width:14px;height:14px}
 .stay-btn[aria-expanded="true"] .chev{transform:rotate(180deg)}
 .stay-panel{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
 /* the same panel as a sheet over another screen ("Pick a place" on Today, Prepare, the Trip tab) */
@@ -644,10 +644,6 @@ html:has(:is(input,textarea):focus) #totop{display:none}
 .scard .nm{font-weight:800;font-size:var(--t-ui);line-height:1.22;padding:0 8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 /* (large text on a phone: the distance wraps to a second line rather than being cut to "400 m awa…") */
 .scard .info{font-size:var(--t-cap);color:var(--muted);font-weight:700;padding:0 8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-/* the journal's way to Today, at the bottom of a day on Trip */
-.j-go{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;margin:14px 0 4px;padding:12px 16px;border:var(--hair);border-radius:var(--r-md);background:var(--surface);color:var(--fg);font:inherit;font-size:var(--t-body);cursor:pointer;text-align:left}
-.j-go .small{font-weight:600}
-@media (hover:hover){.j-go:hover{border-color:var(--muted)}}
 @media (hover:hover){.scard:hover{border-color:var(--muted)}}
 .scard:active{transform:scale(.98)}
 .swapcards + .opts{margin-top:2px}
@@ -1270,27 +1266,14 @@ table.budget tfoot th,table.budget tfoot td{border-top:2px solid var(--ink);font
   html:has(.top[data-day]) .go.live .go-top{display:none}
   html:has(.top[data-day]) .go.live .go-nav{display:grid}
 }
-.goview .journal{max-width:640px;margin:0 auto;width:100%}
 .dpill.today::after{content:"";position:absolute;bottom:4px;left:50%;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--accent)}
 .dpill[aria-current="true"].today::after{background:var(--on-primary)}
 
-/* ==================== journal, recap, family hearts and comments ==================== */
+/* ==================== recap, family hearts and comments ==================== */
 .fam{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:var(--t-ui);padding-top:2px}
 .heart-btn{border:var(--hair);background:var(--surface);border-radius:var(--r-pill);padding:3px 12px;font-weight:800;font-size:var(--t-ui);cursor:pointer;color:var(--fg)}
 .heart-btn[aria-pressed="true"]{background:var(--note-soft);border-color:var(--note);color:var(--note)}
 .heart-n{font-size:var(--t-sm);font-weight:800;color:var(--note-text);white-space:nowrap}
-.journal{padding:14px 16px;display:grid;gap:10px;margin-top:4px}
-.j-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-.j-h h3{font-family:var(--f-display);font-weight:750;font-size:var(--t-h4)}
-.j-h .linkish{font-size:var(--t-ui)}
-.jgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:6px}
-.jgrid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--r-sm);display:block;background:var(--sunk)}
-.jp{position:relative;margin:0}
-.jx{position:absolute;top:4px;right:4px;width:28px;height:28px;background:rgba(28,31,55,.62);color:var(--on-color);font-size:var(--t-h4);line-height:1}
-@media (hover:hover){.jx:hover{background:rgba(28,31,55,.85);color:var(--on-color)}}
-.journal textarea{width:100%;resize:vertical;font:.9375rem/1.45 var(--f-body)}
-.jnote{font-size:var(--t-lead);white-space:pre-wrap}
-.jadd{cursor:pointer;display:inline-flex;align-items:center}
 .recap{display:grid;gap:14px;max-width:760px;margin:0 auto}
 .recap .back{justify-self:start;font-size:var(--t-body)}
 .rc-hero{padding:22px 20px;display:grid;gap:6px;text-align:center}
@@ -1299,10 +1282,7 @@ table.budget tfoot th,table.budget tfoot td{border-top:2px solid var(--ink);font
 .rc-h{display:flex;justify-content:space-between;align-items:baseline;gap:4px 12px;flex-wrap:wrap}
 .rc-h b{font-weight:800;font-size:var(--t-lead)}
 .rc-h .muted{font-size:var(--t-ui);font-weight:700}
-.jgrid.rc{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 .rc-share{text-align:center}
-@media (max-width:560px){.jgrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media (max-width:560px){.jgrid.rc{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 /* ==================== Trip settings: sharing, calendar and PDF, booking sites, price watches, import a plan ==================== */
 .share{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;border-top:var(--hair);padding-top:12px}
@@ -1560,15 +1540,6 @@ html.offline .brand::after{content:"Offline";position:absolute;right:-6px;top:-8
 .rd-bar i{display:block;height:100%;border-radius:3px;background:#e0895a}
 @media (prefers-reduced-motion:no-preference){.rd-bar i{transition:width .6s ease}}
 
-/* how was today */
-.mood{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:4px 0 10px}
-.mood > span{font-weight:800;font-size:var(--t-body);margin-right:4px;flex-basis:100%}
-.mood button{display:inline-flex;align-items:center;gap:5px;border:var(--hair);background:var(--surface);color:var(--fg);border-radius:var(--r-pill);padding:5px 12px 5px 8px;font:700 var(--t-ui)/1.1 var(--f-body);cursor:pointer}
-.mood button span{display:inline-flex}
-.mface{width:20px;height:20px;flex:none}
-.rc-h .mface,.mood-ro .mface{width:18px;height:18px;vertical-align:-4px}
-.mood button[aria-checked="true"]{background:var(--grad);color:var(--on-color);border-color:transparent}
-.mood-ro{margin:4px 0 8px;font-weight:700}
 
 /* the highlight reel */
 .reel{display:grid;gap:12px;padding:14px 16px;margin:12px 0}
@@ -2194,8 +2165,8 @@ svg.arr.arr-r{margin:0 0 0 .35em}
   .go-near .nr-b .btn{display:inline-flex;align-items:center}
   /* the rest of what is tapped and drawn smaller than 44px (buttons, small links, tabs, the folds' headings): the same
      unseen margin, as wide as the thing (a narrow one 44px wide too), so the look stays */
-  :where(.btn,.linkish,.menu-btn,.ilink,.pl-a,.tl-go,.stay-btn,.trav.add,.sc-no,.vsw [role="tab"],.slot-toggle,.mood button,.chk-gb,.fold,.gb-i,.tog,.lodge a,a.price,a.book,summary){position:relative}
-  :where(.btn,.linkish,.menu-btn,.ilink,.pl-a,.tl-go,.stay-btn,.trav.add,.sc-no,.vsw [role="tab"],.slot-toggle,.mood button,.chk-gb,.fold,.gb-i,.tog,.lodge a,a.price,a.book,summary)::after{content:"";position:absolute;left:min(0px,calc(50% - 22px));right:min(0px,calc(50% - 22px));top:min(0px,calc(50% - 22px));bottom:min(0px,calc(50% - 22px))}
+  :where(.btn,.linkish,.menu-btn,.ilink,.pl-a,.tl-go,.stay-btn,.trav.add,.sc-no,.vsw [role="tab"],.slot-toggle,.chk-gb,.fold,.gb-i,.tog,.lodge a,a.price,a.book,summary){position:relative}
+  :where(.btn,.linkish,.menu-btn,.ilink,.pl-a,.tl-go,.stay-btn,.trav.add,.sc-no,.vsw [role="tab"],.slot-toggle,.chk-gb,.fold,.gb-i,.tog,.lodge a,a.price,a.book,summary)::after{content:"";position:absolute;left:min(0px,calc(50% - 22px));right:min(0px,calc(50% - 22px));top:min(0px,calc(50% - 22px));bottom:min(0px,calc(50% - 22px))}
   .brand{position:relative}
   .brand::before{content:"";position:absolute;left:0;right:0;top:min(0px,calc(50% - 22px));bottom:min(0px,calc(50% - 22px))}
 }
@@ -2348,8 +2319,8 @@ img.lqi.ld{opacity:1;transition:opacity .25s ease-out}
    a row under the name. Wider screens keep their layout (the words on those buttons stay hidden). */
 .bt-l{display:none}
 @media (max-width:560px){
-  html.on-trip header.top.has-photo{background:linear-gradient(90deg,rgba(26,22,48,.92) 0%,rgba(26,22,48,.62) 55%,rgba(26,22,48,.34) 100%),var(--top-photo) center 40% / cover no-repeat,var(--grad);padding-bottom:20px}
-  html.on-trip header.top.has-photo::after{content:attr(data-credit);position:absolute;left:16px;bottom:5px;max-width:70%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font:600 .5625rem/1.2 var(--f-body);color:rgba(255,255,255,.72);pointer-events:none}
+  :is(html.on-trip,html.on-go) header.top.has-photo{background:linear-gradient(90deg,rgba(26,22,48,.92) 0%,rgba(26,22,48,.62) 55%,rgba(26,22,48,.34) 100%),var(--top-photo) center 40% / cover no-repeat,var(--grad);padding-bottom:20px}
+  :is(html.on-trip,html.on-go) header.top.has-photo::after{content:attr(data-credit);position:absolute;left:16px;bottom:5px;max-width:70%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font:600 .5625rem/1.2 var(--f-body);color:rgba(255,255,255,.72);pointer-events:none}
   #viewTrip .slot.slim{align-items:start;padding:12px}
   #viewTrip .slot.slim .sl-l{display:grid;gap:2px;-webkit-line-clamp:unset;overflow:visible}
   #viewTrip .slot.slim .sl-l .tm{display:block;margin:0;white-space:nowrap}

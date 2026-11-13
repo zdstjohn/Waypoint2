@@ -72,8 +72,10 @@
   /* the nightly places join the city's list once per delivery (W.pool calls this every time it hands out a list) */
   W.withNightFood = function (country, city, pool) {
     var doc = MORE[slug(country, city)];
-    if (!doc || !Array.isArray(doc.items) || !pool || pool.nightV === moreV) return;
-    pool.nightV = moreV;
+    /* (by what the nightly lists hold, kept with the city: a counter would start again with the page, and a list kept
+       from yesterday would look up to date) */
+    if (!doc || !Array.isArray(doc.items) || !pool || pool.nightV === moreSig) return;
+    pool.nightV = moreSig;
     var have = {},
       ctr = pool.lat != null ? { lat: pool.lat, lng: pool.lng } : null,
       sig = W.eatSig ? W.eatSig() : "";

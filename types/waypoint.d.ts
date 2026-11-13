@@ -156,7 +156,6 @@ interface Waypoint {
   autoFound: any;
   autoLine: any;
   autoTick: any;
-  autopilot: any;
   badForDay: (it: any, wd: any, slot?: any, kd?: any, n?: number) => any;
   beachFit: (x: any) => any;
   bestOrder: any;
@@ -186,7 +185,6 @@ interface Waypoint {
   clock: (m: number) => string;
   closeStop: () => boolean;
   closeTripMenu: () => boolean;
-  confetti: any;
   /** null without a plan with stops */
   countdown: (P: Plan) => Countdown | null;
   countryCities: (name: string) => BuiltCity[];
@@ -221,7 +219,6 @@ interface Waypoint {
   deskQuick: (x: SlotEntry, it: any, day: Day, P: Plan) => string;
   deskSum: (sm: { stops: number; move: number; first: number | null; last: number | null; booked: number }, day?: Day) => string;
   deskMap: (P: Plan) => void;
-  deskPaint: () => void;
   deskPts: { n: number; country: string; city: string; pts: any[]; home: any; slug: string | null; xp: boolean; go?: boolean; gm?: string } | null;
   deskIdeas: { n: string; lat: number | null; lng: number | null; food: boolean }[];
   railRender: (P: Plan) => void;
@@ -243,7 +240,6 @@ interface Waypoint {
   elderNames: () => string[];
   esc: (s: unknown) => string;
   extLink: (url: string, txt: string, cls?: string) => string;
-  fameOf: (it: Spot | Food, idx?: number) => 0 | 1 | 2;
   family: () => Traveler[];
   familyActs: (it: any, day?: any, x?: any) => string;
   familyClick: (b: any, d: any) => any;
@@ -310,9 +306,6 @@ interface Waypoint {
   isoDay: (d: Date) => string;
   jetlag: (P: { stops: any[]; ap: any }) => any;   /* (the plan, or just its stops and airports while it is being made) */
   joinNames: any;
-  journalCard: (day: Day) => string;
-  journalClick: any;
-  journalHas: () => boolean;
   jumpToToday: ((P: Plan) => void) & { done?: any };
   keepInputs: (el: HTMLElement, draw: () => void) => void;
   kidDinner: () => number | null;
@@ -388,7 +381,6 @@ interface Waypoint {
   gmOn: () => boolean;
   gmSearch: (q: string, c: LatLng, city: string, country: string) => Promise<any[]>;
   gmState: () => { state: string; why: string; left: number };
-  syncState: () => string;
   needNet: (what: string) => void;
   wxLine: (day: Day, live?: boolean, rescue?: boolean) => string;
   legBusy: any;
@@ -438,7 +430,6 @@ interface Waypoint {
   eatFit: (it: any) => string;
   eatWhy: (it: any) => string;
   loadEatFit: (country: string, city: string) => void;
-  /** open the photo picker for a day's journal (screens/journal.js) */
   /** Prices in: the currency costs are shown in (lib/bookcore.js) */
   fxDate: () => string;
   fxRate: (from: string, to: string) => number | null;
@@ -480,7 +471,6 @@ interface Waypoint {
   /** asks Rome2Rio (your connector) for real journey times between two stops, on a tap */
   checkRoutes: (a: any, b: any) => void;
   r2rMsg: string;
-  r2rMode: (name: string) => string;
   r2rFor: (routes: R2RRoute[] | undefined, mode: string) => R2RRoute | null;
   legKey: (a: { country: string; name: string }, b: { country: string; name: string }) => string;
   legMinutes: (a: any, b: any) => any;
@@ -511,6 +501,12 @@ interface Waypoint {
   liveTierSize: (ck: string, tier: Tier) => number;
   liveStay: (ck: string, x: LiveLodging) => Stay;
   stayDates: (s: Stop, P: Plan) => { in: string; out: string; nights: number } | null;
+  /** a chosen stay's Booking.com price while it is still for these nights (lib/bookcore.js) */
+  stayLive: (st: Stay | undefined, s: Stop, P: Plan) => Stay["live"] | null;
+  /** the latest a stop in this part of the day may start for this group (lib/times.js) */
+  slotCap: (slot: string, p: Party) => number | undefined;
+  /** the day's photo, picked with its own places in mind (lib/photos.js) */
+  dayPhoto: (day: Day) => Photo | null;
   lodgeSig: any;
   mcpMsg: (e: any, s?: any) => string;
   me: any;
@@ -520,7 +516,6 @@ interface Waypoint {
   modeName: (m: any) => string;
   modeOf: any;
   money: (n: number, cur?: string | null, raw?: any) => string;
-  moodRow: any;
   moveEvery: (p: any) => number;
   needsBooking: (it: Spot | Food) => boolean;
   newTripBlank: any;
@@ -601,8 +596,6 @@ interface Waypoint {
   localFull?: boolean;
   /** note a refused save: sets localFull and logs it once */
   storeFailed: (e: any) => void;
-  /** join this device's unsent journal changes with another device's journal (photos by id, both notes) */
-  mergeJournal: (mine: any, theirs: any) => { journal: any; changed: boolean };
   renderBook: any;
   renderGo: any;
   renderKids: any;
@@ -655,7 +648,6 @@ interface Waypoint {
   sharePlain: (code: any) => ShareBox;
   shareCode: (code: any) => string;
   sharePacks: boolean;
-  shortNote: any;
   shutBy: any;
   sitesRow: any;
   sky: any;
@@ -690,7 +682,6 @@ interface Waypoint {
   reviewSig: any;
   reviewStart: (P: Plan) => void;
   reviewBlock: any;
-  sumText: any;
   suppressClick: any;
   syncable: any;
   takeItBlock: any;
@@ -749,7 +740,6 @@ interface Waypoint {
   /** where to stay, as a sheet over the screen you are on (screens/setup.js, second script) */
   staySheet: (si: number) => void;
   staySheetRedraw: () => void;
-  stayClose: () => boolean;
   /** a stop's sheet (screens/sheet.js, second script) and what it borrows from screens/flow.js */
   sheetOpen: (key: string) => void;
   sheetClose: () => boolean;
@@ -759,8 +749,6 @@ interface Waypoint {
   snapState: () => string | null;
   /** the one link that matters for a stop: a table or menu for a meal, the tickets for a sight */
   stopLink: (it: any, food: boolean, day: Day, P: Plan) => { url: string; t: string } | null;
-  /** open a folded part of Today ("bag", "journal") */
-  goOpen: (name: string) => void;
   /** "smooth", or "auto" for someone who asked for less motion */
   smooth: () => ScrollBehavior;
   /** the Back button (lib/back.js): something opened on top of the screen / was closed by its own control */
@@ -817,13 +805,11 @@ interface Waypoint {
   /** the photo behind the top card, or none */
   topPhoto: (ph: Photo | null) => void;
   /** a drawn face for a day's mood (3 great, 2 good, 1 tough) */
-  moodFace: (m: number) => string;
   /** which Claude request goes next: 0 first (things you asked for), higher later */
   loadPrio: (key: string) => number;
   warmTick: (P: Plan) => void;
   /** (lib/ahead.js, second script) fetch the next and previous day's photos when idle; tomorrow's street map the evening before */
   aheadTick?: (P: Plan) => void;
-  aheadOk?: (strict?: boolean) => boolean;
   /** (for the tests) what a photo's markup would ask for: the WebP copy's srcset when it has one */
   aheadReqOf?: (html: string) => { src: string; srcset: string | null; sizes: string | null } | null;
   watchBanner: () => string;

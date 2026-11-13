@@ -1587,18 +1587,7 @@
         var e = $(id);
         if (e) e.value = "";
       });
-    } else if (d.cal) {
-      calConfirm = true;
-      cal = { state: "idle" };
-    } else if (d.calno) calConfirm = false;
-    else if (d.calgo) {
-      calConfirm = false;
-      exportCal(P);
-      return;
-    } else if (d.pdf) {
-      makePdf(P);
-      return;
-    } else return;
+    } else return; /* (the calendar and the PDF: W.takeItClick, above) */
     W.render();
   };
   W.bookEnter = function (inp) {

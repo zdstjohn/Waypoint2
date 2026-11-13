@@ -159,7 +159,7 @@
       var c = /** @type {any} */ (navigator).connection;
       return !(c && c.saveData);
     })();
-  /* open Today on a given day (the journal button on Trip) */
+  /* open Today on a given day (a wide screen's day list) */
   W.goToDay = function (n) {
     var tn = W.todayN(W.P);
     goN = n === tn ? null : n;
@@ -703,8 +703,7 @@
     h += goTickets(P, n, live);
     h += goTonight(P, day, list, home, live, n, nm);
     /* what to take out today is a before-you-leave job: open until the first stop, one line after it (second script) */
-    var first = stops[0],
-      last = stops[stops.length - 1];
+    var first = stops[0];
     if (W.dayBagCard) {
       var bs = W.dayBagState ? W.dayBagState(day, P) : null;
       h += fold(
@@ -715,9 +714,6 @@
         W.dayBagCard(day, P, live)
       );
     }
-    /* a photo and a line for the journal: an evening job, one line until the last stop is over */
-    if (W.journalCard)
-      h += fold("journal", "Journal", "A photo and a line for today", !live || nm == null || !last || nm >= last.end, W.journalCard(day));
     h += kidsRow;
     if (W.offline && W.offline.off) h = W.offline.block(P) + h; /* offline: say so first */
     if (W.offline && !W.offline.off) h += W.offline.block(P);
@@ -755,8 +751,10 @@
         : "") +
       "</p>";
     W.draw(el, GO + h + "</div>", "go|" + W.S.tripId + "|" + day.n);
-    /* on a phone the banner carries the day; its route button opens today's whole route */
+    /* on a phone the banner carries the day; its route button opens today's whole route, and the day's photo goes
+       behind it as on Trip (v176, the owner's ask; lib/photos.js W.topPhoto) */
     if (W.bannerRoute) W.bannerRoute(todayRoute);
+    if (W.topPhoto) W.topPhoto(W.phoneTop && W.phoneTop() ? W.dayPhoto(day) : null);
     /* the map itself comes with the second script: until then its place is held, saying it is loading */
     if (vtWant) {
       var slotEl = el.querySelector(".vt-slot");
@@ -1016,7 +1014,7 @@
       "Directions</a></div></div></div>"
     );
   }
-  /* a part of Today that belongs to another time of day (the day bag before you leave, the journal in the evening):
+  /* a part of Today that belongs to another time of day (the day bag before you leave):
      open then, one line the rest of the time; what you open or close stays that way while the app is open */
   /** @type {Record<string, boolean>} */ var folds = {};
   function fold(name, title, meta, openNow, body) {
@@ -1050,10 +1048,6 @@
     },
     true
   );
-  /** open one of them (a link elsewhere leads to it: the Day view's "Journal" button) */
-  W.goOpen = function (name) {
-    folds[name] = true;
-  };
   var plansOpen = false; /* "Change of plans": the ways to rescue the rest of the day, behind one button */
 
   /* ======================= clicks (before the views' own handlers) ======================= */

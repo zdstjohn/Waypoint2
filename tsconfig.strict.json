@@ -24,7 +24,6 @@
     "trip/lib/links.js",
     "trip/screens/family.js",
     "trip/screens/today.js",
-    "trip/screens/journal.js",
     "trip/screens/settings.js",
     "trip/lib/errlog.js",
     "trip/lib/holidays.js",

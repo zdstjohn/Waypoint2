@@ -175,14 +175,18 @@
       sig = hash(JSON.stringify(facts) + "|" + W.ages().join(",")),
       k = "review|" + (W.S.tripId || "t");
     if (W.status[k] && W.status[k] !== "loading") delete W.status[k];
+    var key = sk(); /* (the trip asked about: another may be open when the answer comes) */
     W.run(k, prompt(P, facts), "complex", function (res) {
-      var c = clean(res, W.P || P);
-      mem = { sig: sig, at: Date.now(), ok: c.ok, issues: c.issues };
-      memId = sk();
+      var c = clean(res, P),
+        m = { sig: sig, at: Date.now(), ok: c.ok, issues: c.issues };
       try {
-        localStorage.setItem(sk(), JSON.stringify(mem));
+        localStorage.setItem(key, JSON.stringify(m));
       } catch (e) {
         if (W.storeFailed) W.storeFailed(e);
+      }
+      if (sk() === key) {
+        mem = m;
+        memId = key;
       }
       W.changed();
     });

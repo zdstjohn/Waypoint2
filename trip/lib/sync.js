@@ -229,7 +229,6 @@
     var cur = syncable(S);
     lastSig = hash(JSON.stringify(cur));
     appliedAt = Date.now();
-    jBase = JSON.stringify(S.journal || {});
     base = cur;
   }
   /* Two of your own devices changing the same trip: another device's version no longer replaces what you changed here
@@ -249,7 +248,7 @@
     Object.keys(mine)
       .concat(Object.keys(b0))
       .forEach(function (k) {
-        if (k === "journal" || k === "tripId" || same(mine[k], b0[k])) return; /* not changed here (the journal has its own joining) */
+        if (k === "tripId" || same(mine[k], b0[k])) return; /* not changed here */
         if (isMap(mine[k]) && (isMap(theirs[k]) || theirs[k] === undefined) && (isMap(b0[k]) || b0[k] === undefined)) {
           var m = mine[k],
             t = out[k] || (out[k] = {}),
@@ -274,44 +273,6 @@
     return { state: out, changed: changed };
   }
   W.merge3 = merge3; /* (for the tests) */
-  /* The journal is the one thing that can't be made again, so another device's version never simply replaces it. When
-     this device has journal changes the account hasn't got (it differs from the last version both had, jBase), the two
-     are joined: photos from both (by id), and both notes when they differ. With no changes here, theirs is taken as it
-     is, so a photo or note removed on the other device goes here too. Returns true when the result differs from theirs. */
-  var jBase = JSON.stringify(S.journal || {});
-  function mergeJournal(mine, theirs) {
-    var out = clone(theirs || {}),
-      changed = false;
-    Object.keys(mine || {}).forEach(function (k) {
-      var a = mine[k] || {},
-        b = out[k];
-      if (!b) {
-        if ((a.photos || []).length || (a.note || "").trim()) {
-          out[k] = clone(a);
-          changed = true;
-        }
-        return;
-      }
-      var have = {};
-      (b.photos || []).forEach(function (p) {
-        have[p.id] = 1;
-      });
-      (a.photos || []).forEach(function (p) {
-        if (p && p.id && !have[p.id]) {
-          (b.photos || (b.photos = [])).push(clone(p));
-          changed = true;
-        }
-      });
-      var an = (a.note || "").trim(),
-        bn = (b.note || "").trim();
-      if (an && an !== bn && bn.indexOf(an) < 0) {
-        b.note = (bn && an.indexOf(bn) < 0 ? bn + "\n" : "") + an;
-        changed = true;
-      }
-    });
-    return { journal: out, changed: changed };
-  }
-  W.mergeJournal = mergeJournal; /* (for the tests) */
   /* only changes you make get sent: the planner filling in picks on its own is redone on every device anyway,
      and sending those would overwrite what you just changed somewhere else */
   var touched = 0;
@@ -442,7 +403,19 @@
       var b = tripBody(id);
       if (!b) return;
       if (JSON.stringify(b).length > 250000) delete b.cc;
-      return col.doc(id).set(b);
+      return col
+        .doc(id)
+        .set(b)
+        .then(function () {
+          /* what the account has now is what the two sides agree on: another device putting a choice back to how it
+             was is then a change of theirs, not one to undo with ours */
+          if (id === S.tripId && b.state) base = b.state;
+          if (idx[id] && idx[id].unsent) {
+            delete idx[id].unsent;
+            delete idx[id].base;
+            saveIdx();
+          }
+        });
     });
   }
   function pushPools() {
@@ -533,16 +506,19 @@
       return;
     }
     if (id === S.tripId && !W.readOnly) {
-      var mineJ = S.journal || {},
-        unsent = JSON.stringify(mineJ) !== jBase,
-        mj = unsent ? mergeJournal(mineJ, b.state.journal) : null;
       /* changes you made here since the two last agreed (only yours: the planner filling a day by itself is redone anyway) */
-      var mp = touched > appliedAt ? merge3(base, syncable(S), b.state) : null,
-        back = (mj && mj.changed) || (mp && mp.changed);
+      var was = idx[id],
+        held = was && was.unsent && was.base,
+        mp = touched > appliedAt || held ? merge3(held ? was.base : base, syncable(S), b.state) : null,
+        back = mp && mp.changed;
       replaceState(mp ? mp.state : b.state);
       S.tripId = id;
-      if (mj) S.journal = mj.journal;
       idx[id] = { name: b.name, updated: back ? Date.now() : b.updated };
+      /* (what was joined is still to go: until it has, the account's version is the one both sides had) */
+      if (back) {
+        idx[id].unsent = 1;
+        idx[id].base = clone(b.state);
+      }
       saveIdx();
       baseline();
       fetched = {};
@@ -724,6 +700,12 @@
         delete m.gone; /* (deleted on another device, then changed here: wanted after all) */
         m.updated = Date.now();
         m.name = W.tripName();
+        /* changes the account hasn't got yet, kept with the last version both had, so they are joined with another
+           device's later ones even if this phone is offline and the app is closed before they go (v176) */
+        if (!m.unsent) {
+          m.unsent = 1;
+          m.base = clone(base);
+        }
         saveIdx();
         if (firstSnap) pushTrip(S.tripId);
         pushShare();
@@ -833,8 +815,7 @@
     });
   };
   /* ---------- a copy of your trips, as a file (Settings; the audit's O3) ---------- */
-  /* Every trip on this device as one plain document: each plan's settings, picks, bookings, checklist and journal notes.
-     Photos stay in the app's storage (the file carries their ids). Yours to keep: it is the only backup that does not
+  /* Every trip on this device as one plain document: each plan's settings, picks, bookings and checklist. Yours to keep: it is the only backup that does not
      depend on this app's database. */
   W.tripsExport = function () {
     var out = /** @type {any[]} */ ([]);
@@ -1259,10 +1240,6 @@
     var sw = /** @type {HTMLElement | null} */ (inside ? document.querySelector("#tripbar .trip-sw") : null);
     if (sw) sw.focus({ preventScroll: true });
     return true;
-  };
-  /** how saving to the account stands: local, connecting, synced, saving, waiting, error or full (for the tests) */
-  W.syncState = function () {
-    return st;
   };
   var ST = {
     local: "Saved on this device",

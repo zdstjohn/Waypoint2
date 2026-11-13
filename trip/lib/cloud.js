@@ -358,6 +358,10 @@
               onErr(e);
             }
           })
+          /* (an error in what the app does with the answer must not stop the listening for good) */
+          .then(null, function (e) {
+            if (W.caught) W.caught(e, "cloud: deliver " + path);
+          })
           .then(function () {
             s.busy = false;
             if (s.again) {

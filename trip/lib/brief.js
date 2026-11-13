@@ -136,14 +136,15 @@
       k = "brief|" + (W.S.tripId || "t") + "|" + day.n,
       sig = JSON.stringify([f.town, f.date, f.stay, f.how, f.arrive]);
     if (W.status[k] && W.status[k] !== "loading") delete W.status[k];
+    var key = sk(day); /* (the trip asked about: another may be open when the answer comes) */
     W.run(k, prompt(f), "default", function (res) {
       var v = { sig: sig, at: Date.now(), res: W.briefClean(res) };
       try {
-        localStorage.setItem(sk(day), JSON.stringify(v));
+        localStorage.setItem(key, JSON.stringify(v));
       } catch (e) {
         if (W.storeFailed) W.storeFailed(e);
       }
-      mem[sk(day)] = v;
+      mem[key] = v;
       W.changed();
     });
   };

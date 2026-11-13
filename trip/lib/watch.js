@@ -144,14 +144,25 @@
   /* ---------- re-checking ---------- */
   function priceFrom(w, payload) {
     if (w.kind === "stay") {
-      var want = W.norm(w.match),
+      /* (a name with no Latin letters is compared as written: W.norm would make it empty, and empty matches anything) */
+      var key = function (/** @type {any} */ n) {
+          return (
+            W.norm(n) ||
+            String(n || "")
+              .trim()
+              .toLowerCase()
+          );
+        },
+        want = key(w.match),
         list = (payload && payload.accommodations) || [];
+      if (!want) return null;
       var hit =
         list.filter(function (a) {
-          return a && a.name && W.norm(a.name) === want;
+          return a && a.name && key(a.name) === want;
         })[0] ||
         list.filter(function (a) {
-          return a && a.name && (W.norm(a.name).indexOf(want) > -1 || want.indexOf(W.norm(a.name)) > -1);
+          var k = a && a.name ? key(a.name) : "";
+          return k && (k.indexOf(want) > -1 || want.indexOf(k) > -1);
         })[0];
       return hit && hit.price && +hit.price.book > 0
         ? { total: +hit.price.book, cur: String(hit.price.currency || w.base.cur), url: hit.url }

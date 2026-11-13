@@ -196,7 +196,6 @@
       el.classList.toggle("ws-hi", !!hiIdea && el.getAttribute("data-wsidea") === hiIdea);
     });
   }
-  W.deskPaint = paint;
   function set(keys, leg, idea) {
     if (keys.join("\n") === hiKeys.join("\n") && leg === hiLeg && idea === hiIdea) return;
     hiKeys = keys;

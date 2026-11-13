@@ -58,7 +58,7 @@
     if (!W.readOnly)
       h += card(
         "A copy of your trips",
-        "Every trip on this device in one file: the plans, bookings, checklists and journal notes (photos stay in the app). Keep it somewhere safe; it is a backup that does not depend on this app.",
+        "Every trip on this device in one file: the plans, bookings and checklists. Keep it somewhere safe; it is a backup that does not depend on this app.",
         '<div class="row"><button type="button" class="btn quiet" data-trips="save">Save a copy</button>' +
           '<button type="button" class="btn quiet" data-trips="open">Open a saved copy</button>' +
           '<input type="file" id="tripsFile" accept=".json,application/json" hidden aria-label="A saved copy of your trips"></div>' +

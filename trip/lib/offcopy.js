@@ -155,7 +155,16 @@
     O.copyState = "making";
     O.copyErr = "";
     W.changed();
-    var seed = { at: Date.now(), S: null, C: null, photos: W.photosSnapshot ? W.photosSnapshot() : null, blobs: {} };
+    /* the trip as it is now, and its name: another may be opened while the photos come */
+    var seed = {
+        at: Date.now(),
+        S: JSON.parse(JSON.stringify(W.S)),
+        C: JSON.parse(JSON.stringify(W.C)),
+        photos: W.photosSnapshot ? W.photosSnapshot() : null,
+        blobs: {}
+      },
+      tripId = W.S.tripId || "",
+      tname = W.tripName ? W.tripName() : "Trip";
     return Promise.all([text("index.html"), text("app.min.css"), text("app.js"), text("app2.js"), text("app2.css")])
       .then(function (r) {
         var html = r[0],
@@ -204,8 +213,6 @@
             return Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]);
           })
           .then(function () {
-            seed.S = JSON.parse(JSON.stringify(W.S));
-            seed.C = JSON.parse(JSON.stringify(W.C));
             /* (replacement text goes in as a function: code and JSON are full of "$" sequences String.replace would expand) */
             var styleTag = "<style>" + css.replace(/<\/style/gi, "<\\/style") + "</style>";
             var safe = function (code) {
@@ -236,7 +243,7 @@
               '<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>' +
               page +
               "</body></html>";
-            var name = (W.tripName ? W.tripName() : "Trip").replace(/[^\w\- ]+/g, "").trim() || "Trip";
+            var name = tname.replace(/[^\w\- ]+/g, "").trim() || "Trip";
             var blob = new Blob([page], { type: "text/html" }),
               file = name + " (offline copy).html";
             return W.saveFile(file, blob);
@@ -246,7 +253,7 @@
         function () {
           O.copyState = "done";
           try {
-            localStorage.setItem("waypoint-copy", JSON.stringify({ trip: W.S.tripId || "", at: Date.now(), sig: planSig(P) }));
+            localStorage.setItem("waypoint-copy", JSON.stringify({ trip: tripId, at: Date.now(), sig: planSig(P) }));
           } catch (x) {}
           W.changed();
         },

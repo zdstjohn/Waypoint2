@@ -75,8 +75,6 @@
       '<path d="M3 11V8.2L4.4 5h7.2L13 8.2V11z"/><path d="M3 8.2h10"/><circle cx="5.3" cy="11.3" r="1.1"/><circle cx="10.7" cy="11.3" r="1.1"/>'
     )
   };
-  var ICON_MORE =
-    '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="3.2" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="12.8" cy="8" r="1.5"/></svg>';
   var ICON_REROLL = W.icon("reroll", 2.5);
 
   /* (kept by the trip's start, the day and the format: writing a date out the phone's way is slow, and the day strip
@@ -133,16 +131,17 @@
     if (!P || !P.days || !P.days.length || (W.simple && W.simple())) return null;
     /* Today: the day it shows, and the time there while the trip is on */
     if (view === "go" && W.goDayN) {
-      var gd = P.days[W.goDayN(P) - 1];
+      var gd = P.days[W.goDayN(P) - 1],
+        live = !!gd && W.todayN(P) === gd.n;
+      /* how full a day, as on Trip (v176, the owner's ask); on the day itself the time there takes the date's place
+         (and whose time it is, when the phone is somewhere else), so the line stays one line */
       return gd
         ? {
             city: gd.city,
-            date: fmtDate(gd.n),
-            /* (and whose time it is, when the phone is somewhere else) */
+            date: live ? "" : fmtDate(gd.n),
             level:
-              W.todayN(P) === gd.n
-                ? "<span>" + W.clock(W.nowMin()) + (W.tripTimeNote(gd.city) ? " · " + esc(W.tripTimeNote(gd.city)) : "") + "</span>"
-                : ""
+              dayLevel(gd, P).replace(/^ · /, "") +
+              (live ? " · " + W.clock(W.nowMin()) + (W.tripTimeNote(gd.city) ? " · " + esc(W.tripTimeNote(gd.city)) : "") : "")
           }
         : null;
     }
@@ -353,7 +352,6 @@
     for (var i = 0; i < SHORT.length; i++) if (SHORT[i][0].test(t)) return t.replace(SHORT[i][0], SHORT[i][1]);
     return t;
   }
-  W.shortNote = shortNote;
   function beachNote(it, P) {
     if (!W.isBeach || !W.isBeach(it) || !it.bch || !P.p.kid) return "";
     var f = W.beachFit(it);
@@ -489,16 +487,6 @@
       "</div></div>"
     );
   }
-  /* small line icons for each way of getting around */
-  var ICON = {
-    Train:
-      '<rect x="5" y="3" width="14" height="13" rx="3"/><path d="M5 10h14M8.5 20.5 10 16M15.5 20.5 14 16"/><circle cx="9" cy="13" r=".8"/><circle cx="15" cy="13" r=".8"/>',
-    Ferry:
-      '<path d="M2.5 19c1.6 1.2 3.2 1.2 4.8 0 1.6-1.2 3.2-1.2 4.8 0 1.6 1.2 3.2 1.2 4.8 0 1.6-1.2 3.2-1.2 4.8 0"/><path d="M4.5 15.5 3.5 11h17l-1 4.5"/><path d="M7.5 11V7h9v4M12 7V4"/>',
-    Bus: '<rect x="4.5" y="3" width="15" height="14" rx="3"/><path d="M4.5 10.5h15M8 20.5V17M16 20.5V17"/>',
-    Flight: '<path d="M21 15.5v-2l-8-5V4a1.5 1.5 0 0 0-3 0v4.5l-8 5v2l8-2.5V18l-2.2 1.6V21l3.7-1 3.7 1v-1.4L13 18v-5z"/>',
-    Car: '<path d="M5 16.5V12l2-5h10l2 5v4.5z"/><path d="M5 12h14"/><circle cx="8.5" cy="16.5" r="1.8"/><circle cx="15.5" cy="16.5" r="1.8"/>'
-  };
   function modeIcon(m) {
     var k = W.modeName(m).toLowerCase();
     return W.icon(W.ICONS[k] ? k : "car", 1.9, "lo-i");
@@ -665,11 +653,6 @@
     /** @type {string | null} */ useOpen = null,
     tab = "do",
     showAll = false;
-  var CHEV =
-    '<svg class="chev" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>';
-  function stopAt(s) {
-    return s.c && s.c.lat != null ? s.c : W.homebase(s.country, s.name);
-  }
   var link = W.extLink;
 
   /* the three closest fits, as photo cards you can tap */
@@ -1147,15 +1130,15 @@
         return a && a.lat != null;
       });
       all.forEach(function (r) {
-        r.km =
-          r.it.lat != null && anchors.length
-            ? Math.min.apply(
-                null,
-                anchors.map(function (a) {
-                  return W.km(a, r.it);
-                })
-              )
-            : null;
+        /* (a distance that can't be worked out, a pin with half its numbers, is no distance: not 0 km) */
+        var ds = anchors
+          .map(function (a) {
+            return W.km(a, r.it);
+          })
+          .filter(function (d) {
+            return d != null;
+          });
+        r.km = ds.length ? Math.min.apply(null, ds) : null;
       });
       all = all.filter(function (r) {
         var it = r.it;
@@ -1221,6 +1204,10 @@
             best = i;
           }
         });
+        if (best < 0) {
+          nopin.push(r); /* (no distance to any of them: a pin with half its numbers) */
+          return;
+        }
         var lg = W.leg(A[best].a, r.it, true);
         r.km = bd;
         r.near = lg ? W.fmtMin(lg.min) + " " + lg.label + " from " + (A[best].home ? "where you're staying" : A[best].label) : "";
@@ -1524,19 +1511,7 @@
       return k.indexOf("geo|" + W.cityKey(day.country, day.city)) === 0 && W.status[k] === "loading";
     });
     /* the city's photo behind the day's name, when there is one */
-    var hero = W.cityPhoto
-      ? W.cityPhoto(
-          day.country,
-          day.city,
-          (day.slots || [])
-            .filter(function (x) {
-              return x.item && !W.isFood(x.slot);
-            })
-            .map(function (x) {
-              return /** @type {Spot | Food} */ (x.item); /* (kept just above: the slots with a place) */
-            })
-        )
-      : null;
+    var hero = W.dayPhoto(day);
     /* on a phone the day has no header of its own (v174, the owner's pick), on Day or Explore: the day's photo goes
        behind the top card, which already says the town and the date, and the day starts right under Day / Explore.
        (lib/photos.js W.topPhoto; app.css shows the photo on the Trip screen of a phone.) */
@@ -1764,14 +1739,6 @@
         if (W.desk() && W.deskSum) h += W.deskSum(stops.sum, day);
         h += '<div class="dayview mode-list' + (side ? "" : " solo") + '"><div class="slots">' + list + "</div>" + side + "</div>";
         h += W.dayNav ? W.dayNav(day, P) : "";
-        /* the journal lives on Today; here, a way there when the day has one */
-        if (W.journalCard && W.journalCard(day))
-          h +=
-            '<button type="button" class="j-go" data-journalgo="' +
-            day.n +
-            '"><span><b>Journal</b><span class="small muted"> · Day ' +
-            day.n +
-            '</span></span><span aria-hidden="true">→</span></button>';
       } else {
         /* Explore: find any place, today's route (on the street map where the city has one), the free time, then
            every idea by what it's near */
@@ -1881,6 +1848,7 @@
     shown("viewSetup", view === "setup");
     shown("viewTrip", view === "trip");
     document.documentElement.classList.toggle("on-trip", view === "trip");
+    document.documentElement.classList.toggle("on-go", view === "go"); /* (Today: the day's photo behind the top card too, v176) */
     shown("viewBook", view === "book");
     shown("viewRecap", view === "recap");
     shown("viewGo", view === "go");

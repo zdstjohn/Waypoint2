@@ -4,7 +4,7 @@ One page. `index.html` is the markup; the code is plain files under data/, lib/ 
 `app.js` (and app.css into `app.min.css` and `app2.css`, and with desk.css into `app.desk.css` for wide windows) by `build/bundle.js`. All code shares one namespace, `window.W`; the order in
 `build/bundle.js` is the dependency order. `node test/run.js` builds first. The screens a first open never needs (Plan,
 drawing the street map, the Prepare screen, live prices and price watch, the booking autopilot, planning together, place search in Explore, the
-journal, the day bag, family, settings, the kids' corner, the recap, the packing list: LATER in build/bundle.js) go into a second script, `app2.js`, which lib/later.js loads once the first screen has painted (on idle time, or at once when you open one
+the day bag, family, settings, the kids' corner, the recap, the packing list: LATER in build/bundle.js) go into a second script, `app2.js`, which lib/later.js loads once the first screen has painted (on idle time, or at once when you open one
 of them, with "Loading…" for the moment it takes); W.needLater() says whether it has arrived. Their styles go into
 `app2.css`, which comes with it (a rule moves only when it sits in one of those screens' sections of app.css and none of
 its class names appears in the first script or index.html; build/bundle.js splitCss), and the screens count as ready when
@@ -49,7 +49,7 @@ What changed in each version is in CHANGELOG.md (newest first); this file says h
 ```
 index.html        markup (header, tabs, one <main> per view); loads app.js and app.min.css (built; app2.js and app2.css follow)
 app.css           the stylesheet, grouped by screen: fonts, foundations, header, Setup, My trip, a stop, storybook,
-                  Explore, Bookings, Today, journal, settings, motion
+                  Explore, Bookings, Today, settings, motion
 fonts/            Plus Jakarta Sans (the text and headings), Instrument Serif (place names and the biggest titles),
                   JetBrains Mono (the budget's amounts) and Dela Gothic One (the logo) as woff2, served by the app itself
                   (Latin; extended Latin letters in a separate file the browser fetches only when a label needs them).
@@ -233,7 +233,7 @@ lib/              the shared library
                   file with the app, the trip and its photos inside, opened from the phone's files; made by
                   offcopy.js, in the second script with Prepare's Take along blocks). Both keep the photo
                   of every idea in the trip's cities, not only the planned stops (Explore, the swap choices and a stop's
-                  panel show them): planned stops and the journal first, six at a time, up to 60 MB in the copy. Street
+                  panel show them): planned stops first, six at a time, up to 60 MB in the copy. Street
                   maps need a connection in the copy. Prepare > Take
                   along has "Before you leave": one button that saves the whole trip, with a row per place (street map
                   saved or not, photos for how many of its stops) and the size to expect, so it can be done on Wi-Fi
@@ -243,7 +243,7 @@ lib/              the shared library
                   pick), the banner's greeting and the time where you're going (one gradient at every hour),
                   milestones that cheer once (with confetti, never under reduced motion), friendlier ticks, and the
                   back-to-top button
-  memories.js     (second script) how ready you are on Prepare, a day's mood in the journal, the recap's highlight
+  memories.js     (second script) how ready you are on Prepare, the recap (the whole trip on one page) and its highlight
                   reel and "one year ago today"
   autopilot.js    the book-by list kept for the morning helper (reads your inbox, writes calendar reminders, never books),
                   what it found, and the deadline timeline on Bookings. Both live in your private corner of the database:
@@ -272,7 +272,7 @@ screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.
                   stop to the next, "Directions" to one place from where you are). On the day itself the Day tab has
                   one line for what is on now (today.js, W.todayRow), dims what is over and opens at the stop you are
                   at; Today shows Now and Next in one card with the way to what is next as its one main button, the
-                  route under it, and the day bag and journal folded to a line outside their time of day. flow.js has
+                  route under it, and the day bag folded to a line outside its time of day. flow.js has
                   the next-step bar and the day buttons (what is drawn); flowacts.js (second script) what a tap then does:
                   the next step's buttons, undo, drag or lift to reorder. trip.js draws a day and changes day or view;
                   tripacts.js (second script) has the swap under a stop, a place's details and the screen's other
@@ -285,7 +285,7 @@ screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.
                   (S.dayTrip); setup.js also draws where to stay as a sheet over any
                   screen (W.staySheet); quickstart.js (second script) the three questions for a
                   new trip (shown on the very first open; a stop's sheet keeps
-                  "Leave free" and "Not for us" at its end, and "Not for us" asks once); journal, family;
+                  "Leave free" and "Not for us" at its end, and "Not for us" asks once); family;
                   settings.js is "Import a plan" and Storage (sharing lives in the trip menu); kids.js is "For the kids"
                   (from the trip menu and Today): today's outings in big photo cards with a heart per kid, a passport
                   that stamps each place, and a treasure hunt per town
@@ -360,7 +360,7 @@ Checks (node test/run.js, from the folder above trip/)
   menus         the nightly places join Rome's list once (no name or markup: dropped); a planned meal's Menu opens its
                 panel at the menu (dishes, prices in the chosen currency, kids', source and date, Google Maps photos).
   storage       Settings > Storage: of ten stored files it finds only the three old ones nothing points at (a place
-                photo, a map part, a journal photo and today's uploads are never listed), deletes nothing by looking,
+                photo, a map part, an old journal photo and today's uploads are never listed), deletes nothing by looking,
                 asks once more, keeps one that came into use in between, and refuses when most files would go.
   fuzz          random trips nobody wrote by hand: a seeded generator builds hundreds (1-3 countries, 1-4 places each or
                 "suggest", 3-21 days, any mix of ages, interests and focus, near or far departure, random rest days and

@@ -391,7 +391,7 @@
       host.remove();
     }, 3600);
   }
-  W.confetti = confetti;
+
   var cheerT = null;
   /* a friendly note at the top of the screen; with confetti for the big moments */
   W.cheer = function (title, text, opts) {
@@ -458,7 +458,7 @@
     "click",
     function (e) {
       var t = e.target,
-        b = t && t.closest ? t.closest("[data-tick],[data-pack],[data-mood],[data-vsw],[data-dsw]") : null;
+        b = t && t.closest ? t.closest("[data-tick],[data-pack],[data-vsw],[data-dsw]") : null;
       if (!b || b.disabled) return;
       try {
         if (navigator.vibrate && window.matchMedia("(pointer:coarse)").matches)

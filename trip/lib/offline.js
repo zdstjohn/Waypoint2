@@ -113,7 +113,7 @@
   }
 
   /* ---------- what the trip shows: its photos, its maps ---------- */
-  /* every photo the trip can show, most needed first: the plan's stops and your journal, then every other idea in the
+  /* every photo the trip can show, most needed first: the plan's stops, then every other idea in the
      trip's cities (Explore, the swap choices, a stop's panel), city by city */
   function photoUrls(P) {
     var out = [],
@@ -131,10 +131,6 @@
           var ph = W.photoFor(x.item, W.isFood(x.slot), d.country, d.city);
           if (ph && ph.url) add(ph.url);
         }
-      });
-      var j = (W.S.journal || {})[W.restKey ? W.restKey(d) : d.n];
-      ((j && j.photos) || []).forEach(function (p) {
-        if (p && p.id) add("/_blob/" + encodeURIComponent(p.id));
       });
       cities[d.country + "|" + d.city] = [d.country, d.city];
       if (d.trip) cities[d.trip.country + "|" + d.trip.name] = [d.trip.country, d.trip.name];
@@ -232,6 +228,7 @@
     O.state = "saving";
     O.err = "";
     O.why = why || "";
+    var trip = W.S.tripId || ""; /* (the trip saved, even if another is opened before it is done) */
     var list = photoUrls(P),
       todo = [],
       n = 0,
@@ -310,7 +307,7 @@
           O.maps = maps;
           O.at = Date.now();
           O.n = n;
-          O.trip = W.S.tripId || "";
+          O.trip = trip;
           O.state = "done";
           /* city by city: how many of its photos and whether its street map are on the phone now */
           var cs = (O.cities = /** @type {Record<string, { photos: number; of: number; map: boolean }>} */ ({}));
