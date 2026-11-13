@@ -171,11 +171,11 @@
       sel = W.sheetKey ? W.sheetKey() : "";
     if (!c) return;
     c.querySelectorAll(".vt-pin[data-keys]").forEach(function (el) {
-      var ks = (el.getAttribute("data-keys") || "").split(" ");
+      var ks = W.pinKeys(el);
       el.classList.toggle(
         "hi",
         ks.some(function (k) {
-          return !!k && hiKeys.indexOf(k) > -1;
+          return hiKeys.indexOf(k) > -1;
         })
       );
       el.classList.toggle("sel", !!sel && ks.indexOf(sel) > -1);
@@ -198,7 +198,7 @@
   }
   W.deskPaint = paint;
   function set(keys, leg, idea) {
-    if (keys.join(" ") === hiKeys.join(" ") && leg === hiLeg && idea === hiIdea) return;
+    if (keys.join("\n") === hiKeys.join("\n") && leg === hiLeg && idea === hiIdea) return;
     hiKeys = keys;
     hiLeg = leg;
     hiIdea = idea;
@@ -210,7 +210,7 @@
     var pin = t.closest("#wsCanvas .vt-pin");
     if (pin) {
       if (pin.classList.contains("vt-idea")) return { keys: [], leg: "", idea: pin.getAttribute("data-idea") || "" };
-      return { keys: (pin.getAttribute("data-keys") || "").split(" ").filter(Boolean), leg: "", idea: "" };
+      return { keys: W.pinKeys(pin), leg: "", idea: "" };
     }
     var leg = t.closest(".wrap .ws-leg[data-wsleg]");
     if (leg) {
@@ -249,7 +249,7 @@
         if (card) card.scrollIntoView({ block: "center", behavior: W.smooth ? W.smooth() : "auto" });
         return;
       }
-      var k = (pin.getAttribute("data-keys") || "").split(" ").filter(Boolean)[0];
+      var k = W.pinKeys(pin)[0];
       if (!k) return;
       var c = document.querySelector('.wrap .slot[data-slotkey="' + esq(k) + '"]');
       if (c) c.scrollIntoView({ block: "nearest", behavior: W.smooth ? W.smooth() : "auto" });

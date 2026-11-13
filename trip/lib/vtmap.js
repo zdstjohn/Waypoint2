@@ -1015,8 +1015,9 @@
     if (window.console) console.warn("[waypoint map]", msg);
     if (W.logError) W.logError("map: " + String(msg).slice(0, 200), "vtmap");
   }
-  function style(slug, hdr) {
-    var C = palette(),
+  /** @param {string} slug @param {any} hdr @param {Record<string, any>} [over] colours to use instead of the theme's */
+  function style(slug, hdr, over) {
+    var C = Object.assign(palette(), over || {}),
       url = "wpvt://" + slug + "/{z}/{x}/{y}";
     var lo = layersFor("lo", C, true),
       hi = layersFor("hi", C, false);
@@ -1062,6 +1063,12 @@
   }
 
   /* ---------- pins ---------- */
+  /** The stops a pin stands for. A stop's key holds its city's name, and a city's name can have a space in it ("Naxos
+   *  Town"), so the list on the pin is one key per line: split on spaces, every pin in such a city shared the pieces
+   *  "Town|1|am" and the like, and pointing at one stop lit them all. @param {Element | null} el */
+  W.pinKeys = function (el) {
+    return ((el && el.getAttribute("data-keys")) || "").split("\n").filter(Boolean);
+  };
   /** one marker: the lodging, or one or more stops that sit on the same spot at this zoom ("1·2·4") @param {any} g */
   function pinEl(g) {
     /** @type {HTMLElement} */ var el = document.createElement("div");
@@ -1097,7 +1104,7 @@
         .map(function (p) {
           return p.key || "";
         })
-        .join(" ")
+        .join("\n")
     );
     /* (one stop: the icon for what it is, its letter as a small tag, as the day's list marks it; several: their letters) */
     el.innerHTML =
@@ -1630,10 +1637,16 @@
             );
           }
           try {
-            var sty = style(o.slug, p.hdr);
-            /* no names: a quiet backdrop for the town's name and the dots (and no letters to wait for) */
+            var sty = style(o.slug, p.hdr, o.pal);
+            /* no names unless asked for (o.keep: parts of the name layers' ids to keep, "place-small" for the
+               neighbourhoods, "water-name"...): by default a quiet backdrop for the town's name and the dots */
             sty.layers = sty.layers.filter(function (l) {
-              return l.type !== "symbol";
+              return (
+                l.type !== "symbol" ||
+                (o.keep || []).some(function (/** @type {string} */ k) {
+                  return l.id.indexOf(k) > -1;
+                })
+              );
             });
             m = new ML.Map({
               container: host,

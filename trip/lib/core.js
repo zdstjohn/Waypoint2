@@ -14,6 +14,16 @@
   W.$ = function (id) {
     return document.getElementById(id);
   };
+  /** A choice kept on this phone only (Simple view, light or dark): saved under its key, or forgotten when empty.
+   *  @param {string} key @param {string} v */
+  function remember(key, v) {
+    try {
+      if (v) localStorage.setItem(key, v);
+      else localStorage.removeItem(key);
+    } catch (e) {
+      /* (storage is blocked, a private window: the choice lasts for this visit) */
+    }
+  }
   /* Simple view (this phone only, so it holds in a shared trip too): no photos, no street map, fewer words. The switch
      is in the trip menu and Settings; html.simple hides the extra lines (app.css), W.picture draws no photo and the
      Trip screen no map */
@@ -31,12 +41,83 @@
   W.setSimple = function (on) {
     SIMPLE = !!on;
     document.documentElement.classList.toggle("simple", SIMPLE);
-    try {
-      if (SIMPLE) localStorage.setItem("waypoint-simple", "1");
-      else localStorage.removeItem("waypoint-simple");
-    } catch (e) {}
+    remember("waypoint-simple", SIMPLE ? "1" : "");
     if (W.render) W.render();
   };
+  /* Light or dark (this phone only, like Simple view): "" follows the phone (or the page around the app, which can set
+     data-theme on the root itself); "light" or "dark" is the person's own choice and wins over both. The styles read
+     data-theme (app.css), and so do the map's colours (lib/vtmap.js palette) and Explore's map picture. */
+  var root = document.documentElement,
+    THEME = (function () {
+      try {
+        var v = localStorage.getItem("waypoint-theme");
+        return v === "light" || v === "dark" ? v : "";
+      } catch (e) {
+        return "";
+      }
+    })(),
+    hostTheme = root.getAttribute("data-theme");
+  function applyTheme() {
+    var v = THEME || hostTheme;
+    if (v) root.setAttribute("data-theme", v);
+    else root.removeAttribute("data-theme");
+    /* the phone's status bar in the installable app: its two tags give the light and the dark colour by the phone's
+       setting; a choice of its own puts its colour in both (the first time, each tag's own colour is kept in data-c) */
+    var tags = document.querySelectorAll('meta[name="theme-color"][media]'),
+      own = /** @type {Record<string, string>} */ ({});
+    tags.forEach(function (m) {
+      if (!m.hasAttribute("data-c")) m.setAttribute("data-c", m.getAttribute("content") || "");
+      own[/dark/.test(m.getAttribute("media") || "") ? "dark" : "light"] = m.getAttribute("data-c") || "";
+    });
+    tags.forEach(function (m) {
+      m.setAttribute("content", (THEME && own[THEME]) || m.getAttribute("data-c") || "");
+    });
+  }
+  applyTheme();
+  /* the page around the app may change its own theme later: remember it, and keep the person's choice on top */
+  if (window.MutationObserver)
+    new MutationObserver(function () {
+      var now = root.getAttribute("data-theme");
+      if (THEME && now === THEME) return; /* (our own) */
+      hostTheme = now;
+      if (THEME) applyTheme();
+    }).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+  W.theme = function () {
+    return THEME;
+  };
+  W.setTheme = function (v) {
+    THEME = v === "light" || v === "dark" ? v : "";
+    remember("waypoint-theme", THEME);
+    applyTheme();
+    /* (a switch drawn outside the screen, the trip menu's, shows the choice at once) */
+    document.querySelectorAll("[data-theme-set]").forEach(function (b) {
+      b.setAttribute("aria-pressed", String((b.getAttribute("data-theme-set") || "") === THEME));
+    });
+    if (W.render) W.render();
+  };
+  /* the three-way choice, the same wherever it shows (bare: just the choice, under a card's own title) */
+  W.themeSwitch = function (bare) {
+    var opt = function (/** @type {string} */ v, /** @type {string} */ t) {
+      return '<button type="button" data-theme-set="' + v + '" aria-pressed="' + (THEME === v) + '">' + t + "</button>";
+    };
+    var seg =
+      '<div class="seg" role="group" aria-label="Light or dark">' +
+      opt("", "Auto") +
+      opt("light", "Light") +
+      opt("dark", "Dark") +
+      "</div>";
+    return bare
+      ? '<div class="theme-sw bare">' + seg + "</div>"
+      : '<div class="theme-sw"><span class="sw-t"><b>Light or dark</b><span class="small muted">Auto follows your phone. This phone only.</span></span>' +
+          seg +
+          "</div>";
+  };
+  document.addEventListener("click", function (e) {
+    var b = e.target && e.target.closest && e.target.closest("[data-theme-set]");
+    if (!b) return;
+    e.preventDefault();
+    W.setTheme(b.getAttribute("data-theme-set") || "");
+  });
   /* the switch, the same wherever it shows */
   W.simpleSwitch = function () {
     return (

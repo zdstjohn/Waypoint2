@@ -199,7 +199,8 @@
         "</span>" +
         (tk
           ? '<span class="tk-st ok">Booked' + (tk.ref ? " · " + esc(tk.ref) : "") + "</span>"
-          : '<span class="tk-st">Not booked yet · planned times, door to door</span>') +
+          : /* (the state as a short tag, what the times are on a line of its own: one long tag wrapped to two lines) */
+            '<span class="tk-st">Not booked yet</span><span class="tk-sub">Planned times, door to door</span>') +
         "</div>";
     /* your ticket, when one is booked with a time: the day is planned around it */
     if (tk)
@@ -1447,9 +1448,11 @@
   }
   /* ---------- the day's header: the town's photo (Day) or its street map (Explore), the same size ----------
      Both tabs draw the same header: the photo, a second layer over it (hero-alt) and the town's name. The second layer is
-     hidden on Day and shows on Explore: the town's map as a still picture with dots for the day's stops and the ideas
-     (made once per town and theme by lib/vtmap.js W.vtStill) or, with no street map for the town (or no WebGL), the same
-     photo darkened. Switching tabs fades that layer 0.2 s (none with reduced motion); the page below never moves. */
+     hidden on Day and shows on Explore: the town's map as a still picture, quiet and clean (streets, water, parks and the
+     neighbourhoods' names, the town's name in the middle, no pins: the owner's pick, v173), made once per town and
+     theme by lib/vtmap.js W.vtStill; or, with no street map for the town (or no WebGL), the same photo darkened, with
+     the day's lines as on Day. Switching tabs fades that layer 0.2 s (none with reduced motion); the page below never
+     moves. */
   W.stills = W.stills || {};
   var headBox = { w: 0, h: 0 } /* the header's size as last drawn: the map picture is made at this shape */,
     headSeen = /** @type {{xp: boolean, n: number} | null} */ (null) /* the header last drawn (null: on another screen since) */,
@@ -1461,39 +1464,10 @@
   /* one picture per town, theme and header shape (the width to height ratio in 5% steps: a few pixels of difference is
      absorbed by the picture filling its header) */
   function stillKey(slug) {
-    return slug + "|" + (darkNow() ? "d" : "l") + "|" + Math.round((headBox.w / headBox.h) * 20) / 20;
+    return slug + "|" + (darkNow() ? "d" : "l") + "|" + Math.round((headBox.w / headBox.h) * 20) / 20 + "|quiet";
   }
-  /** the dots over the map picture, as percentages of the header: the day's stops big, the town's other ideas small
-      @param {any} st @param {any[]} stops @param {any[]} ideas */
-  function heroDots(st, stops, ideas) {
-    var world = 512 * Math.pow(2, st.zoom),
-      mx = function (/** @type {number} */ lng) {
-        return (lng + 180) / 360;
-      },
-      my = function (/** @type {number} */ lat) {
-        var r = (lat * Math.PI) / 180;
-        return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2;
-      };
-    var out = "";
-    [ideas.slice(0, 60), stops].forEach(function (list, big) {
-      list.forEach(function (q) {
-        var x = ((mx(q.lng) - mx(st.lng)) * world + st.w / 2) / st.w,
-          y = ((my(q.lat) - my(st.lat)) * world + st.h / 2) / st.h;
-        if (x < 0.02 || x > 0.98 || y < 0.04 || y > 0.96) return; /* (outside this picture) */
-        out +=
-          '<i class="' +
-          (big ? "hd-s" : "hd-i") +
-          (q.food ? " food" : "") +
-          '" style="left:' +
-          (x * 100).toFixed(1) +
-          "%;top:" +
-          (y * 100).toFixed(1) +
-          '%"></i>';
-      });
-    });
-    return out;
-  }
-  /** the places of a day with a pin, and the rest of the town's ideas with one @param {any} day @param {any} pool */
+  /** the places of a day with a pin, and the rest of the town's ideas with one (the map picture is framed on them)
+      @param {any} day @param {any} pool */
   function heroPins(day, pool) {
     var stops = [],
       names = /** @type {Record<string, number>} */ ({}),
@@ -1616,9 +1590,9 @@
           (hstill
             ? '<img class="hero-map" alt="" src="' +
               esc(hstill.url) +
-              '"><span class="hero-dots" aria-hidden="true">' +
-              heroDots(hstill, hpins.stops, hpins.ideas) +
-              '</span><span class="hero-credit">© OpenMapTiles © OpenStreetMap contributors</span>'
+              '"><b class="hero-city" aria-hidden="true">' +
+              esc(day.city) +
+              '</b><span class="hero-credit">© OpenMapTiles © OpenStreetMap contributors</span>'
             : "") +
           "</div>" +
           (xp && hstill
@@ -1895,7 +1869,8 @@
               slug: slugNow,
               w: Math.min(900, headBox.w),
               h: Math.round((Math.min(900, headBox.w) * headBox.h) / headBox.w),
-              pts: hpins.stops.concat(hpins.ideas)
+              pts: hpins.stops.concat(hpins.ideas),
+              keep: ["place-small"] /* (the neighbourhoods' names: the town's own is drawn over the picture) */
             });
         };
       if (xp) make();

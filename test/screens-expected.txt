@@ -1,5 +1,5 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v171. Today no longer grows the slim bar when scrolled (Day, Plan and Prepare keep it). (The Explore map banner and
-# the photo previews change no screen here: these screens' trips have no photo and no street-map pack.)
-today-*-700*
+# v173. The light or dark choice: a card in Settings (under Simple view) and a switch in the trip menu.
+menu-*
+settings-*

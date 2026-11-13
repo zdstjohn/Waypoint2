@@ -48,6 +48,16 @@ exports.run = async t => {
   t.ok(await pg.evaluate(() => !document.querySelector('#wsCanvas .vt-pin.hi') && !document.querySelector('.wrap .slot.ws-hi')), 'and nothing stays lit when it leaves');
   await pg.hover('#wsCanvas .vt-pin[data-keys]'); await pg.waitForTimeout(200);
   t.ok(await pg.evaluate(k => document.querySelector('.wrap .slot[data-slotkey="' + k + '"]').classList.contains('ws-hi'), key), 'the pointer over a pin lights its card');
+  /* v174: a city with a space in its name ("Naxos Town"). The pin's list of stops was split on spaces, so every pin in
+     the city shared a piece of its key and the pointer over one lit them all (and never its card). */
+  await pg.evaluate(() => { const mk = (k, top, many) => { const p = document.createElement('a'); p.className = 'vt-pin t-sp'; p.setAttribute('data-keys', many ? [k, 'Greece|Naxos Town|3|pm'].join('\n') : k); p.innerHTML = '<b>D</b><span>stand-in</span>'; p.style.cssText = 'position:absolute;right:160px;top:' + top + 'px;z-index:9'; document.getElementById('wsCanvas').appendChild(p); };
+    mk('Greece|Naxos Town|1|am', 380); mk('Greece|Naxos Town|2|pm', 440, true);
+    const c = document.createElement('div'); c.className = 'slot t-sp'; c.setAttribute('data-slotkey', 'Greece|Naxos Town|1|am'); c.textContent = 'stand-in card'; document.querySelector('.wrap').appendChild(c); });
+  await pg.hover('#wsCanvas .vt-pin.t-sp'); await pg.waitForTimeout(200);
+  const spc = await pg.evaluate(() => ({ lit: [...document.querySelectorAll('#wsCanvas .vt-pin.t-sp')].map(p => p.classList.contains('hi')), card: document.querySelector('.wrap .slot.t-sp').classList.contains('ws-hi'), keys: W.pinKeys(document.querySelectorAll('#wsCanvas .vt-pin.t-sp')[1]) }));
+  t.ok(spc.lit[0] && !spc.lit[1] && spc.card, 'in a city with a space in its name, the pointer over one pin lights that pin and its card, not every pin: ' + JSON.stringify(spc));
+  t.eq(spc.keys, ['Greece|Naxos Town|2|pm', 'Greece|Naxos Town|3|pm'], 'a pin for two stops lists both, whole');
+  await pg.evaluate(() => document.querySelectorAll('.t-sp').forEach(e => e.remove())); await pg.hover('#wrNav'); await pg.waitForTimeout(150);
   const pagesBefore = ctx.pages().length;
   await pg.click('#wsCanvas .vt-pin[data-keys]'); await pg.waitForSelector('#sheethost .sheet'); await pg.waitForTimeout(400);
   const ins = await pg.evaluate(() => { const s = document.querySelector('#sheethost .sheet'), r = s.getBoundingClientRect(), w = document.querySelector('.wrap').getBoundingClientRect();

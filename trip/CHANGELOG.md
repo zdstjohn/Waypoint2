@@ -2,6 +2,31 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v173
+
+Light or dark by choice, a quiet map for Explore, and four fixes from the owner's own testing.
+- Light or dark (lib/core.js W.theme / W.setTheme / W.themeSwitch; Settings and the trip menu): Auto follows the
+  phone, Light and Dark hold whatever the phone says. Kept on this phone only (localStorage "waypoint-theme"); the
+  choice stays above the host page's own theme (a MutationObserver puts it back) and the browser bar's colour follows.
+  One helper (remember) now saves this and Simple view.
+- Explore's header (screens/trip.js, app.css .hero-city): the owner's pick of five, a quiet map. No dots, no photo
+  lines over it: the town's streets with the neighbourhood names, and the town's name in the middle. W.vtStill
+  (lib/vtmap.js) takes "keep" (which name layers stay) and "pal" (palette overrides) for it.
+- The green check marks sit in the middle of their boxes on a phone (app.css .chk .box: the wider tap area is the
+  box's ::before, so the tick's own ::after is no longer moved).
+- The travel card's "Not booked yet" (screens/trip.js, app.css .tk-st / .tk-sub / .tk-mid): a centred tag with
+  "Planned times, door to door" under it, and the dashed line runs through the plane or train icon.
+- Desktop map: the pointer over one pin lit every pin in a town whose name has a space in it ("Naxos Town"), and
+  never its card. A pin's list of stops was split on spaces, and a stop's key holds the town's name; it is now one
+  key per line, read by W.pinKeys (lib/vtmap.js, lib/deskmap.js).
+- Where to stay comes sooner (lib/stays.js addLodging): the picks are taken in as Claude writes them, the best of
+  each price tier first, as sights and places to eat already were. The whole answer (12 picks with reasons, prices and
+  pins) takes about half a minute; the three cards now fill within the first few seconds. (The suggestions are
+  Claude's; Booking.com is used for the live price of the stay you choose, on Book.)
+- Tests: theme (19 checks: the switch in both places, the choice surviving a reload and the host's theme, the check
+  marks, the travel card at normal and 150% text), workspace (two more: pins in a town with a space in its name),
+  banner (the quiet map), claude (three more: places to stay as they are written). 67 suites.
+
 ## v172
 
 A flight day with no signal (the owner's pick, done by a helper and merged here): a new test plays a phone on a plane

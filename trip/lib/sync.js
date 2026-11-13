@@ -1429,6 +1429,7 @@
           : '<button type="button" class="linkish" data-sync="rename">Rename this trip</button>') +
         "</div>" +
         W.simpleSwitch() +
+        W.themeSwitch() +
         (W.P && W.P.stops && W.P.stops.length
           ? '<button type="button" class="tm-set" data-sync="kids">' +
             W.icon("star", 2.1) +

@@ -8,8 +8,10 @@ const seed = { 'photos/italy-rome': { items: { rome: { url: px, credit: 'Test' }
 const boxes = pg => pg.evaluate(() => {
   const r = e => { if (!e) return null; const b = e.getBoundingClientRect(); return [Math.round(b.left), Math.round(b.top + scrollY), Math.round(b.width), Math.round(b.height)]; };
   const h = document.querySelector('.day-h'); const above = document.querySelector('#viewTrip .daybar, #viewExplore .daybar, #viewTrip .vsw-row');
+  const top = document.querySelector('header.top');
   return { head: r(h), above: r(above), hero: !!(h && h.classList.contains('has-hero')), h2: h && h.querySelector('h2').textContent, alt: !!document.querySelector('.hero-alt'), map: !!document.querySelector('.hero-alt .hero-map'),
-    dots: document.querySelectorAll('.hero-dots i').length, open: !!document.querySelector('.hero-open[data-banmap]'), gm: (document.querySelector('a.hero-open') || {}).href || '', altOpacity: document.querySelector('.hero-alt') ? +getComputedStyle(document.querySelector('.hero-alt')).opacity : null };
+    top: { photo: !!(top && top.classList.contains('has-photo')), bg: top ? getComputedStyle(top).backgroundImage : '', credit: top ? getComputedStyle(top, '::after').content : '' },
+    dots: document.querySelectorAll('.hero-alt i').length, city: (document.querySelector('.hero-alt .hero-city') || {}).textContent || '', lines: (() => { const g = document.querySelector('.day-h .grow'); return g ? getComputedStyle(g).visibility : ''; })(), open: !!document.querySelector('.hero-open[data-banmap]'), gm: (document.querySelector('a.hero-open') || {}).href || '', altOpacity: document.querySelector('.hero-alt') ? +getComputedStyle(document.querySelector('.hero-alt')).opacity : null };
 });
 const tab = (pg, which, desk) => pg.evaluate(([which, desk]) => { if (desk) W.wsDo('view', which === 'map' ? 'explore' : 'days'); else { W.S.tview = which; W.render(); } }, [which, desk]);
 exports.run = async t => {
@@ -27,11 +29,12 @@ exports.run = async t => {
     const tag = name + ': ';
     t.ok(day.hero && ex.hero && day.alt && ex.alt, tag + 'both tabs draw the photo header with its second layer');
     t.eq(ex.head, day.head, tag + 'the header has the same place and size on Explore and on Day');
-    t.eq(ex.above, day.above, tag + 'what is above the header does not move');
     t.eq(ex.h2, day.h2, tag + "the town's name is the same in both tabs");
     t.ok(day.altOpacity === 0 && ex.altOpacity === 1, tag + 'the second layer is hidden on Day and shows on Explore');
+    t.eq(ex.above, day.above, tag + 'what is above the header does not move');
     if (pack) {
-      t.ok(ex.map && ex.dots >= 5 && ex.open, tag + 'Explore shows the town map with dots, and the banner opens the map: ' + JSON.stringify([ex.map, ex.dots, ex.open]));
+      t.ok(ex.map && ex.dots === 0 && ex.city === ex.h2 && ex.open, tag + "Explore shows the town's quiet map (no pins) with the town's name in it, and the banner opens the map: " + JSON.stringify([ex.map, ex.dots, ex.city, ex.open]));
+      t.ok(ex.lines === 'hidden' && day.lines === 'visible', tag + "the photo's lines (name, date) leave with the photo on Explore and are there on Day: " + JSON.stringify([day.lines, ex.lines]));
       /* the tap */
       if (desk) {
         await pg.evaluate(() => W.wsSet('map', 0)); await settle(pg); await pg.click('.hero-open[data-banmap]');
@@ -41,7 +44,7 @@ exports.run = async t => {
         const go = await pg.evaluate(() => ({ view: W.view(), map: !!document.querySelector('#viewGo .go-map'), day: W.S.day })); t.ok(go.view === 'go' && go.map && go.day === 2, tag + "a tap opens this day's map on Today: " + JSON.stringify(go));
       }
     } else {
-      t.ok(!ex.map && ex.dots === 0 && !ex.open, tag + 'with no map pack Explore shows the photo darkened, no map and no dots');
+      t.ok(!ex.map && ex.dots === 0 && !ex.city && ex.lines === 'visible' && !ex.open, tag + "with no map pack Explore shows the photo darkened with the day's lines, no map");
       t.ok(/google\.com\/maps\/search\/.*Rome/.test(ex.gm), tag + 'the banner opens the town in Google Maps: ' + ex.gm);
     }
     t.eq(errors(), [], tag + 'no page errors');

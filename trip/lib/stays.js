@@ -116,7 +116,7 @@
             W.TIERS.map(function (t) {
               return TIER_DESC[t];
             }).join("; ") +
-            ".") +
+            ". Write the best pick of each tier first (budget, then mid, then luxury), then the others.") +
         " Real, currently operating places with good reviews, in safe, convenient areas for visitors (central, or close to the main sights and good transit)." +
         near +
         (have.length
@@ -134,29 +134,45 @@
         "tier = budget, mid or luxury. type = hotel, apartment, guesthouse, hostel, resort or villa. price = the typical price per night for a room or unit that fits the group, in local currency. site = the place's own official website if you are confident of the exact address, else an empty string (never Booking.com, Expedia or another booking site). Use accurate coordinates.",
       "default",
       function (r) {
-        var c0 = W.C.city[ck] || newPool();
-        if (c0.lodgeFor !== sig) {
-          c0.lodging = [];
-          c0.lodgeFor = sig;
-        }
-        var seen = {},
-          have = c0.lodging || (c0.lodging = []); /* (a copy from elsewhere can carry the mark without the list) */
-        have.forEach(function (x) {
-          seen[W.norm(x.n)] = 1;
-        });
-        V.list(r && r.lodging, function (x) {
-          return V.lodging(x, centerOf(ck), W.TIERS, tier);
-        }).forEach(function (x) {
-          if (!seen[W.norm(x.n)]) {
-            seen[W.norm(x.n)] = 1;
-            have.push(x);
-          }
-        });
+        var c0 = addLodging(ck, sig, r && r.lodging, tier);
         if (!tier) c0.lodgeAsked = 1;
-        W.C.city[ck] = c0;
+      },
+      /* each pick is on show as soon as it is written, as sights and places to eat are: the whole answer (12 picks,
+         each with its reason, price and pin) takes half a minute, the first of them a few seconds */
+      {
+        list: "lodging",
+        min: 1,
+        take: function (items) {
+          addLodging(ck, sig, items, tier);
+        }
       }
     );
   };
+  /** picks into a city's list as they come (a few at a time while the answer is written, then the whole answer): none
+   *  twice, and a list made for another group is started afresh.
+   *  @param {string} ck @param {string} sig @param {any} list @param {Tier} [tier] */
+  function addLodging(ck, sig, list, tier) {
+    var c0 = W.C.city[ck] || newPool();
+    if (c0.lodgeFor !== sig) {
+      c0.lodging = [];
+      c0.lodgeFor = sig;
+    }
+    var seen = {},
+      have = c0.lodging || (c0.lodging = []); /* (a copy from elsewhere can carry the mark without the list) */
+    have.forEach(function (x) {
+      seen[W.norm(x.n)] = 1;
+    });
+    V.list(list, function (x) {
+      return V.lodging(x, centerOf(ck), W.TIERS, tier);
+    }).forEach(function (x) {
+      if (!seen[W.norm(x.n)]) {
+        seen[W.norm(x.n)] = 1;
+        have.push(x);
+      }
+    });
+    W.C.city[ck] = c0;
+    return c0;
+  }
   /* the pick shown for a tier, and a reroll that cycles through that tier's options (fetching more before they run out) */
   W.lodgeList = function (country, city, tier) {
     var cur = W.C.city[W.cityKey(country, city)];

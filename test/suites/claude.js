@@ -148,6 +148,31 @@ exports.run = async t => {
       return window.__asked.filter(x => /Zadar/.test(x.head) && /^List/.test(x.head)).map(x => x.head.replace(/ in (and around )?Zadar.*/, ''));
     });
     t.ok(short.includes('List the 15 best things to do') && short.includes('List 15 places to eat'), 'a 2-day stay asks for its 15 at once: ' + JSON.stringify(short));
+    /* v173, where to stay: the picks are on show as they are written (the whole answer takes half a minute), the best of
+       each price tier first, so the three cards fill within the first seconds */
+    const stay = await ps.evaluate(async () => {
+      const real = W.SAMPLE.json.bind(W.SAMPLE); let asked = null, done = null;
+      const prev = W.SAMPLE.json;
+      W.SAMPLE.json = function (prompt, opts) {
+        if (!/^Suggest places to stay in Zadar/.test(prompt)) return prev(prompt, opts);
+        asked = { stream: !!(opts && opts.onText), order: /best pick of each tier first/.test(prompt) };
+        const all = ['budget', 'mid', 'luxury', 'budget', 'mid', 'luxury'].map((tier, i) => ({ n: 'Stay ' + i, tier, type: 'hotel', area: 'Old Town', d: 'Good for a family', price: '€' + (90 + i * 40), site: '', lat: 44.119 + i * 0.001, lng: 15.231 }));
+        const whole = { lodging: all }, text = JSON.stringify(whole);
+        return new Promise(res => { setTimeout(() => opts && opts.onText && opts.onText({ text: text.slice(0, text.indexOf(JSON.stringify(all[3])) + 10), delta: 'x' }), 100); done = () => res(whole); });
+      };
+      delete (W.C.city['Croatia|Zadar'] || {}).lodging; delete (W.C.city['Croatia|Zadar'] || {}).lodgeAsked; Object.keys(W.status).forEach(k => { if (/^lodge\|/.test(k)) delete W.status[k]; });
+      W.loadLodging('Croatia', 'Zadar');
+      for (let i = 0; i < 40 && !W.lodgeList('Croatia', 'Zadar', 'luxury').length; i++) await new Promise(r => setTimeout(r, 100));
+      const key = Object.keys(W.status).filter(k => /^lodge\|Croatia\|Zadar/.test(k))[0];
+      const early = { tiers: W.TIERS.map(t => W.lodgeList('Croatia', 'Zadar', t).map(x => x.n)), busy: W.status[key], whole: !!(W.C.city['Croatia|Zadar'] || {}).lodgeAsked };
+      if (done) done(); for (let i = 0; i < 40 && W.status[key] === 'loading'; i++) await new Promise(r => setTimeout(r, 100));
+      const c = W.C.city['Croatia|Zadar'] || {};
+      W.SAMPLE.json = prev;
+      return { asked, early, n: (c.lodging || []).length, whole: !!c.lodgeAsked };
+    });
+    t.ok(stay.asked && stay.asked.stream && stay.asked.order, 'places to stay are asked for with the best of each tier first, taken in as they are written: ' + JSON.stringify(stay.asked));
+    t.eq([stay.early.tiers, stay.early.busy, stay.early.whole], [[['Stay 0'], ['Stay 1'], ['Stay 2']], 'loading', false], 'each tier shows its first pick while the rest is still being written');
+    t.ok(stay.n === 6 && stay.whole, 'and the whole list is there once, when the answer is complete: ' + stay.n);
     /* suggested places in a country with no list: the plan starts on the first eight (the best known) and keeps them */
     const cz = await ps.evaluate(async () => {
       delete W.C.country.Croatia; Object.keys(W.status).forEach(k => { if (/^country\|/.test(k)) delete W.status[k]; });

@@ -51,6 +51,7 @@
       W.simpleSwitch(),
       "set-simple"
     );
+    h += card("Light or dark", "Auto follows your phone's own setting. This is for this phone only.", W.themeSwitch(true), "set-theme");
     if (W.curPicker)
       h += card("Prices", "Show every cost in one currency, or each as listed. This is for this phone only.", W.curPicker(P), "set-cur");
     /* a copy of your trips, as a file you keep (lib/sync.js W.tripsExport); and trips back from such a file */

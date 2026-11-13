@@ -67,7 +67,7 @@ interface Plan { stops: Stop[]; days: Day[]; N: number; p: Party; ap: Airport | 
 interface Homebase extends LatLng { label: string; set: boolean; pending?: boolean; none?: boolean; city?: string }
 interface Profile { act?: string; min: number; intensity: number; indoor?: boolean; weather?: boolean; adults?: boolean; slots: string[] }
 interface Classification { kind: string; act: string | null; min: number; intensity: number; indoor: boolean; weather: boolean; adults: boolean; slots: string[]; stroller?: boolean }
-interface TimeRow { start?: number; end?: number; skip?: boolean; late?: boolean; free?: boolean; label?: string; warn: string[]; info: string[] }
+interface TimeRow { start?: number; end?: number; skip?: boolean; late?: boolean; free?: boolean; label?: string; warn: string[]; info: string[]; /** the notes among info that are nice to know, not needed to run the day (Simple view leaves them out) */ more?: string[] }
 /** a booked journey with a time (lib/bookcore.js W.legTicket): minutes from midnight; an arrival the next day is past 1440 */
 interface Ticket { kind: string; title: string; provider: string; ref: string; dep: number; arr: number | null; /** the two ends are on different clocks: the times stand as booked, no length is worked out */ zone?: boolean }
 /** one way of going, as Rome2Rio measured it (minutes door to door) */
@@ -703,7 +703,17 @@ interface Waypoint {
   vtReadyTest: any;
   vtMount: (slot: any, o: any) => boolean;
   /** the town's street map as a still picture for the Explore header, kept in W.stills (lib/vtmap.js) */
-  vtStill?: (o: { key: string; slug: string; w: number; h: number; pts: { lat: number | null; lng: number | null }[] }) => void;
+  vtStill?: (o: {
+    key: string;
+    slug: string;
+    w: number;
+    h: number;
+    pts: { lat: number | null; lng: number | null }[];
+    /** parts of the name layers' ids to keep ("place-small", "water-name", "park-name", "poi-name", "place-town") */
+    keep?: string[];
+    /** map colours to use instead of the theme's (the palette's names: land, water, park, road, label, halo...) */
+    pal?: Record<string, any>;
+  }) => void;
   /** the still map pictures by "slug|theme|shape": "wait", "none" (could not be made) or the picture and its framing */
   stills: Record<string, any>;
   /** Simple view (this phone only): no photos, no street map, fewer words */
@@ -712,6 +722,12 @@ interface Waypoint {
   setSimple: (on: boolean) => void;
   /** the Simple view switch, as drawn in the trip menu and Settings */
   simpleSwitch: () => string;
+  /** light or dark chosen on this phone: "light", "dark", or "" (match the phone) */
+  theme: () => string;
+  /** choose light, dark or "" (match the phone), saved on this phone, and redraw */
+  setTheme: (v: string) => void;
+  /** the three-way light / dark choice, as drawn in the trip menu and Settings */
+  themeSwitch: (bare?: boolean) => string;
   /** the street map's cover over the detailed tiles that loaded: tile keys "z/x/y" -> GeoJSON boxes at one zoom (for the tests) */
   vtState: () => string;
   vtWarm: (slug: string) => any;
@@ -787,6 +803,8 @@ interface Waypoint {
   routeStop: (p: { it?: any; n: string; lat?: number | null; food?: boolean; slot: string; num: number }, city: string, when: string, cls?: string, key?: string, from?: any) => string;
   kindIcon: (it: any, food: boolean, slot?: string) => string;
   stopTag: (n: number) => string;
+  /** the stop keys a map pin stands for (one per line in its data-keys) */
+  pinKeys: (el: Element | null) => string[];
   stopMark: (it: any, food: boolean, slot: string | undefined, n: number) => string;
   homeMark: () => string;
   /** a city's own photo for its header: the city, else the first of these places with one, else its best-known sight */
