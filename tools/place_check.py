@@ -19,8 +19,9 @@ OpenStreetMap (Photon, near the city); clear matches become "open" records with 
   python3 place_check.py refresh <db_dir> <work_dir>       (needs GOOGLE_MAPS_API_KEY)
       Google pins are kept at most 30 days: renewed by place ID after 25, removed after 30 or when Google drops them
   python3 place_check.py gtodo <db_dir> <work_dir> [max]   (no key: the same two jobs through a Google Maps connector)
-      prints up to max (30) lines "<n> | <what to search> | <lat>,<lng>": Google pins due for renewal first, then the
-      places with the weakest pins; writes <work_dir>/gtodo.json. Whoever runs this (the nightly task's session) asks
+      prints up to max (30) lines "<n> | <what to search> | <lat>,<lng> | <3 or 5>": Google pins due for renewal
+      first, then the places with the weakest pins, and how many places to ask for (3 when the place is nearly sure to
+      come first: a renewal, or a named checked pin; else 5); writes <work_dir>/gtodo.json. Whoever runs this (the nightly task's session) asks
       the connector's search_places once per line and writes the answers to a file, one JSON object per line:
         {"n": <n>, "places": [{"id", "lat", "lng", "title", "fid"}...], "summary": "<the answer's summary>"}
       (title = attribution.title; fid = the "0x...:0x..." at the end of googleMapsLinks.placeUrl)
@@ -28,6 +29,14 @@ OpenStreetMap (Photon, near the city); clear matches become "open" records with 
       matches those answers like "google" does, renews like "refresh" does, and takes Google pins older than 30 days
       off. A place ID copied by hand is used only when it agrees with the place's fid (gid_ok). Works with an empty
       answers file too (then it only retires old Google pins).
+  python3 place_check.py opentodo <db_dir> <work_dir> [max]
+      "still open": the places a trip uses whose month in that town is near (within 60 days, or begun) and whose last
+      check is over 30 days old, places to eat and the soonest months first; writes <work_dir>/opentodo.txt, one line
+      each "<slug> | F|S | <name> | <trip month YYYY-MM> | <official site>", for a web check
+  python3 place_check.py openapply <db_dir> <work_dir> <open_verdicts.txt>
+      lines "<slug> | <name> | <open|closed|shut|unsure> | <evidence url> | from=YYYY-MM-DD; to=YYYY-MM-DD; why=<few words>"
+      merged into <work_dir>/places/<slug>.json: "oc" (checked open) today, "st": "closed" for good, or a closure
+      {f, t, why, src} in "shut" that the app warns about on the days it covers and the planner keeps the place off
   python3 place_check.py pins <db_dir> <work_dir>
       every pin a trip still shows from a guess (no checked pin) is tested against the map's water (pin_check.py):
       a pin a little out in a harbour moves to the nearest shore ("approx"), one far out at sea loses its pin ("nopin",
@@ -823,7 +832,9 @@ def gplaces(ans):
     return out, bad
 def gtodo(db, work, gmax):
     """what to ask Google tonight, through the connector: pins due for renewal first, then the weakest pins. Prints
-    "<n> | <what to search> | <lat>,<lng>" lines and writes <work>/gtodo.json."""
+    "<n> | <what to search> | <lat>,<lng> | <how many places to ask for>" lines and writes <work>/gtodo.json. A pin
+    being renewed (Google's own place, by its ID) or a place that already has a named, checked pin is nearly always
+    Google's first answer, so it asks for 3; a place with no pin, or only a rough one, asks for 5."""
     import datetime
     wanted, places = load_dir(os.path.join(db, "wanted")), load_dir(os.path.join(db, "places"))
     os.makedirs(os.path.join(work, "places"), exist_ok=True)
@@ -859,7 +870,9 @@ def gtodo(db, work, gmax):
         out.append({"kind": "find", "slug": slug, "name": n, "food": food, "weak": weak, "q": paren(n) + ", " + city, "lat": c[0], "lng": c[1]})
     for i, e in enumerate(out): e["n"] = i + 1
     json.dump({"at": TODAY, "todo": out, "waiting": waiting}, open(os.path.join(work, "gtodo.json"), "w"), ensure_ascii=False)
-    for e in out: print("%d | %s | %.5f,%.5f" % (e["n"], e["q"], e["lat"], e["lng"]))
+    for e in out:
+        e["size"] = 3 if e["kind"] == "renew" or e.get("weak", 0) >= 2 else 5
+        print("%d | %s | %.5f,%.5f | %d" % (e["n"], e["q"], e["lat"], e["lng"], e["size"]))
 def gapply(db, work, answers):
     """the connector's answers (see gtodo) into the records: matches like gpass, renewals like refresh; a Google pin
     older than 30 days comes off either way. Writes <work>/places/<slug>.json for every city changed."""
@@ -989,10 +1002,99 @@ def pins(db, work):
             doc["checked"] = TODAY; json.dump(doc, open(f, "w"), ensure_ascii=False); stats["cities"] += 1
     print(json.dumps(stats))
 
+# ---------- still open: places on the coming trips, checked again a month after their last check ----------
+def _days_since(d, now):
+    try: return (now - time.mktime(time.strptime(str(d)[:10], "%Y-%m-%d"))) / 86400
+    except Exception: return 1e9
+
+def _iso(s):
+    s = str(s or "").strip()[:10]
+    try: time.strptime(s, "%Y-%m-%d"); return s
+    except Exception: return ""
+
+def opentodo(db, work, max_n=40, ahead=60, age=30):
+    """The places a trip uses whose month in that town starts within <ahead> days (or began less than two months ago)
+    and whose last check is more than <age> days old (an "unsure" waits a week): is each still open, closed for good,
+    or shut for a stretch (renovation, the winter)? The shared list keeps only a trip's month in a town, never its
+    days, so that is all this sees. Writes <work>/opentodo.txt, one line per place,
+    "<slug> | F|S | <name> | <trip month YYYY-MM> | <official site or ''>", places to eat first and the soonest months
+    first, and <work>/opentodo.json (what openapply accepts)."""
+    wanted, places = load_dir(os.path.join(db, "wanted")), load_dir(os.path.join(db, "places"))
+    now = time.time(); rows = []
+    for slug, w in wanted.items():
+        when = w.get("when")
+        if not isinstance(when, str) or not _iso(when[:7] + "-01"): continue
+        start = time.mktime(time.strptime(when[:7] + "-01", "%Y-%m-%d"))
+        if start - now > ahead * 86400 or now - start > 62 * 86400: continue
+        food = set(norm(n) for n in (w.get("food") or []) if isinstance(n, str))
+        used = [u[0] for u in (w.get("used") or []) if isinstance(u, list) and u and isinstance(u[0], str)]
+        items = (places.get(slug) or {}).get("items") or {}
+        for n in used:
+            r = items.get(norm(n))
+            # never checked: the first check (prepare) comes first; gone or a stay: nothing to ask
+            if not isinstance(r, dict) or r.get("st") in ("closed", "unfound", "dup") or r.get("stay"): continue
+            if _days_since(r.get("oc") or r.get("checked"), now) < age or _days_since(r.get("oc_try"), now) < 7: continue
+            rows.append({"slug": slug, "f": norm(n) in food, "n": n, "month": when[:7], "site": r.get("site") or ""})
+    rows.sort(key=lambda x: (x["month"], 0 if x["f"] else 1, x["slug"], norm(x["n"])))
+    rows = rows[:max_n]
+    os.makedirs(work, exist_ok=True)
+    with open(os.path.join(work, "opentodo.txt"), "w") as f:
+        for x in rows: f.write("%s | %s | %s | %s | %s\n" % (x["slug"], "F" if x["f"] else "S", x["n"], x["month"], x["site"]))
+    json.dump(rows, open(os.path.join(work, "opentodo.json"), "w"))
+    print(json.dumps({"places": len(rows), "food": sum(1 for x in rows if x["f"]), "cities": len(set(x["slug"] for x in rows))}))
+
+def openapply(db, work, verdict_file):
+    """Merges the still-open verdicts into <work>/places/<slug>.json (written by finish, or copied from the database).
+    <verdict_file> lines: "<slug> | <name> | <open|closed|shut|unsure> | <evidence url> | from=YYYY-MM-DD; to=YYYY-MM-DD; why=<few words>"
+    open: "oc" (open, checked) is today, and closures that have ended are dropped; closed: closed for good ("st"); shut:
+    a closure {f, t, why, src} the app shows on the days it covers and the planner avoids (at most 4 kept, ended ones
+    dropped, one that overlaps the new one replaced); unsure: asked again in a week. Only the places opentodo listed."""
+    places = load_dir(os.path.join(db, "places"))
+    todo = json.load(open(os.path.join(work, "opentodo.json"))) if os.path.exists(os.path.join(work, "opentodo.json")) else []
+    ok = set((x["slug"], norm(x["n"])) for x in todo)
+    os.makedirs(os.path.join(work, "places"), exist_ok=True)
+    stats = {"open": 0, "closed": 0, "shut": 0, "unsure": 0, "skipped": 0}
+    docs = {}
+    for line in open(verdict_file, encoding="utf-8"):
+        p = [x.strip() for x in line.strip().split("|")]
+        if len(p) < 3 or not p[0]: continue
+        slug, name, v = p[0], p[1], p[2].lower()
+        if (slug, norm(name)) not in ok or v not in stats: stats["skipped"] += 1; continue
+        if slug not in docs:
+            f = os.path.join(work, "places", slug + ".json")
+            docs[slug] = json.load(open(f)) if os.path.exists(f) else json.loads(json.dumps(places.get(slug) or {}))
+        r = (docs[slug].get("items") or {}).get(norm(name))
+        if not isinstance(r, dict): stats["skipped"] += 1; continue
+        src = p[3] if len(p) > 3 and p[3].startswith("https://") else ""
+        extra = {}
+        for kv in (p[4] if len(p) > 4 else "").split(";"):
+            if "=" in kv: k, val = kv.split("=", 1); extra[k.strip()] = val.strip()
+        shut = [s for s in (r.get("shut") or []) if isinstance(s, dict) and _iso(s.get("t")) >= TODAY]
+        if v == "shut":
+            a, b = _iso(extra.get("from")), _iso(extra.get("to"))
+            if not a or not b or b < a or b < TODAY: stats["skipped"] += 1; continue
+            shut = [s for s in shut if _iso(s.get("t")) < a or _iso(s.get("f")) > b]   # the new one replaces any it overlaps
+            shut.append({"f": a, "t": b, "why": extra.get("why", "")[:40], "src": src})
+            shut.sort(key=lambda s: s["f"]); r["oc"] = TODAY; r.pop("oc_try", None)
+        elif v == "open": r["oc"] = TODAY; r.pop("oc_try", None)
+        elif v == "closed":
+            r["st"] = "closed"; r["oc"] = TODAY; r.pop("oc_try", None)
+            if src: r["closed_src"] = src
+        else: r["oc_try"] = TODAY
+        if shut: r["shut"] = shut[-4:]
+        else: r.pop("shut", None)
+        stats[v] += 1
+    for slug, doc in docs.items():
+        json.dump(doc, open(os.path.join(work, "places", slug + ".json"), "w"), ensure_ascii=False)
+    stats["cities"] = len(docs)
+    print(json.dumps(stats))
+
 if __name__ == "__main__":
     if len(sys.argv) >= 4 and sys.argv[1] == "prepare": prepare(sys.argv[2], sys.argv[3], int(sys.argv[4]) if len(sys.argv) > 4 else 6)
     elif len(sys.argv) >= 5 and sys.argv[1] == "finish": finish(sys.argv[2], sys.argv[3], sys.argv[4])
     elif len(sys.argv) >= 4 and sys.argv[1] == "pins": pins(sys.argv[2], sys.argv[3])
+    elif len(sys.argv) >= 4 and sys.argv[1] == "opentodo": opentodo(sys.argv[2], sys.argv[3], int(sys.argv[4]) if len(sys.argv) > 4 else 40)
+    elif len(sys.argv) >= 5 and sys.argv[1] == "openapply": openapply(sys.argv[2], sys.argv[3], sys.argv[4])
     elif len(sys.argv) >= 4 and sys.argv[1] == "recheck": recheck(sys.argv[2], sys.argv[3])
     elif len(sys.argv) >= 4 and sys.argv[1] == "google": gpass(sys.argv[2], sys.argv[3])
     elif len(sys.argv) >= 4 and sys.argv[1] == "refresh": refresh(sys.argv[2], sys.argv[3])

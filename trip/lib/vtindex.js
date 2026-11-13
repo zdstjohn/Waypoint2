@@ -94,7 +94,8 @@
                       city: x.city,
                       country: x.country,
                       parts: x.parts.slice(),
-                      size: x.size || 0
+                      size: x.size || 0,
+                      lay: x.lay || 0
                     };
                 });
                 /* a pack that moved to the asset store replaces the file one, so the file can go */

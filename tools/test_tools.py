@@ -69,8 +69,9 @@ with tempfile.TemporaryDirectory() as tmp:
     with contextlib.redirect_stdout(buf): pc.gtodo(db, work, 30)
     lines = [x for x in buf.getvalue().splitlines() if x.strip()]
     todo = json.load(open(_os.path.join(work, "gtodo.json")))["todo"]
-    ok(len(lines) == 4 and lines[0] == "1 | Frigidarium, Rome | 41.89800,12.47000" and lines[1].startswith("2 | Old Pin, Rome | "), "the list starts with the Google pins due for renewal: " + repr(lines))
+    ok(len(lines) == 4 and lines[0] == "1 | Frigidarium, Rome | 41.89800,12.47000 | 3" and lines[1].startswith("2 | Old Pin, Rome | "), "the list starts with the Google pins due for renewal: " + repr(lines))
     ok([e["kind"] for e in todo] == ["renew", "renew", "find", "find"] and {e.get("name") for e in todo[2:]} == {"Gelateria La Romana", "Bar Senza Nome"}, "then the places with no Google ID yet; one that has an ID is not asked again")
+    ok([x.rsplit(" | ", 1)[1] for x in lines] == ["3", "3", "5", "5"], "a renewal asks Google for 3 places, a place with no pin yet for 5: " + repr(lines))
     by = {e.get("name") or e["key"]: e["n"] for e in todo}
     ans = [
         {"n": by["frigidarium"], "places": [{"id": G2, "lat": 41.8982333, "lng": 12.4704548, "title": "Frigidarium - Google Maps", "fid": "https://www.google.com/maps/place//data=!4m2!3m1!1s" + F2}], "summary": "**Frigidarium** [0] (4.7★ (9302)) is a popular takeout spot."},
@@ -98,8 +99,52 @@ with tempfile.TemporaryDirectory() as tmp:
     st2 = json.loads(buf.getvalue().strip().splitlines()[-1]); it2 = json.load(open(_os.path.join(work2, "places", "italy-rome.json")))["items"]
     ok(st2["matched"] == 0 and st2["removed"] == 1 and st2["answers"] == 0 and "lat" not in it2["old pin"] and it2["frigidarium"]["gat"] == old, "without answers only the 30-day rule acts: " + json.dumps(st2))
 
+# --- street-map packs: basE91 parts, the town centre first (pack2json.py) ---
+import random, gzip, struct, pack2json as p2j
+rg = random.Random(3)
+ok(all(p2j.b91dec(p2j.b91enc(x)) == x for x in [b"", b"\x00", b"\xff", b"ab", bytes(range(256)), bytes(40), b"\xff" * 41] + [rg.randbytes(rg.randint(1, 900)) for _ in range(60)]), "basE91 text reads back as the bytes it was made from, for every length")
+ok(not set(p2j.b91enc(rg.randbytes(5000))) & set('"\\'), "basE91 text has no quote or backslash, so a part's JSON needs no escapes")
+big = rg.randbytes(300000); ok(len(p2j.b91enc(big)) / len(big) < 1.24, "basE91 is about 23% over the bytes (base64: 33%)")
+def _tile(z, x, y, n): return ((z, x, y), gzip.compress(rg.randbytes(n), 1))
+_t = [_tile(z, x, y, 3000) for z in (9, 10, 11, 12) for x in (1, 2) for y in (1, 2)] + [_tile(14, 7000 + i, 5000, 4000) for i in range(6)]
+_h = {"v": 1, "slug": "x-y", "city": "Y", "country": "X", "b": [-1, -1, 1, 1], "places": [-0.01, -0.01, 0.01, 0.01], "zmin": 9, "zmax": 14}
+_old = p2j.assemble(_h, _t); _new = p2j.relayout(_old)
+ok(p2j.header(_new).get("lay") == 2 and p2j.relayout(_new) == _new, "an older pack is laid out town centre first once, and a laid-out one is left alone")
+ok(dict(p2j.tiles_of(_new)[1]) == dict(p2j.tiles_of(_old)[1]), "laying a pack out moves tiles and changes none")
+_cs = p2j.cuts(_new); ok(_cs[0][0] == 0 and _cs[-1][1] == len(_new) and all(_cs[i][1] == _cs[i + 1][0] for i in range(len(_cs) - 1)), "the parts cover the pack exactly, in order")
+_pd = p2j.part_doc("x-y", 0, 1, 0, _new, len(_new)); _j = json.loads(_pd)
+ok(_j["v"] == 2 and _j["enc"] == "b91" and p2j.b91dec(_j["d"]) == _new and _pd.rindex('"d"') > _pd.rindex('"size"'), "a part's text is JSON, its facts first and the bytes last")
+
+# --- the copy the nightly tasks read (trip/tools/<name>.py.txt, published with the app) is the same as the one here ---
+_here = os.path.dirname(os.path.abspath(__file__))
+_pub = os.path.join(_here, "..", "trip", "tools")
+_drift = [n for n in sorted(os.listdir(_pub)) if n.endswith(".py.txt") and os.path.exists(os.path.join(_here, n[:-4]))
+          and open(os.path.join(_pub, n), "rb").read() != open(os.path.join(_here, n[:-4]), "rb").read()]
+ok(not _drift, "each nightly script's published copy (trip/tools/*.py.txt) is the same as tools/*.py; these differ: " + ", ".join(_drift))
+
+# --- the photo copies: small, WebP twins, blurred preview (big_photos.py, photos2.py, nightly.py), with no network ---
+import subprocess
+_here = os.path.dirname(os.path.abspath(__file__))
+_chk = os.path.join(_here, "..", "test", "py", "photo_copies.py")
+if os.path.exists(_chk):
+    _r = subprocess.run([sys.executable, "-I", _chk], capture_output=True, text=True)
+    try: _j = json.loads(_r.stdout)
+    except Exception: _j = None; ok(False, "the photo copies check ran: " + (_r.stderr or _r.stdout)[-300:])
+    if _j:
+        _f = _j["files"]; _by = lambda suf: [v for k, v in _f.items() if k.endswith(suf)]
+        ok(_j["planned"]["colosseum"] == ["big", "sm", "smwebp", "webp"] and _j["planned"]["pantheon"] == ["bigwebp", "sm", "smwebp", "webp"], "a photo gets only the copies it lacks: " + json.dumps(_j["planned"]))
+        ok(all(v[1][0] == 320 for v in _by(".sm.jpg") + _by(".sm.webp")), "a small copy is 320 px wide")
+        ok(_j["again_fetches"] == 0, "copies made on an earlier go are not fetched again")
+        ok(all(r.get("lq") and r.get("sm", "").startswith("/_blob/") and set(r.get("webp", {})) >= {"sm", "url"} for k, r in _j["record"].items()), "the record carries sm, webp {sm, url} and lq: " + json.dumps(_j["record"]))
+        ok(_j["record"]["pantheon"]["big"] == "/_blob/" + "b" * 32 and "big" in _j["record"]["pantheon"]["webp"], "an existing large copy is kept, and only its WebP is added")
+        ok(_j["p2"]["lq_bytes"] < 400 and _j["p2"]["smw"] == 320, "the blurred preview stays a few hundred characters")
+    for _n in ("nightly", "photos2", "big_photos"):   # the published copy is the same file
+        _a, _b = os.path.join(_here, _n + ".py"), os.path.join(_here, "..", "trip", "tools", _n + ".py.txt")
+        _c = _b if os.path.exists(_b) else os.path.join(_here, _n + ".py.txt")
+        if os.path.exists(_c): ok(open(_a, "rb").read() == open(_c, "rb").read(), _n + ".py and its published .txt copy are the same file")
+
 if fails:
     print("%d of the tools' checks failed:" % len(fails))
     for f in fails: print("  " + f)
     sys.exit(1)
-print("tools: all their own checks pass (place matching, opening hours, distances, map tiles, the Google check through a connector)")
+print("tools: all their own checks pass (place matching, opening hours, distances, map tiles, the Google check through a connector, street-map pack parts)")

@@ -1,6 +1,8 @@
 """Build one map pack per city for the MapLibre map: real vector tiles (streets, names, buildings, landmarks) around the trip's places.
 Usage: python3 build.py <wanted_dir> <out_dir> [slug ...]
 Pack format: b"WPVT1\\n" + 4-byte big-endian header length + header JSON + gzipped tiles.
+The tiles are laid out town centre first ("lay": 2, see pack2json.py): the tiles of the screen the map opens at come
+first, so the app can draw them before the rest has arrived.
 Map data © OpenMapTiles © OpenStreetMap contributors (ODbL), tiles from OpenFreeMap."""
 import gzip, json, math, os, sys, struct, time
 from concurrent.futures import ThreadPoolExecutor
@@ -103,8 +105,14 @@ def build(slug, d, out_dir, tpl):
     hdr = {'v': 1, 'slug': slug, 'city': d.get('city'), 'country': d.get('country'), 't': index,
            'b': [min(b[0] for b in allb), min(b[1] for b in allb), max(b[2] for b in allb), max(b[3] for b in allb)],
            'places': [bb[0], bb[1], bb[2], bb[3]], 'zmin': min(T), 'zmax': max(T)}
+    anchor = tuple(d['home']) if d.get('home') else tuple(d['center']) if d.get('center') else None
+    if anchor: hdr['c'] = [round(anchor[1], 5), round(anchor[0], 5)]   # where you stay (lng, lat): the tiles around it come first
     hj = json.dumps(hdr, separators=(',', ':')).encode()
     data = b'WPVT1\n' + struct.pack('>I', len(hj)) + hj + bytes(body)
+    try:
+        from pack2json import relayout   # same folder: the tiles in the order the map needs them (without it a pack still works)
+        data = relayout(data); hdr = json.loads(data[10:10 + struct.unpack('>I', data[6:10])[0]])
+    except ImportError: pass
     open(os.path.join(out_dir, slug + '.bin'), 'wb').write(data)
     counts = {z: len(T[z]) for z in sorted(T)}
     print('%-28s %6.2f MB  tiles %s' % (slug, len(data) / 1e6, counts), flush=True)

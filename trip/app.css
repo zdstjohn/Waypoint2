@@ -1904,7 +1904,33 @@ html.standalone:not(.cloud) .tm-sharebox,html.standalone:not(.cloud) .share{disp
 /* ---------- the city's photo behind a day's name (W.cityPhoto) ---------- */
 .day-h.has-hero{position:relative;overflow:hidden;isolation:isolate;border-radius:var(--r-lg);color:var(--on-color);box-shadow:var(--sh-3)}
 .day-h.has-hero{min-height:clamp(190px,46vw,280px);align-items:flex-end;padding:18px 18px 16px}
-.has-hero .hero-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2}
+.has-hero .hero-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-3}
+/* the header's second layer: Explore shows the town's map here (or the photo darkened); Day hides it. Under the name's
+   shade (the ::before below), over the photo. Switching tabs fades it 0.2 s (none with reduced motion: see the end) */
+.hero-alt{position:absolute;inset:0;z-index:-2;background:rgba(14,12,30,.58);pointer-events:none}
+.hero-alt.has-map{background:none}
+.hero-map{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.hero-dots{position:absolute;inset:0}
+.hero-dots i{position:absolute;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:var(--sight);box-shadow:0 0 0 1px rgba(255,255,255,.85);opacity:.85}
+.hero-dots i.food{background:var(--food)}
+.hero-dots i.hd-s{width:12px;height:12px;margin:-6px 0 0 -6px;border:2px solid #fff;box-shadow:0 1px 3px rgba(20,18,40,.45);opacity:1}
+.day-h:not(.is-ex) .hero-alt{opacity:0}
+.hero-alt.fade-in{animation:altIn .2s ease-out both}
+.hero-alt.fade-out{animation:altOut .2s ease-out both}
+@keyframes altIn{from{opacity:0}}
+@keyframes altOut{from{opacity:1}}
+/* a tap on the map opens it (a button over the whole header; the example note's link stays above it) */
+/* (the map shows: its credit replaces the photographer's, which belongs to the photo under it) */
+.has-hero.is-ex:has(.hero-alt.has-map) > .hero-credit{display:none}
+/* a photo with a WebP copy comes wrapped in <picture>: it adds no box of its own, so the header's row (a flex row with a
+   gap) lays out the same with or without it (nor does its <source>, which would otherwise be an empty item with a gap) */
+.has-hero > picture{display:contents}
+.has-hero > picture > source{display:none}
+.hero-open{position:absolute;inset:0;z-index:1;width:100%;height:100%;padding:0;border:0;background:none;border-radius:inherit;cursor:pointer}
+.hero-open:focus-visible{outline:3px solid var(--on-color);outline-offset:-5px}
+.has-hero .hero-note a{position:relative;z-index:2}
+@keyframes banPing{from{box-shadow:inset 0 0 0 4px var(--accent)}to{box-shadow:inset 0 0 0 4px transparent}}
+.ban-ping{animation:banPing .9s ease-out}
 .has-hero::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(20,18,40,0) 30%,rgba(20,18,40,.35) 55%,rgba(20,14,34,.82) 100%)}
 .has-hero h2{color:var(--on-color);text-shadow:0 2px 12px rgba(0,0,0,.45)}
 .has-hero .sub{color:rgba(255,255,255,.88)}
@@ -2298,3 +2324,12 @@ table.budget td + td *{font-family:var(--f-body);letter-spacing:0}
 .vt-pin b.ki{position:relative;width:30px;height:30px}
 .vt-pin b.ki svg{width:16px;height:16px}
 .vt-pin b.ki .nb{position:absolute;right:-6px;bottom:-5px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:var(--surface);color:var(--fg);font:800 9.5px/15px var(--f-body);font-style:normal;text-align:center;box-shadow:0 0 0 1px rgba(28,25,23,.12)}
+
+/* ---------- a soft preview while a photo loads (lib/photos.js): the blurred 16 px copy sits behind the picture, which
+   fades in over it once loaded; the box is the same size either way, so nothing moves ---------- */
+.lq{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(4px)}
+/* (a header's preview sits at the photo's level, under the map layer; the photo comes after it, so covers it once loaded) */
+.has-hero .hero-lq{z-index:-3}
+img.lqi{opacity:0}
+img.lqi.ld{opacity:1;transition:opacity .25s ease-out}
+@media (prefers-reduced-motion:reduce){img.lqi.ld{transition:none}}

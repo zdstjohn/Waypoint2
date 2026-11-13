@@ -430,6 +430,56 @@ def fetch_thumb(url):
     raise err
 
 
+# ---- the copies of one photo: normal (720 px), small, WebP twins and a tiny blurred preview ----
+# Small: 320 px wide (a stop's thumbnail is 72-96 CSS px, 288 device px at 3x), never taller than 480. WebP quality was
+# chosen by SSIM on real photos so each WebP looks as good as the JPEG it sits beside and is about 30% smaller:
+# JPEG q74 (normal, small) = WebP q70; JPEG q82 (large) = WebP q81. The preview is a 16 px wide WebP as base64 (about 140
+# characters; the app adds "data:image/webp;base64,"): every photo record is read when the app opens, so it stays tiny.
+SM_BOX, LQ_W = (320, 480), 16
+JPEG_Q, WEBP_Q = {"url": 74, "sm": 74, "big": 82}, {"url": 70, "sm": 70, "big": 81}
+
+
+def _save(im, fmt, **kw):
+    out = io.BytesIO()
+    im.save(out, fmt, **kw)
+    return out.getvalue()
+
+
+def jpeg_bytes(im, kind="url"):
+    return _save(im.convert("RGB"), "JPEG", quality=JPEG_Q[kind], optimize=True, progressive=True)
+
+
+def webp_bytes(im, kind="url"):
+    return _save(im.convert("RGB"), "WEBP", quality=WEBP_Q[kind], method=6)
+
+
+def small_copy(im):
+    from PIL import Image
+    c = im.convert("RGB")
+    c.thumbnail(SM_BOX, Image.LANCZOS)
+    return c
+
+
+def tiny_preview(im):
+    """a 16 px wide stand-in, base64 of a WebP (about 140 characters): the app blurs it and shows it until the photo has loaded"""
+    import base64
+    from PIL import Image
+    w, h = im.size
+    c = im.convert("RGB").resize((LQ_W, max(1, round(LQ_W * h / max(w, 1)))), Image.LANCZOS)
+    return base64.b64encode(_save(c, "WEBP", quality=30, method=6)).decode()
+
+
+def copies(im, base):
+    """writes the small JPEG, the small and normal WebP next to <base>.jpg (the normal JPEG itself is written by the
+    caller); returns what goes on the photo's record: files {sm, smwebp, webp}, lq, w (normal width), smw (small width)"""
+    sm = small_copy(im)
+    files = {"sm": base + ".sm.jpg", "smwebp": base + ".sm.webp", "webp": base + ".webp"}
+    open(files["sm"], "wb").write(jpeg_bytes(sm, "sm"))
+    open(files["smwebp"], "wb").write(webp_bytes(sm, "sm"))
+    open(files["webp"], "wb").write(webp_bytes(im, "url"))
+    return {"files": files, "lq": tiny_preview(im), "w": im.width, "smw": sm.width}
+
+
 def download(slug, path, img_dir):
     from PIL import Image
     state = json.load(open(path))
@@ -445,8 +495,12 @@ def download(slug, path, img_dir):
             im = Image.open(io.BytesIO(fetch_thumb(ii["thumb"]))).convert("RGB")
             im.thumbnail((720, 720))
             os.makedirs(os.path.dirname(dest), exist_ok=True)
-            im.save(dest, "JPEG", quality=74, optimize=True, progressive=True)
+            im.save(dest, "JPEG", quality=JPEG_Q["url"], optimize=True, progressive=True)
             x["file"] = dest; n += 1
+            try:   # the small copy, the WebP twins and the blurred preview (a failure here never loses the photo)
+                x["more"] = copies(im, dest[:-4])
+            except Exception as e:
+                print("  extra copies failed", k, e, file=sys.stderr)
             if n % 10 == 0:
                 json.dump(state, open(path, "w"), indent=0, ensure_ascii=False)
         except Exception as e:
@@ -496,6 +550,11 @@ def pending(db, work, only):
             if x.get("near"):
                 items[k]["near"] = x["near"]
             uploads.append(f)
+            more = x.get("more") or {}
+            extra = {a: os.path.abspath(b) for a, b in (more.get("files") or {}).items() if os.path.exists(b)}
+            if extra:
+                items[k].update({"extra": extra, "lq": more.get("lq", ""), "w": more.get("w"), "smw": more.get("smw")})
+                uploads.extend(extra.values())
         tried, tried2 = dict(cur.get("tried") or {}), dict(cur.get("tried2") or {})
         for k in items:
             tried.pop(k, None); tried2.pop(k, None)

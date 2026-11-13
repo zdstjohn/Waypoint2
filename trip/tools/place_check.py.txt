@@ -19,8 +19,9 @@ OpenStreetMap (Photon, near the city); clear matches become "open" records with 
   python3 place_check.py refresh <db_dir> <work_dir>       (needs GOOGLE_MAPS_API_KEY)
       Google pins are kept at most 30 days: renewed by place ID after 25, removed after 30 or when Google drops them
   python3 place_check.py gtodo <db_dir> <work_dir> [max]   (no key: the same two jobs through a Google Maps connector)
-      prints up to max (30) lines "<n> | <what to search> | <lat>,<lng>": Google pins due for renewal first, then the
-      places with the weakest pins; writes <work_dir>/gtodo.json. Whoever runs this (the nightly task's session) asks
+      prints up to max (30) lines "<n> | <what to search> | <lat>,<lng> | <3 or 5>": Google pins due for renewal
+      first, then the places with the weakest pins, and how many places to ask for (3 when the place is nearly sure to
+      come first: a renewal, or a named checked pin; else 5); writes <work_dir>/gtodo.json. Whoever runs this (the nightly task's session) asks
       the connector's search_places once per line and writes the answers to a file, one JSON object per line:
         {"n": <n>, "places": [{"id", "lat", "lng", "title", "fid"}...], "summary": "<the answer's summary>"}
       (title = attribution.title; fid = the "0x...:0x..." at the end of googleMapsLinks.placeUrl)
@@ -831,7 +832,9 @@ def gplaces(ans):
     return out, bad
 def gtodo(db, work, gmax):
     """what to ask Google tonight, through the connector: pins due for renewal first, then the weakest pins. Prints
-    "<n> | <what to search> | <lat>,<lng>" lines and writes <work>/gtodo.json."""
+    "<n> | <what to search> | <lat>,<lng> | <how many places to ask for>" lines and writes <work>/gtodo.json. A pin
+    being renewed (Google's own place, by its ID) or a place that already has a named, checked pin is nearly always
+    Google's first answer, so it asks for 3; a place with no pin, or only a rough one, asks for 5."""
     import datetime
     wanted, places = load_dir(os.path.join(db, "wanted")), load_dir(os.path.join(db, "places"))
     os.makedirs(os.path.join(work, "places"), exist_ok=True)
@@ -867,7 +870,9 @@ def gtodo(db, work, gmax):
         out.append({"kind": "find", "slug": slug, "name": n, "food": food, "weak": weak, "q": paren(n) + ", " + city, "lat": c[0], "lng": c[1]})
     for i, e in enumerate(out): e["n"] = i + 1
     json.dump({"at": TODAY, "todo": out, "waiting": waiting}, open(os.path.join(work, "gtodo.json"), "w"), ensure_ascii=False)
-    for e in out: print("%d | %s | %.5f,%.5f" % (e["n"], e["q"], e["lat"], e["lng"]))
+    for e in out:
+        e["size"] = 3 if e["kind"] == "renew" or e.get("weak", 0) >= 2 else 5
+        print("%d | %s | %.5f,%.5f | %d" % (e["n"], e["q"], e["lat"], e["lng"], e["size"]))
 def gapply(db, work, answers):
     """the connector's answers (see gtodo) into the records: matches like gpass, renewals like refresh; a Google pin
     older than 30 days comes off either way. Writes <work>/places/<slug>.json for every city changed."""

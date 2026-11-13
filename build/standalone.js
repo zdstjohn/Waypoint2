@@ -83,11 +83,14 @@ fs.writeFileSync(path.join(DIST, 'manifest.webmanifest'), JSON.stringify(manifes
 const PRE = ['./', 'index.html', `standalone.js?v=${V}`, `cloud.js?v=${V}`, 'manifest.webmanifest', 'vt/index.json'].concat(ASSETS.filter(f => f !== 'app.desk.css').map(f => `${f}?v=${V}`) /* (the desktop stylesheet is kept when a wide window first asks for it: a phone never fetches it) */, fonts.map(f => 'fonts/' + f), icons);
 fs.writeFileSync(path.join(DIST, 'sw.js'), `/* Waypoint service worker, version ${V} (made by build/standalone.js) */
 const V = ${JSON.stringify(V)}, CACHE = "waypoint-" + V, PRE = ${JSON.stringify(PRE)};
+/* photos: pictures from Wikimedia Commons (and public storage images) are kept on the phone, so a trip's photos show again
+   with no connection and without another download. One cache for all versions (a new app version keeps the photos). */
+const PHOTOS = "waypoint-photos-v1", PHOTO_MAX = 300, PHOTO_BYTES = 60 * 1048576, PHOTO_DAYS = 30;
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRE)).then(() => self.skipWaiting())); });
 /* keep this version and the one before it (a page opened before the update may still ask for the old files) */
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(keys => {
-    const ours = keys.filter(k => k.startsWith("waypoint-") && k !== CACHE);
+    const ours = keys.filter(k => k.startsWith("waypoint-") && k !== CACHE && k !== PHOTOS);
     return caches.open("waypoint-meta").then(m => m.match("prev").then(r => r ? r.text() : "").then(prev => {
       const drop = ours.filter(k => k !== prev && k !== "waypoint-meta");
       return Promise.all(drop.map(k => caches.delete(k))).then(() => m.put("prev", new Response(CACHE)));
@@ -100,9 +103,60 @@ function fresh(req) {
     fetch(req).then(r => { clearTimeout(t); r.ok ? ok(r) : no(new Error(String(r.status))); }, e => { clearTimeout(t); no(e); });
   });
 }
+/* a picture the app shows (an <img>), from where its photos come from: nothing else from another site is kept */
+function isPhoto(req, url) {
+  if (req.method !== "GET" || req.destination !== "image" || url.protocol !== "https:") return false;
+  const h = url.hostname, p = url.pathname;
+  if (h === "upload.wikimedia.org") return true;
+  if (h === "commons.wikimedia.org") return p.startsWith("/wiki/Special:FilePath/");
+  return h.endsWith(".supabase.co") && p.startsWith("/storage/v1/object/public/") && !p.startsWith("/storage/v1/object/public/maps/");
+}
+const noCors = new Set(), failed = {}; let puts = 0;   /* (sites that did not allow CORS three times running are not asked again until the worker restarts) */
+/* oldest out first, past 300 pictures or about 60 MB (sizes are read every tenth picture: it needs each one's headers) */
+async function trim(c) {
+  const keys = await c.keys();
+  if (keys.length <= PHOTO_MAX && puts % 10) return;
+  let total = 0; const sizes = [];
+  for (const k of keys) { const r = await c.match(k); const n = r ? Number(r.headers.get("x-wp-size")) || 0 : 0; sizes.push(n); total += n; }
+  for (let i = 0; i < keys.length - 1 && (keys.length - i > PHOTO_MAX || total > PHOTO_BYTES); i++) { total -= sizes[i]; await c.delete(keys[i]); }
+}
+/* From the phone first (a photo's address names one picture: one that is over a month old is asked for again). It is asked
+   for with CORS, so the answer can be checked (a real picture, status 200) before it is kept; a site that does not allow
+   that is passed through as before, and an answer that cannot be looked into (opaque) is never kept: it could be an error
+   page, and would count for megabytes against the phone's storage. */
+async function photo(req) {
+  try {
+    const c = await caches.open(PHOTOS), hit = await c.match(req.url);
+    const age = hit ? Date.now() - (Number(hit.headers.get("x-wp-at")) || 0) : 0;
+    if (hit && age < PHOTO_DAYS * 864e5) return hit;
+    const host = new URL(req.url).hostname;
+    if (!noCors.has(host)) {
+      try {
+        const r = await fetch(new Request(req.url, { mode: "cors", credentials: "omit" })), type = r.headers.get("content-type") || "";
+        if (r.ok && r.status === 200 && type.startsWith("image/")) {
+          failed[host] = 0;
+          const b = await r.blob();
+          await c.put(req.url, new Response(b, { status: 200, headers: { "content-type": type, "x-wp-at": String(Date.now()), "x-wp-size": String(b.size) } }));
+          puts++; trim(c).catch(() => {});
+          return new Response(b, { status: 200, headers: { "content-type": type } });
+        }
+        if (hit) return hit;
+        if (r.ok) return fetch(req);
+        return r;   /* (a missing picture is shown as missing, as it would be without this) */
+      } catch (err) {
+        if (hit) return hit;
+        const o = await fetch(req);   /* (this one answers when only CORS was refused: offline it throws, and nothing is concluded) */
+        if ((failed[host] = (failed[host] || 0) + 1) >= 3) noCors.add(host);
+        return o;
+      }
+    }
+    return hit || fetch(req);
+  } catch (err) { return fetch(req); }
+}
 self.addEventListener("fetch", e => {
   const req = e.request, url = new URL(req.url);
-  if (req.method !== "GET" || url.origin !== location.origin) return;   /* photos, the PDF library: straight to the network */
+  if (url.origin !== location.origin) { if (isPhoto(req, url)) e.respondWith(photo(req)); return; }   /* (other sites, the PDF library: straight to the network) */
+  if (req.method !== "GET") return;
   if (req.mode === "navigate") {
     e.respondWith(fresh(req).then(r => { const c = r.clone(); caches.open(CACHE).then(x => x.put("index.html", c)); return r; },
       () => caches.match("index.html", { ignoreSearch: true }).then(r => r || caches.match("./"))));

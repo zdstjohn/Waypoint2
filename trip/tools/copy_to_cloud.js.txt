@@ -31,6 +31,9 @@ function forTheWeb(kind, data) {
     if (typeof it.url === "string" && it.url.startsWith("/_blob/")) { const u = commonsSized(it); if (!u) continue; items[k] = Object.assign({}, it, { url: u }); }
     else items[k] = Object.assign({}, it);
     delete items[k].big;   /* a large copy in the Claude file store: here the app asks Commons for the size it needs */
+    /* the small copy, the WebP twins and the sizes that go with them are files in the Claude file store too: here the app asks
+       Commons for the small width itself. The blurred preview (lq) is text inside the record, so it comes along. */
+    delete items[k].sm; delete items[k].smw; delete items[k].w; delete items[k].webp;
   }
   return Object.assign({}, data, { items });
 }
@@ -53,7 +56,7 @@ async function storePart(packs, slug, i, blob, log) {
   if (!file || !fs.existsSync(file)) { log.push("no file for " + slug + " part " + i + " (" + pn.id + ")"); return null; }
   const buf = fs.readFileSync(file);
   let j; try { j = JSON.parse(buf.toString("utf8")); } catch (e) { log.push("not JSON: " + file); return null; }
-  if (!j || j.slug !== slug || j.part !== i || typeof j.b64 !== "string") { log.push("not " + slug + " part " + i + ": " + file); return null; }
+  if (!j || j.slug !== slug || j.part !== i || typeof (j.v === 2 ? j.d : j.b64) !== "string") { log.push("not " + slug + " part " + i + ": " + file); return null; }
   const r = await fetch(URL0 + "/storage/v1/object/maps/" + pn.name, { method: "POST",
     headers: { apikey: KEY, Authorization: "Bearer " + KEY, "Content-Type": "application/json", "x-upsert": "false", "cache-control": "31536000" }, body: buf });
   if (!r.ok && r.status !== 409) { log.push("upload failed for " + pn.name + ": " + r.status + " " + (await r.text()).slice(0, 200)); return null; }

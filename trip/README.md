@@ -295,7 +295,12 @@ vt/              street-map data: the detailed packs live in the asset store (ma
                   failed tile is decoded up to three times and asked for again, and map errors go to the error log. vt/ keeps the engine, the
                   pack worker (packworker.js: downloads and decodes packs off the main thread, caches them in IndexedDB)
                   and the glyphs (glyphs.wasm: everyday letters; glyphs-ext.wasm: extended Latin, Greek, Cyrillic, on
-                  demand; split by tools/glyphsplit.py). The installable app has the same engine (build/standalone.js
+                  demand; split by tools/glyphsplit.py). A pack is laid out town centre first ("lay": 2, tools/pack2json.py: the
+                  tiles of the screen the map opens at, then the streets around where you stay, then the rest) and cut
+                  into parts, the first small; the worker reads the parts in order as they stream, so the map draws
+                  after the first part and the rest arrives behind it (lib/vtmap.js `ready`: a tile waits for its bytes).
+                  Parts carry the bytes in basE91 inside JSON (23% over the bytes, base64 33%); older base64 parts and
+                  packs still read as before, and the nightly task rebuilds a few older ones a night (RELAY_MAX). The installable app has the same engine (build/standalone.js
                   copies vt/); its packs are in the Supabase project's file storage (the public "maps" folder) and its
                   list in the maps/<city> documents there, both copied nightly by tools/copy_to_cloud.js
 ```

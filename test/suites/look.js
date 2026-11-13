@@ -56,9 +56,13 @@ exports.run = async t => {
     t.ok(pn.day[0] === pn.h && pn.day[1] > pn.day[0] + 40, 'the day strip stays right under it (' + pn.day.join('–') + ' px)');
     await pg.click('#pin'); await pg.waitForFunction(() => scrollY < 5, null, { timeout: 4000 }).catch(() => {}); await pg.waitForTimeout(300);
     t.ok(await pg.evaluate(() => scrollY < 5 && document.querySelector('#pin').hidden), 'a tap on it goes back to the top, and it leaves');
+    /* Today (and Plan, Prepare) scroll on without it: it is the Trip's, where the day strip sticks under it */
+    const offTrip = await pg.evaluate(async () => { const out = {}; for (const v of ['go', 'setup', 'book']) { W.goView(v); W.render(); scrollTo(0, 900); await new Promise(r => setTimeout(r, 250)); out[v] = !document.querySelector('#pin').hidden; } W.goView('trip'); W.render(); scrollTo(0, 0); return out; });
+    t.ok(!offTrip.go && !offTrip.setup && !offTrip.book, 'no slim bar on Today, Plan or Prepare: ' + JSON.stringify(offTrip));
     /* other screens keep the greeting */
     const oth = await pg.evaluate(() => { const out = {}; W.S.tview = 'map'; W.render(); out.map = document.querySelector('.top').hasAttribute('data-day'); out.greet = getComputedStyle(document.querySelector('#topline .tl-hi')).display !== 'none'; W.S.tview = 'days'; W.render(); return out; });
-    t.ok(!oth.map && oth.greet, 'Explore keeps the greeting and the time in the banner');
+    /* (changed with the Explore header: Explore carries the same day line as Day, so the banner is the same height on both tabs and nothing below it jumps on a switch) */
+    t.ok(oth.map && !oth.greet, 'Explore shows the same day line in the banner as Day (the banner keeps one height across the two tabs)');
     /* the stop panel's links and "Not for us" too */
     await pg.evaluate(() => { W.S.tview = 'days'; W.render(); const x = W.P.days[1].slots.find(x => x.item && !W.isFood(x.slot)); W.openStop(x.key); }); await pg.waitForTimeout(700);
     const sh = await pg.evaluate(() => { const s = document.querySelector('#sheethost'); const o = s && s.querySelector('.sh-out-r.danger'); return { btns: s ? [...s.querySelectorAll('.links .pl-a')].map(a => a.textContent.trim() + (a.querySelector('svg') ? '+icon' : '')) : [], red: o ? getComputedStyle(o).borderTopColor === getComputedStyle(o.querySelector('b')).color : false }; });

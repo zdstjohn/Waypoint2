@@ -67,6 +67,7 @@
     "trip/lib/vtindex.js",
     "trip/lib/vtmap.js",
     "trip/lib/warm.js",
+    "trip/lib/ahead.js",
     "trip/screens/book.js",
     "trip/screens/dayline.js",
     "trip/screens/daytrip.js",

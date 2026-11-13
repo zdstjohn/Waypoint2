@@ -245,7 +245,8 @@
     var el = document.getElementById("pin"),
       top = document.querySelector(".top");
     if (!el || !top) return;
-    var show = el.hasAttribute("data-on") && top.getBoundingClientRect().bottom <= pinTop + 0.5;
+    /* only on Trip, where the day strip sticks under it: Today, Plan and Prepare scroll on without it (the owner's call) */
+    var show = el.hasAttribute("data-on") && (!W.view || W.view() === "trip") && top.getBoundingClientRect().bottom <= pinTop + 0.5;
     if (el.hidden === show) el.hidden = !show;
   }
   function pinSoon() {

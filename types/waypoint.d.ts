@@ -94,7 +94,7 @@ interface Countdown { big: string; small: string; line: string }
 interface CheckItem { key: string; title?: string; short?: string; done: boolean; [k: string]: any }
 interface PackItem { key: string; text: string; who?: string; why?: string; own?: boolean; group?: string; [k: string]: any }
 interface PackLists { pack: PackItem[]; todo: PackItem[]; facts: Record<string, any>; hidden?: number }
-interface Photo { url: string; credit?: string; page?: string; near?: string | boolean; /** a large copy of the same picture (stored by the nightly helper), for wide headers */ big?: string }
+interface Photo { url: string; credit?: string; page?: string; near?: string | boolean; /** a large copy of the same picture (stored by the nightly helper), for wide headers */ big?: string; /** the small copy (320 px wide, or smw), the WebP twins, the normal copy's width when not 720, and a 16 px blurred preview (base64 WebP) */ sm?: string; smw?: number; w?: number; webp?: { sm?: string; url?: string; big?: string }; lq?: string }
 /** a checked place record (places/<city> in the database) */
 /** g: Google's place ID (kept for good); gpin/gat: the pin came from Google on that day (kept 30 days, never on the free map) */
 interface PlaceRecord { lat?: number | null; lng?: number | null; g?: string; gpin?: 1; gat?: string; [k: string]: any; checked?: string; osm?: string; name?: string; st?: Spot["st"]; site?: string; hours?: Hours; k?: Kid; note?: string; place?: string; replace?: Partial<Food & Spot> & { n: string }; approx?: 1; nopin?: 1; ashore?: 1; stay?: 1; pin_tried?: string; area?: 1; was?: [number, number] }
@@ -551,7 +551,7 @@ interface Waypoint {
   photosUrl: (name: string, city?: string) => string;
   picKind: (it: Spot | Food, food: boolean) => string;
   pickLeg: any;
-  picture: (it: Spot | Food, food: boolean, country: string, city: string, opts?: { credit?: boolean }) => string;
+  picture: (it: Spot | Food, food: boolean, country: string, city: string, opts?: { credit?: boolean; size?: "thumb" }) => string;
   placeInfo: (it: { n: string }, country: string, city: string) => PlaceRecord | null;
   placeTrips: any;
   plan: () => Plan;
@@ -697,7 +697,13 @@ interface Waypoint {
   pinGroups: <T>(pts: T[], project: (p: T) => { x: number; y: number }, minPx?: number) => { x: number; y: number; items: T[] }[];
   vtFor?: (country: string, city: string, lat?: number | null, lng?: number | null) => string | null;   /* (lib/vtindex.js; guarded where it is used) */
   vtLoadTest: any;
+  vtPieceTest: any;
+  vtReadyTest: any;
   vtMount: (slot: any, o: any) => boolean;
+  /** the town's street map as a still picture for the Explore header, kept in W.stills (lib/vtmap.js) */
+  vtStill?: (o: { key: string; slug: string; w: number; h: number; pts: { lat: number | null; lng: number | null }[] }) => void;
+  /** the still map pictures by "slug|theme|shape": "wait", "none" (could not be made) or the picture and its framing */
+  stills: Record<string, any>;
   /** Simple view (this phone only): no photos, no street map, fewer words */
   simple: () => boolean;
   /** turn Simple view on or off (saved on this phone) and redraw */
@@ -790,6 +796,11 @@ interface Waypoint {
   /** which Claude request goes next: 0 first (things you asked for), higher later */
   loadPrio: (key: string) => number;
   warmTick: (P: Plan) => void;
+  /** (lib/ahead.js, second script) fetch the next and previous day's photos when idle; tomorrow's street map the evening before */
+  aheadTick?: (P: Plan) => void;
+  aheadOk?: (strict?: boolean) => boolean;
+  /** (for the tests) what a photo's markup would ask for: the WebP copy's srcset when it has one */
+  aheadReqOf?: (html: string) => { src: string; srcset: string | null; sizes: string | null } | null;
   watchBanner: () => string;
   watchChip?: (kind: string, key: string, P?: Plan | null) => string;   /* (second script) */
   watchClick: (d: any, P: Plan) => any;

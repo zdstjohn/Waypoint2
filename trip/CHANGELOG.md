@@ -2,6 +2,37 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v171
+
+Pictures and maps that come sooner at the same quality (the owner's "do all", done by four helpers and merged here),
+a map banner for Explore, and Today without the slim bar.
+- Explore's header (screens/trip.js, lib/vtmap.js W.vtStill, app.css .hero-alt): the same box as Day's photo, with a
+  still street map of the town drawn once from the app's own map pack, the day's stops and Explore's ideas as dots in
+  their colours, and the town's name where Day has it; a tap opens the map. Switching tabs crossfades the map over the
+  photo in 0.2 s (none with reduced motion), so nothing below moves. A town with no street map shows the photo darkened.
+- Photos (lib/photos.js; made by the nightly tools nightly.py, photos2.py and big_photos.py): a small copy (320 px)
+  for thumbnails, WebP copies of every size with the JPEG to fall back on, and a 16 px blurred preview stored on the
+  record that fills the photo's box until the picture fades in. Old records draw as before; the nightly task fills in
+  the copies for the photos trips use, a capped number a night. The copy to the installable app keeps the preview.
+- What you see first (lib/photos.js, lib/ahead.js new, second script): the day's header photo is fetched first
+  (fetchpriority); when idle, on a connection that isn't saving data, the next and previous day's header and first
+  stop photos are fetched ahead (in WebP when the photo has it), so a swipe shows them at once (about 3 s to 0.1 s at
+  slow 4G); the evening before a move to a new town, on Wi-Fi, tomorrow's street map is kept (once a day).
+- The installable app keeps photos on the phone (build/standalone.js, the service worker): Wikimedia Commons photos,
+  cache-first, CORS only, up to 300 photos or about 60 MB, oldest out first, refreshed after 30 days; app updates
+  keep them.
+- Street maps, town centre first (tools/pack2json.py, build.py; vt/packworker.js, lib/vtmap.js): a new or rebuilt
+  pack is laid out with the opening screen's tiles first, in a small first part, and the map draws as soon as they
+  arrive (Rome at slow 4G: about 2–3 s, was about 40 s); the rest streams in behind. Parts are basE91 text, about 8%
+  smaller than base64. Old packs work unchanged; the nightly task rebuilds two a night into the new layout.
+- Today no longer grows the slim bar when scrolled (lib/warm.js); Day, Plan and Prepare keep it.
+- The nightly place check asks Google for 3 results instead of 5 where the place is nearly sure (tools/place_check.py).
+- Nightly scripts have one copy each: tools/<name>.py, published byte-identical as trip/tools/<name>.py.txt (a test
+  checks they match).
+- Merging fixes: a photo in a <picture> (WebP) adds no box to the header row, and the header's preview sits under
+  its loaded photo.
+- Tests: banner (52 checks), photoset (28), ahead (20), swphotos (20), packs (18). 65 suites.
+
 ## v170
 
 Accessibility beyond the automated checker (the owner's pick, done by a helper and merged here), the slim header as

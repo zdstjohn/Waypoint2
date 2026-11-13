@@ -9,8 +9,8 @@ async function launch() {
   if (cov.on) { const close = b.close.bind(b); b.close = async () => { await cov.takeAll(); return close(); }; }
   return b;
 }
-async function open(browser, { width = 360, height = 800, dark = false, scale = 1, uid = 'u-test', hash = '#trip', mocks = ['test/mocks/mockdur.js', 'test/mocks/mock2.js'], seeded = true, db = null, tz = null, firstRun = false, touch = true, init = null } = {}) {
-  const ctx = await browser.newContext(Object.assign({ viewport: { width, height }, deviceScaleFactor: 2, colorScheme: dark ? 'dark' : 'light', hasTouch: touch, reducedMotion: 'reduce' }, tz ? { timezoneId: tz } : {}));
+async function open(browser, { width = 360, height = 800, dark = false, scale = 1, uid = 'u-test', hash = '#trip', mocks = ['test/mocks/mockdur.js', 'test/mocks/mock2.js'], seeded = true, db = null, tz = null, firstRun = false, touch = true, init = null, dpr = 2, motion = 'reduce' } = {}) {
+  const ctx = await browser.newContext(Object.assign({ viewport: { width, height }, deviceScaleFactor: dpr, colorScheme: dark ? 'dark' : 'light', hasTouch: touch, reducedMotion: motion }, tz ? { timezoneId: tz } : {}));
   const pg = await ctx.newPage(); const errors = []; pg.on('pageerror', e => errors.push(e.message));
   if (cov.on) { await cov.start(pg); const close = ctx.close.bind(ctx); ctx.close = async () => { await cov.takeAll(p => p.context() === ctx); return close(); }; }
   /* a database path the real store would refuse counts as a page error even when the app catches it */

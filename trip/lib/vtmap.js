@@ -13,8 +13,40 @@
   function gunzip(u8) {
     return new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
   }
-  /* an asset pack: JSON parts holding the pack's bytes in base64, joined in order (the main-thread way, used when the
-     page may not start its own worker) */
+  /* basE91 text (tools/pack2json.py, "enc":"b91") -> `len` bytes: 13 bits in 2 characters, so a part is a bit smaller than
+     the same bytes in base64 */
+  var B91 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&()*+,./:;<=>?@[]^_`{|}~'",
+    B91DEC = null;
+  function b91(text, len) {
+    if (!B91DEC) {
+      B91DEC = new Uint8Array(256);
+      for (var k = 0; k < 91; k++) B91DEC[B91.charCodeAt(k)] = k;
+    }
+    var out = new Uint8Array(len),
+      v = -1,
+      b = 0,
+      n = 0,
+      p = 0;
+    for (var i = 0; i < text.length; i++) {
+      var c = B91DEC[text.charCodeAt(i) & 255];
+      if (v < 0) v = c;
+      else {
+        v += c * 91;
+        b |= v << n;
+        n += (v & 8191) > 88 ? 13 : 14;
+        do {
+          out[p++] = b & 255;
+          b >>= 8;
+          n -= 8;
+        } while (n > 7);
+        v = -1;
+      }
+    }
+    if (v >= 0) out[p++] = (b | (v << n)) & 255;
+    return out;
+  }
+  /* an asset pack: JSON parts holding the pack's bytes in base91 (or, older, base64), joined in order (the main-thread
+     way, used when the page may not start its own worker) */
   function readParts(urls) {
     return Promise.all(
       urls.map(function (u) {
@@ -25,6 +57,7 @@
       })
     ).then(function (parts) {
       var bufs = parts.map(function (p) {
+        if (typeof p.d === "string") return b91(p.d, p.n);
         var bin = atob(p.b64 || ""),
           a = new Uint8Array(bin.length);
         for (var i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
@@ -44,6 +77,13 @@
   }
   W.vtLoadTest = function (k, v, src) {
     return load(k, v, src);
+  };
+  /* (for the tests: a tile out of a pack that may still be arriving, and the wait for the whole pack) */
+  W.vtPieceTest = function (p, key) {
+    return piece(p, key);
+  };
+  W.vtReadyTest = function (p) {
+    return ready(p, p.len || 0);
   };
   W.vtWorkerUsed = function () {
     return !!pw;
@@ -152,9 +192,50 @@
     var m = ev.data || {},
       job = pwJobs[m.id];
     if (!job) return;
+    if (m.part) {
+      /* a pack read as it arrives: the first piece makes the pack (its header, an empty body of the right size), the
+         rest fill the body in; whoever needs a tile waits until its bytes are in (see `ready`) */
+      var pk = job.pack;
+      if (!pk) {
+        pk = job.pack = { hdr: m.hdr, body: new Uint8Array(m.len), have: 0, len: m.len, waits: [], failed: null, cached: false };
+        job.ok(pk);
+      } else {
+        pk.body.set(new Uint8Array(m.add), m.at);
+        pk.have = m.at + m.add.byteLength;
+        flush(pk);
+      }
+      return;
+    }
     delete pwJobs[m.id];
-    if (m.error) job.no(new Error(m.error));
-    else job.ok({ hdr: m.hdr, body: new Uint8Array(m.body), cached: !!m.cached });
+    if (m.end) {
+      job.pack.have = job.pack.len;
+      flush(job.pack);
+    } else if (m.error) {
+      var err = new Error(m.error);
+      if (job.pack) {
+        job.pack.failed = err;
+        flush(job.pack);
+        if (job.pack.drop) job.pack.drop();
+      } else job.no(err);
+    } else job.ok({ hdr: m.hdr, body: new Uint8Array(m.body), cached: !!m.cached });
+  }
+  /* a pack that is still arriving: `have` bytes of its body are in. Calls the waiting tiles whose bytes are all in. */
+  function flush(pk) {
+    var keep = [];
+    pk.waits.forEach(function (w) {
+      if (pk.failed) w.no(pk.failed);
+      else if (pk.have >= w.end) w.ok();
+      else keep.push(w);
+    });
+    pk.waits = keep;
+  }
+  /* resolves when the pack's body holds bytes up to `end` (at once for a pack that arrived whole) */
+  function ready(pk, end) {
+    if (pk.have === undefined || pk.have >= end) return Promise.resolve();
+    if (pk.failed) return Promise.reject(pk.failed);
+    return new Promise(function (ok, no) {
+      pk.waits.push({ end: end, ok: ok, no: no });
+    });
   }
   /* a pack by key: {urls} for asset parts or {url} for one file; `ver` says when a cached copy is stale */
   function load(key, ver, src) {
@@ -162,11 +243,11 @@
       if (!w) return src.urls ? readParts(src.urls) : readPack(src.url);
       return new Promise(function (ok, no) {
         var id = ++pwId;
-        pwJobs[id] = { ok: ok, no: no };
+        pwJobs[id] = { ok: ok, no: no, pack: null };
         var abs = function (u) {
           return new URL(u, location.href).href;
         }; /* the worker resolves paths against its own file */
-        w.postMessage({ id: id, key: key, ver: ver, urls: src.urls && src.urls.map(abs), url: src.url && abs(src.url) });
+        w.postMessage({ id: id, key: key, ver: ver, urls: src.urls && src.urls.map(abs), url: src.url && abs(src.url), lay: src.lay });
       });
     });
   }
@@ -175,12 +256,22 @@
     var e = S.idx && S.idx[slug];
     var p =
       e && e.parts
-        ? load("pack|" + slug, e.parts.join(","), { urls: e.parts })
+        ? load("pack|" + slug, e.parts.join(","), { urls: e.parts, lay: e.lay })
         : load("pack|" + slug, "file", { url: "vt/" + slug + ".wasm" });
-    return (S.packs[slug] = p.then(null, function (err) {
-      delete S.packs[slug];
-      throw err;
-    }));
+    var q = (S.packs[slug] = p.then(
+      function (pk) {
+        /* if the rest of the pack fails to arrive, the next request starts over */
+        pk.drop = function () {
+          if (S.packs[slug] === q) delete S.packs[slug];
+        };
+        return pk;
+      },
+      function (err) {
+        delete S.packs[slug];
+        throw err;
+      }
+    ));
+    return q;
   }
   /* glyphs: the letters nearly every map needs come in one small file; extended Latin, Greek and Cyrillic in another,
      fetched only when a label needs them */
@@ -201,8 +292,10 @@
   }
   /* for offline saving: fetch a city's pack and the everyday glyphs now, so the worker's cache has them */
   W.vtWarm = function (slug) {
-    return Promise.all([pack(slug), glyphs(0)]).then(function () {
-      return true;
+    return Promise.all([pack(slug), glyphs(0)]).then(function (r) {
+      return ready(r[0], r[0].len || 0).then(function () {
+        return true;
+      });
     });
   };
   /* "nothing here" (a tile or a letter range the pack doesn't hold) is a NEW empty buffer every time: the engine hands
@@ -214,7 +307,10 @@
   }
   function piece(p, key) {
     var e = p.hdr.t[key];
-    return e ? gunzip(p.body.subarray(e[0], e[0] + e[1])) : Promise.resolve(none());
+    if (!e) return Promise.resolve(none());
+    return ready(p, e[0] + e[1]).then(function () {
+      return gunzip(p.body.subarray(e[0], e[0] + e[1]));
+    });
   }
 
   /* ---------- the engine: loaded on first use, with a worker this page is allowed to start ---------- */
@@ -1450,6 +1546,141 @@
       S.map.triggerRepaint();
     }
   });
+  /* ---------- a still picture of a town's street map (the Explore header, screens/trip.js) ----------
+     The header of Explore shows the town's map as a picture, the same size as the day's photo. It is drawn once per town,
+     theme and header shape by a second, hidden map (the live map is never touched: it may be on screen in the desktop
+     pane) and kept as a blob URL in W.stills[o.key]: the picture and where it is framed, so the header can lay the day's
+     stops over it as dots. A failure (no WebGL, no pack, a timeout) is kept too ("none"), so it is not tried again.
+     o: {key, slug, w, h, pts: [{lat, lng}] (the town's places: the picture is framed on most of them)} */
+  W.vtStill = function (o) {
+    var st = W.stills;
+    if (!st || st[o.key]) return;
+    st[o.key] = "wait";
+    Promise.resolve(S.engine === "ready" || engine())
+      .then(function () {
+        if (S.engine !== "ready") throw new Error("no engine");
+        return pack(o.slug);
+      })
+      .then(function (p) {
+        return new Promise(function (ok, no) {
+          var host = document.createElement("div"),
+            done = false,
+            m = /** @type {any} */ (null),
+            got = /** @type {Record<string, number>} */ ({}),
+            timer = setTimeout(function () {
+              end(null, new Error("took too long"));
+            }, 20000);
+          host.setAttribute("aria-hidden", "true");
+          host.style.cssText = "position:fixed;left:-9999px;top:0;width:" + o.w + "px;height:" + o.h + "px;pointer-events:none";
+          document.body.appendChild(host);
+          function end(v, e) {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            try {
+              if (m) m.remove();
+            } catch (x) {
+              W.caught(x, "the still map's removal");
+            }
+            host.remove();
+            if (v) ok(v);
+            else no(e);
+          }
+          /* framed on most of the town's places (the middle 84%: one far-off sight would shrink the town to a dot) */
+          function frame() {
+            var pts = (o.pts || []).filter(function (q) {
+                return q.lat != null && q.lng != null;
+              }),
+              b = p.hdr.places;
+            if (!pts.length)
+              return [
+                [b[0], b[1]],
+                [b[2], b[3]]
+              ];
+            var cut = function (key) {
+              var v = pts
+                .map(function (q) {
+                  return q[key];
+                })
+                .sort(function (a, c) {
+                  return a - c;
+                });
+              var k = v.length >= 8 ? Math.floor(v.length * 0.08) : 0;
+              return [v[k], v[v.length - 1 - k]];
+            };
+            var x = cut("lng"),
+              y = cut("lat"),
+              mx = Math.max((x[1] - x[0]) * 0.12, 0.006),
+              my = Math.max((y[1] - y[0]) * 0.12, 0.004);
+            return [
+              [x[0] - mx, y[0] - my],
+              [x[1] + mx, y[1] + my]
+            ];
+          }
+          function snap() {
+            if (done || !m) return;
+            m.getCanvas().toBlob(
+              function (bl) {
+                if (!bl) return end(null, new Error("no picture"));
+                var c = m.getCenter();
+                end({ url: URL.createObjectURL(bl), lng: c.lng, lat: c.lat, zoom: m.getZoom(), w: o.w, h: o.h });
+              },
+              "image/webp",
+              0.82
+            );
+          }
+          try {
+            var sty = style(o.slug, p.hdr);
+            /* no names: a quiet backdrop for the town's name and the dots (and no letters to wait for) */
+            sty.layers = sty.layers.filter(function (l) {
+              return l.type !== "symbol";
+            });
+            m = new ML.Map({
+              container: host,
+              style: sty,
+              bounds: frame(),
+              fitBoundsOptions: { padding: 10, maxZoom: 15.5 },
+              interactive: false,
+              attributionControl: false,
+              fadeDuration: 0,
+              preserveDrawingBuffer: true
+            });
+            /* the cover under the detailed tiles that loaded, as on the live map (see coverSoon) */
+            m.on("sourcedata", function (e) {
+              var t = e && e.sourceId === "hi" && e.tile;
+              if (t && (t.state === "loaded" || t.state === "reloading") && t.tileID) {
+                var c = t.tileID.canonical;
+                got[c.z + "/" + c.x + "/" + c.y] = 1;
+              }
+            });
+            m.on("error", function (e) {
+              mapErr(String((e && e.error && e.error.message) || e));
+            });
+            m.once("idle", function () {
+              var keys = Object.keys(got);
+              [13, 14].forEach(function (zl) {
+                var src = m.getSource("mask" + zl);
+                if (src && src.setData) src.setData(mask(keys, zl));
+              });
+              m.triggerRepaint();
+              setTimeout(snap, 400);
+            });
+          } catch (e) {
+            end(null, e);
+          }
+        });
+      })
+      .then(
+        function (r) {
+          st[o.key] = r;
+          W.redraw(); /* (the header takes the picture) */
+        },
+        function (e) {
+          st[o.key] = "none";
+          mapErr("still: " + ((e && e.message) || e));
+        }
+      );
+  };
   W.vtZoom = function (how) {
     if (!S.map || !S.ready) return false;
     if (how === "in") S.map.zoomIn({ duration: 250 });

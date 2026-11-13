@@ -1,13 +1,5 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v170 accessibility: the type is in rem now, so the "large text" screenshots (html at 130%) show bigger text, with the
-# rows that wrap at a larger size (html.tbig). At the usual size no screen changes. (The way back to a stay with a long
-# name wraps under its time bubble; the screens' trips have no named stay.)
-*-big-*
-# and, scrolled, the slim bar is now the header card grown shorter (inset, rounded) with the day strip 8 px lower under it:
-menu-*-700*
-meal-panel-*-700*
-stop-panel-*-700*
-swap-*-700*
+# v171. Today no longer grows the slim bar when scrolled (Day, Plan and Prepare keep it). (The Explore map banner and
+# the photo previews change no screen here: these screens' trips have no photo and no street-map pack.)
 today-*-700*
-trip-days-*-700*

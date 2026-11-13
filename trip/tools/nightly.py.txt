@@ -132,6 +132,7 @@ def prepare(db_dir, vt_index_path, work, max_lookups=300, max_packs=3):
     # rebuilt around its town, after the cities that have no pack yet. The new record replaces the old one; the old
     # parts stay in the asset store until the owner clears unused files (Settings > Storage).
     wide = []
+    older = []   # packs laid out the old way (no "lay": 2 in their record): the town centre arrives with the rest
     if os.path.isdir(maps_dir):
         for fn in sorted(os.listdir(maps_dir)):
             if not fn.endswith(".json"): continue
@@ -139,9 +140,14 @@ def prepare(db_dir, vt_index_path, work, max_lookups=300, max_packs=3):
                 m = json.load(open(os.path.join(maps_dir, fn))); m = m.get("data", m); pl = m.get("places") or []
                 sl = fn[:-5]
                 if len(pl) == 4 and (pl[2] - pl[0] > 0.3 or pl[3] - pl[1] > 0.25) and sl in wanted and (wanted[sl].get("pts") or wanted[sl].get("center")): wide.append(sl)
+                elif m.get("lay") != 2 and sl in wanted and (wanted[sl].get("pts") or wanted[sl].get("center")): older.append(sl)
             except Exception: pass
     missing += [s for s in wide if s not in missing]
-    summary["rebuilt"] = [s for s in missing[:max_packs] if s in wide]
+    # then the older-layout ones, a few a night (RELAY_MAX, 2 by default; they count in max_packs too): rebuilt, they come out
+    # town centre first, so their map draws after a small first download instead of the whole pack
+    soon_first = sorted(older, key=lambda s: (soon(s), s))
+    missing += [s for s in soon_first[:int(os.environ.get("RELAY_MAX", "2"))] if s not in missing]
+    summary["rebuilt"] = [s for s in missing[:max_packs] if s in wide or s in older]
     # trips' cities first; when every one has a pack, the built-in cities (by their centre) get theirs too
     if len(missing) < max_packs:
         try:
@@ -196,6 +202,15 @@ def finish(db_dir, work, uploaded_path):
                 items[k] = {"url": url, "credit": r.get("credit", ""), "page": r.get("page", ""), "at": time.strftime("%Y-%m-%d")}; n += 1   # "at": when it was added, so the photo look checks only new ones
                 if r.get("near"):
                     items[k]["near"] = True
+                # the small copy, the WebP twins and the blurred preview (each only when its file really reached the storage)
+                ex = {a: by_abs.get(os.path.abspath(f)) for a, f in (r.get("extra") or {}).items()}
+                if ex.get("sm"):
+                    items[k]["sm"] = ex["sm"]
+                    if r.get("smw") and r["smw"] != 320: items[k]["smw"] = r["smw"]   # (the app assumes 320 and 720 wide)
+                wb = {t: ex[a] for a, t in (("smwebp", "sm"), ("webp", "url")) if ex.get(a)}
+                if wb: items[k]["webp"] = wb
+                if r.get("lq"): items[k]["lq"] = r["lq"]
+                if r.get("w") and r["w"] != 720: items[k]["w"] = r["w"]
         doc = {"items": items, "tried": p.get("tried") or cur.get("tried") or {}, "tried2": p.get("tried2") or cur.get("tried2") or {}}
         if cur.get("turned_down"): doc["turned_down"] = cur["turned_down"]   # photos the look rejected (kept for the record)
         wnt = wanted_all.get(slug) or {}
