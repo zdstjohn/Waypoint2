@@ -382,6 +382,8 @@ interface Waypoint {
   gmOn: () => boolean;
   gmSearch: (q: string, c: LatLng, city: string, country: string) => Promise<any[]>;
   gmState: () => { state: string; why: string; left: number };
+  syncState: () => string;
+  needNet: (what: string) => void;
   wxLine: (day: Day, live?: boolean, rescue?: boolean) => string;
   legBusy: any;
   legFor: (P: Plan, si: number) => any;

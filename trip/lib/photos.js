@@ -288,16 +288,26 @@
           } catch (e) {}
         },
         function (e) {
-          refused[id] = job.sig;
-          W.caught(e, "the photo finder's list for " + id);
+          /* no signal: the list stays, and goes when the signal is back (below) */
+          if (navigator.onLine === false) hold = true;
+          else {
+            refused[id] = job.sig;
+            W.caught(e, "the photo finder's list for " + id);
+          }
         }
       )
       .then(function () {
-        if (pending[id] === job) delete pending[id];
         flushing = false;
+        if (hold) return;
+        if (pending[id] === job) delete pending[id];
         flushWanted();
       });
   }
+  var hold = false;
+  window.addEventListener("online", function () {
+    hold = false;
+    flushWanted();
+  });
 
   /* ---------- a city's own picture (the big photo at the top of a day and of each place in All days) ---------- */
   /* the city itself when there's a photo of it, else the first of these places (the day's stops, in order) with a photo

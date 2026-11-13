@@ -2,6 +2,25 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v172
+
+A flight day with no signal (the owner's pick, done by a helper and merged here): a new test plays a phone on a plane
+and the app was fixed wherever it misbehaved.
+- Changes made offline are held and sent when the signal is back (the 'online' event, or a retry every 15–20 s); the
+  header says "Will sync" instead of a red "Not synced", and a change made right after an offline start survives a
+  reload (lib/sync.js: held jobs, the stored signature, a tick at start, W.syncState).
+- What needs a connection says so (lib/offline.js, the NEEDS table and W.needNet; app.css): Check my plan, the
+  briefing, Find more, the replan box, Gmail, Live fares, Calendar, menu reading, Import, the PDF (until it is
+  loaded) and the offline copy are dimmed with no signal, and a tap says "<what> needs a connection. It works again
+  when you're back online." instead of trying, hanging or failing.
+- Waits instead of spinners (lib/core.js): what was asked for offline says "Waits for a connection"; when the account
+  answers after an offline start, requests you started are kept (only list loads are dropped).
+- Search (lib/search.js) stays within your lists offline and says the map search needs a connection; the Google Maps
+  check (lib/gmaps.js), photo-finder lists (lib/photos.js), shared-trip edits (lib/together.js) and the street-map
+  index (lib/vtindex.js) wait for the signal and pick up again; no false "couldn't be sent" offline.
+- Tests: flight (92 checks: a phone that loses its signal on a trip, one opened with none, and the installable app
+  reloaded offline then back online with the change reaching the account). 66 suites.
+
 ## v171
 
 Pictures and maps that come sooner at the same quality (the owner's "do all", done by four helpers and merged here),

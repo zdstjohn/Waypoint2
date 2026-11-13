@@ -72,6 +72,8 @@
     if (W.standalone || window.__WP_OFFLINE || !W.getMcp) return (G.p = Promise.resolve(off("view")));
     if (L.off) return (G.p = Promise.resolve(off("you")));
     if (L.no && Date.now() - L.no < 7 * 864e5) return (G.p = Promise.resolve(off("no")));
+    /* no signal: not looked at, and not remembered as "not connected": it is looked at again when the signal is back */
+    if (navigator.onLine === false) return Promise.resolve(off("offline"));
     G.state = "checking";
     return (G.p = W.getMcp()
       .then(function (m) {
@@ -160,8 +162,8 @@
   function sorry(e) {
     var c = e && e.code;
     if (c === "budget") return "That's enough Google Maps requests for today from this device. It works again tomorrow.";
-    if (c === "off") return "Google Maps isn't connected here.";
     if (!navigator.onLine) return "You're offline: Google Maps needs a connection.";
+    if (c === "off") return "Google Maps isn't connected here.";
     return W.mcpMsg ? W.mcpMsg(e, SERVER) : "Google Maps didn't answer. Try again in a minute.";
   }
   function ll(p) {
@@ -180,7 +182,7 @@
     tellT = 0;
   /* W.leg found no real time for this pair: ask Google for it, a little later and two at a time */
   W.legAsk = function (k, a, b, e) {
-    if (asked[k] || G.state === "off" || W.isExample || order.length > 300) return;
+    if (asked[k] || G.state === "off" || W.isExample || order.length > 300 || navigator.onLine === false) return;
     asked[k] = 1;
     order.push({ k: k, a: { lat: a.lat, lng: a.lng }, b: { lat: b.lat, lng: b.lng }, mode: e.mode, est: e.min, d: e.d });
     if (!pumpT) pumpT = setTimeout(pump, 600);
@@ -225,7 +227,9 @@
           put(q.k, [v[0], Math.round(v[1] * 10), v[2], stamp()]);
         },
         function () {
-          /* no answer: the estimate stays, and this pair is not asked again in this visit */
+          /* no answer: the estimate stays, and this pair is not asked again in this visit (unless the signal went:
+             it is asked again once it is back) */
+          if (navigator.onLine === false) delete asked[q.k];
         }
       )
       .then(function () {
@@ -727,11 +731,13 @@
               : s === "idle" || s === "checking"
                 ? '<p class="small muted">Looking for your Google Maps connection…</p>'
                 : '<p class="small">' +
-                  (y === "needs_reauth"
-                    ? "Your Google Maps connection needs signing in again: Claude, Settings, Connectors."
-                    : y === "blocked_by_policy"
-                      ? "Your organization doesn't allow Google Maps here."
-                      : "Not connected. Add Google Maps under Connectors in Claude's settings, then open this page again.") +
+                  (y === "offline"
+                    ? "You're offline. Google Maps is looked for again when you have a connection."
+                    : y === "needs_reauth"
+                      ? "Your Google Maps connection needs signing in again: Claude, Settings, Connectors."
+                      : y === "blocked_by_policy"
+                        ? "Your organization doesn't allow Google Maps here."
+                        : "Not connected. Add Google Maps under Connectors in Claude's settings, then open this page again.") +
                   "</p>";
     return card(
       "Google Maps",
@@ -769,6 +775,16 @@
 
   /* look once the first screen is up (looking asks the viewer nothing) */
   setTimeout(ready, 1200);
+  /* the signal is back after the page was opened without one: look now, and the times come in without a reload */
+  window.addEventListener("online", function () {
+    if (G.state === "off" && G.why === "offline") {
+      G.state = "idle";
+      G.p = null;
+      asked = {};
+      ready();
+    } else if (G.state === "on") asked = {};
+    if (W.arrived) W.arrived();
+  });
   W.onData(function () {
     if (G.state === "on" && !warmT) warmT = setTimeout(warm, 2000);
   });

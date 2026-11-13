@@ -50,14 +50,14 @@
 const { spawn, spawnSync } = require('child_process'); const fs = require('fs'); const path = require('path');
 const ROOT = path.resolve(__dirname, '..'); const OUT = path.join(__dirname, 'out'); fs.mkdirSync(OUT, { recursive: true });
 const args = process.argv.slice(2); const flags = new Set(args.filter(a => a.startsWith('--'))); const pick = args.filter(a => !a.startsWith('--'));
-const ALL = ['smoke', 'layout', 'planner', 'shape', 'flow', 'back', 'review', 'bookings', 'stays', 'travel', 'claude', 'draw', 'look', 'airplane', 'standalone', 'swphotos', 'ahead', 'cloud', 'accounts', 'tickets', 'holidays', 'firstview', 'together', 'share', 'kept', 'copy', 'tools', 'nope', 'eat', 'money', 'menus', 'storage', 'pdf', 'simple', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'keys', 'fuzz', 'vitals', 'desktop', 'explore', 'gmaps', 'meals', 'clock', 'daytrip', 'workspace', 'early', 'menuread', 'ideaorder', 'bookcheck', 'brief', 'stillopen', 'packs', 'photoset', 'banner'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
+const ALL = ['flight', 'smoke', 'layout', 'planner', 'shape', 'flow', 'back', 'review', 'bookings', 'stays', 'travel', 'claude', 'draw', 'look', 'airplane', 'standalone', 'swphotos', 'ahead', 'cloud', 'accounts', 'tickets', 'holidays', 'firstview', 'together', 'share', 'kept', 'copy', 'tools', 'nope', 'eat', 'money', 'menus', 'storage', 'pdf', 'simple', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'keys', 'fuzz', 'vitals', 'desktop', 'explore', 'gmaps', 'meals', 'clock', 'daytrip', 'workspace', 'early', 'menuread', 'ideaorder', 'bookcheck', 'brief', 'stillopen', 'packs', 'photoset', 'banner'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
 let suites = pick.length ? pick : ALL;
 /* --cov: also collect which code ran (test/lib/cov.js); the suites that time things are left out of such a run */
 const COV = flags.has('--cov') || !!process.env.WP_COV;
 if (flags.has('--cov')) { process.env.WP_COV = '1'; suites = suites.filter(s => !['perf', 'vitals', 'visual'].includes(s)); }
 /* --shard=k/n runs one of n groups, balanced by how long each suite takes (seconds, from the online runs; a suite not
    listed counts as 15): GitHub runs the three groups side by side. Every suite lands in exactly one group. */
-const SECS = { simple: 25, smoke: 110, layout: 183, desktop: 166, a11y: 71, keys: 40, flow: 44, together: 37, share: 40, kept: 30, copy: 20, tools: 5, fuzz: 30, firstview: 23, travel: 22, shape: 21, nope: 20,
+const SECS = { flight: 113, banner: 70, ahead: 54, simple: 25, smoke: 110, layout: 183, desktop: 166, a11y: 71, keys: 40, flow: 44, together: 37, share: 40, kept: 30, copy: 20, tools: 5, fuzz: 30, firstview: 23, travel: 22, shape: 21, nope: 20,
   warm: 19, vitals: 19, planner: 17, bookings: 17, packing: 16, storage: 15, offline: 15, explore: 14, perf: 14, sync: 12, places: 11, tickets: 10,
   focus: 9, holidays: 7, photos: 7, types: 4, validate: 2, judge: 1, pdf: 10, eat: 20, money: 12, menus: 12 };
 const shard = [...flags].map(f => /^--shard=(\d+)\/(\d+)$/.exec(f)).find(Boolean);

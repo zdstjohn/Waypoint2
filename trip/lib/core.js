@@ -816,9 +816,24 @@
     if (!W.holdLoads) return;
     W.holdLoads = false;
     if (!running) {
+      /* (the lists are asked for again from the plan; something you asked for yourself, a plan check or a briefing say,
+         is not: it stays in line and goes now) */
+      var mine = queue.filter(function (q) {
+        var kind = String(q.key).split("|")[0];
+        return !MAIN[kind] && !SOON[kind] && !LATE[kind];
+      });
       queue.length = 0;
       Object.keys(W.status).forEach(function (k) {
-        if (W.status[k] === "loading") delete W.status[k];
+        if (
+          W.status[k] === "loading" &&
+          !mine.some(function (q) {
+            return q.key === k;
+          })
+        )
+          delete W.status[k];
+      });
+      mine.forEach(function (q) {
+        queue.push(q);
       });
     }
     /* (planned and drawn with the saved ideas that came, or with whatever else arrives meanwhile: the asks for

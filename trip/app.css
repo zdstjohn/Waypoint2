@@ -1367,6 +1367,16 @@ table.budget tfoot th,table.budget tfoot td{border-top:2px solid var(--ink);font
 .go-off .chip{min-height:38px}
 .go-off.is-off{background:var(--accent-soft)}
 .go-off.copy{background:var(--sunk)}
+/* no signal: what needs one is dimmed (a tap says why: lib/offline.js), and a wait for a list that cannot come yet stops spinning and says it is waiting */
+html.offline :is([data-review],[data-sync="review"],[data-brief],[data-replan],[data-more],[data-gmail],[data-live],[data-cal],[data-import="go"],[data-menuread],[data-pdf],[data-offcopy]){opacity:.55}
+html.offline .loading::before{animation:none;opacity:.45}
+html.offline img.no-signal{display:none}
+html.offline img.no-signal + .hero-credit,html.offline img.no-signal + .credit{display:none}
+html.offline .loading::after{content:"Waits for a connection";font-size:var(--t-sm);font-weight:700;color:var(--muted);border:var(--hair);border-radius:var(--r-xs);padding:1px 6px;white-space:nowrap}
+#nethost{position:fixed;left:0;right:0;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:66;display:flex;justify-content:center;pointer-events:none;padding:0 16px}
+@media (max-width:560px){#nethost{bottom:calc(90px + env(safe-area-inset-bottom,0px))}}
+#nethost .undo{pointer-events:none}
+html.lifting #nethost{display:none}
 html.offline .brand{position:relative}
 html.offline .brand::after{content:"Offline";position:absolute;right:-6px;top:-8px;transform:translateX(100%);font:800 var(--t-micro)/1 var(--f-body);letter-spacing:.04em;text-transform:uppercase;color:var(--ink);background:var(--accent-soft);border:1.5px solid var(--ink);border-radius:var(--r-sm);padding:4px 7px}
 

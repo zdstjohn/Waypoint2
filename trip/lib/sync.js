@@ -221,7 +221,7 @@
     col = null,
     pcol = null,
     canWrite = true;
-  var st = "local"; /* local | connecting | synced | saving | error | full */
+  var st = "local"; /* local | connecting | synced | saving | waiting (no signal) | error | full */
   var remote = {},
     firstSnap = false,
     lastSig = null;
@@ -337,8 +337,11 @@
   var psig = lget("waypoint-poolsync-v1") || {},
     shareSig = lget("waypoint-sharesync-v1") || {};
   var q = [],
-    busy = false;
+    busy = false,
+    /* writes that failed for want of a signal: kept (the newest of each place) and sent when the signal is back */
+    held = /** @type {Record<string, {path: string, fn: () => any}>} */ ({});
   function enqueue(path, fn) {
+    delete held[path]; /* (a newer write of the same place replaces a held one) */
     var j = q.filter(function (x) {
       return x.path === path;
     })[0];
@@ -346,6 +349,20 @@
     else q.push({ path: path, fn: fn });
     pumpQ();
   }
+  /** a write that failed because there is no network at all (the phone says so, or the error has no code: a request
+      that never reached anyone), not because the server refused it */
+  function noSignal(/** @type {any} */ e) {
+    return navigator.onLine === false || !(e && e.code);
+  }
+  /* the signal is back: what was held goes out now, and the bar stops saying it is waiting */
+  window.addEventListener("online", function () {
+    var j = Object.keys(held);
+    if (st === "waiting" || (st === "error" && j.length)) st = "synced";
+    j.forEach(function (p) {
+      enqueue(p, held[p].fn);
+    });
+    barSoon();
+  });
   function pumpQ() {
     if (busy || !q.length) {
       if (!busy && st === "saving") {
@@ -369,7 +386,19 @@
         function (e) {
           var c = e && e.code;
           if (c === "quota_exceeded") st = "full";
-          else if (c === "resource_exhausted" || c === "unavailable") {
+          else if (noSignal(e) && c !== "not_granted" && c !== "invalid_argument") {
+            /* no signal: the change is already on the phone; it goes to the account when the signal is back */
+            held[j.path] = j;
+            st = "waiting";
+            /* (a signal the phone says is there, but nothing got through: try again in a while) */
+            if (navigator.onLine !== false)
+              setTimeout(
+                function () {
+                  if (held[j.path] === j) enqueue(j.path, j.fn);
+                },
+                15000 + Math.random() * 5000
+              );
+          } else if (c === "resource_exhausted" || c === "unavailable") {
             st = "error";
             setTimeout(
               function () {
@@ -550,6 +579,8 @@
     });
     if (!firstSnap && !snap.metadata.fromCache) {
       firstSnap = true;
+      /* (the account did not answer when the page opened, and now it has) */
+      if ((st === "error" || st === "waiting") && !Object.keys(held).length) st = "synced";
       setTimeout(release, 2500);
       setTimeout(lockShare, 3000);
       /* a new device still showing the example: open your most recent trip */
@@ -619,7 +650,7 @@
             pcol = db.doc("data/users/" + uid + "/pools").collection("p");
             var timer = setTimeout(function () {
               if (!firstSnap) {
-                st = "error";
+                st = navigator.onLine === false ? "waiting" : "error";
                 release();
                 bar();
               }
@@ -631,7 +662,7 @@
                 onTrips(snap);
               },
               function () {
-                st = "error";
+                st = navigator.onLine === false ? "waiting" : "error";
                 bar();
               }
             );
@@ -658,6 +689,9 @@
     clearTimeout(tickT);
     tickT = setTimeout(tick, 1500);
   };
+  /* a first look soon after opening, whether or not anything is saved by then: what the trip is now is how it was when
+     the phone was opened, and a change made after that (with no signal, say) is a change */
+  tickT = setTimeout(tick, 1500);
   /* leaving the page (another app, a closed tab) sends what's waiting now: the pause before a write is 1.5 s, and an
      edit made just before leaving used to stay on this device only */
   function flush() {
@@ -674,9 +708,13 @@
   function tick() {
     tickT = null;
     if (W.readOnly) return;
-    var sig = hash(JSON.stringify(syncable(S)));
-    if (lastSig == null) lastSig = sig;
-    else if (sig !== lastSig) {
+    var sig = hash(JSON.stringify(syncable(S))),
+      rec = idx[String(S.tripId)];
+    /* (the first look after opening: what the trip was when this phone last looked, kept with the trip, so a change
+       made in the first moments after opening, before there is any look, still counts as a change: with no signal
+       it would otherwise be taken for how the trip always was, and never sent) */
+    if (lastSig == null) lastSig = rec && rec.sig != null ? rec.sig : sig;
+    if (sig !== lastSig) {
       lastSig = sig;
       if (Date.now() - touched < 120000 && touched > appliedAt) {
         /* (you changed the example: it is your trip now, sent and kept like any other) */
@@ -690,6 +728,11 @@
         if (firstSnap) pushTrip(S.tripId);
         pushShare();
       }
+    }
+    rec = idx[String(S.tripId)];
+    if (rec && rec.sig !== lastSig) {
+      rec.sig = lastSig;
+      saveIdx();
     }
     lockShare();
     if (firstSnap) {
@@ -1217,11 +1260,16 @@
     if (sw) sw.focus({ preventScroll: true });
     return true;
   };
+  /** how saving to the account stands: local, connecting, synced, saving, waiting, error or full (for the tests) */
+  W.syncState = function () {
+    return st;
+  };
   var ST = {
     local: "Saved on this device",
     connecting: "Connecting…",
     synced: "Saved to your account",
     saving: "Saving…",
+    waiting: "No signal: saved on this device, and sent to your account when you're back online",
     error: "Can't reach your account right now; saved on this device",
     full: "Your account's storage for this app is full",
     localfull: "This device's storage for the app is full: changes may not be kept on it. Your account still has them when you're online."
@@ -1324,15 +1372,21 @@
           '"><span class="st-l" aria-hidden="true">Phone storage full</span><span class="vh">' +
           esc(ST.localfull) +
           "</span></span>"
-        : st === "error" || st === "full"
-          ? '<span class="sync-st small bad" role="status" title="' +
-            esc(ST[st]) +
-            '"><span class="st-l" aria-hidden="true">' +
-            (st === "full" ? "Storage full" : "Not synced") +
-            '</span><span class="vh">' +
-            esc(ST[st]) +
+        : st === "waiting"
+          ? '<span class="sync-st small" role="status" title="' +
+            esc(ST.waiting) +
+            '"><span class="st-l" aria-hidden="true">Will sync</span><span class="vh">' +
+            esc(ST.waiting) +
             "</span></span>"
-          : "") +
+          : st === "error" || st === "full"
+            ? '<span class="sync-st small bad" role="status" title="' +
+              esc(ST[st]) +
+              '"><span class="st-l" aria-hidden="true">' +
+              (st === "full" ? "Storage full" : "Not synced") +
+              '</span><span class="vh">' +
+              esc(ST[st]) +
+              "</span></span>"
+            : "") +
       "</div>";
     if (menuOpen) {
       h +=

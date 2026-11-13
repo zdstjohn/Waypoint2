@@ -398,11 +398,118 @@
   function goOnline() {
     O.off = false;
     document.documentElement.classList.remove("offline");
+    /* (the photos that could not come are asked for again) */
+    document.querySelectorAll("img.no-signal").forEach(function (img) {
+      var src = img.getAttribute("src");
+      img.classList.remove("no-signal");
+      if (src) {
+        img.removeAttribute("src");
+        img.setAttribute("src", src);
+      }
+    });
     W.changed();
     if (W.pump) W.pump();
   }
   window.addEventListener("offline", goOffline);
   window.addEventListener("online", goOnline);
+
+  /* ---------- what needs a connection ---------- */
+  /* With no signal, a control that can only work online says so when it is tapped (and looks dimmed: app.css, under
+     html.offline) instead of starting something that waits for ever. Each is a selector, what to call it in the note,
+     and when it still works offline. */
+  /** @type {Array<[string, string, (() => boolean)?]>} */
+  var NEEDS = [
+    ['[data-review], [data-sync="review"]', "Checking your plan"],
+    ["[data-brief]", "The briefing"],
+    ["[data-replan]", "Replanning the day"],
+    ["[data-more]", "Finding more ideas"],
+    ["[data-gmail]", "Looking in Gmail"],
+    ["[data-live]", "Live prices"],
+    ["[data-cal]", "Adding to Google Calendar"],
+    ['[data-import="go"]', "Importing a plan"],
+    ["[data-menuread]", "Reading a menu"],
+    /* (the PDF needs its library from the internet, unless it came already) */
+    [
+      "[data-pdf]",
+      "The PDF",
+      function () {
+        return !!window.jspdf;
+      }
+    ],
+    /* (an offline copy is made from the app's own files: the installable app keeps them on the phone) */
+    [
+      "[data-offcopy]",
+      "An offline copy",
+      function () {
+        return !!W.standalone;
+      }
+    ]
+  ];
+  /** the note, for a thing that needs a connection @param {string} what */
+  W.needNet = function (what) {
+    var host = document.getElementById("nethost");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "nethost";
+      document.body.appendChild(host);
+    }
+    var text = what + " needs a connection. It works again when you're back online.";
+    host.innerHTML = '<div class="undo" role="status"><span>' + W.esc(text) + "</span></div>";
+    if (W.say) W.say(text);
+    clearTimeout(netT);
+    netT = window.setTimeout(function () {
+      if (host) host.innerHTML = "";
+    }, 5000);
+  };
+  var netT = 0;
+  /** a tap that needs a connection, offline: the note instead of the action @param {Event} e @param {Element | null} el */
+  function guard(e, el) {
+    if (!O.off || window.__WP_OFFLINE || !el || !el.closest) return false;
+    for (var i = 0; i < NEEDS.length; i++) {
+      var n = NEEDS[i];
+      if (el.closest(n[0]) && !(n[2] && n[2]())) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        W.needNet(n[1]);
+        return true;
+      }
+    }
+    return false;
+  }
+  document.addEventListener(
+    "click",
+    function (e) {
+      guard(e, e.target instanceof Element ? e.target : null);
+    },
+    true
+  );
+  /* (the same for a question typed in a box and sent with Enter) */
+  document.addEventListener(
+    "keydown",
+    function (e) {
+      var t = e.target instanceof Element ? e.target : null;
+      if (e.key === "Enter" && t && t.id === "replanQ") guard(e, document.querySelector("[data-replan]"));
+    },
+    true
+  );
+  /* a photo that is not on the phone cannot come with no signal: it is left out, as a place with no photo is (never a
+     broken-picture mark); the screen is drawn again when the signal is back, and asks for it again */
+  document.addEventListener(
+    "error",
+    function (e) {
+      var t = e.target;
+      if (O.off && t instanceof HTMLImageElement && /(^|\s)(photo|hero-img|pic)(\s|$)/.test(t.className)) t.classList.add("no-signal");
+    },
+    true
+  );
+  /* the note goes as soon as you touch anything else (it would sit over the buttons at the foot of the screen), and
+     when the signal is back, and what needs it is there again without a reload */
+  function hideNote() {
+    var host = document.getElementById("nethost");
+    if (host && host.firstChild) host.innerHTML = "";
+  }
+  document.addEventListener("pointerdown", hideNote, true);
+  window.addEventListener("online", hideNote);
   if (O.off) {
     document.documentElement.classList.add("offline");
     loadBlobs();

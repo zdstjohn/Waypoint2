@@ -182,6 +182,10 @@
     clearTimeout(pushT);
     pushT = setTimeout(push, 700);
   };
+  /* (changes made with no signal are in the list on the phone: they go when it is back) */
+  window.addEventListener("online", function () {
+    if (W.readOnly && W.readOnly.edit) W.coPush();
+  });
   function push() {
     var code = W.readOnly && W.readOnly.edit && W.readOnly.code;
     if (!code || !db || !uid) return;
@@ -207,6 +211,11 @@
             }
           },
           function () {
+            /* no signal: the changes are kept (above) and go with the next send, when the signal is back */
+            if (navigator.onLine === false) {
+              if (W.readOnly) W.readOnly.coErr = "";
+              return;
+            }
             if (W.readOnly) {
               W.readOnly.coErr = "Your changes couldn't be sent. You may only be able to view this trip: ask for edit access to the app.";
               W.renderBar && W.renderBar(W.P);

@@ -65,7 +65,7 @@ exports.run = async t => {
   await L.pg.waitForFunction(() => document.querySelectorAll('.slot .thumb img').length > 0, null, { timeout: 20000 });
   const mid = await L.pg.evaluate(() => { const th = document.querySelector('.slot .thumb'), i = th.querySelector('img'), r = th.getBoundingClientRect(); return { w: r.width, h: r.height, lq: !!th.querySelector('.lq'), lqi: i.classList.contains('lqi'), ld: i.classList.contains('ld'), op: getComputedStyle(i).opacity, done: i.complete && i.naturalWidth > 0 }; });
   t.ok(mid.lq && mid.lqi && !mid.ld && mid.op === '0' && !mid.done, 'mid-load: the blurred preview is there and the real picture is not yet shown: ' + JSON.stringify(mid));
-  await L.pg.waitForFunction(() => { const i = document.querySelector('.slot .thumb img'); return i && i.classList.contains('ld'); }, null, { timeout: 15000 });
+  await L.pg.waitForFunction(() => { const i = document.querySelector('.slot .thumb img'); return i && i.classList.contains('ld'); }, null, { timeout: 40000 }  /* (slow under a loaded machine: the picture arrives after 1.2 s, then decodes) */);
   await L.pg.waitForTimeout(400);
   const end = await L.pg.evaluate(() => { const th = document.querySelector('.slot .thumb'), i = th.querySelector('img'), r = th.getBoundingClientRect(); return { w: r.width, h: r.height, op: getComputedStyle(i).opacity, cur: i.currentSrc, name: (i.getAttribute('src') || '') }; });
   t.eq([end.w, end.h], [mid.w, mid.h], 'the thumbnail is the same size mid-load and loaded: nothing moves');

@@ -42,14 +42,8 @@
     S.idxState = "ready";
     W.arrived(); /* (planned and drawn with whatever else arrives as the app starts) */
   }
-  function loadIndex() {
-    if (S.idxState !== "idle") return;
-    S.idxState = "loading";
-    if (window.__WP_OFFLINE) {
-      FILES = {};
-      merge();
-      return;
-    } /* a file on the phone has no map index to fetch */
+  /** the list of map packs that come with the app */
+  function fetchFiles() {
     fetch("vt/index.json", { cache: "no-cache" })
       .then(function (r) {
         return r.ok ? r.json() : {};
@@ -62,8 +56,20 @@
         function () {
           FILES = {};
           merge();
+          /* no signal: the list of map packs is asked for again when it is back */
+          if (navigator.onLine === false) window.addEventListener("online", fetchFiles, { once: true });
         }
       );
+  }
+  function loadIndex() {
+    if (S.idxState !== "idle") return;
+    S.idxState = "loading";
+    if (window.__WP_OFFLINE) {
+      FILES = {};
+      merge();
+      return;
+    } /* a file on the phone has no map index to fetch */
+    fetchFiles();
     try {
       if (window.claude && window.claude.use) {
         dbState = "loading";

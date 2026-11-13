@@ -208,7 +208,7 @@
     var ck = W.cityKey(country, city),
       c = centerFor(country, city),
       key = "find|" + ck + "|" + W.norm(q);
-    if (!W.run || W.readOnly || !W.SAMPLE) return;
+    if (!W.run || W.readOnly || !W.SAMPLE || navigator.onLine === false) return; /* (no signal: the lists and the note below it) */
     W.run(
       key,
       'Find places that match "' +
@@ -258,7 +258,9 @@
     if (q.length < 2) return;
     if (W.gmIsLink && W.gmIsLink(q)) return fromLink(W.gmIsLink(q), country, city, st.seq);
     st.local = local(q, country, city);
-    if (W.gmOn && W.gmOn()) google(q, country, city, st.seq);
+    /* no signal: the trip's own lists answer (above), and the map says why it does not */
+    if (navigator.onLine === false) st.msgMb = "You're offline: the map search needs a connection.";
+    else if (W.gmOn && W.gmOn()) google(q, country, city, st.seq);
     else mapbox(q, country, city, st.seq);
     claude(q, country, city);
   };
@@ -354,11 +356,13 @@
     if (!st.q)
       return (
         h +
-        '<p class="small muted ps-hint">A restaurant you heard about, a beach, "gelato", "rainy day with toddlers"' +
-        (W.gmOn && W.gmOn() ? ", or a link from Google Maps" : "") +
-        "… then add it to Day " +
-        day.n +
-        ".</p></section>"
+        (navigator.onLine === false
+          ? '<p class="small muted ps-hint">You\'re offline: this finds places already in your lists. Places from the map need a connection.</p></section>'
+          : '<p class="small muted ps-hint">A restaurant you heard about, a beach, "gelato", "rainy day with toddlers"' +
+            (W.gmOn && W.gmOn() ? ", or a link from Google Maps" : "") +
+            "… then add it to Day " +
+            day.n +
+            ".</p></section>")
       );
     var M = merged(day.country, day.city),
       dayOf = {};
