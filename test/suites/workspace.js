@@ -162,6 +162,10 @@ exports.run = async t => {
   const csv = await pg.evaluate(async () => { const P = W.P, it = P.days[1].slots.find(x => x.item).item, was = it.n; it.n = '=SUM(A1:A9), "x"'; let got = null; const real = W.saveFile; W.saveFile = (name, blob) => blob.arrayBuffer().then(buf => { const u = new Uint8Array(buf); got = { name, bom: u[0] === 0xef && u[1] === 0xbb && u[2] === 0xbf, text: new TextDecoder().decode(u) }; });
     await W.csvExport(P); it.n = was; W.saveFile = real; const rows = W.csvRows(P); return { name: got && got.name, bom: got && got.bom, safe: got && got.text.indexOf('"\'=SUM(A1:A9), ""x"""') > -1, head: rows[0].join(','), n: rows.length - 1, items: P.days.reduce((n, d) => n + d.slots.filter(x => x.item).length, 0), tool: !!document.querySelector('#wrTools [data-ws="csv"]') }; });
   t.ok(csv.tool && /itinerary\.csv$/.test(csv.name || '') && csv.bom && csv.n === csv.items && /^Day,Date,Weekday,City,Start,End/.test(csv.head), '"Export itinerary (CSV)" in the rail saves one row per stop (' + csv.n + ' rows)');
+  /* (v176) a negative number (a longitude west of Greenwich) stays a number: only text that looks like a formula is guarded */
+  const neg = await pg.evaluate(async () => { let text = ''; const real = W.saveFile; W.saveFile = (n, blob) => blob.text().then(x => { text = x; });
+    const x = W.P.days[0].slots.find(s => s.item), was = x.item.lng; x.item.lng = -9.1393; await W.csvExport(W.P); x.item.lng = was; W.saveFile = real; return text; });
+  t.ok(/,-9\.1393(,|\r|$)/.test(neg) && !/'-9\.1393/.test(neg), 'a negative number stays a number in the CSV');
   t.ok(csv.safe, 'a name that starts with = is written as text, never as a spreadsheet formula');
 
   /* ---------- narrower: two panes; narrow: the phone layout, and back, with nothing lost ---------- */

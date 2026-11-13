@@ -114,6 +114,26 @@ exports.run = async t => {
   const ro = await pg.evaluate(() => { localStorage.setItem('waypoint-now', '2027-04-10T09:00'); W.readOnly = true; const r = { m: W.milestone(W.P) }; W.readOnly = false; return r; });
   t.ok(ro.m === null, 'a shared, read-only trip gets no milestones');
 
+  /* (v177) the treasure hunt keeps a tick on its find when a re-plan would change the town's list */
+  const hunt = await pg.evaluate(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms)), P = W.P, key = W.cityKey(P.stops[0].country, P.stops[0].name);
+    /* a tick saved before v177, by position: it still shows on the find at that place */
+    W.S.hunt = { [key]: { 0: 1 } };
+    W.goView('kids'); await wait(400); document.querySelector('#viewKids [data-ktab="hunt"]').click(); await wait(200);
+    const btn = i => document.querySelector('#viewKids [data-hunt="' + key + '"][data-hi="' + i + '"]');
+    const before = W.huntFinds(P, key).slice(), old = btn(0).getAttribute('aria-pressed');
+    btn(2).click(); await wait(200);
+    const saved = JSON.parse(JSON.stringify(W.S.hunt[key]));
+    /* the town turns beachy: a fresh list would swap two finds for beach ones; the kept list and its ticks stay */
+    const real = W.findCity; W.findCity = (c, n) => Object.assign({}, real(c, n) || {}, { t: ['beach'] });
+    W.render(); await wait(200);
+    const after = W.huntFinds(P, key), on = [0, 1, 2, 3, 4, 5].filter(i => btn(i) && btn(i).getAttribute('aria-pressed') === 'true');
+    W.findCity = real;
+    return { old, before, saved, after, on };
+  });
+  t.ok(hunt.old === 'true', 'a tick saved by position before v177 still shows');
+  t.ok(hunt.saved._l && hunt.saved._l.length === 6 && hunt.saved[hunt.before[0]] === 1 && hunt.saved[hunt.before[2]] === 1 && !('0' in hunt.saved), 'ticks are kept by the find\'s words, with the list: ' + JSON.stringify(hunt.saved));
+  t.ok(JSON.stringify(hunt.after) === JSON.stringify(hunt.before) && JSON.stringify(hunt.on) === '[0,2]', 'a re-plan that would change the list leaves the list and its ticks as they were: ' + JSON.stringify(hunt.on));
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

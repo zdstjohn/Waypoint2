@@ -2,6 +2,16 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v180
+
+- The slim bar's photo shows the strip the top card's bottom edge showed, so the photo carries on as the card scrolls
+  under it (the owner: the top of the photo there was jarring). lib/ahead.js W.pinPhotoFit (second script) gives the bar the card's
+  photo size and offset, moved up by the card's height, measured from the card when the bar shows and on resize.
+- Tests, tidied (the owner's ask; no change to the app): smoke is folded into layout and desktop, which open every
+  screen anyway (one view showing, with content, no page error: test/lib/drawn.js); fixes176's and cuts177's checks
+  moved into their topic suites (clock, workspace, stays, explore, bookings, warm, nokids); accounts, airplane, copy
+  and the account simulator use your own packing items instead of the journal as their saved data. 68 suites.
+
 ## v179
 
 - Scrolled down on a phone, the slim bar that takes the top card's place keeps the day's photo behind it, shaded the

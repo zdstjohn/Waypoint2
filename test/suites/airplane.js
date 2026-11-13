@@ -64,7 +64,7 @@ exports.run = async t => {
       W.openStop(W.P.days[2].slots.find(y => y.item).key); await wait(500); out.panel = ((document.querySelector('#sheethost') || {}).innerText || '').length > 60; W.closeStop && W.closeStop();
       W.S.prepTab = 'pack'; W.goView('book'); await wait(800); const pk = document.querySelector('#viewBook [data-pack]'); if (pk) { pk.click(); await wait(300); }
       out.packed = document.querySelectorAll('#viewBook [data-pack][aria-checked="true"], #viewBook [data-pack].on, #viewBook .chk.on').length; out.packKey = pk ? pk.dataset.pack : '';
-      W.S.journal = W.S.journal || {}; W.S.journal[W.restKey(d)] = { note: 'Gelato by the river' }; W.save();
+      (W.S.packOwn = W.S.packOwn || []).push({ key: 'own-gelato', text: 'Gelato by the river', who: 'all', todo: false }); W.save();
       await wait(700); return out;
     });
     t.ok(day.today && /need no connection/.test(day.note), `${label}: Today opens and says what this copy can do`);
@@ -72,7 +72,7 @@ exports.run = async t => {
     t.ok(day.swapped && day.panel && day.packKey, `${label}: a swap from the saved ideas, a stop's panel and the packing list all work`);
     /* close and reopen, on Prepare (this used to stop the page's start-up) */
     await fp.reload(); await started(fp);
-    const again = await fp.evaluate(() => ({ view: W.view(), N: W.P.N, note: Object.values(W.S.journal || {}).map(j => j.note).filter(Boolean)[0] || '', book: !!document.querySelector('#viewBook .prep-seg'), clicks: (() => { const tb = document.querySelector('nav [data-view="trip"]'); tb.click(); return W.view(); })() }));
+    const again = await fp.evaluate(() => ({ view: W.view(), N: W.P.N, note: ((W.S.packOwn || []).find(x => x.key === 'own-gelato') || {}).text || '', book: !!document.querySelector('#viewBook .prep-seg'), clicks: (() => { const tb = document.querySelector('nav [data-view="trip"]'); tb.click(); return W.view(); })() }));
     t.ok(again.view === 'book' && again.book && again.N === 10 && again.clicks === 'trip', `${label}: reopened on Prepare, it draws and the tabs still work`);
     t.eq(again.note, nostore ? '' : 'Gelato by the river', nostore ? `${label}: with no storage the note is gone after closing, as the copy said` : `${label}: what you changed is still there after closing and reopening`);
     /* the other copy, opened on the same phone, shows its own trip; and the first is still the first */

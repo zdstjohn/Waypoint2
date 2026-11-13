@@ -126,7 +126,7 @@ Phone.prototype.idx = function () { return JSON.parse(this.ls["waypoint-trips-v1
 Phone.prototype.pagehide = function () { (this.sess.evs["w:pagehide"] || []).forEach(f => f()); };
 const acct = uid => [...store.keys()].filter(k => k.indexOf("data/users/" + uid + "/trips/t/") === 0).map(k => ({ id: k.split("/").pop(), name: store.get(k).name, bookings: store.get(k).state.bookings }));
 const say = (k, v) => console.log("   -> " + k + ": " + JSON.stringify(v));
-const rome = (extra) => Object.assign({}, EXAMPLE, { countries: [{ name: "Italy", mode: "manual", picked: ["Rome"] }], tripId: "trome", tripName: "Rome 2027", start: "2027-06-07", journal: {}, bookings: [{ kind: "lodging", title: "Hotel Artemide", ref: "ANN-12345" }] }, extra || {});
+const rome = (extra) => Object.assign({}, EXAMPLE, { countries: [{ name: "Italy", mode: "manual", picked: ["Rome"] }], tripId: "trome", tripName: "Rome 2027", start: "2027-06-07", packOwn: [], bookings: [{ kind: "lodging", title: "Hotel Artemide", ref: "ANN-12345" }] }, extra || {});
 
 async function signIn(ph, who) { await ph.sess.C.signIn(who + "@example.com", "pw"); await flush(); if (!ph.sess.reloaded()) throw new Error("no reload"); ph.close(); await ph.open(); }
 async function signOut(ph, during) { ph.sess.C.signOut(); await flush(); if (during) await during(); ph.sess.logout(); await flush(); ph.pagehide(); if (!ph.sess.reloaded()) throw new Error("no reload"); ph.close(); await ph.open(); }
@@ -151,7 +151,7 @@ if (MAIN) (async () => {
 
   console.log("\n=== 2. Ann signs out; Grandpa uses the tablet without an account and changes the plan; Ann signs in again ===");
   ph = await annSetup(); const annOpen2 = ph.sess.W.S.tripId;
-  await ph.edit(S => { S.journal = { "Italy|Rome|1": { note: "typed offline, not yet sent" } }; });   /* (sent: no network blocking in this harness) */
+  await ph.edit(S => { S.packOwn = [{ key: "own-offline", text: "typed offline, not yet sent", who: "all", todo: false }]; });   /* (sent: no network blocking in this harness) */
   await signOut(ph);
   await ph.edit(S => { S.countries = [{ name: "France", mode: "manual", picked: ["Paris"] }]; S.tripName = "Grandpa's Paris"; });
   say("Grandpa's trip on screen", ph.sess.W.S.tripName + " example? " + !!ph.sess.W.S.example);
@@ -159,7 +159,7 @@ if (MAIN) (async () => {
   say("on screen after Ann signs in", ph.sess.W.S.tripName);
   const ix = ph.idx(); say("index", Object.keys(ix).map(id => ix[id].name + (ix[id].state || id === ph.sess.W.S.tripId ? "" : " [no state]")));
   ph.menu("open", annOpen2); await ph.wait(1000);
-  say("after tapping 'Rome 2027' in Your trips, on screen", ph.sess.W.S.tripName + " journal: " + JSON.stringify(ph.sess.W.S.journal));
+  say("after tapping 'Rome 2027' in Your trips, on screen", ph.sess.W.S.tripName + " own packing: " + JSON.stringify(ph.sess.W.S.packOwn));
   await ph.wait(30000); say("30 s later, Rome in index has state?", !!(ph.idx()[annOpen2] || {}).state);
   say("Ann's account", acct("ann").map(x => x.name));
 

@@ -60,6 +60,8 @@ exports.run = async t => {
   t.eq([z.la, z.den, z.chi, z.ny, z.hnl, z.anc], ['America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York', 'Pacific/Honolulu', 'America/Anchorage'], 'in a country with several zones the place\'s longitude picks one (Los Angeles, Denver, Chicago, New York; Honolulu and Anchorage told apart by latitude)');
   t.eq([z.syd, z.per, z.van, z.tor, z.can, z.it], ['Australia/Sydney', 'Australia/Perth', 'America/Vancouver', 'America/Toronto', 'America/Cancun', 'Europe/Rome'], 'likewise Sydney, Perth, Vancouver, Toronto, Cancún; a one-zone country keeps its zone');
   t.ok(z.rough === true && z.one === false, 'such a zone is marked as a guess: a phone within the hour of it is taken to be there, and its own clock stands');
+  /* (v176) a calendar time after midnight is the next day */
+  t.eq(await rome.pg.evaluate(() => [W.iso(new Date(2027, 5, 8), 1470), W.iso(new Date(2027, 5, 30), 1440 + 15), W.iso(new Date(2027, 5, 8), 600)]), ['2027-06-09T00:30:00', '2027-07-01T00:15:00', '2027-06-08T10:00:00'], 'calendar times past midnight fall on the next day');
   t.eq(rome.errors().concat(la.errors()), [], 'no page errors');
   await b.close();
 };

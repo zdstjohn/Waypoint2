@@ -247,7 +247,11 @@
     if (!el || !top) return;
     /* only on Trip, where the day strip sticks under it: Today, Plan and Prepare scroll on without it (the owner's call) */
     var show = el.hasAttribute("data-on") && (!W.view || W.view() === "trip") && top.getBoundingClientRect().bottom <= pinTop + 0.5;
-    if (el.hidden === show) el.hidden = !show;
+    if (el.hidden === show) {
+      el.hidden = !show;
+      /* (the photo behind it is placed once it can be measured: lib/photos.js) */
+      if (show && W.pinPhotoFit) W.pinPhotoFit();
+    }
   }
   function pinSoon() {
     if (!pinTick) pinTick = requestAnimationFrame(pinCheck);

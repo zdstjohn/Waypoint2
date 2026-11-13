@@ -41,8 +41,12 @@ exports.run = async t => {
       await pg.evaluate(() => { W.goView('trip'); W.render(); }); await settle(pg);
       /* v179 (the owner's ask): scrolled down, the slim bar that takes the card's place keeps the photo */
       const pin = await pg.evaluate(async () => { window.scrollTo(0, 900); await new Promise(r => setTimeout(r, 500)); const p = document.getElementById('pin');
-        const r = { shown: !!p && !p.hidden, bg: p ? getComputedStyle(p, '::before').backgroundImage : '' }; window.scrollTo(0, 0); await new Promise(r => setTimeout(r, 300)); return r; });
+        const cs = p ? getComputedStyle(p, '::before') : null, at = getComputedStyle(document.documentElement).getPropertyValue('--pin-photo-at').trim();
+        const r = { shown: !!p && !p.hidden, bg: cs ? cs.backgroundImage : '', at, pos: cs ? cs.backgroundPosition : '' }; window.scrollTo(0, 0); await new Promise(r => setTimeout(r, 300)); return r; });
       t.ok(pin.shown && /url\(/.test(pin.bg), tag + 'scrolled down, the slim bar keeps the day\'s photo: ' + pin.bg.slice(0, 80));
+      /* (v180) the strip the card's bottom edge showed, not the photo's top: placed lower than the card's top by about its height */
+      const y = parseFloat((pin.at.split(' ')[1] || ''));
+      t.ok(pin.at && y < -100 && pin.pos.indexOf(pin.at.split(' ')[1]) > -1, tag + 'the slim bar shows the bottom of the card\'s photo: ' + JSON.stringify({ at: pin.at, pos: pin.pos.slice(0, 80) }));
     }
     t.eq(ex.above, day.above, tag + 'what is above the day does not move between the tabs');
     t.ok(day.old === 0 && ex.old === 0, tag + 'no street-map picture or its layers anywhere: ' + ex.old);

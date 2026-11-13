@@ -3,6 +3,17 @@
 const { launch, open, exampleTrip, settle, calm } = require('../lib/page'); const mkdb = require('../lib/db');
 exports.run = async t => {
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(pg);
+  await pg.waitForFunction(() => W.laterReady, null, { timeout: 15000 }).catch(() => {});
+  /* (v176) the booking timeline counts days right */
+  const tl = await pg.evaluate(() => { const t0 = new Date(2027, 2, 10, 9, 0), d = n => W.isoDay(new Date(2027, 2, 10 + n));
+    const say = n => ((W.bookTimeline([], t0, d(n)).match(/leaving[^<]*/) || [''])[0]); return [say(0), say(1), say(3)]; });
+  t.eq(tl, ['leaving today', 'leaving tomorrow', 'leaving in 3 days'], 'the booking timeline counts days right');
+  /* (v177, the owner's cuts) no booking-site links on Prepare, no unused-files card in Settings */
+  const gone = await pg.evaluate(async () => { const wait = ms => new Promise(r => setTimeout(r, ms));
+    W.goView('book'); await wait(500); const book = document.getElementById('viewBook').textContent;
+    W.goView('settings'); await wait(500); const set = document.getElementById('viewSettings').textContent; W.goView('trip'); await wait(300);
+    return { sites: /Booking sites|Show links to|Also on/.test(book), files: /Find unused files/.test(set), api: ['sitesRow', 'altUrls', 'altLinksFor', 'storageCard'].filter(k => k in W) }; });
+  t.eq(gone, { sites: false, files: false, api: [] }, 'no booking-site links and no unused-files card');
   await pg.click('#tabBook'); await calm(pg, 3700);
   const chk = await pg.evaluate(() => ({ items: document.querySelectorAll('.chk').length, by: document.querySelectorAll('.chk .by').length, stays: [...document.querySelectorAll('.chk')].filter(c => /stay|hotel|place to stay/i.test(c.innerText)).length }));
   t.ok(chk.items >= 5, 'the checklist has things to book: ' + JSON.stringify(chk));

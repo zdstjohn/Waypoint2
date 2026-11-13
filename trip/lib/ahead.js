@@ -278,4 +278,46 @@
     drop();
     last = ""; /* (and plans again at the next screen once the connection is back) */
   });
+  /* ---------- the slim bar's photo (v180) ---------- */
+  /* Where the day's photo sits in the slim bar: the top card draws it "cover", centred across and 40% down (app.css);
+     the bar takes the same size and offset, moved up by the card's height less its own, so its strip is the card's
+     bottom one. Measured from the card itself (it stays in the page, scrolled away) when the bar shows (lib/warm.js)
+     and when the window changes size; the photo's own size is read once per photo. Until then app.css shows the
+     photo's bottom. (Here, in the second script: the bar only shows after scrolling.) */
+  var pinPhoto = { url: "", w: 0, h: 0 };
+  function pinPhotoFit() {
+    var root = document.documentElement,
+      top = /** @type {HTMLElement | null} */ (document.querySelector("header.top")),
+      pin = document.getElementById("pin"),
+      url = (top && top.getAttribute("data-photo")) || "";
+    if (!top || !pin || !url) return;
+    if (pinPhoto.url !== url) {
+      pinPhoto = { url: url, w: 0, h: 0 };
+      var im = new Image();
+      im.onload = function () {
+        if (pinPhoto.url !== url) return;
+        pinPhoto.w = im.naturalWidth;
+        pinPhoto.h = im.naturalHeight;
+        pinPhotoFit();
+      };
+      im.src = url;
+      return;
+    }
+    if (!pinPhoto.w || !pinPhoto.h) return;
+    var c = top.getBoundingClientRect(),
+      bar = getComputedStyle(pin, "::before"),
+      pr = pin.getBoundingClientRect(),
+      bl = pr.left + (parseFloat(bar.left) || 0),
+      bh = pr.height - (parseFloat(bar.top) || 0) - (parseFloat(bar.bottom) || 0);
+    if (!c.width || !c.height || !(bh > 0)) return;
+    var k = Math.max(c.width / pinPhoto.w, c.height / pinPhoto.h),
+      w = pinPhoto.w * k,
+      h = pinPhoto.h * k,
+      x = (c.width - w) / 2 + (c.left - bl),
+      y = (c.height - h) * 0.4 - (c.height - bh);
+    root.style.setProperty("--pin-photo-size", Math.round(w) + "px " + Math.round(h) + "px");
+    root.style.setProperty("--pin-photo-at", Math.round(x) + "px " + Math.round(y) + "px");
+  }
+  W.pinPhotoFit = pinPhotoFit;
+  window.addEventListener("resize", pinPhotoFit);
 })();

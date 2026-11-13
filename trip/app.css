@@ -2071,8 +2071,9 @@ svg.arr.arr-r{margin:0 0 0 .35em}
      a gap above it) below the status bar, and the day strip sticks right under it (lib/warm.js pinTop says the same) */
   .pin:not([hidden]){display:flex;align-items:center;gap:10px;position:fixed;z-index:30;top:0;left:0;right:0;border:0;margin:0;width:100%;height:calc(52px + env(safe-area-inset-top,0px));padding:calc(8px + env(safe-area-inset-top,0px)) calc(34px + env(safe-area-inset-right,0px)) 0 calc(38px + env(safe-area-inset-left,0px));background:var(--bg) var(--grain);color:var(--on-color);font:800 var(--t-ui)/1.2 var(--f-body);text-align:left;cursor:pointer;animation:pinIn .14s ease-out}
   .pin:not([hidden])::before{content:"";position:absolute;z-index:-1;top:calc(8px + env(safe-area-inset-top,0px));left:calc(24px + env(safe-area-inset-left,0px));right:calc(24px + env(safe-area-inset-right,0px));bottom:0;border-radius:var(--r-lg);background:var(--grad);box-shadow:var(--sh-3)}
-  /* with the day's photo behind the top card, the slim bar keeps it (shaded the same way, so the words stay readable) */
-  :is(html.on-trip,html.on-go).top-photo .pin:not([hidden])::before{background:linear-gradient(90deg,rgba(26,22,48,.92) 0%,rgba(26,22,48,.62) 55%,rgba(26,22,48,.34) 100%),var(--top-photo) center 40% / cover no-repeat,var(--grad)}
+  /* with the day's photo behind the top card, the slim bar keeps it (shaded the same way, so the words stay readable),
+     showing the strip the card's bottom edge showed (lib/photos.js W.pinPhotoFit sets where; until it has, the bottom) */
+  :is(html.on-trip,html.on-go).top-photo .pin:not([hidden])::before{background:linear-gradient(90deg,rgba(26,22,48,.92) 0%,rgba(26,22,48,.62) 55%,rgba(26,22,48,.34) 100%),var(--top-photo) var(--pin-photo-at,center bottom) / var(--pin-photo-size,cover) no-repeat,var(--grad)}
   .pin .pin-logo{width:88px;height:auto;flex:none}
   .pin b{font-weight:800;font-size:.9375rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .pin span{margin-left:auto;font-weight:700;font-size:var(--t-sm);color:#f6c46b;white-space:nowrap}

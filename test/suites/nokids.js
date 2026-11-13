@@ -32,6 +32,7 @@ exports.run = async t => {
     const menu = !!document.querySelector('[data-sync="kids"]'); document.querySelector('[data-sync="menu"]').click();
     return { nap: !!d, cap: W.slotCap('eve', W.P.p), menu, plain: (W.EAT_DI.some(x => x[0] === 'plain')), kidsPack: W.packing(W.P).pack.some(i => i.who === 'kids' || i.group === 'kids') };
   });
+  t.eq(await pg.evaluate(() => [W.slotCap('dinner', { kid: true }), W.slotCap('dinner', { kid: false }), W.slotCap('eve', { toddler: true, kid: true })]), [1230, 1305, 1200], 'the latest start of dinner and the evening, by who comes (one rule for the planner and "way behind")');
   t.ok(kidsOn.nap && kidsOn.cap === 1200 && kidsOn.menu && kidsOn.kidsPack, 'with a toddler: a nap, the 8 pm cap, the kids\' corner and kids\' packing: ' + JSON.stringify(kidsOn));
 
   /* ---- only adults ---- */

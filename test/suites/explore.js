@@ -122,6 +122,10 @@ exports.run = async t => {
   t.ok(fit.first.keptUsed && fit.first.keptMine && fit.first.bfast >= 4, 'what is on the trip\'s days and what you added yourself stay on show, and breakfast keeps its share (' + fit.first.bfast + ')');
   t.ok(fit.more.spots === fit.first.spots + 10 && fit.more.food === fit.first.food + 8 && fit.more.asked === 0 && fit.again[0] === fit.more.spots && fit.again[1] === fit.more.food,
     '"Find more" brings out 10 and 8 of the ones set aside at once, without asking Claude, and they stay: ' + JSON.stringify([fit.more, fit.again]));
+  /* (v176) an idea with half a pin: Explore still draws */
+  await pg.evaluate(() => { const d = W.P.days[1], c = W.C.city[W.cityKey(d.country, d.city)]; c.spots.push({ n: 'Half a pin', d: '', lat: 41.9, lng: null, k: 'all', t: [] });
+    W.S.day = 2; W.S.tview = 'map'; W.goView('trip'); W.render(); }); await settle(pg, 1500);
+  t.ok(await pg.evaluate(() => !!document.querySelector('#viewTrip .idea, #viewTrip .scard, #viewTrip .psearch')), 'Explore draws with an idea that has half a pin');
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

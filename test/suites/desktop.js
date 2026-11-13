@@ -9,7 +9,7 @@
      - Explore: the search across the top, the route on the right below
      - the trip menu opens under the trip's name (right side of the banner), inside the window
      - the kids' corner stays picture-book sized and centred on a big screen */
-const { launch, open, exampleTrip, settle, calm } = require('../lib/page'); const SCREENS = require('../lib/screens'); const CHECK = require('../lib/check');
+const { launch, open, exampleTrip, settle, calm } = require('../lib/page'); const SCREENS = require('../lib/screens'); const CHECK = require('../lib/check'); const DRAWN = require('../lib/drawn');
 const inside = (a, b, m = 1) => a.left >= b.left - m && a.right <= b.right + m && a.top >= b.top - m && a.bottom <= b.bottom + m;
 /* how far the ink of what an element shows sits from the element's middle, in CSS px, with the pointer over it (that
    is when a browser draws its own up and down arrows inside a number box, which pushes the digits to the left) */
@@ -42,6 +42,8 @@ exports.run = async t => {
     for (const sc of SCREENS) {
       await pg.keyboard.press('Escape').catch(() => {});
       await pg.evaluate(sc.go); await pg.waitForTimeout(sc.wait || 600); await settle(pg);
+      const dr = await DRAWN(pg);
+      t.ok(dr.views.length === 1 && dr.txt > 200, `${sc.id} @${width}: one view showing, with content (${dr.views.join(',')}, ${dr.txt} characters)`);
       const found = await pg.evaluate(CHECK);
       const wide = await pg.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       if (!t.ok(found.length === 0 && wide <= 1, `${sc.id} @${width}: ${found.length ? found.map(f => f.kind + ' ' + f.el + ' ' + (f.extra || '')).join('; ') : wide > 1 ? 'the page scrolls sideways by ' + wide + ' px' : 'clean'}`)) await t.shot(pg, `desktop-${width}-${sc.id}`);

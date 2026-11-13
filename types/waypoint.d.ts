@@ -506,6 +506,8 @@ interface Waypoint {
   WHY: Record<string, string>;
   checkPlan: { (P?: Plan, opts?: { deep?: boolean; held?: { key: string; name: string }[] }): { day: number; slot: string; rule: number; what: string }[]; table: () => string };
   /** the day's photo, picked with its own places in mind (lib/photos.js) */
+  /** (lib/ahead.js, second script) where the day's photo sits in the slim bar: the strip the top card's bottom edge showed */
+  pinPhotoFit?: () => void;
   dayPhoto: (day: Day) => Photo | null;
   lodgeSig: any;
   mcpMsg: (e: any, s?: any) => string;

@@ -477,11 +477,15 @@
     top.style.setProperty("--top-photo", url ? 'url("' + url.replace(/["\\]/g, "") + '")' : "none");
     top.setAttribute("data-credit", url && ph ? "Photo: " + (ph.credit || "Wikimedia Commons") : "");
     top.classList.toggle("has-photo", !!url);
-    /* the slim bar that takes the card's place when you scroll down keeps the same photo (the owner's ask, v179) */
+    /* the slim bar that takes the card's place when you scroll down keeps the same photo (the owner's ask, v179),
+       showing the strip the card's bottom edge showed, so the photo carries on as the card scrolls under it (v180:
+       the top of the photo there was jarring; lib/ahead.js W.pinPhotoFit places it) */
     var root = document.documentElement;
     root.style.setProperty("--top-photo", url ? 'url("' + url.replace(/["\\]/g, "") + '")' : "none");
     root.classList.toggle("top-photo", !!url);
+    if (W.pinPhotoFit) W.pinPhotoFit();
   };
+
   W.heroImg = function (ph, alt, lazy) {
     var off = (W.offline && W.offline.off) || window.__WP_OFFLINE,
       file = !off && !ph.big && W.standalone ? commonsFile(ph) : "",

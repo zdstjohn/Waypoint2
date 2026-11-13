@@ -74,6 +74,12 @@ exports.run = async t => {
   await pg.waitForFunction(() => !!document.querySelector('.stay-panel .lodge:not(.lodge-bk) h4'), null, { timeout: 8000 }).catch(() => {});
   r = await read();
   t.ok(r.cards.length === 3 && r.cards.every(c => !c.bk && c.n) && !r.note, 'without a connection, Claude\'s picks as before and no note: ' + JSON.stringify({ cards: r.cards.map(c => c.n), note: r.note }));
+  /* (v176) a Booking.com price counts only while it is for the nights you have */
+  const sl = await pg.evaluate(() => { const s = W.P.stops[0], dt = W.stayDates(s, W.P);
+    const ok = W.stayLive({ label: 'X', live: { total: 900, cur: 'EUR', url: '', at: 1, in: dt.in, out: dt.out, src: 'Booking.com' } }, s, W.P);
+    const old = W.stayLive({ label: 'X', live: { total: 900, cur: 'EUR', url: '', at: 1, in: '2020-01-01', out: '2020-01-03', src: 'Booking.com' } }, s, W.P);
+    return { ok: !!ok, old: !!old }; });
+  t.ok(sl.ok && !sl.old, 'a Booking.com price for other nights no longer counts: ' + JSON.stringify(sl));
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

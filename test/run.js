@@ -5,8 +5,8 @@
    assertions with t.ok / t.eq. The runner starts the CSP test server, runs the suites in order, prints one report and exits
    non-zero on any failure. Screenshots of failures land in test/out/.
 
-   smoke     every screen renders, on a narrow phone, in dark mode and on a wide screen, without errors
-   layout    nothing clipped, cut off, off screen or overlapping, at normal and large text sizes
+   layout    every screen draws (one view, with content, no page error; was smoke) and nothing is clipped, cut off,
+             off screen or overlapping, at normal and large text sizes
    planner   days fit the clock, meals and naps are where they should be, day trips are day trips, energy levels are sane
    shape     the whole-trip planner: nights per base, day trips instead of hotel moves, order, jet lag, trains vs flights
    flow      the actions sheet, move to another day and undo, leave free and undo, swap cards, glance, quick start
@@ -52,14 +52,14 @@
 const { spawn, spawnSync } = require('child_process'); const fs = require('fs'); const path = require('path');
 const ROOT = path.resolve(__dirname, '..'); const OUT = path.join(__dirname, 'out'); fs.mkdirSync(OUT, { recursive: true });
 const args = process.argv.slice(2); const flags = new Set(args.filter(a => a.startsWith('--'))); const pick = args.filter(a => !a.startsWith('--'));
-const ALL = ['flight', 'cuts177', 'smoke', 'layout', 'planner', 'shape', 'flow', 'back', 'review', 'bookings', 'stays', 'travel', 'claude', 'draw', 'look', 'airplane', 'standalone', 'swphotos', 'ahead', 'cloud', 'accounts', 'tickets', 'holidays', 'firstview', 'together', 'share', 'kept', 'copy', 'tools', 'nope', 'eat', 'money', 'menus', 'pdf', 'simple', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'keys', 'fuzz', 'vitals', 'desktop', 'explore', 'gmaps', 'meals', 'clock', 'daytrip', 'workspace', 'early', 'menuread', 'ideaorder', 'bookcheck', 'brief', 'stillopen', 'packs', 'photoset', 'banner', 'theme', 'phoneday', 'fixes176', 'devices', 'nokids'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
+const ALL = ['flight', 'layout', 'planner', 'shape', 'flow', 'back', 'review', 'bookings', 'stays', 'travel', 'claude', 'draw', 'look', 'airplane', 'standalone', 'swphotos', 'ahead', 'cloud', 'accounts', 'tickets', 'holidays', 'firstview', 'together', 'share', 'kept', 'copy', 'tools', 'nope', 'eat', 'money', 'menus', 'pdf', 'simple', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'keys', 'fuzz', 'vitals', 'desktop', 'explore', 'gmaps', 'meals', 'clock', 'daytrip', 'workspace', 'early', 'menuread', 'ideaorder', 'bookcheck', 'brief', 'stillopen', 'packs', 'photoset', 'banner', 'theme', 'phoneday', 'devices', 'nokids'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
 let suites = pick.length ? pick : ALL;
 /* --cov: also collect which code ran (test/lib/cov.js); the suites that time things are left out of such a run */
 const COV = flags.has('--cov') || !!process.env.WP_COV;
 if (flags.has('--cov')) { process.env.WP_COV = '1'; suites = suites.filter(s => !['perf', 'vitals', 'visual'].includes(s)); }
 /* --shard=k/n runs one of n groups, balanced by how long each suite takes (seconds, from the online runs; a suite not
    listed counts as 15): GitHub runs the three groups side by side. Every suite lands in exactly one group. */
-const SECS = { flight: 113, banner: 70, ahead: 54, simple: 25, smoke: 110, layout: 183, desktop: 166, a11y: 71, keys: 40, flow: 44, together: 37, share: 40, kept: 30, copy: 20, tools: 5, fuzz: 60, devices: 20, firstview: 23, travel: 22, shape: 21, nope: 20,
+const SECS = { flight: 113, banner: 70, ahead: 54, simple: 25, layout: 183, desktop: 166, a11y: 71, keys: 40, flow: 44, together: 37, share: 40, kept: 30, copy: 20, tools: 5, fuzz: 60, devices: 20, firstview: 23, travel: 22, shape: 21, nope: 20,
   warm: 19, vitals: 19, planner: 17, bookings: 17, packing: 16, offline: 15, explore: 14, perf: 14, sync: 12, places: 11, tickets: 10,
   focus: 9, holidays: 7, photos: 7, types: 4, validate: 2, judge: 1, pdf: 10, eat: 20, money: 12, menus: 12 };
 const shard = [...flags].map(f => /^--shard=(\d+)\/(\d+)$/.exec(f)).find(Boolean);
