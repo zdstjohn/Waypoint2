@@ -110,7 +110,7 @@
   .wc-tools{display:flex;gap:2px;margin-left:auto;padding:3px;border-radius:var(--r-pill);background:color-mix(in srgb,var(--surface) 85%,transparent);-webkit-backdrop-filter:blur(12px) saturate(1.4);backdrop-filter:blur(12px) saturate(1.4);border:1px solid color-mix(in srgb,var(--ring) 75%,transparent);box-shadow:var(--sh-1)}
   .wc-tools .icon-btn{width:32px;height:32px;border-radius:var(--r-pill);background:transparent;box-shadow:none;font-size:var(--t-h4);font-weight:700;line-height:1}
   .wc-tools .icon-btn svg{width:16px;height:16px}
-  .wc-note{position:absolute;right:8px;bottom:6px;z-index:3;margin:0;font-size:10.5px;color:var(--place);background:color-mix(in srgb,var(--surface) 80%,transparent);padding:1px 6px;border-radius:var(--r-xs)}
+  .wc-note{position:absolute;right:8px;bottom:6px;z-index:3;margin:0;font-size:.65625rem;color:var(--place);background:color-mix(in srgb,var(--surface) 80%,transparent);padding:1px 6px;border-radius:var(--r-xs)}
   .wc-empty{position:absolute;inset:0;display:grid;place-items:center;padding:24px;overflow:auto}
   .wc-empty[hidden],.ws-canvas .map-wrap[hidden]{display:none}
   .ws-canvas.nomap .wc-note,.ws-canvas.nomap [data-ws^="zoom:"]{display:none}

@@ -1167,7 +1167,7 @@
         '" aria-pressed="' +
         c.done +
         '" aria-label="' +
-        esc((c.done ? "Mark not booked: " : "Mark booked: ") + c.title) +
+        esc("Booked: " + c.title) /* (one name, its state in aria-pressed, as a toggle button's should be) */ +
         '"' +
         (ro ? " disabled" : "") +
         "></button>" +

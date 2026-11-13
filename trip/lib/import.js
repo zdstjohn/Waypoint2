@@ -81,8 +81,8 @@
     if (W.readOnly) return "";
     if (full)
       return (
-        '<textarea class="field" id="importText" rows="6" placeholder="Day 1 – Rome: Colosseum in the morning, lunch at…"></textarea>' +
-        (st.msg ? '<p class="warn">' + esc(st.msg) + "</p>" : "") +
+        '<textarea class="field" id="importText" rows="6" aria-label="The itinerary to import" placeholder="Day 1 – Rome: Colosseum in the morning, lunch at…"></textarea>' +
+        (st.msg ? '<p class="warn" role="alert">' + esc(st.msg) + "</p>" : "") +
         '<div class="row">' +
         (st.busy
           ? '<span class="loading">Reading your plan…</span>'
@@ -93,8 +93,8 @@
       return '<div class="import-row"><button type="button" class="linkish" data-import="open">Already have a plan? Import it</button></div>';
     return (
       '<section class="import sk"><div class="bk-h"><h2>Import a plan</h2><p class="small muted">Paste an itinerary from Wanderlog, a document or an email. It becomes a new trip, with the places you\'d already chosen pinned to their days.</p></div>' +
-      '<textarea class="field" id="importText" rows="8" placeholder="Day 1 – Rome: Colosseum in the morning, lunch at…"></textarea>' +
-      (st.msg ? '<p class="warn">' + esc(st.msg) + "</p>" : "") +
+      '<textarea class="field" id="importText" rows="8" aria-label="The itinerary to import" placeholder="Day 1 – Rome: Colosseum in the morning, lunch at…"></textarea>' +
+      (st.msg ? '<p class="warn" role="alert">' + esc(st.msg) + "</p>" : "") +
       '<div class="row">' +
       (st.busy
         ? '<span class="loading">Reading your plan…</span>'

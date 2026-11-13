@@ -39,6 +39,7 @@
     "trip/lib/towns.js",
     "trip/lib/asks.js",
     "trip/lib/back.js",
+    "trip/lib/a11y.js",
     "trip/lib/bookcheck.js",
     "trip/lib/brief.js",
     "trip/lib/cloud.js",

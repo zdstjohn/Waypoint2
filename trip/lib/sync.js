@@ -1206,10 +1206,15 @@
   /* the trips menu drops down over the page: a tap anywhere else closes it */
   W.closeTripMenu = function () {
     if (!menuOpen) return false;
+    var a = document.activeElement,
+      inside = !!(a && a.closest && a.closest(".trip-menu"));
     menuOpen = false;
     renaming = false;
     delAsk = null;
     W.renderBar(W.P);
+    /* (the keyboard was in the menu, Escape say: it goes back to the button that opens it) */
+    var sw = /** @type {HTMLElement | null} */ (inside ? document.querySelector("#tripbar .trip-sw") : null);
+    if (sw) sw.focus({ preventScroll: true });
     return true;
   };
   var ST = {

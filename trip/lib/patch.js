@@ -131,6 +131,9 @@
   W.typingHeld = function () {
     var a = /** @type {any} */ (document.activeElement);
     if (!a || !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;
+    /* (a tick box or a choice has nothing typed in it to lose: the keyboard kept on one after a redraw, lib/a11y.js,
+       must not hold the next redraw back) */
+    if (a.type === "checkbox" || a.type === "radio") return false;
     for (var n = a; n; n = n.parentElement) if (n._sig) return false;
     return true;
   };

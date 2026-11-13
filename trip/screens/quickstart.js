@@ -113,7 +113,7 @@
       '<label class="fld"><span>Flying from</span><input class="field" id="qsFrom" data-ta="airport" autocomplete="off" placeholder="Your home city or airport" value="' +
       esc(from) +
       '"></label>' +
-      (qs.msg ? '<p class="warn">' + esc(qs.msg) + "</p>" : "") +
+      (qs.msg ? '<p class="warn" role="alert">' + esc(qs.msg) + "</p>" : "") +
       '<div class="qs-go"><button type="button" class="btn" data-qs="go">Plan my trip</button><button type="button" class="linkish" data-qs="' +
       (qs.first ? "close" : "slow") +
       '">' +

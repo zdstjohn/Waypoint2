@@ -233,7 +233,14 @@
       '">' +
       W.stopMark(p.it || {}, !!p.food, p.slot, p.num) +
       (key
-        ? '<button type="button" class="rc-b" data-sheet="' + esc(key) + '" aria-haspopup="dialog">' + body + "</button>"
+        ? '<button type="button" class="rc-b" data-sheet="' +
+          esc(key) +
+          '" aria-haspopup="dialog"' +
+          /* (the stop you are at now: a screen reader says so, as the highlight does) */
+          (/\bnow\b/.test(cls || "") ? ' aria-current="step"' : "") +
+          ">" +
+          body +
+          "</button>"
         : '<span class="rc-b">' + body + "</span>") +
       goBtn(dirTo(from, p, city), "Directions to " + p.n) +
       "</li>"

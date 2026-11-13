@@ -280,10 +280,14 @@
     return (
       '<div class="stay-panel"><div class="row"><input class="field" id="stayIn' +
       i +
-      '" placeholder="Already booked? Hotel name or address" value="' +
+      '" placeholder="Already booked? Hotel name or address" aria-label="Already booked? Hotel name or address in ' +
+      esc(s.name) +
+      '" value="' +
       esc((S.stays[W.cityKey(s.country, s.name)] || {}).label || "") +
       '"><button type="button" class="btn quiet" data-setstay="' +
       i +
+      '" aria-label="Set as our stay in ' +
+      esc(s.name) +
       '">Set</button></div>' +
       lodgeCards(s, i) +
       (W.altLinksFor ? W.altLinksFor("stay", { s: s, dates: stayDatesFor(s) }) : "") +
@@ -332,7 +336,7 @@
         (W.desk() ? "false" : "true") +
         '" tabindex="-1" aria-label="Where to stay in ' +
         esc(s.name) +
-        '"><div class="grab" aria-hidden="true"></div><div class="sh-top"><div><b>Where to stay in ' +
+        '"><div class="grab" aria-hidden="true"></div><div class="sh-top"><div><b role="heading" aria-level="2">Where to stay in ' +
         esc(s.name) +
         '</b><span class="small muted">' +
         esc(
@@ -345,7 +349,8 @@
         '</button></div><div class="stop" id="stop-' +
         staySi +
         '">' +
-        stayPanel(s, /** @type {number} */ (staySi)) +
+        /* (each place's name a heading under the sheet's own: level 3 here, where Plan's row has it at 4 under the country) */
+        stayPanel(s, /** @type {number} */ (staySi)).replace(/<h4>/g, '<h4 aria-level="3">') +
         "</div></div>";
     if (h === stayDrawn) return;
     var first = !stayDrawn,
@@ -506,9 +511,13 @@
       ci +
       '" data-ta="city" data-tac="' +
       esc(c.name) +
-      '" autocomplete="off" placeholder="Add any city or town">' +
+      '" autocomplete="off" placeholder="Add any city or town" aria-label="Add any city or town in ' +
+      esc(c.name) +
+      '">' +
       '<button type="button" class="btn" data-addcity="' +
       ci +
+      '" aria-label="Add this place in ' +
+      esc(c.name) +
       '">Add</button></div>';
     var ask = isleAsk[c.name];
     if (ask)
@@ -819,11 +828,12 @@
       id +
       '"' +
       (open ? " open" : "") +
+      /* (the tick is read as "Done", a word; a label on the <b> itself was not read at all) */
       '><summary class="step-h"><b' +
-      (done ? ' aria-label="done"' : "") +
+      (done ? ' aria-hidden="true"' : "") +
       ">" +
-      (done ? "✓" : n) +
-      "</b><h2>" +
+      (done ? '✓</b><span class="vh">Done: </span>' : n + "</b>") +
+      "<h2>" +
       title +
       '</h2><span class="sum">' +
       esc(sum) +
@@ -1051,7 +1061,7 @@
         (S.countries.length ? "Add another country" : "Add a country") +
         '"><button type="button" class="btn' +
         (S.countries.length ? " quiet" : "") +
-        '" id="addCountry">Add</button></div>'
+        '" id="addCountry" aria-label="Add this country">Add</button></div>'
     );
 
     /* 5 · route check */

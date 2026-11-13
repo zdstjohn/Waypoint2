@@ -497,7 +497,7 @@
         '" aria-pressed="' +
         on +
         '" aria-label="' +
-        W.esc((on ? "Unpack: " : "Packed: ") + i.text) +
+        W.esc("Packed: " + i.text) /* (one name, its state in aria-pressed: a name that changed with it read "Unpack…, pressed") */ +
         '"' +
         (ro ? " disabled" : "") +
         "></button>" +

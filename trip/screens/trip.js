@@ -49,7 +49,12 @@
   function stayChip(it, food, slot) {
     var t = W.stayText(it, food, slot);
     if (!t) return "";
-    return '<span class="dur" title="Recommended time to spend here">' + ICON_CLOCK + (/day$/.test(t) ? t.toLowerCase() : t) + "</span>";
+    return (
+      '<span class="dur" title="Recommended time to spend here"><span class="vh"> </span>' +
+      ICON_CLOCK +
+      (/day$/.test(t) ? t.toLowerCase() : t) +
+      "</span>"
+    );
   }
   /* how you get to a stop: a small walk, bus or car mark and the minutes */
   function legSvg(d) {
@@ -810,7 +815,8 @@
         swap = swapOpen === x.slot,
         R = T && T.rows[x.slot],
         label = (R && R.label) || W.SLOT_NAME[x.slot];
-      var tm = R && R.start != null && !R.skip ? '<span class="tm">' + W.clock(R.start) + "</span>" : "";
+      /* (the hidden space keeps the time and what follows two words for a screen reader: "8:30 AM Rome", not "AMRome") */
+      var tm = R && R.start != null && !R.skip ? '<span class="tm">' + W.clock(R.start) + '<span class="vh"> </span></span>' : "";
       var timed = nowM != null && R && !R.skip && R.start != null && R.end != null,
         nm = nowM || 0 /* (read only when timed: today's page, with the clock) */,
         isPast = timed && R.end <= nm,

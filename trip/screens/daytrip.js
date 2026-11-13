@@ -71,7 +71,7 @@
       (W.desk() ? "false" : "true") +
       '" tabindex="-1" aria-label="A day trip from ' +
       esc(day.city) +
-      '"><div class="grab" aria-hidden="true"></div><div class="sh-top"><div><b>A day trip from ' +
+      '"><div class="grab" aria-hidden="true"></div><div class="sh-top"><div><b role="heading" aria-level="2">A day trip from ' +
       esc(day.city) +
       '</b><span class="small muted">Day ' +
       day.n +

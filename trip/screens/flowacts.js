@@ -175,8 +175,9 @@
       host.id = "undohost";
       document.body.appendChild(host);
     }
+    /* (read out from the live region that is always there: one drawn with its words already in it is often not read) */
     host.innerHTML = undo
-      ? '<div class="undo" role="status"><span>' +
+      ? '<div class="undo"><span>' +
         esc(undo.label) +
         "</span>" +
         /* (added from Explore: the way to the day it went to) */
@@ -185,11 +186,19 @@
       : "";
     clearTimeout(undoTimer);
     var box = host; /* (found or made above) */
-    if (undo)
-      undoTimer = setTimeout(function () {
+    if (undo) {
+      W.say(undo.label + ". Undo is at the bottom of the screen.");
+      var gone = function () {
+        /* (not while the keyboard is on its Undo: someone who tabbed there gets to press it) */
+        if (box.contains(document.activeElement)) {
+          undoTimer = setTimeout(gone, 2000);
+          return;
+        }
         undo = null;
         box.innerHTML = "";
-      }, 7000);
+      };
+      undoTimer = setTimeout(gone, 7000);
+    }
   }
   function doUndo() {
     if (!undo) return;
@@ -602,6 +611,15 @@
     if (lift) endLift();
     else if (W.closeStop()) return;
     else if (W.qsClose && W.qsClose()) return;
-    else if (W.closeTripMenu) W.closeTripMenu();
+    else if (W.closeTripMenu && W.closeTripMenu()) return;
+    else {
+      /* a stop's swap open on the Day view, with the keyboard in it: Escape closes it, and the keyboard is back on its Swap */
+      var tog = /** @type {HTMLElement | null} */ (document.querySelector('#viewTrip:not([hidden]) [data-reroll][aria-expanded="true"]')),
+        a = /** @type {HTMLElement | null} */ (document.activeElement);
+      if (tog && a && (a === tog || a.closest(".swap"))) {
+        tog.focus({ preventScroll: true });
+        tog.click();
+      }
+    }
   });
 })();

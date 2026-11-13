@@ -179,7 +179,7 @@ interface Waypoint {
   classify: (it: Spot | Food, food: boolean) => Classification;
   clock: (m: number) => string;
   closeStop: () => boolean;
-  closeTripMenu: () => void;
+  closeTripMenu: () => boolean;
   confetti: any;
   /** null without a plan with stops */
   countdown: (P: Plan) => Countdown | null;
@@ -741,6 +741,8 @@ interface Waypoint {
   /** the Back button (lib/back.js): something opened on top of the screen / was closed by its own control */
   backOpen: (key: string, close: () => any) => void;
   backShut: (key: string) => void;
+  /** a short message a screen reader reads out, from the one live region that is always there (lib/a11y.js) */
+  say: (text: string) => void;
   /** the address follows the screen; step: reached by a link, so Back returns from it */
   navTo: (hash: string, step?: boolean) => void;
   /** run this once the second script is here (asks for it when it is not) */

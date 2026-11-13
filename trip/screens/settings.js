@@ -27,6 +27,8 @@
     var h =
       '<div class="settings"><button type="button" class="linkish back" data-view="' +
       back +
+      '" aria-label="Back to ' +
+      esc(BACK[back] || "the trip") +
       '">' +
       W.arrow() +
       esc(BACK[back] || "Back") +

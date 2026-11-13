@@ -109,7 +109,8 @@
       '" tabindex="-1" aria-label="' +
       esc(it.n) +
       '"><div class="grab" aria-hidden="true"></div>' +
-      '<div class="sh-top"><div><b>' +
+      /* (the sheet's title is its heading: a screen reader's list of headings starts there) */
+      '<div class="sh-top"><div><b role="heading" aria-level="2">' +
       esc(it.n) +
       '</b><span class="small muted">Day ' +
       day.n +

@@ -78,7 +78,7 @@
       esc(k) +
       '" data-jnote="' +
       esc(k) +
-      '" rows="2" placeholder="What was the best bit today?">' +
+      '" rows="2" aria-label="A line about the day" placeholder="What was the best bit today?">' +
       esc(note) +
       "</textarea>";
     h +=

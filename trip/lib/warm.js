@@ -228,15 +228,16 @@
        would make the browser lay out the page as it was, only for the rest of the redraw to change it again) */
     pinSoon();
   };
-  /* The slim bar comes the moment the banner's bottom reaches the line the day strip sticks to (44 px below the
-     top, plus the status bar's inset where the page is drawn under it), so the banner never slides on under nothing */
-  var pinTop = 44,
+  /* The slim bar comes the moment the banner's bottom reaches the line the day strip sticks to (52 px below the
+     top: the slim card and the gap above it, app.css .pin; plus the status bar's inset where the page is drawn under
+     it), so the banner never slides on under nothing */
+  var pinTop = 52,
     pinTick = 0;
   function pinMeasure() {
     var p = document.createElement("div");
     p.style.cssText = "position:fixed;top:0;left:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px)";
     document.body.appendChild(p);
-    pinTop = 44 + p.offsetHeight;
+    pinTop = 52 + p.offsetHeight;
     p.remove();
   }
   function pinCheck() {

@@ -2,6 +2,29 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v170
+
+Accessibility beyond the automated checker (the owner's pick, done by a helper and merged here), the slim header as
+the same card, and the way back to a stay that no longer runs into its time.
+- Keyboard and screen readers (lib/a11y.js, new, first script): focus stays on the control you used when the screen
+  is drawn again (a day pill, a tab, a chip, Next day…), or goes to the one beside where it was; a stop's sheet, the
+  day trip, the stay sheet, the welcome and the palette take the keyboard, keep it (the page behind is inert, Tab
+  wraps) and give it back on Escape; the tabs and radio groups take the arrow keys, Home and End; a link to another
+  screen lands on that screen; a control reached by keyboard is never left under the tab bar or the pinned bars; one
+  live region reads changes and where Undo is (the Undo bar stays while the keyboard is on it).
+- Names a screen reader reads right: times apart from names ("8:30 AM, Rome cafe"), Today's next and current stop,
+  packing and booked ticks with one name and their state, named boxes and buttons in Plan, the stay sheet, Settings,
+  Import and Journal; sheet titles are headings; error messages are alerts.
+- Text grows with the phone's or browser's text size (the type is in rem): at the usual size every screen is the
+  same; from 120% rows that need it wrap (html.tbig); at 130% and 200%, 360 and 390 px, nothing runs off or overlaps.
+- Touch: an invisible tap area of at least 44 px on the small buttons and links; Plan's steppers show their focus
+  ring inside the button.
+- The slim bar that comes when you scroll is the header card grown shorter: inset like it, its corners and shadow,
+  on a band of the page's ground (app.css .pin, lib/warm.js); the day strip sticks under it.
+- The way back to your stay: the time bubble always holds all it says, and "Back to <a long hotel name>" goes on a
+  line of its own under it when it doesn't fit beside it (app.css .nav-leg).
+- Tests: keys (34 checks: focus kept, arrows, sheets modal and given back, names, text size). 60 suites.
+
 ## v169
 
 Smooth on older phones (the owner's pick "smooth on older phones", done by a helper and merged here). Measured on a
