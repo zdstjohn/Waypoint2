@@ -88,5 +88,14 @@ exports.run = async t => {
     return { st: f.map(x => x.st === undefined ? ('st' in x ? 'key' : '-') : x.st), asks: asks.length, marked: asks.every(p => p.indexOf('"sure":true') > -1 && /sure = false when you are not certain/.test(p) && /never a name made from the kind of place and the town/.test(p)) }; });
   t.eq(sure.st, ['-', 'unverified', '-', '-'], 'sure: false makes a place "not checked yet"; true, missing or anything else leaves it alone');
   t.ok(sure.asks > 0 && sure.marked, `every question for places to eat asks for the "sure" mark and exact names (${sure.asks})`);
+  /* v174: names that are not one real place (the owner's Greece trip had these on its days) never come in, and a list
+     kept from before never has one planned */
+  const vague = await pg.evaluate(() => {
+    const V = W.V, c = { lat: 36.42, lng: 25.43 };
+    const f = V.list([{ n: 'Ammoudara Beach Tavernas' }, { n: 'Kafeneio Santorini (Perissa bakery cafés)' }, { n: 'Kamari Beach Tavernas: Sunrise Taverna' }, { n: 'Taverna Axiotissa' }, { n: "Harry's Bar" }, { n: 'Caffè Florian' }], x => V.food(x, c)).map(x => x.n);
+    const sp = V.list([{ n: 'Archaeological Museum / Lost Atlantis Experience' }, { n: 'Evening dinner in Old Town tavernas' }, { n: 'Dinner cruise on the Seine' }, { n: 'Venetian Kastro of Naxos' }], x => V.spot(x, c)).map(x => x.n);
+    return { f, sp };
+  });
+  t.eq(vague, { f: ['Taverna Axiotissa', "Harry's Bar", 'Caffè Florian'], sp: ['Dinner cruise on the Seine', 'Venetian Kastro of Naxos'] }, 'a group of places, two places in one, or a meal as a thing to do is not taken in; real names are');
   await ctx.close(); await b.close();
 };

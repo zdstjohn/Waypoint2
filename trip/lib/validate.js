@@ -19,6 +19,25 @@
     var s = V.str(x, 90);
     return s.length >= 2 && !/^(null|undefined|n\/a|none|unknown)$/i.test(s) && !/[<>]/.test(s) ? s : null;
   }; /* no place is named with markup */
+  /** A name that is not one real place (the owner's Greece trip: "Ammoudara Beach Tavernas", "Kafeneio Santorini
+   *  (Perissa bakery cafés)", "Archaeological Museum / Santorini Mega Gialos Lost Atlantis Experience", "Evening dinner
+   *  in Old Town tavernas" as a thing to do). The lists drop them as they come in, and the planner never picks one from
+   *  a list kept from before (you can still add one yourself). food: the name is a place to eat.
+   *  @param {string} n @param {boolean} food */
+  V.vague = function (n, food) {
+    var s = String(n || "");
+    /* two places in one ("A / B", "A or B"), or a group of them ("seafront tavernas", "the cafés on the square") */
+    if (/\s\/\s|\bor\b|\b(any|various|several) of\b/i.test(s)) return true;
+    if (
+      /\b(tavernas|restaurants|ristoranti|trattorias|osterias|cafes|cafés|caffès|bars|eateries|stalls|stands|kiosks|bakeries|food trucks|street food)\b/i.test(
+        s
+      )
+    )
+      return true;
+    /* a meal as a thing to do ("Evening dinner in the old town"): the day has its own lunch and dinner */
+    if (!food && /^(evening |late |long |early )?(dinner|lunch|breakfast|brunch)\s+(in|at|on|by|near|along)\b/i.test(s)) return true;
+    return false;
+  };
   /** @returns {number|null} */
   V.num = function (x) {
     var n = typeof x === "number" ? x : parseFloat(String(x));
@@ -194,7 +213,7 @@
     }
     var x = /** @type {Record<string, any>} */ (x0);
     var n = V.name(x.n);
-    if (!n) {
+    if (!n || V.vague(n, false)) {
       V.stats.dropped++;
       return null;
     }
@@ -227,7 +246,7 @@
     }
     var x = /** @type {Record<string, any>} */ (x0);
     var n = V.name(x.n);
-    if (!n) {
+    if (!n || V.vague(n, true)) {
       V.stats.dropped++;
       return null;
     }

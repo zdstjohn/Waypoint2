@@ -34,7 +34,7 @@
       esc(key) +
       '" data-menu="1" aria-haspopup="dialog" aria-label="Menu" title="Menu">' +
       W.icon("menu", 2) +
-      "</button>"
+      '<span class="bt-l" aria-hidden="true">Menu</span></button>' /* (the word shows where there is room: a phone's stop card) */
     );
   };
   W.menuLink = function (it, city) {

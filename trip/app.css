@@ -1924,36 +1924,11 @@ html.standalone:not(.cloud) .tm-sharebox,html.standalone:not(.cloud) .share{disp
 .day-h.has-hero{position:relative;overflow:hidden;isolation:isolate;border-radius:var(--r-lg);color:var(--on-color);box-shadow:var(--sh-3)}
 .day-h.has-hero{min-height:clamp(190px,46vw,280px);align-items:flex-end;padding:18px 18px 16px}
 .has-hero .hero-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-3}
-/* the header's second layer: Explore shows the town's map here (or the photo darkened); Day hides it. Under the name's
-   shade (the ::before below), over the photo. Switching tabs fades it 0.2 s (none with reduced motion: see the end) */
-.hero-alt{position:absolute;inset:0;z-index:-2;background:rgba(14,12,30,.58);pointer-events:none}
-.hero-alt.has-map{background:none}
-.hero-map{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-/* the map picture is quiet (v173): the town's name in its middle, as a map writes it, in the page's own colours; the
-   photo's shade and the day's lines leave with the photo (the date is in the top card) */
-.hero-city{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:800 2rem/1.1 var(--f-body);letter-spacing:-.01em;color:var(--fg);text-shadow:0 0 2px var(--bg),0 0 5px var(--bg),0 0 10px var(--bg);pointer-events:none}
-.has-hero.is-ex:has(.hero-alt.has-map)::before{opacity:0}
-.has-hero.is-ex:has(.hero-alt.has-map) .grow{opacity:0;visibility:hidden}
-.has-hero::before,.has-hero .grow{transition:opacity .2s ease-out,visibility .2s}
-@media (prefers-reduced-motion:reduce){.has-hero::before,.has-hero .grow{transition:none}}
-.hero-alt.has-map .hero-credit{color:var(--muted);text-shadow:0 0 3px var(--bg)}
-.day-h:not(.is-ex) .hero-alt{opacity:0}
-.hero-alt.fade-in{animation:altIn .2s ease-out both}
-.hero-alt.fade-out{animation:altOut .2s ease-out both}
-@keyframes altIn{from{opacity:0}}
-@keyframes altOut{from{opacity:1}}
-/* a tap on the map opens it (a button over the whole header; the example note's link stays above it) */
-/* (the map shows: its credit replaces the photographer's, which belongs to the photo under it) */
-.has-hero.is-ex:has(.hero-alt.has-map) > .hero-credit{display:none}
 /* a photo with a WebP copy comes wrapped in <picture>: it adds no box of its own, so the header's row (a flex row with a
    gap) lays out the same with or without it (nor does its <source>, which would otherwise be an empty item with a gap) */
 .has-hero > picture{display:contents}
 .has-hero > picture > source{display:none}
-.hero-open{position:absolute;inset:0;z-index:1;width:100%;height:100%;padding:0;border:0;background:none;border-radius:inherit;cursor:pointer}
-.hero-open:focus-visible{outline:3px solid var(--on-color);outline-offset:-5px}
 .has-hero .hero-note a{position:relative;z-index:2}
-@keyframes banPing{from{box-shadow:inset 0 0 0 4px var(--accent)}to{box-shadow:inset 0 0 0 4px transparent}}
-.ban-ping{animation:banPing .9s ease-out}
 .has-hero::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(20,18,40,0) 30%,rgba(20,18,40,.35) 55%,rgba(20,14,34,.82) 100%)}
 .has-hero h2{color:var(--on-color);text-shadow:0 2px 12px rgba(0,0,0,.45)}
 .has-hero .sub{color:rgba(255,255,255,.88)}
@@ -2356,8 +2331,31 @@ table.budget td + td *{font-family:var(--f-body);letter-spacing:0}
 /* ---------- a soft preview while a photo loads (lib/photos.js): the blurred 16 px copy sits behind the picture, which
    fades in over it once loaded; the box is the same size either way, so nothing moves ---------- */
 .lq{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(4px)}
-/* (a header's preview sits at the photo's level, under the map layer; the photo comes after it, so covers it once loaded) */
+/* (a header's preview sits at the photo's level; the photo comes after it, so covers it once loaded) */
 .has-hero .hero-lq{z-index:-3}
 img.lqi{opacity:0}
 img.lqi.ld{opacity:1;transition:opacity .25s ease-out}
 @media (prefers-reduced-motion:reduce){img.lqi.ld{transition:none}}
+
+/* ---------- a phone's Trip day: the photo in the top card, roomier stop cards (v174) ---------- */
+/* The Day tab has no header of its own on a phone: the day's photo is behind the top card (shaded for its words, its
+   credit at the bottom), and the stops start under Day / Explore. Each card gives the time a line of its own, the whole
+   name under it (up to three lines), the photo a small square at the right, and Menu and Swap are buttons with words in
+   a row under the name. Wider screens keep their layout (the words on those buttons stay hidden). */
+.bt-l{display:none}
+@media (max-width:560px){
+  html.on-trip header.top.has-photo{background:linear-gradient(90deg,rgba(26,22,48,.92) 0%,rgba(26,22,48,.62) 55%,rgba(26,22,48,.34) 100%),var(--top-photo) center 40% / cover no-repeat,var(--grad);padding-bottom:20px}
+  html.on-trip header.top.has-photo::after{content:attr(data-credit);position:absolute;left:16px;bottom:5px;max-width:70%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font:600 .5625rem/1.2 var(--f-body);color:rgba(255,255,255,.72);pointer-events:none}
+  #viewTrip .slot.slim{align-items:start;padding:12px}
+  #viewTrip .slot.slim .sl-l{display:grid;gap:2px;-webkit-line-clamp:unset;overflow:visible}
+  #viewTrip .slot.slim .sl-l .tm{display:block;margin:0;white-space:nowrap}
+  #viewTrip .slot.slim .sl-l .nm{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+  #viewTrip .slot .slim-a,#viewTrip .slot .slot-btns{display:contents}
+  #viewTrip .slot .slim-a .thumb,#viewTrip .slot .slot-btns .thumb{grid-column:3;grid-row:1;width:64px}
+  #viewTrip .slot .slim-a .booked-tag{grid-column:2;grid-row:3;justify-self:start}
+  #viewTrip .slot .sl-acts{grid-column:2 / -1;grid-row:2;display:flex;flex-wrap:wrap;gap:8px}
+  #viewTrip .slot .sl-acts .menu-btn,#viewTrip .slot .sl-acts .icon-btn{display:inline-flex;align-items:center;gap:6px;width:auto;height:auto;min-height:36px;padding:4px 12px;border:1px solid var(--ring);border-radius:var(--r-pill);background:var(--surface);color:var(--fg);font:700 .875rem/1 var(--f-body)}
+  #viewTrip .slot .sl-acts svg{width:16px;height:16px}
+  #viewTrip .slot .sl-acts .bt-l{display:inline}
+}
+.sl-acts{display:contents}

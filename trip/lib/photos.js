@@ -438,6 +438,30 @@
      they come near (lazy); the day's own header is the largest thing on the first screen, so it is fetched first, ahead
      of the stops' photos and the second script (fetchpriority) */
   var HERO_SIZES = "(max-width:760px) 60vw, 1180px";
+  /* a phone (the narrow layout, not the desktop workspace): the Day tab's photo goes behind the top card (v174) */
+  W.phoneTop = function () {
+    return !(W.desk && W.desk()) && !!window.matchMedia && window.matchMedia("(max-width:560px)").matches;
+  };
+  /** the day's photo behind the phone's top card, and its credit (null: none). The card is drawn by the page and kept,
+      so the photo is a property on it (app.css draws it with a shade for the words) and the credit an attribute.
+      @param {Photo | null} ph */
+  W.topPhoto = function (ph) {
+    var top = document.querySelector("header.top");
+    if (!top) return;
+    var url = "";
+    if (ph && !(W.simple && W.simple())) {
+      var off = (W.offline && W.offline.off) || window.__WP_OFFLINE,
+        src = W.offline ? W.offline.src(ph.url) : ph.url,
+        wb = ph.webp || {};
+      /* (the normal size is plenty for a card; WebP where there is a copy, as everywhere) */
+      url = !off && src === ph.url && wb.url ? wb.url : src;
+    }
+    if ((top.getAttribute("data-photo") || "") === url) return;
+    top.setAttribute("data-photo", url);
+    top.style.setProperty("--top-photo", url ? 'url("' + url.replace(/["\\]/g, "") + '")' : "none");
+    top.setAttribute("data-credit", url && ph ? "Photo: " + (ph.credit || "Wikimedia Commons") : "");
+    top.classList.toggle("has-photo", !!url);
+  };
   W.heroImg = function (ph, alt, lazy) {
     var off = (W.offline && W.offline.off) || window.__WP_OFFLINE,
       file = !off && !ph.big && W.standalone ? commonsFile(ph) : "",

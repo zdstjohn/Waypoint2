@@ -78,16 +78,17 @@ exports.run = async t => {
   t.eq(again, { lq: false, lqi: false, op: '1', w: true }, 'after a redraw the loaded picture has no preview and stays shown');
   const asked = stats.urls.filter(u => /\.jpg$/.test(u) && !/big|sm/.test(u)).length;
   t.eq(asked, 0, 'no normal-size JPEG was downloaded by a WebP-capable browser for the day\'s thumbnails');
-  /* the header photo, once loaded, is what shows: not its blurred preview over it (the preview and the photo share a level
-     under Explore's map layer) */
+  /* the header photo, once loaded, is what shows: not its blurred preview over it (the preview and the photo share a level) */
   await L.pg.waitForFunction(() => { const i = document.querySelector('.hero-img'); return i && (i.classList.contains('ld') || !i.classList.contains('lqi')); }, null, { timeout: 15000 }).catch(() => {});
   const top = await L.pg.evaluate(() => { const h = document.createElement('div'); h.className = 'day-h has-hero'; document.querySelector('#viewTrip').appendChild(h);
-    h.innerHTML = W.heroImg({ url: '/_blob/never-shown.jpg', lq: 'UklGRgAAAABXRUJQ', webp: { url: '/_blob/never-shown.webp' }, credit: 'Test' }, 'Rome') + '<div class="hero-alt"></div><div class="grow"><h2>Rome</h2></div>';
+    h.innerHTML = W.heroImg({ url: '/_blob/never-shown.jpg', lq: 'UklGRgAAAABXRUJQ', webp: { url: '/_blob/never-shown.webp' }, credit: 'Test' }, 'Rome') + '<div class="grow"><h2>Rome</h2></div>';
     const i = h.querySelector('.hero-img'), q = h.querySelector('.hero-lq');
     if (!i || !q) return { none: true }; const zi = +getComputedStyle(i).zIndex, zq = +getComputedStyle(q).zIndex, after = !!(q.compareDocumentPosition(i) & Node.DOCUMENT_POSITION_FOLLOWING);
     h.remove(); return { zi, zq, after, ok: zq < zi || (zq === zi && after) }; });
   t.ok(top.ok, 'the loaded header photo is drawn over its preview, not under it: ' + JSON.stringify(top));
-  const heroL = await L.pg.evaluate(() => { const h = document.querySelector('.day-h.has-hero'), g = h && h.querySelector('.grow'); return h ? { pic: !!h.querySelector(':scope > picture'), x: Math.round(g.getBoundingClientRect().left - h.getBoundingClientRect().left) } : null; });
+  /* (a phone's day has no header of its own since v174: its photo is behind the top card, the WebP copy where there is one) */
+  const topPic = pg => pg.evaluate(() => document.querySelector('header.top').getAttribute('data-photo') || '');
+  const heroL = await topPic(L.pg);
   t.eq(L.errors(), [], 'no page errors while loading'); await L.ctx.close();
 
   /* ---- the same day with records from before: the plain pictures, no preview, and still shown ---- */
@@ -96,10 +97,9 @@ exports.run = async t => {
   await O.pg.waitForFunction(() => document.querySelectorAll('.slot .thumb img').length > 0, null, { timeout: 20000 }); await O.pg.waitForTimeout(800);
   const old = await O.pg.evaluate(() => { const i = document.querySelector('.slot .thumb img'); return { lq: !!document.querySelector('.slot .thumb .lq'), set: i.hasAttribute('srcset'), pic: !!i.closest('picture'), op: getComputedStyle(i).opacity, nat: i.naturalWidth }; });
   t.eq(old, { lq: false, set: false, pic: false, op: '1', nat: 720 }, 'old records draw as before: one 720 px picture');
-  /* the header's <picture> (a photo with a WebP copy) adds no box: the town's name sits where it does with a plain photo */
-  const heroO = await O.pg.evaluate(() => { const h = document.querySelector('.day-h.has-hero'), g = h && h.querySelector('.grow'); return h ? { pic: !!h.querySelector(':scope > picture'), x: Math.round(g.getBoundingClientRect().left - h.getBoundingClientRect().left) } : null; });
-  t.ok(heroL && heroL.pic && heroO && !heroO.pic, 'the day has a header photo, in a <picture> with the new records and plain with the old: ' + JSON.stringify([heroL, heroO]));
-  t.eq(heroL && heroL.x, heroO && heroO.x, 'and the town\'s name starts at the same place in both');
+  const heroO = await topPic(O.pg);
+  const urls = (mode, k) => Object.values(seed2(mode)['photos/italy-rome'].items).map(r => k === 'webp' ? (r.webp || {}).url : r.url).filter(Boolean);
+  t.ok(urls('new', 'webp').includes(heroL) && urls('old', 'url').includes(heroO), "the day's photo behind the top card: the WebP copy with the new records, the plain photo with the old: " + JSON.stringify([heroL, heroO]));
   await O.ctx.close();
 
   /* ---- the copy for the installable app ---- */

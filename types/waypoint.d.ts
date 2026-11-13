@@ -17,7 +17,7 @@ interface Spot extends LatLng { n: string; d: string; t: string[]; k: Kid; fame?
   st?: "open" | "closed" | "unsure" | "unverified" | "unfound" | "dup"; hours?: Hours | null; lead?: number; love?: string; gripe?: string; bch?: BeachFacts; note?: string; durAsked?: 1; mine?: boolean; indoor?: boolean;
   meal?: Meal; cuisine?: string; price?: string; menu?: string; reserve?: boolean; fav?: boolean }
 /** a place to eat */
-interface Food extends LatLng { n: string; d: string; cuisine: string; price: string; meal: Meal; k: Kid; fame?: Fame; rating?: number; reserve: boolean; book: string; menu: string; dur: string; fav: boolean; pic: string; place?: string;
+interface Food extends LatLng { n: string; d: string; cuisine: string; price: string; meal: Meal; /** the meals came from a checked record (lib/places.js) */ mealOk?: number; k: Kid; fame?: Fame; rating?: number; reserve: boolean; book: string; menu: string; dur: string; fav: boolean; pic: string; place?: string;
   st?: Spot["st"]; hours?: Hours | null; lead?: number; love?: string; gripe?: string; note?: string; durAsked?: 1; s?: TimeOfDay; ticket?: string; t?: string[]; bookV?: number; bch?: BeachFacts; indoor?: boolean; mine?: boolean; fit?: string; fitw?: string; eat?: { f: string; w: string; l?: number; sig: string }; night?: string }
 interface Hours { o: number; c: number; closed: number[] }
 interface BeachFacts { calm?: "calm" | "some waves" | "often rough"; shallow?: boolean; shade?: string; lifeguard?: boolean; sand?: string; walk?: number; facilities?: boolean; note?: string }
@@ -111,6 +111,8 @@ interface Validators { stats: { dropped: number; cleared: number; farPins: numbe
   oneOf<T extends string>(x: unknown, list: readonly T[], dflt: T): T; intOf<T extends number>(x: unknown, set: readonly T[], dflt: T | undefined): T | undefined; fame(x: unknown): Fame | undefined; rating(x: unknown): number | undefined; tags(t: unknown): string[]; url(x: unknown): string;
   oneEach<T>(list: T[], key: string): T[];
   pin(lat: unknown, lng: unknown): { lat: number; lng: number } | null; pinNear(lat: unknown, lng: unknown, center: LatLng | null | undefined, km?: number): { lat: number; lng: number } | null;
+  /** a name that is not one real place (a group of places, two in one, a meal as a thing to do) */
+  vague(n: string, food: boolean): boolean;
   spot(x: unknown, center: LatLng | null): Spot | null; food(x: unknown, center: LatLng | null, dflt?: { meal?: Meal; pic?: string }): Food | null; city(c: unknown): BuiltCity | null; stayArea(x: unknown, center: LatLng | null): StayArea | null;
   lodging(x: unknown, center: LatLng | null, tiers: readonly Tier[], tier?: Tier): Lodging | null; transit(t: unknown): Transit | null; hours(h: unknown): Hours | null; beach(b: unknown): BeachFacts; status(x: unknown): "open" | "closed" | "unsure"; lead(x: unknown): number;
   tz(x: unknown): string; money(x: unknown): number | null; currency(x: unknown, dflt?: string): string; range(y: unknown): { s: number; r: number } | null; list<T extends { n?: string; name?: string }>(arr: unknown, fn: (x: any) => T | null): T[] }
@@ -702,20 +704,6 @@ interface Waypoint {
   vtPieceTest: any;
   vtReadyTest: any;
   vtMount: (slot: any, o: any) => boolean;
-  /** the town's street map as a still picture for the Explore header, kept in W.stills (lib/vtmap.js) */
-  vtStill?: (o: {
-    key: string;
-    slug: string;
-    w: number;
-    h: number;
-    pts: { lat: number | null; lng: number | null }[];
-    /** parts of the name layers' ids to keep ("place-small", "water-name", "park-name", "poi-name", "place-town") */
-    keep?: string[];
-    /** map colours to use instead of the theme's (the palette's names: land, water, park, road, label, halo...) */
-    pal?: Record<string, any>;
-  }) => void;
-  /** the still map pictures by "slug|theme|shape": "wait", "none" (could not be made) or the picture and its framing */
-  stills: Record<string, any>;
   /** Simple view (this phone only): no photos, no street map, fewer words */
   simple: () => boolean;
   /** turn Simple view on or off (saved on this phone) and redraw */
@@ -811,6 +799,10 @@ interface Waypoint {
   cityPhoto: (country: string, city: string, prefer?: (Spot | Food)[]) => Photo | null;
   /** the photo filling a header, with its credit */
   heroImg: (ph: Photo, alt: string, lazy?: boolean) => string;
+  /** a phone's Trip day: the day's photo goes behind the top card (no header of its own) */
+  phoneTop: () => boolean;
+  /** the photo behind the top card, or none */
+  topPhoto: (ph: Photo | null) => void;
   /** a drawn face for a day's mood (3 great, 2 good, 1 tough) */
   moodFace: (m: number) => string;
   /** which Claude request goes next: 0 first (things you asked for), higher later */

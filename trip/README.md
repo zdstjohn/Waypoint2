@@ -250,6 +250,8 @@ lib/              the shared library
                   even number of parts; the test database refuses any other path, as the real one does)
   The header is one banner: the wordmark, and the trip (its name opens your trips; under it a countdown that
   becomes "Day 4 of 20" on the trip), drawn by sync.js (W.countdown); on wide screens the tabs sit in it too.
+  On a phone's Trip screen (Day and Explore) the day's photo is behind that banner (lib/photos.js W.topPhoto, v174):
+  the day has no header of its own and starts right under Day · Explore. A wide screen keeps the day's photo header.
 screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.js, also the app controller: a labelled
                   switch for Day · Explore. Explore: search any place, today's route (each stop with the
                   walk, transit or drive between them and its directions, and one button that opens the whole day in
@@ -318,6 +320,9 @@ Checks (node test/run.js, from the folder above trip/)
   a11y          axe-core (WCAG 2.0/2.1 A and AA) over every screen in light and dark: no violations. Text colors have
                 their own tokens (--muted, --note-text, --food-text) so a fill color can stay bright while text passes.
   validate      the door above, fed the kinds of answers a model can return.
+  phoneday      a phone's Trip day (v174): the first stop right under Day · Explore, the time on one line, whole names,
+                Menu and Swap in words; Simple view keeps only what runs the day (no descriptions, no nice-to-know
+                notes, no tags but the booking ones, no photo behind the top card).
   simple        Simple view: the trip menu's switch takes away photos, descriptions and the greeting on the day,
                 photos and the street map in Explore (the route and its directions stay), photos and the kids' banner
                 on Today and the photo in a stop's panel; kept after a reload; Settings' switch turns it off.

@@ -73,6 +73,28 @@ exports.run = async t => {
     return { stops: P.stops.map(s => s.name), rep: rep.slice(0, 8), same: !!sp };
   });
   if (twice.stops.length >= 2 && twice.same) t.eq(twice.rep, [], 'two stays close together don\'t repeat a place: ' + JSON.stringify(twice)); else t.note('Greece pick trip did not plan: ' + JSON.stringify(twice));
+  /* v174: one real place under several names (the owner's Naxos trip had the Kastro on four days, as "Venetian Kastro
+     of Naxos", "Naxos Old Town and Kastro wander" and so on): an outing's real place, or Google's place ID for a
+     restaurant, counts as the place. A real place that is only the town ("Corfu Town") counts for nothing. */
+  const same = await pg.evaluate(async () => {
+    const ps = W.S.countries[0]; ps.mode = 'manual'; ps.picked = ['Corfu'];
+    W.S.cityDays = { 'Greece|Corfu': 4 }; W.S.days = 4; W.S.picks = {}; W.S.mine = {}; W.changed();
+    for (let i = 0; i < 60 && W.plan().days.some(d => d.loading); i++) await new Promise(r => setTimeout(r, 250));
+    const pool = W.pool('Greece', 'Corfu'); if (!pool) return null;
+    const planned = () => W.plan().days.flatMap(d => (d.slots || []).map(x => x.item).filter(Boolean));
+    W.S.picks = {}; W.replan(); const was = planned(), sp = was.filter(x => pool.spots.includes(x)).slice(0, 6), fd = pool.food.filter(x => x.meal !== 'breakfast').slice(0, 4);
+    if (sp.length < 6) return { short: sp.length };
+    sp.slice(0, 3).forEach(x => { x.place = 'Old Fortress (Palaio Frourio)'; });
+    sp.slice(3, 6).forEach(x => { x.place = 'Corfu Town'; });
+    fd.slice(0, 2).forEach(x => { x.gid = 'ChIJ_same_restaurant'; });
+    W.S.picks = {}; W.replan();
+    const on = planned();
+    return { fort: on.filter(x => sp.slice(0, 3).includes(x)).map(x => x.n), town: on.filter(x => sp.slice(3, 6).includes(x)).length, rest: on.filter(x => fd.slice(0, 2).includes(x)).map(x => x.n) };
+  });
+  if (same && !same.short) {
+    t.ok(same.fort.length <= 1 && same.rest.length <= 1, 'three outings at one real place, or two names with one Google place ID, are planned once at most: ' + JSON.stringify(same));
+    t.ok(same.town === 3, 'outings whose real place is only the town are not taken for one place: ' + same.town + ' of 3 still planned');
+  } else t.note('Corfu did not plan six outings: ' + JSON.stringify(same));
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

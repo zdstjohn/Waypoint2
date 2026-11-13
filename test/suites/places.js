@@ -13,6 +13,7 @@ exports.run = async t => {
       'rome eatery 3 7': { g: 'ChIJtest3', gpin: 1, gat: new Date().toISOString().slice(0, 10), lat: 41.9011, lng: 12.4722 },
       'rome eatery 3 8': { g: 'ChIJtest4', gpin: 1, gat: new Date(Date.now() - 40 * 864e5).toISOString().slice(0, 10), lat: 41.7, lng: 12.7 },
       'trastevere side streets': { lat: 41.8894, lng: 12.4698, approx: 1, stay: 1 },
+      'rome cafe 10 1': { st: 'open', meal: 'both', note: 'A dinner restaurant, not a breakfast café' },
     }, center: [41.8986, 12.4769] },
     'photos/italy-rome': { items: { 'piazza navona': { url: px + '#navona', credit: 'Test', page: 'x' } }, city: 'Rome', country: 'Italy' },
   };
@@ -27,6 +28,9 @@ exports.run = async t => {
       c2: c2 && [c2.lat, c2.lng], home: W.S.stays['Italy|Rome'] && W.S.stays['Italy|Rome'].lat != null ? 'own' : [hb.lat, hb.lng] };
   });
   t.eq(r.st, 'closed', 'a place the check found closed is marked closed');
+  /* v174: a place the check found serves no breakfast ("A dinner restaurant, not a breakfast café") is never at breakfast */
+  const meal = await pg.evaluate(() => { const p = W.pool('Italy', 'Rome'), c = p.food.find(x => x.n === 'Rome cafe 10-1'); W.S.picks = {}; W.replan(); const at = W.plan().days.flatMap(d => d.slots.filter(s => s.item === c).map(s => s.slot)); return { meal: c && c.meal, at }; });
+  t.ok(meal.meal === 'both' && !meal.at.includes('breakfast'), 'the meals a checked record says a place serves win over the list: ' + JSON.stringify(meal));
   t.ok(!r.scheduled, 'and the planner does not schedule it');
   t.ok(r.rep, 'its replacement joins the list');
   /* the replacement and the limit on ideas on show must not take turns (one adding it, the other setting it aside, the

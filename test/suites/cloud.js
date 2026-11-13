@@ -90,7 +90,7 @@ exports.run = async t => {
       'making a stay longer fetches the difference, once: ' + JSON.stringify(grow) + ' ' + JSON.stringify(more));
     /* the first lists come as they are written; one that broke off part-way was asked for again, whole */
     const st = A.asked.filter(x => x.stream), cutKey = st.length && st[0].key, again = A.asked.filter(x => x.key === cutKey).map(x => ({ head: x.head, stream: x.stream }));
-    t.ok(st.length >= 4 && st.every(x => /^List /.test(x.head)) && !A.asked.some(x => x.effort), `the first lists of each city are sent as they are written (${st.length} of ${A.asked.length} questions), with no effort setting`);
+    t.ok(st.length >= 4 && st.every(x => /^(List |Suggest places to stay)/.test(x.head)) && !A.asked.some(x => x.effort), `the first lists of each city (and places to stay, v173) are sent as they are written (${st.length} of ${A.asked.length} questions), with no effort setting`);
     t.ok(again.length === 2 && again[0].stream && !again[1].stream, 'an answer that broke off part-way is asked for once more, whole: ' + JSON.stringify(again));
     t.ok(A.flight.max > 3 && A.flight.max <= 6, 'the installable app asks up to six things at once (three inside Claude): ' + A.flight.max);
     t.ok(A.asked.length > 5 && A.asked.every(x => x.auth) && A.asked.some(x => x.tier === 'quick') && A.asked.some(x => x.tier === 'default'), `each question goes to the function with her sign-in (${A.asked.length} questions)`);

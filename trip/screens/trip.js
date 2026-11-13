@@ -774,7 +774,9 @@
       prevEnd = /** @type {number | null} */ (null),
       sum = { stops: 0, move: 0, first: /** @type {number | null} */ (null), last: /** @type {number | null} */ (null), booked: 0 },
       /* today: what is over is dimmed, what is on now is marked (and the day opens there) */
-      nowM = W.isToday(day) ? W.nowMin() : null;
+      nowM = W.isToday(day) ? W.nowMin() : null,
+      /* Simple view: each card says only what you need to run the day (time, place, the way there, warnings, booking) */
+      simple = W.simple();
     /* a card's quick actions on the desktop (drag it, open it, a day earlier or later, find it on the map): lib/desk.js */
     function quick(x, it) {
       return desk && W.deskQuick ? W.deskQuick(x, it, day, P) : "";
@@ -832,6 +834,9 @@
             })
             .join("") +
           R.info
+            .filter(function (w) {
+              return !simple || !R.more || R.more.indexOf(w) < 0; /* (Simple view: only what you need to run the day) */
+            })
             .map(function (w) {
               return "<span>" + esc(shortNote(w)) + "</span>";
             })
@@ -851,7 +856,7 @@
         W.SLOT_NAME[x.slot].toLowerCase() +
         '" title="Swap">' +
         ICON_REROLL +
-        "</button>";
+        '<span class="bt-l" aria-hidden="true">Swap</span></button>';
       /* the end of a day trip: the drive or train back before dinner */
       if (day.trip && !x.trip && wasOut && prevPt !== home) {
         var rb = W.leg(prevPt, home);
@@ -955,7 +960,8 @@
           bkG = !food && W.bookEntryFor ? W.bookEntryFor(P, day, it) : null,
           bkd = W.bookingFor ? W.bookingFor(it, day) : null;
         var tags = "";
-        if (!food && it.ticket)
+        /* (Simple view keeps only what you have to act on: whether it is booked, or by when to book it) */
+        if (!food && it.ticket && !simple)
           tags +=
             '<span class="gt' +
             (W.isPaid(it) ? "" : " free") +
@@ -968,10 +974,12 @@
         } else if (bkG && bkG.by)
           tags += '<span class="gt due' + (bkG.by < W.now() ? " late" : "") + '">' + esc(W.bookByText(bkG)) + "</span>";
         else if (bkG) tags += '<span class="gt due">Book ahead</span>';
-        if (!food && cls.indoor) tags += '<span class="gt in">Indoors</span>';
-        if (!food && it.fame === 2) tags += '<span class="gt must">Must-see</span>';
-        else if (!food && it.fame === 0) tags += '<span class="gt gem">Hidden gem</span>';
-        if (W.whoTags) tags += W.whoTags(it, food, cls);
+        if (!simple) {
+          if (!food && cls.indoor) tags += '<span class="gt in">Indoors</span>';
+          if (!food && it.fame === 2) tags += '<span class="gt must">Must-see</span>';
+          else if (!food && it.fame === 0) tags += '<span class="gt gem">Hidden gem</span>';
+          if (W.whoTags) tags += W.whoTags(it, food, cls);
+        }
         var glance = tags ? '<span class="gtags">' + tags + "</span>" : "";
         if (food) {
           /* meals: one slim row (time, name, menu); everything else is a tap away */
@@ -1004,9 +1012,10 @@
             '<div class="slim-a">' +
             (ph ? '<div class="thumb sm">' + ph + "</div>" : "") +
             booked +
+            '<span class="sl-acts">' +
             W.menuBtn(x.key) +
             (W.canEdit() ? rr : "") +
-            "</div></article>";
+            "</span></div></article>";
         } else {
           var th = ph ? '<div class="thumb">' + ph + "</div>" : "";
           list +=
@@ -1037,7 +1046,9 @@
             (main || booked ? '<div class="slot-act">' + booked + main + "</div>" : "") +
             (notes ? '<div class="slot-notes">' + notes + "</div>" : "") +
             "</div>" +
-            (th || W.canEdit() ? '<div class="slot-btns">' + th + (W.canEdit() ? rr : "") + "</div>" : "") +
+            (th || W.canEdit()
+              ? '<div class="slot-btns">' + th + (W.canEdit() ? '<span class="sl-acts">' + rr + "</span>" : "") + "</div>"
+              : "") +
             "</article>";
         }
       } else if (R && R.skip && !swap) {
@@ -1446,47 +1457,9 @@
     }
     return h;
   }
-  /* ---------- the day's header: the town's photo (Day) or its street map (Explore), the same size ----------
-     Both tabs draw the same header: the photo, a second layer over it (hero-alt) and the town's name. The second layer is
-     hidden on Day and shows on Explore: the town's map as a still picture, quiet and clean (streets, water, parks and the
-     neighbourhoods' names, the town's name in the middle, no pins: the owner's pick, v173), made once per town and
-     theme by lib/vtmap.js W.vtStill; or, with no street map for the town (or no WebGL), the same photo darkened, with
-     the day's lines as on Day. Switching tabs fades that layer 0.2 s (none with reduced motion); the page below never
-     moves. */
-  W.stills = W.stills || {};
-  var headBox = { w: 0, h: 0 } /* the header's size as last drawn: the map picture is made at this shape */,
-    headSeen = /** @type {{xp: boolean, n: number} | null} */ (null) /* the header last drawn (null: on another screen since) */,
-    headFade = /** @type {{xp: boolean, t: number} | null} */ (null);
-  function darkNow() {
-    var h = document.documentElement.getAttribute("data-theme");
-    return h === "dark" || (h !== "light" && !!window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
-  }
-  /* one picture per town, theme and header shape (the width to height ratio in 5% steps: a few pixels of difference is
-     absorbed by the picture filling its header) */
-  function stillKey(slug) {
-    return slug + "|" + (darkNow() ? "d" : "l") + "|" + Math.round((headBox.w / headBox.h) * 20) / 20 + "|quiet";
-  }
-  /** the places of a day with a pin, and the rest of the town's ideas with one (the map picture is framed on them)
-      @param {any} day @param {any} pool */
-  function heroPins(day, pool) {
-    var stops = [],
-      names = /** @type {Record<string, number>} */ ({}),
-      ideas = [];
-    (day.slots || []).forEach(function (x) {
-      var it = x.item;
-      if (it && it.lat != null && it.lng != null) {
-        names[it.n] = 1;
-        stops.push({ lat: it.lat, lng: it.lng, food: W.isFood(x.slot) });
-      }
-    });
-    if (pool)
-      [(pool.spots || []).map(Object), (pool.food || []).map(Object)].forEach(function (list, food) {
-        list.forEach(function (it) {
-          if (it.lat != null && it.lng != null && !names[it.n]) ideas.push({ lat: it.lat, lng: it.lng, food: !!food });
-        });
-      });
-    return { stops: stops, ideas: ideas };
-  }
+  /* ---------- the day's header: the town's photo behind its name and the date, the same on Day and Explore ----------
+     (v171 to v173 drew the town's street map over it on Explore; the owner had it taken out in v174: a still of a whole
+     island read as nothing much, and the map is a tap away in Today and on the desktop's pane.) */
   var nowSeen = ""; /* today's Day view has been opened at what is on now (see the end of renderTrip) */
   W.renderTrip = function (P, target) {
     /* the map is a way of looking at the trip (Day · Explore); the old Explore view draws the same thing */
@@ -1550,75 +1523,45 @@
     var geoBusy = Object.keys(W.status).some(function (k) {
       return k.indexOf("geo|" + W.cityKey(day.country, day.city)) === 0 && W.status[k] === "loading";
     });
-    /* the city's photo behind the day's name, when there is one (Explore draws the same header over its map, below) */
+    /* the city's photo behind the day's name, when there is one */
     var hero = W.cityPhoto
-        ? W.cityPhoto(
-            day.country,
-            day.city,
-            (day.slots || [])
-              .filter(function (x) {
-                return x.item && !W.isFood(x.slot);
-              })
-              .map(function (x) {
-                return /** @type {Spot | Food} */ (x.item); /* (kept just above: the slots with a place) */
-              })
-          )
-        : null,
-      hpool = W.pool(day.country, day.city),
-      hslug =
-        hero && !(W.simple && W.simple()) && W.vtFor && W.vtState() !== "off" ? W.vtFor(day.country, day.city, home.lat, home.lng) : null,
-      hstill = hslug && headBox.h ? W.stills[stillKey(hslug)] : null,
-      hpins = hero ? heroPins(day, hpool) : { stops: [], ideas: [] },
-      now = Date.now();
-    if (hstill && !hstill.url) hstill = null; /* ("wait" or "none": no picture) */
-    /* a switch between the tabs fades the second layer (kept for a moment, so a redraw straight after keeps the fade) */
-    if (headSeen && headSeen.n === day.n && headSeen.xp !== xp) headFade = { xp: xp, t: now };
-    else if (headFade && (headFade.xp !== xp || now - headFade.t > 600)) headFade = null;
-    headSeen = { xp: xp, n: day.n };
-    var fade = headFade ? (xp ? " fade-in" : " fade-out") : "";
-    /* (a day with no photo keeps its plain heading on both tabs: nothing to cover, so nothing to fade) */
-    h +=
-      '<div class="day-h' +
-      (hero ? " has-hero" + (xp ? " is-ex" : "") : xp ? " ex-h" : "") +
-      '">' +
-      (hero
-        ? W.heroImg(hero, day.city) +
-          '<div class="hero-alt' +
-          (hstill ? " has-map" : "") +
-          fade +
-          '">' +
-          (hstill
-            ? '<img class="hero-map" alt="" src="' +
-              esc(hstill.url) +
-              '"><b class="hero-city" aria-hidden="true">' +
-              esc(day.city) +
-              '</b><span class="hero-credit">© OpenMapTiles © OpenStreetMap contributors</span>'
-            : "") +
-          "</div>" +
-          (xp && hstill
-            ? '<button type="button" class="hero-open" data-banmap="1" aria-label="Open the map of ' + esc(day.city) + '"></button>'
-            : xp && !hslug
-              ? /* no street map for this town: the banner opens the town in Google Maps */
-                '<a class="hero-open" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=' +
-                encodeURIComponent(day.city + ", " + day.country) +
-                '" aria-label="Open ' +
-                esc(day.city) +
-                ' in Google Maps"></a>'
-              : "")
-        : "") +
-      '<div class="grow"><h2>' +
-      (xp && !hero && target === "explore" ? "Explore " : "") +
-      esc(day.city) +
-      '</h2><div class="sub">' +
-      sub.join(" · ") +
-      (!xp || hero ? dayLevel(day, P) : "") +
-      "</div>" +
-      (W.isExample && (!xp || hero)
-        ? '<div class="small ' +
-          (hero ? "hero-note" : "muted") +
-          '">Example trip · change anything under <a href="#plan" data-view="setup">Plan</a></div>'
-        : "") +
-      "</div></div>";
+      ? W.cityPhoto(
+          day.country,
+          day.city,
+          (day.slots || [])
+            .filter(function (x) {
+              return x.item && !W.isFood(x.slot);
+            })
+            .map(function (x) {
+              return /** @type {Spot | Food} */ (x.item); /* (kept just above: the slots with a place) */
+            })
+        )
+      : null;
+    /* on a phone the day has no header of its own (v174, the owner's pick), on Day or Explore: the day's photo goes
+       behind the top card, which already says the town and the date, and the day starts right under Day / Explore.
+       (lib/photos.js W.topPhoto; app.css shows the photo on the Trip screen of a phone.) */
+    var topCard = !!hero && !!W.phoneTop && W.phoneTop();
+    W.topPhoto(topCard ? hero : null);
+    /* (a day with no photo keeps its plain heading on both tabs) */
+    if (!topCard)
+      h +=
+        '<div class="day-h' +
+        (hero ? " has-hero" : xp ? " ex-h" : "") +
+        '">' +
+        (hero ? W.heroImg(hero, day.city) : "") +
+        '<div class="grow"><h2>' +
+        (xp && !hero && target === "explore" ? "Explore " : "") +
+        esc(day.city) +
+        '</h2><div class="sub">' +
+        sub.join(" · ") +
+        (!xp || hero ? dayLevel(day, P) : "") +
+        "</div>" +
+        (W.isExample && (!xp || hero)
+          ? '<div class="small ' +
+            (hero ? "hero-note" : "muted") +
+            '">Example trip · change anything under <a href="#plan" data-view="setup">Plan</a></div>'
+          : "") +
+        "</div></div>";
     /* a public holiday or a festival on this day */
     if (!xp && W.holidayLine) h += W.holidayLine(day);
     /* the forecast, when the day is inside Google's ten and the viewer has a Google Maps connection (lib/gmaps.js) */
@@ -1855,28 +1798,6 @@
       h + (xpCols ? "</div>" : "") + "</div>",
       "day|" + S.tripId + "|" + S.day + "|" + (xp ? "map" : "list") + "|" + (W.simple() ? 1 : 0)
     );
-    /* the header's size, and the town's map picture made at that shape (at once on Explore, a moment after the first
-       screen on Day, so the switch finds it ready) */
-    var hb = hslug ? el.querySelector(".day-h.has-hero") : null;
-    if (hslug && hb && hb.clientWidth > 80 && hb.clientHeight > 40) {
-      headBox = { w: hb.clientWidth, h: hb.clientHeight };
-      var slugNow = hslug,
-        skey = stillKey(slugNow),
-        make = function () {
-          if (W.vtStill && !W.stills[skey])
-            W.vtStill({
-              key: skey,
-              slug: slugNow,
-              w: Math.min(900, headBox.w),
-              h: Math.round((Math.min(900, headBox.w) * headBox.h) / headBox.w),
-              pts: hpins.stops.concat(hpins.ideas),
-              keep: ["place-small"] /* (the neighbourhoods' names: the town's own is drawn over the picture) */
-            });
-        };
-      if (xp) make();
-      else setTimeout(make, 1500);
-      if (!hstill && W.stills[skey] && W.stills[skey].url) W.redraw(); /* (the shape changed: a picture of this shape is ready) */
-    }
     /* today, opened afresh (from another tab or day, or as the app starts): the day opens at what is on now, or at
        what is next, not at a morning that is over. Once per visit to the day: after that the scrolling is yours.
        (A frame later: arriving on a screen puts it at the top first.) */
@@ -1959,6 +1880,7 @@
     shown("viewKids", view === "kids");
     shown("viewSetup", view === "setup");
     shown("viewTrip", view === "trip");
+    document.documentElement.classList.toggle("on-trip", view === "trip");
     shown("viewBook", view === "book");
     shown("viewRecap", view === "recap");
     shown("viewGo", view === "go");
@@ -1977,7 +1899,6 @@
     if (W.aheadTick) W.aheadTick(P); /* (fetch ahead when idle: lib/ahead.js, in the second script) */
     /* Plan, Prepare, the kids' corner, the recap and settings live in the second script: until it has come, a moment's "Loading…" */
     if (view !== "trip") nowSeen = ""; /* (coming back to today's Day view opens it at what is on now again) */
-    if (view !== "trip" && view !== "explore") headSeen = null; /* (leaving the trip's screens: no fade on the way back) */
     var later = view === "kids" || view === "recap" || view === "settings" || view === "book" || view === "setup";
     if (later && !W.needLater()) {
       var lv = $(

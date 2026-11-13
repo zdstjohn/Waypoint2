@@ -1015,9 +1015,9 @@
     if (window.console) console.warn("[waypoint map]", msg);
     if (W.logError) W.logError("map: " + String(msg).slice(0, 200), "vtmap");
   }
-  /** @param {string} slug @param {any} hdr @param {Record<string, any>} [over] colours to use instead of the theme's */
-  function style(slug, hdr, over) {
-    var C = Object.assign(palette(), over || {}),
+  /** @param {string} slug @param {any} hdr */
+  function style(slug, hdr) {
+    var C = palette(),
       url = "wpvt://" + slug + "/{z}/{x}/{y}";
     var lo = layersFor("lo", C, true),
       hi = layersFor("hi", C, false);
@@ -1553,147 +1553,6 @@
       S.map.triggerRepaint();
     }
   });
-  /* ---------- a still picture of a town's street map (the Explore header, screens/trip.js) ----------
-     The header of Explore shows the town's map as a picture, the same size as the day's photo. It is drawn once per town,
-     theme and header shape by a second, hidden map (the live map is never touched: it may be on screen in the desktop
-     pane) and kept as a blob URL in W.stills[o.key]: the picture and where it is framed, so the header can lay the day's
-     stops over it as dots. A failure (no WebGL, no pack, a timeout) is kept too ("none"), so it is not tried again.
-     o: {key, slug, w, h, pts: [{lat, lng}] (the town's places: the picture is framed on most of them)} */
-  W.vtStill = function (o) {
-    var st = W.stills;
-    if (!st || st[o.key]) return;
-    st[o.key] = "wait";
-    Promise.resolve(S.engine === "ready" || engine())
-      .then(function () {
-        if (S.engine !== "ready") throw new Error("no engine");
-        return pack(o.slug);
-      })
-      .then(function (p) {
-        return new Promise(function (ok, no) {
-          var host = document.createElement("div"),
-            done = false,
-            m = /** @type {any} */ (null),
-            got = /** @type {Record<string, number>} */ ({}),
-            timer = setTimeout(function () {
-              end(null, new Error("took too long"));
-            }, 20000);
-          host.setAttribute("aria-hidden", "true");
-          host.style.cssText = "position:fixed;left:-9999px;top:0;width:" + o.w + "px;height:" + o.h + "px;pointer-events:none";
-          document.body.appendChild(host);
-          function end(v, e) {
-            if (done) return;
-            done = true;
-            clearTimeout(timer);
-            try {
-              if (m) m.remove();
-            } catch (x) {
-              W.caught(x, "the still map's removal");
-            }
-            host.remove();
-            if (v) ok(v);
-            else no(e);
-          }
-          /* framed on most of the town's places (the middle 84%: one far-off sight would shrink the town to a dot) */
-          function frame() {
-            var pts = (o.pts || []).filter(function (q) {
-                return q.lat != null && q.lng != null;
-              }),
-              b = p.hdr.places;
-            if (!pts.length)
-              return [
-                [b[0], b[1]],
-                [b[2], b[3]]
-              ];
-            var cut = function (key) {
-              var v = pts
-                .map(function (q) {
-                  return q[key];
-                })
-                .sort(function (a, c) {
-                  return a - c;
-                });
-              var k = v.length >= 8 ? Math.floor(v.length * 0.08) : 0;
-              return [v[k], v[v.length - 1 - k]];
-            };
-            var x = cut("lng"),
-              y = cut("lat"),
-              mx = Math.max((x[1] - x[0]) * 0.12, 0.006),
-              my = Math.max((y[1] - y[0]) * 0.12, 0.004);
-            return [
-              [x[0] - mx, y[0] - my],
-              [x[1] + mx, y[1] + my]
-            ];
-          }
-          function snap() {
-            if (done || !m) return;
-            m.getCanvas().toBlob(
-              function (bl) {
-                if (!bl) return end(null, new Error("no picture"));
-                var c = m.getCenter();
-                end({ url: URL.createObjectURL(bl), lng: c.lng, lat: c.lat, zoom: m.getZoom(), w: o.w, h: o.h });
-              },
-              "image/webp",
-              0.82
-            );
-          }
-          try {
-            var sty = style(o.slug, p.hdr, o.pal);
-            /* no names unless asked for (o.keep: parts of the name layers' ids to keep, "place-small" for the
-               neighbourhoods, "water-name"...): by default a quiet backdrop for the town's name and the dots */
-            sty.layers = sty.layers.filter(function (l) {
-              return (
-                l.type !== "symbol" ||
-                (o.keep || []).some(function (/** @type {string} */ k) {
-                  return l.id.indexOf(k) > -1;
-                })
-              );
-            });
-            m = new ML.Map({
-              container: host,
-              style: sty,
-              bounds: frame(),
-              fitBoundsOptions: { padding: 10, maxZoom: 15.5 },
-              interactive: false,
-              attributionControl: false,
-              fadeDuration: 0,
-              preserveDrawingBuffer: true
-            });
-            /* the cover under the detailed tiles that loaded, as on the live map (see coverSoon) */
-            m.on("sourcedata", function (e) {
-              var t = e && e.sourceId === "hi" && e.tile;
-              if (t && (t.state === "loaded" || t.state === "reloading") && t.tileID) {
-                var c = t.tileID.canonical;
-                got[c.z + "/" + c.x + "/" + c.y] = 1;
-              }
-            });
-            m.on("error", function (e) {
-              mapErr(String((e && e.error && e.error.message) || e));
-            });
-            m.once("idle", function () {
-              var keys = Object.keys(got);
-              [13, 14].forEach(function (zl) {
-                var src = m.getSource("mask" + zl);
-                if (src && src.setData) src.setData(mask(keys, zl));
-              });
-              m.triggerRepaint();
-              setTimeout(snap, 400);
-            });
-          } catch (e) {
-            end(null, e);
-          }
-        });
-      })
-      .then(
-        function (r) {
-          st[o.key] = r;
-          W.redraw(); /* (the header takes the picture) */
-        },
-        function (e) {
-          st[o.key] = "none";
-          mapErr("still: " + ((e && e.message) || e));
-        }
-      );
-  };
   W.vtZoom = function (how) {
     if (!S.map || !S.ready) return false;
     if (how === "in") S.map.zoomIn({ duration: 250 });

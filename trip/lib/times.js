@@ -653,6 +653,11 @@
         food = W.isFood(x.slot),
         row = /** @type {TimeRow} */ ({ warn: [], info: [] });
       out.rows[x.slot] = row;
+      /* a note that is nice to know but not needed to run the day: shown with the rest, left out in Simple view */
+      var extra = function (/** @type {string} */ t) {
+        row.info.push(t);
+        (row.more = row.more || []).push(t);
+      };
       if (out.travel && x.slot === "am") row.label = "After you arrive";
       if (x.slot === "breakfast" && out.travel && out.travel.end > hm(10, 30)) {
         var bs = out.before ? (p.kid ? hm(8) : hm(8, 30)) : out.travel.start - 50;
@@ -780,7 +785,7 @@
       if (x.slot === "dinner" && kd) {
         if (h && h.o > kd + 30) row.warn.push("Kitchen opens " + W.clock(h.o) + ": late for kids");
         else if (W.lateDinner(day.country))
-          row.info.push("Locals eat around " + W.clock(M[1]) + ". Going at opening means a calmer, kid-friendly table");
+          extra("Locals eat around " + W.clock(M[1]) + ". Going at opening means a calmer, kid-friendly table");
       }
       /* the group's food needs: what this place offers them, and allergies to mention */
       if (food && W.eatNeeds) {
@@ -788,7 +793,7 @@
           ef = W.eatFit(it),
           ew = W.eatWhy(it);
         if (ef === "poor") row.warn.push("Hard for your food needs" + (ew ? ": " + ew : ""));
-        else if (ew) row.info.push(ew);
+        else if (ew) extra(ew);
         if (en && en.al.length)
           row.info.push(
             "Tell the staff: " +

@@ -1,5 +1,11 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v173. The light or dark choice: a card in Settings (under Simple view) and a switch in the trip menu.
+# v174. A phone's Trip day: the photo behind the top card (Day and Explore), roomier stop cards with Menu / Swap in
+# words; the Explore map is gone; a wide screen's plan pane takes the same cards.
+trip-days-*
+explore-*
+today-*
+swap-*
+meal-panel-*
+stop-panel-*
 menu-*
-settings-*

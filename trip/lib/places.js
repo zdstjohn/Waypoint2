@@ -92,6 +92,12 @@
       }
       if (r.hours && !it.hours) it.hours = r.hours;
       if (r.k != null) it.k = r.k;
+      /* the meals a place really serves, where the check found the list wrong ("A dinner restaurant, not a breakfast
+         café"): the planner then never puts it at breakfast */
+      if (food && (r.meal === "breakfast" || r.meal === "lunch" || r.meal === "dinner" || r.meal === "both" || r.meal === "all")) {
+        it.meal = r.meal;
+        it.mealOk = 1; /* (checked: the planner takes it at its word, not by its name: lib/plan.js breakfastOK) */
+      }
       if (r.note) it.note = r.note;
       /* shut for a stretch (the nightly "still open" check): warned on the days it covers, and kept off them */
       it.shut = W.cleanShut(r.shut);

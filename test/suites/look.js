@@ -28,13 +28,15 @@ exports.run = async t => {
     /* photo credits: text, not links */
     const cr = await pg.evaluate(() => ({ links: document.querySelectorAll('a.credit').length, spans: document.querySelectorAll('span.credit').length, pe: [...document.querySelectorAll('span.credit')].every(s => getComputedStyle(s).pointerEvents === 'none') }));
     t.ok(cr.links === 0 && cr.pe, `photo credits are plain text a tap goes through (${cr.spans} shown)`);
-    /* a place's name runs to two lines rather than "Sant'Eustach…" */
+    /* a place's name runs on rather than "Sant'Eustach…" */
     const nm = await pg.evaluate(() => { W.S.tview = 'days'; W.render(); return [...document.querySelectorAll('#viewTrip .slot.slim .sl-l')].filter(e => e.querySelector('.nm') && e.querySelector('.nm').textContent.trim()).map(e => { const c = getComputedStyle(e), n = e.querySelector('.nm'), rs = [...n.getClientRects()];
       /* a word split across two lines has two boxes: compare each word's boxes (a hyphen is a fair place to wrap) */
       const words = n.textContent.trim().split(/[\s-]+/).filter(Boolean),   /* (a hyphen is a fair place to wrap) */ range = document.createRange(), split = []; let pos = 0; const tx = n.firstChild && n.firstChild.nodeType === 3 ? n.firstChild : null;
       if (tx) words.forEach(w => { const i = tx.data.indexOf(w, pos); if (i < 0) return; range.setStart(tx, i); range.setEnd(tx, i + w.length); if (range.getClientRects().length > 1) split.push(w); pos = i + w.length; });
-      return { n: n.textContent.trim(), whole: e.scrollHeight <= e.clientHeight + 2, lines: Math.round(e.clientHeight / parseFloat(c.lineHeight)), clamp: c.webkitLineClamp, split }; }); });
-    t.ok(nm.length >= 2 && nm.every(x => x.whole && x.lines <= 2 && x.clamp === '2' && !x.split.length), 'the day\'s places show their whole names, on two lines at most, never split inside a word: ' + nm.map(x => x.n + ' (' + x.lines + (x.split.length ? ', split: ' + x.split.join(' ') : '') + ')').join(', '));
+      const cn = getComputedStyle(n);
+      return { n: n.textContent.trim(), whole: n.scrollHeight <= n.clientHeight + 2, lines: Math.round(n.clientHeight / parseFloat(cn.lineHeight)), clamp: cn.webkitLineClamp, split }; }); });
+    /* (v174: the name has the card's width under its time, up to three lines) */
+    t.ok(nm.length >= 2 && nm.every(x => x.whole && x.lines <= 3 && x.clamp === '3' && !x.split.length), 'the day\'s places show their whole names, on three lines at most, never split inside a word: ' + nm.map(x => x.n + ' (' + x.lines + (x.split.length ? ', split: ' + x.split.join(' ') : '') + ')').join(', '));
     /* On a phone the banner's last line is the day (city, date, how full, the route), so the day's title is not a block
        of its own under it, and the first stop starts higher up; the heading stays in the page for a screen reader */
     const bd = await pg.evaluate(() => { W.S.tview = 'days'; W.render(); scrollTo(0, 0); const top = document.querySelector('.top'), tl = document.querySelector('#topline .tl-day'), go = tl && tl.querySelector('.tl-go'), h = document.querySelector('#viewTrip .day-h'), gm = document.querySelector('#viewTrip .day-h ~ .day-gm a');

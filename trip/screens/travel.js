@@ -1095,30 +1095,6 @@
         W.render();
         return;
       }
-      /* the banner on Explore: the map of the town. On the desktop workspace that is the pane (opened if it was hidden, and
-         pointed at for a moment); on a phone, Today's map for this day */
-      if (d.banmap) {
-        stop();
-        if (W.desk()) {
-          if (W.wsPrefs && !W.wsPrefs.map && W.wsDo) W.wsDo("map"); /* (hidden by hand: shown again) */
-          var pane = W.wsEl ? W.wsEl("wsMapWrap") : null;
-          if (pane) {
-            pane.classList.remove("ban-ping");
-            void pane.offsetWidth;
-            pane.classList.add("ban-ping");
-          }
-        } else {
-          goMapOpen = true;
-          try {
-            localStorage.setItem(GOMAP, "1");
-          } catch (x) {
-            /* (private mode: the map is open for now, just not remembered) */
-          }
-          W.goToDay(W.S.day);
-          W.goView("go", "#viewGo .go-map");
-        }
-        return;
-      }
       if (d.gomap) {
         stop();
         goMapOpen = !goMapOpen;

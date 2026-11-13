@@ -412,7 +412,7 @@
   /* breakfast: places marked for breakfast, or cafés and bakeries that aren't dinner-only */
   function breakfastOK(item) {
     if (item.meal === "breakfast" || item.meal === "all") return 2;
-    if (item.meal === "dinner") return 0;
+    if (item.meal === "dinner" || item.mealOk) return 0; /* (a checked record's meals hold, whatever the name says) */
     var k = W.picKind ? W.picKind(item, true) : "";
     return k === "cafe" ||
       k === "bakery" ||
@@ -515,6 +515,7 @@
     if (!f) return null;
     if (item.s === "any" && slot === "am" && !ctx.allowFull) return null;
     if (W.gone(item)) return null; /* closed for good, or the check found no such place */
+    if (W.V.vague(item.n, W.isFood(slot))) return null; /* not one real place (V.vague): from a list kept from before */
     /* the group's food needs: a place that can't feed them is never planned; one that clearly can is a little ahead */
     var eatF = W.isFood(slot) && W.eatFit ? W.eatFit(item) : "",
       /* what you love counts for more than a good rating (a place for it: +7; one with some of it: +3) */
@@ -638,21 +639,68 @@
     } catch (e) {}
     return k;
   };
+  /** Every name a place goes by in a stop's map of what is planned: its own name; its name's own words (placeKey);
+   *  Google's place ID, once the check has matched it (two names for one restaurant: "Taverna Axiotissa", "Axiotissa");
+   *  and, for a thing to do, the real place where it happens ("Venetian Kastro of Naxos", "Naxos Old Town and Kastro
+   *  wander" and "Venetian Kastro and Bazaar" are all the Kastro: one visit, not three). A real place that is only the
+   *  town itself ("Naxos Town") says nothing, so it is left out: the stop's town words ride on the map (newUsed).
+   *  @param {Record<string, any>} used @param {any} it */
+  function keysOf(used, it) {
+    var ks = [W.norm(it.n), "@" + W.placeKey(it)];
+    if (it.gid) ks.push("g:" + it.gid);
+    var food = "cuisine" in it || "meal" in it;
+    if (!food && it.place && typeof it.place === "string") {
+      var pk = W.placeKey({ n: it.place }).slice(2),
+        town = /** @type {Record<string, number> | undefined} */ (used._town),
+        own = pk.split(" ").filter(function (w) {
+          return w && !(town && town[w]) && !PLACE_GEN[w];
+        });
+      if (own.length) ks.push("#" + own.join(" "));
+    }
+    return ks;
+  }
+  /* words that name a kind of place, not a place: a real place made only of these and the town's name is the town */
+  var PLACE_GEN = {};
+  "town chora centre center city village port harbour harbor marina beach beaches coast island centro citta"
+    .split(" ")
+    .forEach(function (w) {
+      PLACE_GEN[skel(w)] = 1; /* (as placeKey writes its words) */
+    });
+  /** a stop's map of what is planned, knowing its town's words (not listed among its keys) @param {string} town */
+  function newUsed(town) {
+    /** @type {Record<string, any>} */ var u = {},
+      words = /** @type {Record<string, number>} */ ({});
+    W.norm(town || "")
+      .split(" ")
+      .forEach(function (w) {
+        if (w) words[skel(w)] = 1;
+      });
+    try {
+      Object.defineProperty(u, "_town", { value: words, enumerable: false });
+    } catch (e) {
+      /* (a frozen object: no town words, so a real place that is only the town counts as a place) */
+    }
+    return u;
+  }
   function isUsed(used, it) {
-    return !!(used[W.norm(it.n)] || used["@" + W.placeKey(it)]);
+    return keysOf(used, it).some(function (k) {
+      return !!used[k];
+    });
   }
   function usedHere(used, it) {
-    var a = used[W.norm(it.n)],
-      b = used["@" + W.placeKey(it)];
-    return !!((a && String(a).charAt(0) !== "~") || (b && String(b).charAt(0) !== "~"));
+    return keysOf(used, it).some(function (k) {
+      return !!used[k] && String(used[k]).charAt(0) !== "~";
+    });
   }
   function mark(used, it, k) {
-    used[W.norm(it.n)] = k;
-    used["@" + W.placeKey(it)] = k;
+    keysOf(used, it).forEach(function (q) {
+      used[q] = k;
+    });
   }
   function unmark(used, it, k) {
-    if (used[W.norm(it.n)] === k) delete used[W.norm(it.n)];
-    if (used["@" + W.placeKey(it)] === k) delete used["@" + W.placeKey(it)];
+    keysOf(used, it).forEach(function (q) {
+      if (used[q] === k) delete used[q];
+    });
   }
   function byName(list, n) {
     var k = W.norm(n);
@@ -982,7 +1030,7 @@
       }
       if (!pool.fallback && W.loadFame) W.loadFame(s.country, s.name); /* ratings for the ideas already there (no new ones) */
       var home = W.homebase(s.country, s.name),
-        used = {};
+        used = newUsed(s.name);
       cdays.forEach(function (d) {
         d.slots = slotsFor().map(function (sl) {
           var k = key(d, sl);
@@ -1027,12 +1075,15 @@
           var find = function (n) {
             return n ? byName(list, n) || (!lp.fallback && W.fromRest ? W.fromRest(lp, n, food) : null) : null;
           };
-          /* a pick the planner made (not you) that turns out to be shut that day, or a dinner that opens too late for the kids, is replanned */
+          /* a pick the planner made (not you) that turns out to be shut that day, a dinner that opens too late for the kids, or a
+             meal the place doesn't serve, is replanned */
           var fine = function (y) {
             return !(
               W.badForDay(y, W.weekday(d.n), x.slot, W.kidDinner(), d.n) ||
               (W.holidayShut && W.holidayShut(y, d)) ||
-              (food && W.eatFit && W.eatFit(y) === "poor")
+              (food && W.eatFit && W.eatFit(y) === "poor") ||
+              /* (a meal it turns out not to serve: the check found a "breakfast café" is a dinner restaurant) */
+              (food && !fits(y, x.slot))
             );
           };
           var it = find(nm);
@@ -1282,7 +1333,7 @@
       pl = dayPool(d, x, s),
       pool = pl.pool;
     if (!pool || !s.geo) return false;
-    var used = s.used || (s.used = {}),
+    var used = s.used || (s.used = newUsed(s.name)),
       home = pl.home,
       tried = {};
     var was = x.item,
@@ -1411,7 +1462,7 @@
     P.days.forEach(function (d) {
       if (!d.slots || !d.slots.length || d.loading) return;
       var s = P.stops[d.stop],
-        used = s.used || (s.used = {}),
+        used = s.used || (s.used = newUsed(s.name)),
         /** @type {any} */ T = null;
       d.slots.forEach(function (x) {
         if (x.item || !x.cut || x.rest || x.free || x.loading || !U[x.key] || W.S.picks[x.key] || mine()[x.key]) return;
@@ -1478,7 +1529,7 @@
       pool = pl.pool;
     if (!pool) return null;
     var used = P.stops[day.stop].used || {},
-      u = {};
+      u = newUsed(P.stops[day.stop].name || "");
     Object.keys(used).forEach(function (n) {
       if (used[n] !== k) u[n] = 1;
     });

@@ -2,6 +2,38 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v174
+
+The owner's picks for a phone's Trip day and Simple view, the Explore map taken out, and fixes from an audit of the
+places and pins the owner found wrong.
+- A phone's Trip day (the owner's option 2 of five; screens/trip.js, lib/photos.js W.phoneTop / W.topPhoto, app.css):
+  the day's photo goes behind the top card, which already names the town and the date, on Day and Explore, so the
+  first stop sits right under Day · Explore. The stop cards are roomier: the time on a line of its own, the whole name
+  (up to three lines), a small square photo at the right, and Menu / Swap as buttons with words (.bt-l, .sl-acts).
+- Simple view keeps only what runs the day: no descriptions, no "nice to know" notes (TimeRow.more in lib/times.js:
+  "Locals eat around…" and the like), no tags but the booking ones, no photo behind the top card.
+- The Explore map is gone (the owner: "Get rid of the explore map. It's not working."): the street-map picture over
+  Explore's header, its tap, and W.vtStill (lib/vtmap.js) that drew it. Both tabs draw the same header.
+- One real place is planned once (lib/plan.js keysOf): besides its name, a place is known by Google's place ID once
+  the check has matched it, and an outing by the real place it happens at. The owner's Naxos trip had the Kastro on
+  four days under four names. A real place that is only the town ("Naxos Town") counts for nothing.
+- Names that are not one real place are dropped as lists come in and never planned from lists kept before
+  (lib/validate.js V.vague): a group ("Ammoudara Beach Tavernas", "cafés on the square"), two places in one ("A / B",
+  "A or B"), a meal as a thing to do ("Evening dinner in the old town").
+- A checked record can say which meals a place serves (lib/places.js: r.meal, it.mealOk): "A dinner restaurant, not a
+  breakfast café" holds over a café-sounding name (lib/plan.js breakfastOK), and a pick the planner made for a meal the
+  place doesn't serve is planned again.
+- The places themselves (the database, not the code): every place on the owner's trips and in their towns' lists that
+  had no checked record was looked up on Google Maps (about 1,000 places in 33 towns, read by helpers and reviewed):
+  wrong pins moved (to the free map's own place where it has one), invented places and ones in another town marked
+  unfound, duplicates marked, closures noted. The rest of the towns' lists (about 600 places in 28 more towns) too.
+- Street maps for 116 more towns (the database and the asset store, not the code): Milan, Bologna, Verona, Pisa, Siena,
+  Turin and the rest of Italy's list, and Spain, France, Switzerland, Austria, Germany, the UK, Ireland, the Low
+  Countries, Croatia, Portugal and more; the three Spanish trip towns that had none (Tarifa, Picos de Europa, Ordesa).
+- Tests: phoneday (new), banner (rewritten: no map, both tabs alike), planner (one place under several names),
+  validate (names that are not one place), places (a checked record's meals), photoset (the top card's photo), look
+  and cloud (the new cards; places to stay as they are written). 68 suites.
+
 ## v173
 
 Light or dark by choice, a quiet map for Explore, and four fixes from the owner's own testing.
