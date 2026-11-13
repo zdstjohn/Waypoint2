@@ -730,7 +730,7 @@ interface Waypoint {
   vtWarm: (slug: string) => any;
   vtWorkerUsed: any;
   vtZoom: (how: any) => void;
-  wantPhotos: (country: string, city: string, pool: Pool | null, P?: Plan) => void;
+  wantPhotos?: (country: string, city: string, pool: Pool | null, P?: Plan) => void;
   IDEA_CAP: { spots: number; food: number };
   tripPhotoCoverage: (P: Plan) => { stops: number; withPhoto: number; pct: number; rows: { key: string; country: string; city: string; stops: number; urls: string[]; map: string | null; items: Record<string, string> }[] };
   vtSize: (slug: string) => number;

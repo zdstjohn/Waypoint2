@@ -2,6 +2,21 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v182
+
+- Photos show at once on a reload (the owner: "takes a few seconds to load photos on page refresh"). Every load used to
+  download every town's photo index (about 150 towns, 1.6 MB) before any card had a picture. Now a town's index is
+  watched from the first time a photo of it is looked up (lib/photos.js want: photos/<town>, links/<town>; photos the
+  nightly run finds while the app is open still come in), and the last
+  16 towns used are kept on the phone ("waypoint-photo-index-v1"), so the first screen has its photos from them while
+  the asking only refreshes. A trip that spells a country differently ("USA") gets the whole list once, to find the
+  town by its name, and keeps the town found. The photo finder's list (W.wantPhotos) moved to the second script
+  (lib/photowish.js), so the first download stays under its limit.
+- The slim bar's photo is in place before the bar first shows (lib/ahead.js measures a hidden stand-in of the bar), so
+  it no longer jumps as you scroll (the owner: "jittery"); placed as soon as the second script arrives.
+- Tests: photos checks that only the trip's towns are asked for and kept, and finds a differently spelled country's
+  town a moment later.
+
 ## v181
 
 Everything the five reviewers raised about v180 (the owner: "fix all their issues including the smaller points").

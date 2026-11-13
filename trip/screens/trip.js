@@ -1671,9 +1671,11 @@
       W.loadBookLinks(day.country, day.city, firstN);
     }
     /* let the photo finder know which places this trip uses */
-    P.stops.forEach(function (st) {
-      W.wantPhotos(st.country, st.name, W.pool(st.country, st.name), P);
-    });
+    /* (lib/photowish.js, second script: until it is in, the next draw does it) */
+    if (W.wantPhotos)
+      P.stops.forEach(function (st) {
+        if (W.wantPhotos) W.wantPhotos(st.country, st.name, W.pool(st.country, st.name), P);
+      });
     var err = W.status["spots|" + ck] && W.status["spots|" + ck] !== "loading" ? W.status["spots|" + ck] : null;
     /* when a day's ideas first arrive, its stops slide in one after another */
     var lk = day.n + "|" + ck,

@@ -14,6 +14,7 @@
     "trip/lib/shape.js",
     "trip/lib/classify.js",
     "trip/lib/photos.js",
+    "trip/lib/photowish.js",
     "trip/lib/prices.js",
     "trip/lib/route.js",
     "trip/lib/watch.js",

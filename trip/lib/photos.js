@@ -14,7 +14,7 @@
     LINKS = {};
   /* official site for a place, checked against Wikidata (the database behind Wikipedia) */
   W.officialLink = function (it, country, city) {
-    var c = LINKS[W.slug(country + " " + city)],
+    var c = LINKS[want("links", W.slug(country + " " + city))],
       l = c && c[W.norm(it.n)];
     return l && l.url ? l : null;
   };
@@ -70,7 +70,7 @@
     return (IDX[slug] = { list: out, skip: skip });
   }
   W.photoFor = function (it, food, country, city) {
-    var slug = citySlug(country, city),
+    var slug = want("photos", citySlug(country, city), city),
       c = PHOTOS[slug] || BYCITY[W.norm(city)];
     if (!c) return null;
     var p = c[W.norm(it.n)];
@@ -102,18 +102,166 @@
     }
     return best ? best.p : null;
   };
-  /* the index as saved on the phone (lib/offline.js): used before the database answers, and instead of it offline */
-  var fromDb = false;
+  /* ---------- which photos are known: the trip's towns only, kept on the phone (v182) ----------
+     The photo index is one document per town (photos/<country-city>, and the official links likewise, links/...).
+     Until v182 every page load downloaded all of them (about 150 towns, 1.6 MB) before any card could have its photo,
+     a few seconds on a phone's signal. Now a town's document is asked for the first time a photo of that town is
+     looked up (want), once per visit, and the last towns used are kept on the phone (KEEP), so on a reload the
+     photos are there with the first screen and the asking only refreshes them. The pictures themselves are kept on
+     the phone by the installable app's service worker. */
+  var KEEP = "waypoint-photo-index-v1",
+    KEEP_MAX = 16,
+    /** @type {Record<string, number>} */ asked = {},
+    /** @type {Record<string, string>} */ CITY = {},
+    kept = {
+      photos: /** @type {Record<string, any>} */ ({}),
+      links: /** @type {Record<string, any>} */ ({}),
+      order: /** @type {string[]} */ ([])
+    };
+  /* "Rome" alone finds Italy's Rome when only one loaded town has that name ("USA" and "United States" both find it) */
+  function byCity() {
+    BYCITY = {};
+    var seen = {};
+    Object.keys(PHOTOS).forEach(function (slug) {
+      var cn = CITY[slug] ? W.norm(CITY[slug]) : "";
+      if (!cn) return;
+      seen[cn] = (seen[cn] || 0) + 1;
+      BYCITY[cn] = seen[cn] > 1 ? null : PHOTOS[slug];
+    });
+  }
+  try {
+    var k0 = JSON.parse(localStorage.getItem(KEEP) || "null");
+    if (k0 && k0.photos && k0.order) {
+      kept = k0;
+      Object.keys(kept.photos).forEach(function (slug) {
+        var d = kept.photos[slug] || {};
+        PHOTOS[slug] = d.items || {};
+        if (d.city) CITY[slug] = d.city;
+      });
+      Object.keys(kept.links || {}).forEach(function (slug) {
+        LINKS[slug] = kept.links[slug] || {};
+      });
+      kept.links = kept.links || {};
+      byCity();
+    }
+  } catch (e) {
+    /* (no copy on the phone, or one it can't read: the photos come from the database as before) */
+  }
+  var keepT = 0;
+  function keep(coll, slug, v) {
+    kept[coll][slug] = v;
+    kept.order = kept.order
+      .filter(function (x) {
+        return x !== slug;
+      })
+      .concat([slug]);
+    while (kept.order.length > KEEP_MAX) {
+      var old = kept.order.shift() || "";
+      delete kept.photos[old];
+      delete kept.links[old];
+    }
+    clearTimeout(keepT);
+    keepT = setTimeout(function () {
+      try {
+        localStorage.setItem(KEEP, JSON.stringify(kept));
+      } catch (e) {
+        /* (the phone's storage full or blocked: the index is simply asked for again next visit) */
+      }
+    }, 400);
+  }
+  var redrawT = 0;
+  function arrived() {
+    if (redrawT) return;
+    redrawT = setTimeout(function () {
+      redrawT = 0;
+      W.redraw(); /* (photos change how a day looks, never the plan) */
+    }, 60);
+  }
+  /** a town's index, asked for the first time it is wanted in this visit (again a minute after a failure)
+      @param {"photos" | "links"} coll @param {string} slug @param {string} [city] @returns {string} the slug */
+  function want(coll, slug, city) {
+    var key = coll + "/" + slug;
+    if (!DB || (asked[key] && (asked[key] > 0 || Date.now() + asked[key] < 60000))) {
+      if (!DB && !(key in pendingAsk)) pendingAsk[key] = 1;
+      return slug;
+    }
+    asked[key] = 1;
+    /* (watched, not read once: a town's photos found by the nightly run while the app is open still come in, as when
+       the whole list was watched; a town with no index yet gets one the same way) */
+    var first = true;
+    try {
+      DB.doc(key).onSnapshot(
+        function (/** @type {any} */ snap) {
+          var x = snap && snap.exists ? snap.data() || {} : null;
+          if (coll === "links") {
+            if (x) {
+              LINKS[slug] = W.V.shared(x.items) || {};
+              keep("links", slug, LINKS[slug]);
+            }
+          } else if (x) {
+            PHOTOS[slug] = x.items || {};
+            if (x.city) CITY[slug] = x.city;
+            IDX = {};
+            byCity();
+            keep("photos", slug, { items: PHOTOS[slug], city: x.city || "" });
+          } else if (city && first) everyTown(city);
+          first = false;
+          if (x) arrived();
+        },
+        function () {
+          asked[key] = -Date.now(); /* (no signal, or refused: asked again a minute later at the earliest) */
+        }
+      );
+    } catch (e) {
+      asked[key] = -Date.now(); /* (a database without watching: asked again a minute later at the earliest) */
+    }
+    return slug;
+  }
+  /** @type {Record<string, number>} */ var pendingAsk = {};
+  /* No index under this town's name with this country ("USA" for "United States"): the whole list, once a visit, to
+     find the town by its name alone (only then; a trip whose countries match never downloads it). The town found is
+     kept on the phone under its own name, so the next visit has it at once. */
+  var allAsked = false;
+  function everyTown(/** @type {string} */ city) {
+    if (allAsked || !DB) return;
+    allAsked = true;
+    DB.collection("photos")
+      .get()
+      .then(
+        function (/** @type {any} */ snap) {
+          (snap.docs || []).forEach(function (/** @type {any} */ d) {
+            var x = d.data() || {};
+            if (PHOTOS[d.id]) return;
+            PHOTOS[d.id] = x.items || {};
+            if (x.city) CITY[d.id] = x.city;
+            if (x.city && W.norm(x.city) === W.norm(city)) keep("photos", d.id, { items: PHOTOS[d.id], city: x.city });
+          });
+          IDX = {};
+          byCity();
+          arrived();
+        },
+        function () {
+          allAsked = false;
+        }
+      );
+  }
+  /* the index as saved with the trip for offline use (lib/offline.js): what the database hasn't answered yet */
   W.photosSnapshot = function () {
     return { PHOTOS: PHOTOS, BYCITY: BYCITY, LINKS: LINKS };
   };
   W.photosSeed = function (v) {
-    if (fromDb || !v) return;
-    PHOTOS = v.PHOTOS || {};
-    BYCITY = v.BYCITY || {};
-    LINKS = v.LINKS || {};
+    if (!v) return;
+    Object.keys(v.PHOTOS || {}).forEach(function (slug) {
+      if (!PHOTOS[slug]) PHOTOS[slug] = v.PHOTOS[slug];
+    });
+    Object.keys(v.LINKS || {}).forEach(function (slug) {
+      if (!LINKS[slug]) LINKS[slug] = v.LINKS[slug];
+    });
+    Object.keys(v.BYCITY || {}).forEach(function (cn) {
+      if (!(cn in BYCITY)) BYCITY[cn] = v.BYCITY[cn];
+    });
     IDX = {};
-    W.redraw(); /* (photos change how a day looks, never the plan) */
+    arrived();
   };
   try {
     if (window.claude && window.claude.use)
@@ -121,193 +269,16 @@
         function (db) {
           if (!db) return;
           DB = db;
-          db.collection("links").onSnapshot(
-            function (snap) {
-              fromDb = true;
-              LINKS = {};
-              snap.docs.forEach(function (d) {
-                LINKS[d.id] = W.V.shared((d.data() || {}).items) || {};
-              });
-              W.redraw(); /* (photos change how a day looks, never the plan) */
-            },
-            function () {}
-          );
-          db.collection("photos").onSnapshot(
-            function (snap) {
-              fromDb = true;
-              PHOTOS = {};
-              BYCITY = {};
-              IDX = {};
-              var seen = {};
-              snap.docs.forEach(function (d) {
-                var x = d.data() || {};
-                PHOTOS[d.id] = x.items || {};
-                /* also by the city's name alone, so "USA" and "United States" find the same photos (only when no other country has that city) */
-                if (x.city) {
-                  var cn = W.norm(x.city);
-                  seen[cn] = (seen[cn] || 0) + 1;
-                  BYCITY[cn] = seen[cn] > 1 ? null : PHOTOS[d.id];
-                }
-              });
-              W.redraw(); /* (photos change how a day looks, never the plan) */
-            },
-            function () {}
-          );
-          flushWanted();
+          /* what was looked up before the database was there */
+          Object.keys(pendingAsk).forEach(function (key) {
+            var i = key.indexOf("/");
+            want(/** @type {"photos" | "links"} */ (key.slice(0, i)), key.slice(i + 1));
+          });
+          pendingAsk = {};
         },
         function () {}
       );
   } catch (e) {}
-
-  /* tell the photo finder which places this trip uses (one write per city, only when the list changes) */
-  var written = {},
-    pending = {},
-    /** @type {Record<string, string>} */ refused = {}; /* refused while the app is open: not asked again on every redraw */
-  try {
-    written = JSON.parse(localStorage.getItem("waypoint-wanted-v1") || "null") || {};
-  } catch (e) {}
-  W.wantPhotos = function (country, city, pool, P) {
-    /* (a shared trip is someone else's to describe; the installable app has no nightly helper reading these) */
-    if (!pool || pool.fallback || W.readOnly || W.standalone) return;
-    /* the places this trip has on its days come first (with the day's date), then the best of the rest, up to the city's
-       cap: the nightly checks and the photo finder work down these lists, the soonest trip first ("when") */
-    var used = {},
-      first = "";
-    ((P && P.days) || []).forEach(function (d) {
-      if (d.country !== country || d.city !== city) return;
-      var dt = W.dateOf ? W.dateOf(d.n) : null,
-        iso = dt ? W.isoDay(dt) : "";
-      if (iso && (!first || iso < first)) first = iso;
-      (d.slots || []).forEach(function (x) {
-        if (x.item && x.item.n && !(x.item.n in used)) used[x.item.n] = iso;
-      });
-    });
-    function pick(list, cap) {
-      var a = list.filter(function (x) {
-          return x.n in used;
-        }),
-        b = list.filter(function (x) {
-          return !(x.n in used);
-        });
-      return a.concat(b).slice(0, Math.max(cap, a.length));
-    }
-    var spotsL = pick(pool.spots || [], W.IDEA_CAP.spots),
-      foodL = pick(pool.food || [], W.IDEA_CAP.food + 30); /* (the nightly places to eat come on top of the cap) */
-    /* one entry per place, in the same order as the names (null where a place has no pin), so the nightly tools can pair them */
-    var pts = spotsL.concat(foodL).map(function (x) {
-      var la = x.lat,
-        ln = x.lng;
-      return la != null && ln != null ? [Math.round(la * 1e4) / 1e4, Math.round(ln * 1e4) / 1e4] : null;
-    });
-    var info = (pool.spots || [])
-      .filter(function (x) {
-        return W.isPaid(x) || W.needsBooking(x);
-      })
-      .map(function (x) {
-        return { n: x.n, ticket: x.ticket || "", book: x.book || "", lat: x.lat, lng: x.lng };
-      });
-    var stays = (pool.stay || []).filter(function (x) {
-      return x && x.n && x.lat != null;
-    });
-    var body = {
-      country: country,
-      city: city,
-      spots: spotsL.map(function (x) {
-        return x.n;
-      }),
-      food: foodL.map(function (x) {
-        return x.n;
-      }),
-      pts: pts,
-      /* each place to eat's menu page, when its list gave one (the nightly task reads the menu from it), in the same order */
-      menus: foodL.map(function (x) {
-        return x.menu || "";
-      }),
-      /* Everyone who can open the app can read this list, so it says nothing about any family: which places are on a
-         trip (by name only), and the month of the first day there (the nightly checks do the soonest trips first),
-         never the dates, the day of each place, where you stay or a hotel you typed. */
-      when: first ? first.slice(0, 7) + "-01" : null,
-      used: Object.keys(used).map(function (n) {
-        return [n];
-      }),
-      paid: info,
-      home: null,
-      center: pool.lat != null ? [pool.lat, pool.lng] : null,
-      /* where-to-stay areas and the stay you chose by name (not a Booking.com pick, whose pin is real): their pins are checked too */
-      stays: stays.map(function (x) {
-        return x.n;
-      }),
-      stayPts: stays.map(function (x) {
-        return [Math.round((x.lat || 0) * 1e4) / 1e4, Math.round((x.lng || 0) * 1e4) / 1e4];
-      }),
-      homeLabel: null
-    };
-    /* (v7: the first list without the stay and the dates; every city a trip uses is written again without them) */
-    var sig =
-      "v7/" +
-      foodL.length +
-      "/" +
-      (first || "") +
-      "/" +
-      body.used.length +
-      "/" +
-      (body.used.length ? body.used[body.used.length - 1][0] : "") +
-      "/" +
-      body.stays.length +
-      "/" +
-      info.filter(function (x) {
-        return x.book;
-      }).length +
-      "/" +
-      body.spots.length +
-      "/" +
-      body.food.length +
-      "/" +
-      (body.spots[body.spots.length - 1] || "") +
-      "/" +
-      (body.food[body.food.length - 1] || "");
-    var id = citySlug(country, city);
-    if (written[id] === sig || refused[id] === sig || (pending[id] && pending[id].sig === sig)) return;
-    pending[id] = { sig: sig, body: body };
-    flushWanted();
-  };
-  var flushing = false;
-  function flushWanted() {
-    if (!DB || flushing) return;
-    var id = Object.keys(pending)[0];
-    if (!id) return;
-    var job = pending[id];
-    flushing = true;
-    DB.doc("wanted/" + id)
-      .set(job.body)
-      .then(
-        function () {
-          written[id] = job.sig;
-          try {
-            localStorage.setItem("waypoint-wanted-v1", JSON.stringify(written));
-          } catch (e) {}
-        },
-        function (e) {
-          /* no signal: the list stays, and goes when the signal is back (below) */
-          if (navigator.onLine === false) hold = true;
-          else {
-            refused[id] = job.sig;
-            W.caught(e, "the photo finder's list for " + id);
-          }
-        }
-      )
-      .then(function () {
-        flushing = false;
-        if (hold) return;
-        if (pending[id] === job) delete pending[id];
-        flushWanted();
-      });
-  }
-  var hold = false;
-  window.addEventListener("online", function () {
-    hold = false;
-    flushWanted();
-  });
 
   /* ---------- a city's own picture (the big photo at the top of a day and of each place in All days) ---------- */
   /* the city itself when there's a photo of it, else the first of these places (the day's stops, in order) with a photo
@@ -315,7 +286,7 @@
      (it fills a wide screen sharply) wins over one that doesn't */
   W.cityPhoto = function (country, city, prefer) {
     if (W.simple && W.simple()) return null;
-    var c = PHOTOS[citySlug(country, city)] || BYCITY[W.norm(city)];
+    var c = PHOTOS[want("photos", citySlug(country, city), city)] || BYCITY[W.norm(city)];
     if (!c) return null;
     var found = [],
       own = c[W.norm(city)];

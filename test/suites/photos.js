@@ -12,6 +12,8 @@ exports.run = async t => {
   };
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, db: mkdb(seed) }); await exampleTrip(pg);
   await pg.waitForFunction(() => !!W.photoFor({ n: 'Pantheon' }, false, 'Italy', 'Rome'), null, { timeout: 8000 }).catch(() => {});
+  /* (v182: a town's index comes when it is first looked up; one under another spelling of its country, a moment later) */
+  await pg.waitForFunction(() => !!W.photoFor({ n: 'Statue of Liberty' }, false, 'USA', 'New York'), null, { timeout: 8000 }).catch(() => {});
   const r = await pg.evaluate(() => {
     const f = (n, food, country, city) => { const p = W.photoFor({ n }, !!food, country || 'Italy', city || 'Rome'); return p ? p.url.split('#')[1] : null; };
     return {
@@ -46,6 +48,21 @@ exports.run = async t => {
   t.eq(hero.pick, '/_blob/large1', 'a header prefers a place whose photo has a large copy');
   t.ok(hero.bigSrc && hero.bigPlain && hero.credit, 'a wide header is offered the large copy (a phone keeps the small one), with the photographer\'s credit');
   t.ok(hero.smallSrc && hero.smallFills && hero.noSet, 'a photo with no large copy fills the whole band, with no side fade');
+  /* (v182) a reload no longer downloads every town's photo index: only the trip's towns are asked for, one by one, and
+     they are kept on the phone, so the photos are there with the first screen next time */
+  {
+    const many = Object.assign({}, seed); for (let i = 0; i < 40; i++) many['photos/nowhere-town-' + i] = { items: { x: ph('x' + i) }, city: 'Town ' + i, country: 'Nowhere' };
+    const ops = [], db = mkdb(many), rec = (o, p, body) => { ops.push(o + ' ' + p); return db(o, p, body); };
+    const c2 = await open(b, { width: 390, db: rec }); await exampleTrip(c2.pg);
+    await c2.pg.waitForFunction(() => !!W.photoFor({ n: 'Pantheon' }, false, 'Italy', 'Rome'), null, { timeout: 8000 }).catch(() => {});
+    await c2.pg.waitForTimeout(800);
+    const got = ops.filter(o => / photos/.test(o)), kept = await c2.pg.evaluate(() => (JSON.parse(localStorage.getItem('waypoint-photo-index-v1') || '{}').order || []));
+    t.ok(!got.some(o => /^list photos$/.test(o)) && !got.some(o => /nowhere-town/.test(o)) && got.some(o => o === 'get photos/italy-rome'),
+      'only the trip\'s towns are asked for, never the whole list: ' + JSON.stringify(got.slice(0, 8)));
+    t.ok(kept.includes('italy-rome'), 'the trip\'s towns are kept on the phone: ' + JSON.stringify(kept));
+    t.eq(c2.errors(), [], 'no page errors on the second phone');
+    await c2.ctx.close();
+  }
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

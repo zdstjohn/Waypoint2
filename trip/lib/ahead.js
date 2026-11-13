@@ -288,9 +288,8 @@
   function pinPhotoFit() {
     var root = document.documentElement,
       top = /** @type {HTMLElement | null} */ (document.querySelector("header.top")),
-      pin = document.getElementById("pin"),
       url = (top && top.getAttribute("data-photo")) || "";
-    if (!top || !pin || !url) return;
+    if (!top || !url) return;
     if (pinPhoto.url !== url) {
       pinPhoto = { url: url, w: 0, h: 0 };
       var im = new Image();
@@ -304,11 +303,20 @@
       return;
     }
     if (!pinPhoto.w || !pinPhoto.h) return;
+    /* The bar's box is measured on a hidden stand-in (the same class, never seen), so the photo is in place before
+       the bar first shows: measured on the bar itself, it was placed only in the frame after it appeared, and the
+       photo jumped as you scrolled (v182: "jittery"). The stylesheet stays the one place that says where the bar is. */
+    var probe = document.createElement("div");
+    probe.className = "pin";
+    probe.setAttribute("aria-hidden", "true");
+    probe.style.cssText = "visibility:hidden;pointer-events:none;animation:none";
+    document.body.appendChild(probe);
     var c = top.getBoundingClientRect(),
-      bar = getComputedStyle(pin, "::before"),
-      pr = pin.getBoundingClientRect(),
+      bar = getComputedStyle(probe, "::before"),
+      pr = probe.getBoundingClientRect(),
       bl = pr.left + (parseFloat(bar.left) || 0),
       bh = pr.height - (parseFloat(bar.top) || 0) - (parseFloat(bar.bottom) || 0);
+    probe.remove();
     if (!c.width || !c.height || !(bh > 0)) return;
     var k = Math.max(c.width / pinPhoto.w, c.height / pinPhoto.h),
       w = pinPhoto.w * k,
@@ -328,4 +336,7 @@
       });
   };
   window.addEventListener("resize", W.pinPhotoFit);
+  /* (the day's photo may have been put on the card before this second script came: place it in the bar now, not
+     when the bar first shows) */
+  W.pinPhotoFit();
 })();
