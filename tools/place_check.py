@@ -311,7 +311,42 @@ def google_pick(name, food, lat, lng):
         if g: return g
     return None
 GAREA = {"neighborhood", "sublocality", "sublocality_level_1", "locality", "route", "political", "colloquial_area", "administrative_area_level_3", "administrative_area_level_4"}
-def snap_free(name, g):
+# Words a map label may add to our names and still be the same place: the kind of place in another language ("Castell de
+# Capdepera" for "Capdepera Castle"), small joining words. Anything else it adds makes it another place nearby: "Centro de
+# Salud La Herradura" is not the beach, "Hotel Mochlos" not the village, "Capri Watch" not the island (v174 audit).
+SAMEW = set(("beach playa platja plage spiaggia paralia akti bay cove cala caleta shore castle castell castillo castello chateau palace "
+             "palacio palazzo fortress fortezza fort citadel kastro kasteli tower market mercat mercado mercato marche agora cave caves cueva "
+             "cuevas coves grotta grotto museum museo musee lighthouse faro square plaza placa piazza plateia park parc parque parco garden "
+             "gardens port porto puerto harbour harbor marina cape cap capo old town city village centre center historic promenade paseo "
+             "passeig lungomare mount monte mont mountain peak gorge lake lago river island isola isla nisi site archaeological ruins church "
+             "chiesa iglesia eglise basilica duomo cathedral chapel temple monastery viewpoint mirador belvedere trail path sendero cable car "
+             "funivia funicolare teleferik house casa los las les ses dels els des del sur sul").split())
+EATW = {w for g in TYPES[8:13] for w in g} | set("chiringuito cafeteria heladeria tavern pastisseria pasticceria panificio forn horno bodega meze mezedopoleio ouzeri".split())
+MEALW = set("breakfast brunch lunch dinner tapas aperitivo drinks seafood wine raki meze ice cream gelato coffee pastry pastries".split())
+_GR = [("ου", "ou"), ("μπ", "mp"), ("ντ", "nt"), ("γκ", "g"), ("αι", "e"), ("ει", "i"), ("οι", "i")] + list(zip("αβγδεζηθικλμνξοπρσςτυφχψω",
+       ["a", "v", "g", "d", "e", "z", "i", "th", "i", "k", "l", "m", "n", "x", "o", "p", "r", "s", "s", "t", "y", "f", "ch", "ps", "o"]))
+def latin(s):
+    """Greek letters in Latin ones, so "ΞΥΛΟΣΚΑΛΟ" can be compared with "Xyloskalo" """
+    s = unicodedata.normalize("NFD", str(s or "").lower()); s = "".join(c for c in s if not unicodedata.combining(c))
+    s = re.sub(r"\bμπ", "b", s); s = re.sub(r"\bντ", "d", s)          # Μπάλος is Balos; inside a word, Σαντορίνη is Santorini
+    for g, l in _GR: s = s.replace(g, l)
+    return s
+def label_fits(label, names, dm=None, food=False):
+    """True when a map label names the place we mean: it adds nothing to our names but the kind of place (SAMEW), and shares
+    a word with them; for a place to eat, a word of the place's own (not its kind or the town). Within 25 m it always fits:
+    the pin is the place's either way."""
+    if dm is not None and dm <= 25: return True
+    ours = set()
+    for n in names:
+        if n: ours.update(rawtoks(latin(n)))
+    eat = food or bool(ours & (EATW | MEALW))
+    lab = rawtoks(latin(re.sub(r"\s*[\(\[].*?[\)\]]", "", label)))
+    # Greek "μπ" and "ντ" are written either way inside a word too (Ίμπρος: Imbros)
+    lab = [t if _close(t, ours | CITY_TOKS) else next((v for v in (t.replace("mp", "mb"), t.replace("nt", "nd")) if _close(v, ours | CITY_TOKS)), t) for t in lab]
+    if [t for t in lab if not _close(t, ours | CITY_TOKS) and t not in SAMEW and not (eat and t in EATW)]: return False
+    if food: return any(_close(t, ours) and t not in SAMEW and not _close(t, CITY_TOKS) for t in lab)
+    return any(_close(t, ours) for t in lab)
+def snap_free(name, g, food=False):
     """the free map's own place at Google's spot (by our name or Google's), so the pin kept is not Google's"""
     try: near = _pc().pois_near(g["lat"], g["lng"], 1)
     except Exception: return None
@@ -322,13 +357,13 @@ def snap_free(name, g):
         # the same kind of place too: "Nikolas Taverna" is not the "Nikola's Art Gallery Store" next door
         if ta and _types(nm) and not (ta & _types(nm)): continue
         sc = max([max(sim(name, a), sim(g["name"], a)) for a in alts] or [0])
-        if sc >= 0.67 and (best is None or dm < best[0]): best = (dm, nm, la, ln)
+        if sc >= 0.67 and label_fits(nm, [name, g["name"]], dm, food) and (best is None or dm < best[0]): best = (dm, nm, la, ln)
     return best
 def google_cand(name, food, lat, lng, g=None):
     g = g or google_pick(name, food, lat, lng)
     if not g: return None
     # a neighbourhood or a street is not the shop the free map has on it ("Krutenau" is not "Epicerie de la Krutenau")
-    sn = None if set(g.get("types") or []) & GAREA else snap_free(name, g)
+    sn = None if set(g.get("types") or []) & GAREA else snap_free(name, g, food)
     c = {"osm": "tile" if sn else "G", "gid": g["gid"], "gname": g["name"], "km": g["km"], "s": 0.95, "key": "google", "val": "", "closed": g["closed"]}
     if sn: c.update({"name": sn[1], "lat": round(sn[2], 7), "lng": round(sn[3], 7)})
     else: c.update({"name": g["name"], "lat": round(g["lat"], 7), "lng": round(g["lng"], 7), "gpin": 1})

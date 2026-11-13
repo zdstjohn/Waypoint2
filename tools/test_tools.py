@@ -28,6 +28,24 @@ ok(s("Avli Restaurant", "Avli") == 1.0 and s("Avli Restaurant", "Bakery") == 0, 
 ok(pc.norm("Caffè  Sant'Eustachio") == "caffe sant eustachio", "names are compared without accents, case or punctuation")
 ok(pc.toks("The Old Bakery & Café") == [], "words that say only what kind of place it is are not a name")
 
+# --- a map label near Google's pin: the place we mean, or another one next to it? (label_fits, the v174 audit's cases) ---
+f = pc.label_fits
+pc.set_city("Granada", "Spain")
+ok(not f("Centro de Salud La Herradura", ["Playa de La Herradura", "La Herradura"], 348), "a health centre is not the beach it shares a name with")
+ok(not f("Hotel Navas", ["Tapas Crawl on Calle Navas", "Calle Navas"], 44), "a hotel on the street is not the street")
+ok(f("Castillo de Salobreña", ["Salobreña Castle and Old Town", "Salobreña Castle"], 38), "the castle in Spanish is the same castle")
+ok(f("Cafetería - Heladería Isla de Capri", ["Evening paseo and ice cream", "Isla de Capri"], 39), "an ice-cream outing may land on the ice-cream shop of that name")
+pc.set_city("Mallorca", "Spain")
+ok(not f("Cala d'Or", ["Cafeteria Sa Plaça Cala d'Or", "Cafetería Plaza, Cala D'Or White Chairs"], 41, True), "a café is not the resort it is in")
+ok(f("Es Port", ["Restaurant Es Port Cala Figuera", "Restaurante Pizzería Es Port"], 4, True), "within 25 m the pin is the place's either way")
+ok(f("Ca'n Molinas", ["Ca n Molinas", "Forn i Pastisseria Ca'n Molinas"], 40, True), "a bakery under its own name, without the word for bakery")
+pc.set_city("Chania", "Greece")
+ok(f("ΞΥΛΟΣΚΑΛΟ", ["Xyloskalo Viewpoint Walk", "Xyloskalo"], 60), "a label in Greek letters is read as Latin ones")
+ok(not f("Periptero Splantzia", ["Old Town (Splantzia & Topanas)", "Splantzia"], 54), "a kiosk on the square is not the quarter")
+pc.set_city("Naples", "Italy")
+ok(not f("Capri Watch", ["Capri Island Day Trip", "Capri"], 295), "a shop called Capri Watch is not the island")
+ok(not f("Trattoria e pizzeria spaccanapoli", ["Naples Historic Centre (Spaccanapoli)", "SpaccaNapoli"], 45), "a restaurant named after the street is not the street")
+
 # --- opening hours as OpenStreetMap writes them (minutes from midnight; closed: 0 = Sunday) ---
 h = pc.hours_from_osm
 ok(h("Mo-Fr 09:00-17:00") == {"o": 540, "c": 1020, "closed": [0, 6]}, "weekdays nine to five: closed at the weekend")
