@@ -286,3 +286,12 @@ window.TI = {
     ["*Galapagos,Galápagos,Galapagos Islands,Galápagos Islands", "Puerto Ayora@-0.743,-90.313;Puerto Baquerizo Moreno@-0.902,-89.61;Puerto Villamil@-0.955,-90.965"]
   ]
 };
+
+/* The countries Plan offers (v184, the owner: "dial it down to the top 150 countries to visit"): the 150 most visited,
+   most visited first (international arrivals, rounded into an order), as two-letter region codes. Plan names them in
+   the viewer's language. The nightly city library (tools/citylib.js) fills them in this order. A trip already saved
+   to a country not on the list keeps it. */
+window.TOP_COUNTRIES =
+  "FR ES US IT TR MX GB DE GR AT TH CN JP PT NL HR SA AE MY CA PL HK HU VN CH SG ID KR MA DK EG IN CZ IE BE ZA SE NO AU MO TN BG RO DO NZ IL BR AR CL PE CO CR JO IS CY MT PH LK KH LA MM NP AL ME SI SK EE LV LT FI LU GE AM AZ UZ KZ BA RS MK MD QA OM BH KW LB TW BS JM BB CU PR PA GT EC BO UY PY HN NI SV BZ TT AW CW KY BM LC AG KN GD VC MV MU SC FJ PF NC KE TZ UG RW BW NA ZM ZW MZ MG ET GH SN CV MN KG BT BN TL SR GY DM MC LI AD SM VA GI FO GL TC VG VI".split(
+    " "
+  );

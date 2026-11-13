@@ -474,7 +474,7 @@ interface Waypoint {
   liveClick: (d: any, P: Plan) => any;
   liveFares: any;
   loadBookLinks: any;
-  loadCity: (country: string, city: string, more?: any, stayDays?: number, nMore?: number) => void;
+  loadCity: (country: string, city: string, more?: any, stayDays?: number, nMore?: number, low?: boolean) => void;
   loadCosts: any;
   loadCountry: (name: string) => void;
   loadFame: any;
@@ -622,7 +622,7 @@ interface Waypoint {
   routeCheck: any;
   routeClick: any;
   /** prompt: the question, or the name of one in W.ASKS with what its words and its answer need (the "ask" piece) */
-  run: (key: string, prompt: string | { ask: string; a: any[] }, tier: "quick" | "default" | "complex", onOk?: (r: any) => void, stream?: { list: string; take: (items: any[], head: any) => void; min?: number }) => void;
+  run: (key: string, prompt: string | { ask: string; a: any[]; lib?: { place: string[]; kind: string } }, tier: "quick" | "default" | "complex", onOk?: (r: any) => void, stream?: { list: string; take: (items: any[], head: any) => void; min?: number }) => void;
   /** the questions to Claude and their answers' handlers, by name (lib/ideasask.js, lib/staysask.js, lib/asksask.js) */
   ASKS: Record<string, { q: (...a: any[]) => string; ok: (...a: any[]) => (r: any) => void; stream?: (...a: any[]) => any }>;
   /** what those files use from the loaders' own files */
@@ -665,6 +665,16 @@ interface Waypoint {
   sky: any;
   slotOptions: (day: Day, slot: string, P: Plan) => any[];
   slug: (s: string) => string;
+  citySlug: (country: string, city: string) => string;
+  textHash: (s: string) => string;
+  /* the city library (lib/citylib.js, in the "ask" piece) */
+  libFor?: (lib: { place: string[]; kind: string }, text: string) => any;
+  libGet?: (q: any, cb: (r: any) => void) => void;
+  libSave?: (q: any, r: any) => void;
+  libNote?: (q: any) => void;
+  loadLow: (keys: string[]) => void;
+  loadNow: (keys: string[]) => void;
+  warmCity: (country: string, city: string) => void;
   smallNextToBig: (st: any[], i: number, p: any) => any;
   status: Record<string, string>;
   stayInput: (ck: string, P: Plan, hotel?: any) => any;

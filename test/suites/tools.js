@@ -38,4 +38,7 @@ exports.run = async t => {
   }));
   t.ok(n > 200 && !bad.length, `the island towns' table reads cleanly (${n} towns${bad.length ? '; unreadable: ' + bad.slice(0, 3).join(' | ') : ''})`);
   t.eq(far, [], 'no town sits far from all the others of its island');
+  /* (v184) the nightly city library helper, on a made-up database */
+  const cl = require('../lib/citylibcheck')(ROOT);
+  cl.out.forEach(([ok, m]) => t.ok(ok, m));
 };

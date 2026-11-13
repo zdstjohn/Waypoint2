@@ -726,7 +726,7 @@
     });
     pump();
   };
-  /** @param {string} key @param {string | { ask: string, a: any[] }} prompt the question, or the name of one in
+  /** @param {string} key @param {string | { ask: string, a: any[], lib?: { place: string[], kind: string } }} prompt the question, or the name of one in
       W.ASKS with what its words and its answer need @param {string} tier @param {(r: any) => void} [onOk0]
       @param {{ list: string, take: (items: any[], head: any) => void, min?: number }} [stream] a list in the answer
       whose items are handed over as they are written (take), min at a time, before the whole answer comes (onOk) */
@@ -736,7 +736,10 @@
     W.status[key] = "loading";
     var named = typeof prompt === "string" ? null : prompt,
       text = typeof prompt === "string" ? prompt : "",
-      onOk = onOk0 || function () {};
+      onOk = onOk0 || function () {},
+      /* a question the city library may already hold the answer to (lib/citylib.js): its place and kind */
+      lib = named && named.lib,
+      libQ = /** @type {any} */ (null);
     /* a named question's words, its answer's handler and its stream, once the piece that holds them is in */
     var words = function () {
       if (!named) return true;
@@ -746,6 +749,7 @@
       onOk = def.ok.apply(null, named.a);
       stream = def.stream ? def.stream.apply(null, named.a) : undefined;
       named = null;
+      if (lib && W.libFor) libQ = W.libFor(lib, text);
       return true;
     };
     var entry = {
@@ -753,60 +757,87 @@
       words: words,
       go: function () {
         running++;
-        var opts = W.askOpts(key, tier);
-        var st = /** @type {{ list: string, take: (items: any[], head: any) => void, min?: number }} */ (stream);
-        if (st) {
-          var at = 0,
-            held = /** @type {any[]} */ ([]),
-            last = 0,
-            head = null;
-          opts.onText = function (u) {
+        if (libQ && W.libGet) {
+          var q = libQ;
+          libQ = null;
+          W.libGet(q, function (r) {
+            if (!r) return ask(q);
+            /* answered from the library: the same handler and checks as Claude's answer, at once */
+            delete W.status[key];
             try {
-              var got = W.partialList((u && u.text) || "", st.list, at);
-              at = got.next;
-              if (got.head) head = got.head;
-              held = held.concat(got.items);
-              var now = Date.now();
-              if (held.length >= (st.min || 3) || (held.length && last && now - last > 2500)) {
-                var batch = held;
-                held = [];
-                last = now;
-                st.take(batch, head || {});
-                arrived();
-              }
+              onOk(r);
             } catch (e) {
-              W.caught(e, "ideas as they are written");
+              /* an answer kept in a shape this version can't take: Claude is asked instead */
+              W.caught(e, "library answer for " + String(key).split("|")[0]);
+              W.status[key] = "loading";
+              return ask(null);
             }
-          };
-        }
-        W.SAMPLE.json(text, opts)
-          .then(
-            function (res) {
-              delete W.status[key];
-              /* an answer in a shape nobody expected must not jam the queue: the request ends either way (the
-                 step after this frees its place), the fault is logged, and the screen offers to try again */
-              try {
-                onOk(res);
-              } catch (e) {
-                W.caught(e, "answer for " + String(key).split("|")[0]);
-                W.status[key] = "Couldn't load this. Try again.";
-              }
-            },
-            function (err) {
-              var code = err && err.code;
-              if (code === "not_granted") {
-                W.sampleState = "off";
-                delete W.status[key];
-              } else W.status[key] = code === "rate_limited" ? "Busy right now. Try again in a minute." : "Couldn't load this. Try again.";
-            }
-          )
-          .then(function () {
+            if (W.libNote) W.libNote(q);
             running--;
             arrived();
             pump();
           });
+          return;
+        }
+        ask(null);
       }
     };
+    /** ask Claude (lib: the library question whose answer is then kept for everyone) @param {any} libAsk */
+    function ask(libAsk) {
+      var opts = W.askOpts(key, tier);
+      var st = /** @type {{ list: string, take: (items: any[], head: any) => void, min?: number }} */ (stream);
+      if (st) {
+        var at = 0,
+          held = /** @type {any[]} */ ([]),
+          last = 0,
+          head = null;
+        opts.onText = function (u) {
+          try {
+            var got = W.partialList((u && u.text) || "", st.list, at);
+            at = got.next;
+            if (got.head) head = got.head;
+            held = held.concat(got.items);
+            var now = Date.now();
+            if (held.length >= (st.min || 3) || (held.length && last && now - last > 2500)) {
+              var batch = held;
+              held = [];
+              last = now;
+              st.take(batch, head || {});
+              arrived();
+            }
+          } catch (e) {
+            W.caught(e, "ideas as they are written");
+          }
+        };
+      }
+      W.SAMPLE.json(text, opts)
+        .then(
+          function (res) {
+            delete W.status[key];
+            /* an answer in a shape nobody expected must not jam the queue: the request ends either way (the
+                 step after this frees its place), the fault is logged, and the screen offers to try again */
+            try {
+              onOk(res);
+              if (libAsk && W.libSave) W.libSave(libAsk, res);
+            } catch (e) {
+              W.caught(e, "answer for " + String(key).split("|")[0]);
+              W.status[key] = "Couldn't load this. Try again.";
+            }
+          },
+          function (err) {
+            var code = err && err.code;
+            if (code === "not_granted") {
+              W.sampleState = "off";
+              delete W.status[key];
+            } else W.status[key] = code === "rate_limited" ? "Busy right now. Try again in a minute." : "Couldn't load this. Try again.";
+          }
+        )
+        .then(function () {
+          running--;
+          arrived();
+          pump();
+        });
+    }
     if (words()) queue.push(entry);
     else {
       unworded.push(entry);
@@ -841,7 +872,24 @@
     if (!Object.keys(out).length) add(P.days[0]);
     return out;
   }
+  /* what is asked for ahead (a city Plan offers, lib/ideas.js W.warmCity): last, until someone needs it */
+  var low = /** @type {Record<string, 1>} */ ({});
+  /** @param {string[]} keys */
+  W.loadLow = function (keys) {
+    keys.forEach(function (k) {
+      if (!W.status[k]) low[k] = 1;
+    });
+  };
+  /** @param {string[]} keys */
+  W.loadNow = function (keys) {
+    var moved = false;
+    keys.forEach(function (k) {
+      if (low[k]) moved = !!delete low[k];
+    });
+    if (moved) pump();
+  };
   function prio(key, here) {
+    if (low[key]) return 9;
     var p = String(key).split("|"),
       kind = p[0];
     if (!MAIN[kind] && !SOON[kind] && !LATE[kind]) return 0;
@@ -872,6 +920,8 @@
           best = i;
         }
       }
+      /* what is only asked ahead leaves one place free, for whatever someone asks for next */
+      if (bp === 9 && running >= maxRunning() - 1) break;
       queue.splice(best, 1)[0].go();
     }
   }

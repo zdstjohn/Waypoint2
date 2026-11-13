@@ -25,9 +25,11 @@
   W.slug = function (s) {
     return W.norm(s).replace(/ /g, "-").slice(0, 80) || "x";
   };
-  function citySlug(country, city) {
+  /** a city's id in the shared database (photos, links, places to eat, menus, the city library) @param {string} country @param {string} city */
+  W.citySlug = function (country, city) {
     return W.slug(country + " " + city);
-  }
+  };
+  var citySlug = W.citySlug;
 
   /* words that say what sort of place something is, not which one ("museum", "piazza", "evening") */
   var GENERIC = {};

@@ -16,11 +16,14 @@
     looked = /** @type {Record<string, number>} */ ({}),
     keptV = -1,
     owed = false;
+  /** a short fingerprint of a text (its length and a 32-bit hash): enough to tell two texts apart, not to keep one
+      secret @param {string} s */
   function hash(s) {
     var h = 5381;
     for (var i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) | 0;
     return s.length + ":" + (h >>> 0).toString(36);
   }
+  W.textHash = hash;
   var opened = new Promise(function (res) {
     try {
       if (!window.indexedDB || window.__WP_OFFLINE) {

@@ -2,6 +2,32 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v184
+
+Places for a city in seconds, not twenty or more (the owner: "it shouldn't take more than 3-5 seconds to populate the
+stops/places to eat"), and Plan offers the 150 most visited countries (the owner: "dial it down to the top 150").
+- The city library (lib/citylib.js): once Claude has written a country's towns or a city's first lists (things to
+  do, places to eat), the answer is kept in the shared database (citylib/<place>) and the same question, from anyone,
+  is answered from there in about a second (lib/core.js run looks it up before asking; the answer goes through the
+  same handler and checks). Questions are matched by their words with the place left out, so a trip with other
+  interests, travelers or food needs gets its own answers; the shared store keeps only answers and a fingerprint of
+  the words, and the words (which can carry food needs) are noted only in the person's own space
+  (data/users/<you>/libq/q), for the nightly task.
+- Asked ahead: the first three cities Plan offers under a country (the chips, when you choose cities yourself) have
+  their lists asked for in the background (W.warmCity), last in line, and one place in the line is always kept free
+  for what you tap; a city asked ahead moves up as soon as it is needed (W.loadLow, W.loadNow).
+- The nightly task's helper, tools/citylib.js: plans the next countries' towns and cities' lists (most visited first),
+  fills the place into the noted questions and checks the answers before they are written.
+- Plan's country list is the 150 most visited (data/data2.js TOP_COUNTRIES, also the order they are offered in); any
+  other country can still be typed, and a trip already planned for one keeps it.
+- Shared helpers: W.citySlug (was copied in photos.js and nightfood.js), W.textHash (from ideastore.js).
+- Tests: citylib (a second person's phone gets Croatia's towns and the offered cities without asking Claude, within a
+  few seconds; another way of asking is asked again; the shared library holds no question's words; asking ahead and
+  moving up; the 150 countries); tools checks the nightly helper on a made-up database. The test database's update
+  now merges nested fields as the real one does.
+- Fix: the markup-and-styles check (test/suites/same.js) reloaded its pages from the size job's own test port
+  (8791) instead of the test server's (8771), so it failed in GitHub's run of v183.
+
 ## v183
 
 - A smaller first download (the owner: "reduce app size without any negative effect"): what a phone downloads before

@@ -65,9 +65,7 @@
         function () {}
       );
   } catch (e) {}
-  function slug(country, city) {
-    return W.slug(country + " " + city);
-  }
+  var slug = W.citySlug;
 
   /* the nightly places join the city's list once per delivery (W.pool calls this every time it hands out a list) */
   W.withNightFood = function (country, city, pool) {

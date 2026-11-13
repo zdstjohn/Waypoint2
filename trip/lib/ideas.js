@@ -138,7 +138,7 @@
     )
       return; /* kept on this device? (lib/ideastore.js) */
     if (had && had.part) had = undefined; /* a list cut short last time (the app was closed while it came): asked whole */
-    run(key, { ask: "ideas.0", a: [had, name] }, "quick");
+    run(key, { ask: "ideas.0", a: [had, name], lib: { place: [name], kind: "cities" } }, "quick");
   };
   /** an answer that still names an island as a place (its name is its own isl) loses it when the island's towns are
       there too; alone, it is that island's one town and stays @param {BuiltCity[]} list */
@@ -226,9 +226,13 @@
     var st = W.S.stays[ck];
     return st && st.label ? " Focus on places within an easy trip of " + st.label + "." : "";
   }
-  W.loadCity = function (country, city, more, stayDays, nMore) {
+  /** @param {string} country @param {string} city @param {boolean} [more] @param {number} [stayDays] @param {number} [nMore]
+      @param {boolean} [low] asked ahead (a city Plan offers but nobody picked yet): after everything else */
+  W.loadCity = function (country, city, more, stayDays, nMore, low) {
     var ck = W.cityKey(country, city),
       cur = W.C.city[ck];
+    /* a city asked for ahead is asked for now once someone needs it (it moves up the line, or starts right away) */
+    if (!more) W[low ? "loadLow" : "loadNow"](["spots|" + ck, "food|" + ck]);
     if (!more && cur && cur.spots && cur.spots.length) return;
     if (
       !cur &&
@@ -293,8 +297,18 @@
     function settle() {
       if ((streamed.spots || streamed.food) && !W.cityBusy(ck) && W.freshPicks) W.freshPicks(country, city);
     }
-    run("spots|" + ck, { ask: "ideas.3", a: [city, ck, country, n0, settle, streamed] }, "default");
-    run("food|" + ck, { ask: "ideas.4", a: [ck, exF, n0, settle, streamed, where] }, "default");
+    /* (both may be answered from the city library: lib/citylib.js) */
+    var place = [country, city];
+    run("spots|" + ck, { ask: "ideas.3", a: [city, ck, country, n0, settle, streamed], lib: { place: place, kind: "spots" } }, "default");
+    run("food|" + ck, { ask: "ideas.4", a: [ck, exF, n0, settle, streamed, where], lib: { place: place, kind: "food" } }, "default");
+  };
+  /** Plan offers this city (a chip under its country): its first lists are asked for ahead, after everything else, so
+      they are there or nearly there when it is picked (the owner: "3-5 seconds"). Most come from the city library at
+      once; one that isn't there yet is asked of Claude, which then keeps it for everyone. @param {string} country
+      @param {string} city */
+  W.warmCity = function (country, city) {
+    if (W.pool(country, city)) return;
+    W.loadCity(country, city, false, undefined, undefined, true);
   };
   /* the stay got longer (you changed the days): the ideas grow with it, by the difference, once */
   W.growIdeas = function (country, city, stayDays) {

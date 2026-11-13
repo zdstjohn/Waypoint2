@@ -171,7 +171,10 @@
     id: path.split('/').pop(), path,
     get: () => op('get', path).then(b => snapDoc(path.split('/').pop(), b)),
     set: (b) => { window.__writes.push(path); return op('set', path, b).then(() => {}); },
-    update: (b) => op('get', path).then(cur => op('set', path, Object.assign(cur || {}, b))).then(() => {}),
+    /* as the real one: the document must exist; nested objects merge recursively, anything else (arrays too) replaces */
+    update: (b) => op('get', path).then(cur => { if (cur == null) throw { code: 'invalid_argument', message: 'no such document' };
+      const merge = (o, p) => { Object.keys(p).forEach(k => { const v = p[k]; o[k] = v && typeof v === 'object' && !Array.isArray(v) && o[k] && typeof o[k] === 'object' && !Array.isArray(o[k]) ? merge(o[k], v) : v; }); return o; };
+      return op('set', path, merge(cur, b)); }).then(() => {}),
     delete: () => op('delete', path).then(() => {}),
     collection: (sub) => colRef(path + '/' + sub),
     onSnapshot: (next) => { let last = '\u0000'; let on = true; const poll = () => { if (!on) return; op('get', path).then(b => { const s = JSON.stringify(b); if (s !== last) { last = s; next(snapDoc(path.split('/').pop(), b)); } }).finally(() => setTimeout(poll, 400)); }; poll(); return () => { on = false; }; }
