@@ -139,6 +139,91 @@
         });
     });
   }
+  /* ---------- pieces: parts of the app in files of their own (v181) ----------
+     What only some windows or some moments need rides in neither script: it is a file of its own, app.<name>.js
+     (build/bundle.js PIECES), fetched when it is needed. A piece's file hands its code to W.piece.
+       "desk"  the desktop workspace's code: fetched by a window 1024px wide or more, alongside app.desk.css; a phone
+               never downloads it. Its code is run once the second script has run, whichever of the two files
+               arrives first: it may count on the second script, and the two can be on their way together.
+       "ask"   the questions to Claude, word for word, and what is done with each answer (lib/core.js W.run): fetched
+               the moment a question is first asked, and otherwise by itself once the first screen is up, with the
+               second script. It needs only the first script (FREE), so it runs as soon as it arrives.
+     The pieces a page waits for before it counts as ready are in `must` (a wide window waits for "desk", so the
+     workspace is there when the page is shown); a piece that cannot be fetched stops being waited for, and is asked
+     for again every few seconds. */
+  /** @type {Record<string, number>} */ var FREE = { ask: 1 };
+  /** @type {Record<string, "loading" | "held" | "in" | undefined>} */ var pcs = {};
+  /** @type {Record<string, () => void>} */ var heldRun = {};
+  /** @type {string[]} */ var must = [];
+  /* (the installable app's files carry its version in their address, so a new version is never mixed with an old one) */
+  var sa = /** @type {any} */ (window).__WP_STANDALONE,
+    ver = sa && sa.v ? "?v=" + sa.v : "";
+  function pieceIn(name) {
+    pcs[name] = "in";
+    /* (the questions that waited for their words go out now; nothing on the screen changes by their arriving) */
+    if (name === "ask") {
+      if (W.asksIn) W.asksIn();
+      return;
+    }
+    if (!W.laterReady) ready();
+    else if (W.changedApart) W.changedApart();
+    else W.changed();
+  }
+  /** a piece's file has arrived: run its code now, or as soon as the second script has run */
+  W.piece = function (name, run) {
+    if (pcs[name] === "in" || pcs[name] === "held") return;
+    if (!FREE[name] && !jsDone && !window.__WP_LATER) {
+      pcs[name] = "held";
+      heldRun[name] = run;
+      return;
+    }
+    run();
+    pieceIn(name);
+  };
+  /** is this piece here (its code has run)? */
+  W.pieceIn = function (name) {
+    return pcs[name] === "in";
+  };
+  /** every piece that was asked for is here (none is on its way) */
+  W.piecesIn = function () {
+    return Object.keys(pcs).every(function (k) {
+      return !pcs[k] || pcs[k] === "in";
+    });
+  };
+  /** ask for a piece (once; the second script is asked for with it, unless the piece does not need it) */
+  W.loadPiece = function (name) {
+    if (pcs[name] || window.__WP_LATER) return;
+    pcs[name] = "loading";
+    var s = document.createElement("script");
+    s.src = "app." + name + ".js" + ver;
+    s.charset = "utf-8";
+    s.async = true;
+    s.onerror = function () {
+      pcs[name] = undefined;
+      must = must.filter(function (m) {
+        return m !== name;
+      });
+      ready();
+      setTimeout(function () {
+        W.loadPiece(name);
+      }, 4000);
+    };
+    document.head.appendChild(s);
+    if (!FREE[name]) W.loadLater();
+  };
+  /* (the second script has run: the pieces that came before it run now, in the order they were asked for) */
+  function runHeld() {
+    Object.keys(heldRun).forEach(function (name) {
+      var run = heldRun[name];
+      delete heldRun[name];
+      try {
+        run();
+      } catch (e) {
+        if (W.caught) W.caught(e, "the piece " + name);
+      }
+      pcs[name] = "in";
+    });
+  }
   /** @type {(() => void)[]} */ var waiting = [];
   function done() {
     if (W.laterReady) return;
@@ -162,7 +247,14 @@
     else W.changed();
   }
   function ready() {
-    if (cssDone && jsDone) done();
+    if (
+      cssDone &&
+      jsDone &&
+      must.every(function (m) {
+        return pcs[m] === "in";
+      })
+    )
+      done();
   }
   /* (an offline copy's inline second script says so itself, in its last line) */
   W.laterDone = done;
@@ -191,6 +283,7 @@
     s.async = true;
     s.onload = function () {
       jsDone = true;
+      runHeld();
       ready();
     };
     s.onerror = function () {
@@ -209,6 +302,7 @@
   if (!W.laterReady && !window.__WP_LATER) {
     var go = function () {
       W.loadLater();
+      W.loadPiece("ask");
     };
     var idle = function () {
       if (window.requestIdleCallback) window.requestIdleCallback(go, { timeout: 1500 });
@@ -239,10 +333,14 @@
     if (mq.matches) {
       html.classList.add("ws-wait");
       setTimeout(unhold, 3000);
+      /* (the workspace's code is a piece of its own: this window needs it before it is shown) */
+      must.push("desk");
+      W.loadPiece("desk");
       W.loadLater();
     }
     var widened = function () {
       if (mq && mq.matches && deskCss === "idle") deskSheet();
+      if (mq && mq.matches) W.loadPiece("desk");
       W.changed();
     };
     if (mq.addEventListener) mq.addEventListener("change", widened);

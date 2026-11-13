@@ -6,7 +6,7 @@
    Not measured: suites that open the installable build or the offline copy themselves (other copies of the scripts),
    and the two that time things (perf, vitals), which a coverage run leaves out. */
 const fs = require('fs'), path = require('path');
-const ROOT = path.resolve(__dirname, '..', '..'), DIR = path.join(ROOT, 'test', 'out', 'cov'), SCRIPTS = ['app.js', 'app2.js'];
+const ROOT = path.resolve(__dirname, '..', '..'), DIR = path.join(ROOT, 'test', 'out', 'cov'), SCRIPTS = ['app.js', 'app2.js'].concat(require('../../build/bundle.js').pieceFiles());
 const acc = {}, pages = new Set();
 exports.on = !!process.env.WP_COV;
 exports.start = async pg => { if (!exports.on) return; try { await pg.coverage.startJSCoverage({ resetOnNavigation: false }); pages.add(pg); } catch (e) { } };

@@ -2,6 +2,20 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v183
+
+- A smaller first download (the owner: "reduce app size without any negative effect"): what a phone downloads before
+  its first screen fell from 519 KB to about 481 KB. The questions sent to Claude, word for word, and the checks on
+  its answers moved to a piece of their own, app.ask.js (lib/ideasask.js, staysask.js, asksask.js, answers.js),
+  fetched the first time Claude is asked, or by itself once the first screen is up. The desktop workspace moved to
+  app.desk.js, which only a window 1024px or wider fetches; a phone never does. The trip budget's sums moved to the
+  second script (lib/budget.js). build/bundle.js PIECES decides what goes in which piece; lib/later.js loads them
+  (W.piece, W.pieceIn); the installable app keeps every piece for offline use.
+- Nothing is drawn differently: a new suite, same, records the markup and the computed styles of every element on
+  every screen at all five sizes, and they matched the build before the change, as did every screenshot.
+- Tests: perf checks a phone never fetches the desktop workspace, and its limit on the first download falls from
+  520 KB to 490 KB.
+
 ## v182
 
 - Photos show at once on a reload (the owner: "takes a few seconds to load photos on page refresh"). Every load used to

@@ -40,7 +40,8 @@ page works unchanged. A stop's sheet, the stay and the day trip are inspectors t
 desk.css; aria-modal false). screens/palette.js is the keyboard (Ctrl/Cmd+K, [ and ]). Below 1024px none of it runs
 and app.desk.css is never fetched.
 Travel mode stays in the first script on purpose: on the trip it is the first screen, often on a weak signal. What the
-first screen reads from Prepare (the book-by checklist, the budget, which booking belongs to a stop) is lib/bookcore.js,
+first screen reads from Prepare (the book-by checklist, which booking belongs to a stop) is lib/bookcore.js (the budget
+itself and the "Prices in" picker, which only Prepare and Settings draw, are lib/budget.js, in the second script),
 with W.money and "Prices in": each phone shows costs as listed or all in one currency (localStorage "waypoint-cur"),
 converted at the European Central Bank's rates in fx/latest (refreshed nightly) and marked "≈" (W.priceText converts
 prices written in text, like "€15, book ahead"; a currency with no rate stays as listed); Prepare's Budget and Settings offer it.
@@ -95,6 +96,11 @@ lib/              the shared library
   validate.js     the one door for everything Claude sends back (W.V): names, pins near the city they were asked for
                   (a pin on another continent or at 0,0 is cleared, the place kept), tags, ratings, kid scores, times of
                   day, meals, hours, beach facts, money, time zones; links through the own-site rule. Loaded first.
+                  (The fields and the checks on data someone else wrote are here; the shapes of Claude's answers are
+                  in answers.js.)
+  answers.js      the rest of that door, in the second script: the shapes the lists are made of (a thing to do, a
+                  place to eat, a city, a stay, a journey), the own-site rule for links (W.bookUrl) and reading a list
+                  out of an answer still being written. In the "ask" piece and in the second script, both.
   photos.js       real photos (from the nightly finder) and the credit line; a place with no photo shows no picture.
                   A city's photo fills its header band at every width (the large copy where there is one)
                   The list it leaves for the finder (wanted/<city>) puts the places your trip actually uses first, with

@@ -17,17 +17,21 @@ exports.run = async t => {
   /* the first screen needs one script; the second (packing, kids' corner, journal, family, settings) follows when the page is idle */
   const firstPaint = await pg.evaluate(() => { const fp = performance.getEntriesByType('paint').find(e => e.name === 'first-contentful-paint'); return fp ? fp.startTime : null; });
   const app2 = await pg.evaluate(() => { const e = performance.getEntriesByType('resource').find(r => /app2\.js$/.test(r.name)); return e ? { start: e.startTime } : null; });
-  t.eq(st.list.filter(n => /\.js$/.test(n)).sort(), ['app.js', 'app2.js'].filter(n => n === 'app.js' || app2), 'the first screen needs one script; the second comes after');
+  /* (the questions to Claude are a piece of their own, app.ask.js: fetched when the first one is asked, as here, or with the second script) */
+  const askAt = await pg.evaluate(() => { const e = performance.getEntriesByType('resource').find(r => /app\.ask\.js$/.test(r.name)); return e ? e.startTime : null; });
+  t.eq(st.list.filter(n => /\.js$/.test(n)).sort(), ['app.ask.js', 'app.js', 'app2.js'].filter(n => n === 'app.js' || (n === 'app2.js' ? app2 : askAt != null)), 'the first screen needs one script; the second comes after, and the questions to Claude when one is asked');
+  t.ok(await pg.evaluate(() => W.pieceIn('ask') && !W.pieceIn('desk')), 'a phone has the questions to Claude and never fetches the desktop workspace');
   t.ok(app2 && firstPaint != null && app2.start >= firstPaint - 1 && await pg.evaluate(() => W.laterReady && !!W.packBlock && !!W.renderKids), `the second script loads after the first paint (${app2 && Math.round(app2.start)} ms vs ${firstPaint && Math.round(firstPaint)} ms) and brings its screens`);
   t.ok(st.fonts >= 2 && st.fonts <= 3, `the fonts it needs load from the app itself: the text face as one variable file, the serif and the logo's face (${st.fonts})`);
   const kb = Math.round((fs.statSync(path.join(t.root, 'trip', 'app.js')).size + fs.statSync(path.join(t.root, 'trip', 'app.min.css')).size) / 1024);
-  t.ok(kb < 520, `first script + stylesheet under 520 KB before compression (${kb} KB)`);
+  /* v183: the questions to Claude and the desktop workspace load when needed (about 481 KB); the limit follows it down */
+  t.ok(kb < 490, `first script + stylesheet under 490 KB before compression (${kb} KB)`);
   const wide = ['app.min.css', 'app2.css'].map(f => fs.readFileSync(path.join(t.root, 'trip', f)).filter(c => c > 127).length);
   t.eq(wide, [0, 0], 'the stylesheets are plain ASCII, so "·" and "→" in them never show up garbled');
   const css2 = await pg.evaluate(() => { const e = performance.getEntriesByType('resource').find(r => /app2\.css$/.test(r.name)); return e ? e.startTime : null; });
   t.ok(css2 != null && firstPaint != null && css2 >= firstPaint - 1, `the second script's styles (app2.css) come with it, after the first paint (${css2 && Math.round(css2)} ms)`);
   const kb2 = f => Math.round(fs.statSync(path.join(t.root, 'trip', f)).size / 1024);
-  t.note(`startup: ${st.n} requests, first script+css ${kb} KB, then app2.js ${kb2('app2.js')} KB + app2.css ${kb2('app2.css')} KB`);
+  t.note(`startup: ${st.n} requests, first script+css ${kb} KB, then app2.js ${kb2('app2.js')} KB + app2.css ${kb2('app2.css')} KB, and app.ask.js ${kb2('app.ask.js')} KB when Claude is first asked`);
 
   /* a 17-day trip, then timings with the CPU throttled 4x */
   await pg.evaluate(SP => {

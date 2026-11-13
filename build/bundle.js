@@ -4,6 +4,8 @@
    the first screen is up. Sources stay where they are (lib/, screens/, data/); the order below is the dependency order.
      node build/bundle.js            -> trip/app.js, trip/app2.js, trip/app.min.css, trip/app2.css, trip/app.desk.css (+ .map files, kept local)
      node build/bundle.js --check    -> build in memory, run the checks below and report sizes; write nothing
+   Some parts of the second script are files of their own, fetched only where or when they are needed (PIECES below:
+   app.<name>.js; lib/later.js loads them): what a phone downloads after its first screen is then only what a phone uses.
    Checks (a failed one stops the build): every file of the second script is in ORDER, and the second script is joined
    in ORDER's order (one list decides the order of both); no style rule that moves to app2.css would win over a later
    rule that stays in app.min.css (app2.css loads last, so the move would turn the cascade round: v148's .nr-b). */
@@ -11,14 +13,32 @@ const esbuild = require('esbuild'); const fs = require('fs'); const path = requi
 const TRIP = path.resolve(__dirname, '..', 'trip');
 const ORDER = [
   'data/data1.js', 'data/data2.js',
-  'lib/validate.js', 'lib/core.js', 'lib/ideastore.js', 'lib/towns.js', 'lib/ideas.js', 'lib/stays.js', 'lib/asks.js', 'lib/icons.js', 'lib/patch.js', 'lib/eat.js', 'lib/links.js', 'lib/errlog.js', 'lib/later.js', 'lib/pwa.js', 'lib/back.js', 'lib/a11y.js', 'lib/classify.js', 'lib/photos.js', 'lib/photowish.js', 'lib/places.js', 'lib/nightfood.js', 'lib/fx.js', 'lib/vtindex.js', 'lib/vtmap.js', 'lib/offline.js', 'lib/offcopy.js', 'lib/speedtest.js', 'lib/times.js', 'lib/holidays.js', 'lib/shape.js', 'lib/plan.js', 'lib/planacts.js', 'lib/rules.js', 'lib/packing.js', 'lib/warm.js', 'lib/ahead.js', 'lib/memories.js',
-  'screens/setup.js', 'lib/sharebox.js', 'lib/sync.js', 'lib/bookcore.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/route.js', 'lib/import.js', 'lib/prices.js', 'lib/watch.js', 'lib/gmaps.js', 'lib/search.js', 'lib/replan.js', 'lib/bookcheck.js', 'lib/review.js', 'lib/brief.js',
+  'lib/validate.js', 'lib/core.js', 'lib/ideastore.js', 'lib/towns.js', 'lib/ideas.js', 'lib/stays.js', 'lib/asks.js', 'lib/answers.js', 'lib/ideasask.js', 'lib/staysask.js', 'lib/asksask.js', 'lib/icons.js', 'lib/patch.js', 'lib/eat.js', 'lib/links.js', 'lib/errlog.js', 'lib/later.js', 'lib/pwa.js', 'lib/back.js', 'lib/a11y.js', 'lib/classify.js', 'lib/photos.js', 'lib/photowish.js', 'lib/places.js', 'lib/nightfood.js', 'lib/fx.js', 'lib/vtindex.js', 'lib/vtmap.js', 'lib/offline.js', 'lib/offcopy.js', 'lib/speedtest.js', 'lib/times.js', 'lib/holidays.js', 'lib/shape.js', 'lib/plan.js', 'lib/planacts.js', 'lib/rules.js', 'lib/packing.js', 'lib/warm.js', 'lib/ahead.js', 'lib/memories.js',
+  'screens/setup.js', 'lib/sharebox.js', 'lib/sync.js', 'lib/bookcore.js', 'lib/budget.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/route.js', 'lib/import.js', 'lib/prices.js', 'lib/watch.js', 'lib/gmaps.js', 'lib/search.js', 'lib/replan.js', 'lib/bookcheck.js', 'lib/review.js', 'lib/brief.js',
   'screens/today.js', 'screens/family.js', 'lib/daybag.js', 'screens/kids.js', 'screens/near.js', 'screens/travel.js', 'screens/flow.js', 'screens/flowacts.js', 'screens/quickstart.js', 'screens/sheet.js', 'lib/menuread.js', 'screens/daytrip.js', 'lib/typeahead.js', 'screens/settings.js', 'screens/trip.js', 'screens/tripacts.js',
   /* the desktop workspace (v153; all in the second script): its state, the map canvas, the rail, the palette, CSV */
   'lib/desk.js', 'lib/deskmap.js', 'screens/rail.js', 'screens/palette.js', 'lib/csv.js', 'screens/dayline.js'
 ];
-const LATER = ['lib/planacts.js', 'lib/photowish.js', 'lib/rules.js', 'screens/flowacts.js', 'screens/tripacts.js', 'lib/nightfood.js', 'lib/memories.js', 'lib/ahead.js', 'screens/near.js', 'screens/quickstart.js', 'screens/sheet.js', 'lib/menuread.js', 'screens/daytrip.js', 'lib/typeahead.js', 'lib/import.js', 'screens/setup.js', 'lib/vtmap.js', 'lib/packing.js', 'lib/prices.js', 'lib/watch.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/gmaps.js', 'lib/search.js', 'lib/replan.js', 'lib/bookcheck.js', 'lib/review.js', 'lib/brief.js', 'screens/family.js', 'lib/daybag.js', 'screens/kids.js', 'screens/settings.js', 'lib/route.js', 'lib/offcopy.js', 'lib/speedtest.js', 'lib/desk.js', 'lib/deskmap.js', 'screens/rail.js', 'screens/palette.js', 'lib/csv.js', 'screens/dayline.js'];
-module.exports.ORDER = ORDER; module.exports.LATER = LATER;
+const LATER = ['lib/ideasask.js', 'lib/staysask.js', 'lib/asksask.js', 'lib/answers.js', 'lib/planacts.js', 'lib/photowish.js', 'lib/rules.js', 'screens/flowacts.js', 'screens/tripacts.js', 'lib/nightfood.js', 'lib/memories.js', 'lib/ahead.js', 'screens/near.js', 'screens/quickstart.js', 'screens/sheet.js', 'lib/menuread.js', 'screens/daytrip.js', 'lib/typeahead.js', 'lib/import.js', 'screens/setup.js', 'lib/vtmap.js', 'lib/packing.js', 'lib/prices.js', 'lib/watch.js', 'lib/budget.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/gmaps.js', 'lib/search.js', 'lib/replan.js', 'lib/bookcheck.js', 'lib/review.js', 'lib/brief.js', 'screens/family.js', 'lib/daybag.js', 'screens/kids.js', 'screens/settings.js', 'lib/route.js', 'lib/offcopy.js', 'lib/speedtest.js', 'lib/desk.js', 'lib/deskmap.js', 'screens/rail.js', 'screens/palette.js', 'lib/csv.js', 'screens/dayline.js'];
+/* Pieces: files of LATER that do not ride in app2.js but in a file of their own, app.<name>.js, which lib/later.js
+   fetches when it is needed. Nothing outside a piece may count on it being there (every call into one is asked for
+   first: "if (W.deskLayout) ...", or goes through something that waits for it: W.run).
+     ask    the questions to Claude, word for word, what is done with each answer (W.ASKS, for lib/core.js W.run)
+            and the checks each answer goes through (lib/answers.js, which the second script carries too: BOTH):
+            fetched when a question is first asked, or by itself after the first screen. It counts only on the first
+            script (lib/later.js FREE), so it runs as soon as it arrives
+     desk   the desktop workspace (its panes, the map pane, the rail, the palette, the day's line): a window 1024px
+            wide or more fetches it, with app.desk.css; a phone never does. Its code runs only after app2.js has run
+            (W.piece holds it until then), in ORDER's order, so it may count on both scripts */
+const PIECES = { ask: ['lib/ideasask.js', 'lib/staysask.js', 'lib/asksask.js', 'lib/answers.js'], desk: ['lib/desk.js', 'lib/deskmap.js', 'screens/rail.js', 'screens/palette.js', 'screens/dayline.js'] };
+/* Files of a piece that the second script carries too, because both need them and either may be in first
+   (lib/answers.js: the checks on an answer, for the questions and for the second script's own lists). Such a file
+   must be safe to run twice. */
+const BOTH = ['lib/answers.js'];
+const pieceOf = f => Object.keys(PIECES).find(k => PIECES[k].includes(f)) || '';
+module.exports.ORDER = ORDER; module.exports.LATER = LATER; module.exports.PIECES = PIECES;
+/** the files the build writes for the pieces */
+module.exports.pieceFiles = () => Object.keys(PIECES).map(k => 'app.' + k + '.js');
 
 async function build() {
   /* the build time goes into the error log, so a report says which version it came from */
@@ -33,7 +53,11 @@ async function build() {
   const join = list => list.map(f => `/* --- ${f} --- */\n` + guard(f, fs.readFileSync(path.join(TRIP, f), 'utf8').replace('"__BUILD__"', JSON.stringify(stamp)))).join('\n;\n');
   const lost = LATER.filter(f => !ORDER.includes(f));
   if (lost.length) throw new Error('in LATER but not in ORDER (so not built in a known order): ' + lost.join(', '));
-  const src = FAIL + join(ORDER.filter(f => !LATER.includes(f))), src2 = FAIL + join(ORDER.filter(f => LATER.includes(f))) + AFTER;
+  const stray = Object.keys(PIECES).flatMap(k => PIECES[k].filter(f => !LATER.includes(f)).map(f => f + ' (' + k + ')'));
+  if (stray.length) throw new Error('in a piece but not in LATER (a piece is a part of the second script): ' + stray.join(', '));
+  const twice = LATER.filter(f => Object.keys(PIECES).filter(k => PIECES[k].includes(f)).length > 1);
+  if (twice.length) throw new Error('in more than one piece: ' + twice.join(', '));
+  const src = FAIL + join(ORDER.filter(f => !LATER.includes(f))), src2 = FAIL + join(ORDER.filter(f => LATER.includes(f) && (!pieceOf(f) || BOTH.includes(f)))) + AFTER;
   const dry = process.argv.includes('--check');
   const out = (f, data) => { if (!dry) fs.writeFileSync(path.join(TRIP, f), data); };
   const js = await esbuild.transform(src, { minify: true, target: 'es2017', charset: 'utf8', sourcefile: 'app.src.js', sourcemap: 'external', legalComments: 'none' });
@@ -42,6 +66,15 @@ async function build() {
   out('app.js.map', js.map);
   out('app2.js', js2.code + '\n//# sourceMappingURL=app2.js.map\n');
   out('app2.js.map', js2.map);
+  /* each piece hands its code to W.piece, which runs it once the second script has run (whichever arrives first) */
+  const pk = [];
+  for (const k of Object.keys(PIECES)) {
+    const srcP = 'window.W.piece(' + JSON.stringify(k) + ', function () {\n' + join(ORDER.filter(f => pieceOf(f) === k)) + '\n});\n';
+    const jsP = await esbuild.transform(srcP, { minify: true, target: 'es2017', charset: 'utf8', sourcefile: 'app.' + k + '.src.js', sourcemap: 'external', legalComments: 'none' });
+    out('app.' + k + '.js', jsP.code + '\n//# sourceMappingURL=app.' + k + '.js.map\n');
+    out('app.' + k + '.js.map', jsP.map);
+    pk.push('app.' + k + '.js ' + (jsP.code.length / 1024).toFixed(0) + ' KB');
+  }
   /* the stylesheet in two: app2.css carries what only the second script's screens use (see splitCss) */
   const first = ORDER.filter(f => !LATER.includes(f)).map(f => fs.readFileSync(path.join(TRIP, f), 'utf8')).join('\n') + fs.readFileSync(path.join(TRIP, 'index.html'), 'utf8');
   const parts = splitCss(fs.readFileSync(path.join(TRIP, 'app.css'), 'utf8'), first);
@@ -54,7 +87,7 @@ async function build() {
   const css3 = await esbuild.transform(deskCss(fs.readFileSync(path.join(TRIP, 'app.css'), 'utf8')) + '\n' + fs.readFileSync(path.join(TRIP, 'desk.css'), 'utf8'), { loader: 'css', minify: true });
   out('app.desk.css', css3.code);
   const kb = n => (n / 1024).toFixed(0) + ' KB';
-  console.log(`app.js ${kb(src.length)} -> ${kb(js.code.length)} (+ app2.js ${kb(js2.code.length)} after the first screen); app.min.css ${kb(fs.statSync(path.join(TRIP, 'app.css')).size)} -> ${kb(css.code.length)} (+ app2.css ${kb(css2.code.length)}, ${parts.moved} rules); app.desk.css ${kb(css3.code.length)} (a wide window only)`);
+  console.log(`app.js ${kb(src.length)} -> ${kb(js.code.length)} (+ app2.js ${kb(js2.code.length)} after the first screen${pk.length ? '; when needed: ' + pk.join(', ') : ''}); app.min.css ${kb(fs.statSync(path.join(TRIP, 'app.css')).size)} -> ${kb(css.code.length)} (+ app2.css ${kb(css2.code.length)}, ${parts.moved} rules); app.desk.css ${kb(css3.code.length)} (a wide window only)`);
 }
 /* The desktop stylesheet. On a window 1024px wide or more the app is drawn in a pane of a workspace, and the pane can be
    narrower than a phone or as wide as the window: so there, every rule that follows the WINDOW's width (@media

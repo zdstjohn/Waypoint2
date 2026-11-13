@@ -1,3 +1,3 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v182: none (photos arrive sooner and the slim bar's photo is placed earlier; nothing is drawn differently).
+# v183: none (the questions to Claude and the desktop workspace are now downloaded when needed; nothing is drawn differently).

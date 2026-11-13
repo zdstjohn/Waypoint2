@@ -2,8 +2,11 @@ node_modules/
 build/node_modules
 trip/app.js.map
 trip/app2.js.map
+trip/app.*.js
+trip/app.*.js.map
 test/out/
 test/base/
+test/base-same/
 test/diffout/
 trip/maps/*.json
 !trip/maps/index.json

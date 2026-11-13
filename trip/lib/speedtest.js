@@ -102,7 +102,7 @@
       if (checks > 60) stop("");
       return;
     }
-    if (!W.SAMPLE || W.sampleState !== "on" || !idle() || !window.claude) return;
+    if (!W.SAMPLE || W.sampleState !== "on" || !idle() || !window.claude || !W.spotsAsk) return; /* (W.spotsAsk: the "ask" piece is in) */
     var found = candidate();
     if (!found) return;
     var c = found;

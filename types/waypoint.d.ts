@@ -621,7 +621,14 @@ interface Waypoint {
   routeBody: any;
   routeCheck: any;
   routeClick: any;
-  run: (key: string, prompt: string, tier: "quick" | "default" | "complex", onOk: (r: any) => void, stream?: { list: string; take: (items: any[], head: any) => void; min?: number }) => void;
+  /** prompt: the question, or the name of one in W.ASKS with what its words and its answer need (the "ask" piece) */
+  run: (key: string, prompt: string | { ask: string; a: any[] }, tier: "quick" | "default" | "complex", onOk?: (r: any) => void, stream?: { list: string; take: (items: any[], head: any) => void; min?: number }) => void;
+  /** the questions to Claude and their answers' handlers, by name (lib/ideasask.js, lib/staysask.js, lib/asksask.js) */
+  ASKS: Record<string, { q: (...a: any[]) => string; ok: (...a: any[]) => (r: any) => void; stream?: (...a: any[]) => any }>;
+  /** what those files use from the loaders' own files */
+  ASK_X: Record<string, any>;
+  /** the "ask" piece is in: send what waited for it */
+  asksIn: () => void;
   partialList: (text: string, key: string, from?: number) => { items: any[]; next: number; head: any };
   askOpts: (key: string, tier?: string) => any;
   spotsAsk: (country: string, city: string, n: number) => string;
@@ -766,6 +773,12 @@ interface Waypoint {
   /** run this once the second script is here (asks for it when it is not) */
   whenLater: (fn: () => void) => void;
   laterDone: () => void;
+  /** pieces of the second script in files of their own (lib/later.js; build/bundle.js PIECES): a piece's file hands
+      its code over; is it here; are all that were asked for here; ask for one */
+  piece: (name: string, run: () => void) => void;
+  pieceIn: (name: string) => boolean;
+  piecesIn: () => boolean;
+  loadPiece: (name: string) => void;
   /** quick start (screens/quickstart.js, second script) */
   qsOpen: (first?: boolean) => void;
   qsIsOpen: () => boolean;

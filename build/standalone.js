@@ -8,7 +8,8 @@ const fs = require('fs'); const path = require('path'); const crypto = require('
 const ROOT = path.resolve(__dirname, '..'), TRIP = path.join(ROOT, 'trip'), ICONS = path.join(__dirname, 'icon', 'out');
 /* WP_DIST builds somewhere else (the tests' stand-in server build), with its hosting rules next to it, not in the top folder */
 const DIST = process.env.WP_DIST ? path.resolve(process.env.WP_DIST) : path.join(ROOT, 'dist'), HOSTING = process.env.WP_DIST ? DIST + '.vercel.json' : path.join(ROOT, 'vercel.json');
-const ASSETS = ['app.js', 'app2.js', 'app.min.css', 'app2.css', 'app.desk.css'];
+/* (the pieces of the second script, app.<name>.js, are fetched by name with the version from window.__WP_STANDALONE: lib/later.js) */
+const ASSETS = ['app.js', 'app2.js'].concat(require('./bundle.js').pieceFiles(), ['app.min.css', 'app2.css', 'app.desk.css']);
 /* Waypoint's own server (Supabase project "waypoint"): its address and its publishable key. Both are public by design
    (every visitor's browser gets them); what a signed-in person may read or write is decided by the database's
    row-level security, and Claude's API key stays in the server's secrets. WP_CLOUD_URL / WP_CLOUD_KEY override them
