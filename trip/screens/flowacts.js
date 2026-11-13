@@ -82,7 +82,7 @@
         row.scrollIntoView({ behavior: "smooth", block: "center" });
         row.classList.add("flash");
         setTimeout(function () {
-          row.classList.remove("flash");
+          if (row) row.classList.remove("flash");
         }, 1800);
       }
     }, 80);
@@ -184,10 +184,11 @@
         '<button type="button" data-undo="1">Undo</button></div>'
       : "";
     clearTimeout(undoTimer);
+    var box = host; /* (found or made above) */
     if (undo)
       undoTimer = setTimeout(function () {
         undo = null;
-        host.innerHTML = "";
+        box.innerHTML = "";
       }, 7000);
   }
   function doUndo() {
@@ -362,20 +363,20 @@
     if (drag.target) drag.target.classList.add("droptarget");
     /* on the desktop: a day in the rail, in the same place, takes the stop (it trades with that day's same part) */
     var dd = W.desk() && el ? el.closest(".wr-day.can") : null;
-    if (dd && +dd.dataset.wsday === W.S.day) dd = null;
+    if (dd && Number(dd.dataset.wsday) === W.S.day) dd = null;
     if (drag.day && drag.day !== dd) drag.day.classList.remove("drop");
     drag.day = dd;
     if (dd) dd.classList.add("drop");
   }
   /** @type {{ x: number; y: number; key: string; id: number; t?: ReturnType<typeof setTimeout> } | null} */ var hold = null;
   document.addEventListener("pointerdown", function (e) {
-    var h = e.target.closest && e.target.closest(".slots .slot .thumb, .slots .slot > .num, .slots .slot .ws-grip");
+    var h = e.target && e.target.closest && e.target.closest(".slots .slot .thumb, .slots .slot > .num, .slots .slot .ws-grip");
     if (!h || !W.canEdit() || W.view() !== "trip" || e.button > 0) return;
     var card = h.closest(".slot");
     if (!card || !card.dataset.slotkey) return;
     if (e.pointerType !== "mouse") {
       /* press and hold: lift it, then tap where it goes */
-      clearTimeout(hold && hold.t);
+      clearTimeout(hold ? hold.t : undefined);
       hold = { x: e.clientX, y: e.clientY, key: card.dataset.slotkey, id: e.pointerId };
       hold.t = setTimeout(function () {
         if (hold) {
@@ -455,6 +456,8 @@
       if (W.view() !== "trip" || e.touches.length !== 1 || drag) return;
       var t = e.target;
       if (
+        !t ||
+        !t.closest ||
         t.closest(
           ".explorer, .daybar, .idea-list, .swapcards, .opts, input, textarea, select, .live-list, .jgrid, .sheet, .legopts, .vtwrap, .map, canvas, .thumb"
         )
@@ -475,7 +478,7 @@
         dy = t.clientY - s.y;
       if (Date.now() - s.t > 700 || Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 2) return;
       var btn = document.querySelector('#viewTrip .daybar [data-step="' + (dx < 0 ? 1 : -1) + '"]');
-      if (btn && !btn.disabled) btn.click();
+      if (btn && !btn.disabled && btn.click) btn.click();
     },
     { passive: true }
   );
@@ -495,7 +498,7 @@
       return;
     }
     if (lift) {
-      var lc = e.target.closest && e.target.closest(".slots .slot");
+      var lc = e.target && e.target.closest && e.target.closest(".slots .slot");
       e.preventDefault();
       e.stopPropagation();
       if (lc && canTake(lc)) {
@@ -509,7 +512,7 @@
     if (W.closeTripMenu && e.target.closest && !e.target.closest(".trip-menu, .trip-sw")) W.closeTripMenu();
     var b = e.target.closest("button, a");
     if (!b) {
-      var card = e.target.closest && e.target.closest(".slots .slot[data-slotkey]:not(.free):not(.skel)");
+      var card = e.target && e.target.closest && e.target.closest(".slots .slot[data-slotkey]:not(.free):not(.skel)");
       if (card && !e.target.closest(".swap, .slot-notes a")) {
         W.openStop(card.dataset.slotkey);
       }

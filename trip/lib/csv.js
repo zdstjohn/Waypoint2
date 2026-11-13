@@ -63,7 +63,8 @@
         var it = x.item;
         if (!it) return;
         var R = T && T.rows[x.slot],
-          timed = R && !R.skip && R.start != null,
+          from = R && !R.skip && R.start != null ? R.start : null,
+          to = from != null && R && R.end != null ? R.end : null,
           lg = W.leg(prev, it),
           bk = W.bookingFor ? W.bookingFor(it, day) : null;
         rows.push([
@@ -71,8 +72,8 @@
           dt ? W.isoDay(dt) : "",
           dt ? dt.toLocaleDateString("en", { weekday: "short" }) : "",
           city,
-          timed ? W.clock(R.start) : "",
-          timed && R.end != null ? W.clock(R.end) : "",
+          from != null ? W.clock(from) : "",
+          to != null ? W.clock(to) : "",
           W.SLOT_NAME[x.slot] || x.slot,
           it.n,
           W.isFood(x.slot) ? "Meal" : "Thing to do",

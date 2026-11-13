@@ -338,7 +338,7 @@
       if (a != null && b != null) gap = Math.round((a - b) / 30) / 2;
     }
     if (gap == null && P.ap) {
-      var km = W.km(P.ap, W.stopAt(s));
+      var km = W.km(P.ap, W.stopAt(s)) || 0;
       gap = km > 7000 ? 8 : km > 4000 ? 5 : 0;
     }
     var g = Math.abs(gap || 0);
@@ -639,13 +639,14 @@
     function doRow(x) {
       var it = x.item,
         food = W.isFood(x.slot),
-        row = { warn: [], info: [] };
+        row = /** @type {TimeRow} */ ({ warn: [], info: [] });
       out.rows[x.slot] = row;
       if (out.travel && x.slot === "am") row.label = "After you arrive";
       if (x.slot === "breakfast" && out.travel && out.travel.end > hm(10, 30)) {
+        var bs = out.before ? (p.kid ? hm(8) : hm(8, 30)) : out.travel.start - 50;
         row.skip = true;
-        row.start = out.before ? (p.kid ? hm(8) : hm(8, 30)) : out.travel.start - 50;
-        row.end = out.before ? row.start + 40 : out.travel.start - 15;
+        row.start = bs;
+        row.end = out.before ? bs + 40 : out.travel.start - 15;
         /* (a ticket that leaves later in the day: breakfast is simply breakfast in the town you're leaving) */
         row.info.push(out.before ? "Breakfast in " + day.moveFrom : "Travel morning: have breakfast before you set off");
         return;
@@ -721,6 +722,8 @@
         );
         return;
       }
+      var shut = W.shutOn(it, day.n);
+      if (shut) row.warn.push(W.shutText(shut)); /* shut for a stretch that takes in this day (the nightly check) */
       if (h) {
         if (wd != null && h.closed.indexOf(wd) > -1) row.warn.push("Closed on " + WEEKDAYS[wd] + "s");
         else if (hol.length && W.holidayShut && W.holidayShut(it, day, hol)) row.warn.push("Closed for " + hol[0].n);
@@ -802,8 +805,9 @@
   };
 
   /* is a place shut on this trip day, or a dinner that opens too late for children? (the planner avoids these) */
-  W.badForDay = function (it, wd, slot, kd) {
+  W.badForDay = function (it, wd, slot, kd, n) {
     if (W.gone(it)) return true; /* closed for good, or no such place */
+    if (n != null && W.shutOn(it, n)) return true; /* shut for a stretch that takes in that day */
     var h = it && it.hours;
     if (!h) return false;
     if (wd != null && h.closed.indexOf(wd) > -1) return true;

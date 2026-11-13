@@ -53,9 +53,10 @@
   function freeSlot(day, P, food, nm) {
     var T = W.dayTimes(day, P);
     if (!T) return null;
-    var ok = food ? ["lunch", "dinner", "breakfast"] : ["am", "pm", "eve"];
+    var ok = food ? ["lunch", "dinner", "breakfast"] : ["am", "pm", "eve"],
+      rows = T.rows;
     var x = (day.slots || []).filter(function (y) {
-      var R = T.rows[y.slot];
+      var R = rows[y.slot];
       return !y.item && !y.rest && !y.loading && ok.indexOf(y.slot) > -1 && R && !R.skip && R.start != null && R.start >= nm - 15;
     })[0];
     return x ? { slot: x.slot, label: ((T.rows[x.slot] && T.rows[x.slot].label) || W.SLOT_NAME[x.slot]).toLowerCase() } : null;

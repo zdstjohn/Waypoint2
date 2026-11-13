@@ -59,6 +59,7 @@
     /** @type {HTMLElement | null} */ split = null,
     /** @type {HTMLElement | null} */ bar = null,
     adopted = false;
+  /** @param {string} tag @param {string} id @param {string} cls @param {string} inner @returns {HTMLElement} */
   function make(tag, id, cls, inner) {
     var e = document.createElement(tag);
     e.id = id;
@@ -267,12 +268,13 @@
     if (!sm || !sm.stops) return "";
     /* what the day's tickets come to for the group, where the budget knows (the same figures as Prepare's Budget) */
     var c = day ? W.C.cost[W.cityKey(day.country, day.city)] : null,
+      tickets = /** @type {Record<string, number | null>} */ ((c && c.tickets) || {}),
       cost = 0,
       priced = 0;
-    if (c && c.tickets && day)
+    if (day)
       (day.slots || []).forEach(function (x) {
         var it = x.item,
-          v = it && !W.isFood(x.slot) ? c.tickets[W.norm(it.n)] : null;
+          v = it && !W.isFood(x.slot) ? tickets[W.norm(it.n)] : null;
         if (v != null && v > 0) {
           cost += v;
           priced++;
@@ -288,7 +290,7 @@
       (sm.first != null && sm.last != null
         ? "<span><b>" + esc(W.clock(sm.first)) + "</b> to <b>" + esc(W.clock(sm.last)) + "</b></span>"
         : "") +
-      (priced ? "<span>tickets <b>≈ " + esc(W.money(cost, c.cur)) + "</b></span>" : "") +
+      (priced && c ? "<span>tickets <b>≈ " + esc(W.money(cost, c.cur)) + "</b></span>" : "") +
       (sm.booked ? "<span><b>" + sm.booked + "</b> booked</span>" : "") +
       "</div>"
     );
@@ -435,7 +437,7 @@
       if (which === "days") toDays("days");
       else if (which === "explore") toDays("map");
       else if (which === "setup" || which === "go" || which === "book") W.goView(which);
-    } else if (what === "day") W.wsDay(+which);
+    } else if (what === "day") W.wsDay(Number(which));
     else if (what === "prep") {
       W.S.prepTab = which;
       if (W.view() !== "book") W.goView("book");
@@ -445,8 +447,9 @@
         var e = document.querySelector('#viewBook [data-wssec="' + which + '"]');
         if (e) e.scrollIntoView({ block: "start", behavior: W.smooth ? W.smooth() : "auto" });
       }, 60);
-    } else if (what === "f") W.wsHide(which);
-    else if (what === "pal") {
+    } else if (what === "f") {
+      if (which) W.wsHide(which);
+    } else if (what === "pal") {
       if (W.palOpen) W.palOpen();
     } else if (what === "csv") {
       if (W.csvExport) W.csvExport(W.P);

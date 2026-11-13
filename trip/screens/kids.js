@@ -560,7 +560,7 @@
   document.addEventListener(
     "click",
     function (e) {
-      var b = e.target.closest && e.target.closest("button");
+      var b = e.target && e.target.closest && e.target.closest("button");
       if (!b || !b.closest("#viewKids")) return;
       var d = b.dataset,
         s = S(),
@@ -584,7 +584,7 @@
         return;
       }
       if (W.readOnly) return;
-      if (d.kpick) {
+      if (d.kpick && d.kname) {
         var kp = s.kidPicks || (s.kidPicks = {}),
           k = W.norm(d.kpick),
           list = kp[k] || (kp[k] = []),
@@ -611,7 +611,7 @@
       if (d.hunt) {
         var hu = s.hunt || (s.hunt = {}),
           t = hu[d.hunt] || (hu[d.hunt] = {}),
-          i = +d.hi;
+          i = Number(d.hi);
         if (t[i]) delete t[i];
         else t[i] = 1;
         W.save();

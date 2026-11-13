@@ -23,6 +23,7 @@
       dt = W.dateOf(day.n),
       leg = T && T.travel ? T.travel.leg : null,
       tk = T && T.travel ? T.travel.ticket : null,
+      rows = T ? T.rows : null /* (kept, so the check inside the map below still knows it is there) */,
       stops = !T
         ? []
         : (T.order || [])
@@ -30,7 +31,7 @@
               var x = day.slots.filter(function (y) {
                   return y.slot === sl;
                 })[0],
-                R = T.rows[sl];
+                R = rows && rows[sl];
               return x && x.item && R && !R.skip && R.start != null ? W.clock(R.start) + " " + x.item.n : null;
             })
             .filter(Boolean);

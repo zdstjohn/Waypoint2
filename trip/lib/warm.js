@@ -410,18 +410,20 @@
       '<button type="button" class="icon-btn" data-cheerx="1" aria-label="Close">×</button></div>';
     if (opts.big) confetti();
     clearTimeout(cheerT);
+    var box = host; /* (found or made above) */
     cheerT = setTimeout(
       function () {
-        host.innerHTML = "";
+        box.innerHTML = "";
       },
       opts.big ? 7000 : 3800
     );
   };
   W.warmTick = function (P) {
     if (W.readOnly) return;
-    var m = W.milestone(P);
-    if (!m) return;
-    var s = S(),
+    var reached = W.milestone(P);
+    if (!reached) return;
+    var m = reached,
+      s = S(),
       cel = s.celebrated || (s.celebrated = {});
     cel[m.key] = W.isoDay(W.now());
     (m.also || []).forEach(function (k) {
@@ -465,7 +467,7 @@
   document.addEventListener(
     "click",
     function (e) {
-      var b = e.target.closest && e.target.closest("button");
+      var b = e.target && e.target.closest && e.target.closest("button");
       if (!b) return;
       var d = b.dataset;
       if (d.cheerx) {

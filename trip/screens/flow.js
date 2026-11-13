@@ -186,7 +186,7 @@
       }),
       a = W.dateOf(ds[0].n),
       b = W.dateOf(ds[ds.length - 1].n);
-    if (!a) return "";
+    if (!a || !b) return "";
     var mo = { month: "short", day: "numeric" };
     return a.getMonth() === b.getMonth() ? fmt(a, mo) + "–" + b.getDate() : fmt(a, mo) + " – " + fmt(b, mo);
   }

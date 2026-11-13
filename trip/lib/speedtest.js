@@ -102,9 +102,10 @@
       if (checks > 60) stop("");
       return;
     }
-    if (!W.SAMPLE || W.sampleState !== "on" || !idle()) return;
-    var c = candidate();
-    if (!c) return;
+    if (!W.SAMPLE || W.sampleState !== "on" || !idle() || !window.claude) return;
+    var found = candidate();
+    if (!found) return;
+    var c = found;
     started = true;
     clearInterval(timer);
     Promise.all([window.claude.use("user"), window.claude.use("db")])

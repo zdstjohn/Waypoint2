@@ -20,6 +20,12 @@
   var mcpMsg = W.mcpMsg,
     getMcp = W.getMcp;
 
+  /** what a box of the add-a-booking form holds ("" for one not on screen) @param {string} id */
+  function field(id) {
+    var e = $(id);
+    return (e && e.value) || "";
+  }
+
   /* ---------- Gmail ---------- */
   var gm = { state: "idle" };
   function gmailQuery(P) {
@@ -66,7 +72,7 @@
           }),
           a = W.dateOf(ds[0].n),
           b = W.dateOf(ds[ds.length - 1].n);
-        return s.name + ", " + s.country + (a ? " (" + W.isoDay(a) + " to " + W.isoDay(b) + ")" : "");
+        return s.name + ", " + s.country + (a && b ? " (" + W.isoDay(a) + " to " + W.isoDay(b) + ")" : "");
       })
       .join("; ");
   }
@@ -256,9 +262,10 @@
           )
         );
       }
+      var rows = T.rows;
       (d.slots || []).forEach(function (x) {
         var it = x.item,
-          R = T.rows[x.slot];
+          R = rows[x.slot];
         if (!it || !R || R.skip) return;
         var food = W.isFood(x.slot),
           off = W.officialUrl(it, food, d.country, d.city);
@@ -530,16 +537,18 @@
           var head =
             "Day " + d.n + " · " + d.city + (date ? " · " + fmtDay(date, { weekday: "long", month: "short", day: "numeric" }) : "");
           var from = "From " + home.label + (d.moveFrom ? " · travel day from " + d.moveFrom : "") + (d.tripLast ? " · flight home" : "");
-          var L = T && T.travel ? T.travel.leg : null,
+          var tr = T && T.travel ? T.travel : null,
+            L = tr ? tr.leg : null,
             o = L ? L.best : null;
-          var move = L
-            ? W.clock(T.travel.start) +
-              "   " +
-              L.a.name +
-              " → " +
-              L.b.name +
-              (o ? " by " + W.modeName(o.mode).toLowerCase() + " · " + [o.dur, o.price, o.op].filter(Boolean).join(" · ") : "")
-            : "";
+          var move =
+            tr && L
+              ? W.clock(tr.start) +
+                "   " +
+                L.a.name +
+                " → " +
+                L.b.name +
+                (o ? " by " + W.modeName(o.mode).toLowerCase() + " · " + [o.dur, o.price, o.op].filter(Boolean).join(" · ") : "")
+              : "";
           /* a day's heading never sits alone at the foot of a page: room for it, the travel line and the whole first stop */
           room(
             Math.min(
@@ -1101,7 +1110,9 @@
     return h;
   }
   W.renderBook = function (P) {
-    var el = $("viewBook");
+    var box = $("viewBook");
+    if (!box) return; /* (the screen's box, in index.html) */
+    var el = box;
     if (!P.stops.length) {
       el.innerHTML =
         '<div class="empty sk">Pick where you\'re going under Plan first.<div style="margin-top:12px"><button type="button" class="btn" data-view="setup">Go to Setup</button></div></div>';
@@ -1360,7 +1371,9 @@
       part.take = section(
         "Take along",
         "The trip on this phone for no-signal days, each stop as a timed event in your own calendar, the whole plan as a PDF, or an offline copy of the app with this trip inside.",
-        (W.offline && !ro ? W.offline.tripBlock(P) : "") + W.takeItBlock(P) + (W.offline && !ro ? W.offline.takeBlock(P) : ""),
+        (W.offline && W.offline.tripBlock && !ro ? W.offline.tripBlock(P) : "") +
+          W.takeItBlock(P) +
+          (W.offline && W.offline.takeBlock && !ro ? W.offline.takeBlock(P) : ""),
         "bk-take"
       );
     var mark = function (k, html) {
@@ -1537,16 +1550,17 @@
         return x.id !== d.rmbk;
       });
     } else if (d.addbk && !W.readOnly) {
-      var t = $("bkTitle").value.trim();
+      var t = field("bkTitle").trim();
       if (!t) {
-        $("bkTitle").focus();
+        var tb = $("bkTitle");
+        if (tb) tb.focus();
         return;
       }
       /* a time makes a journey's ticket plan the travel day (leave in time for it, start the day from its arrival) */
-      var kind = $("bkKind").value,
-        date = $("bkDate").value,
-        tm = /^\d{2}:\d{2}$/.test($("bkTime").value) ? $("bkTime").value : "",
-        ta = /^\d{2}:\d{2}$/.test($("bkArr").value) ? $("bkArr").value : "";
+      var kind = field("bkKind"),
+        date = field("bkDate"),
+        tm = /^\d{2}:\d{2}$/.test(field("bkTime")) ? field("bkTime") : "",
+        ta = /^\d{2}:\d{2}$/.test(field("bkArr")) ? field("bkArr") : "";
       var endDay = date && ta && tm && ta < tm ? W.isoDay(new Date(new Date(date + "T12:00").getTime() + 864e5)) : date;
       var b2 = {
         kind: kind,
@@ -1555,9 +1569,9 @@
         to: "",
         start: date && tm ? date + "T" + tm : date,
         end: date && ta ? endDay + "T" + ta : "",
-        price: amount($("bkPrice").value) || 0,
-        cur: ($("bkCur").value || "EUR").toUpperCase().slice(0, 3),
-        ref: $("bkRef").value.trim().slice(0, 40),
+        price: amount(field("bkPrice")) || 0,
+        cur: (field("bkCur") || "EUR").toUpperCase().slice(0, 3),
+        ref: field("bkRef").trim().slice(0, 40),
         provider: "",
         what: "",
         url: "",
@@ -1570,7 +1584,8 @@
       bookings().push(b2);
       addOpen = true;
       ["bkTitle", "bkPrice", "bkRef", "bkTime", "bkArr"].forEach(function (id) {
-        $(id).value = "";
+        var e = $(id);
+        if (e) e.value = "";
       });
     } else if (d.cal) {
       calConfirm = true;
@@ -1589,17 +1604,17 @@
   W.bookEnter = function (inp) {
     if (inp && /^bk/.test(inp.id)) {
       var b = document.querySelector("[data-addbk]");
-      if (b) b.click();
+      if (b && b.click) b.click();
     }
     if (inp && inp.id === "pkNew") {
       var pb = document.querySelector("[data-packadd]");
-      if (pb) pb.click();
+      if (pb && pb.click) pb.click();
     }
   };
   document.addEventListener(
     "toggle",
     function (e) {
-      if (e.target && e.target.classList && e.target.classList.contains("addbk")) addOpen = e.target.open;
+      if (e.target && e.target.classList && e.target.classList.contains("addbk")) addOpen = !!e.target.open;
     },
     true
   );

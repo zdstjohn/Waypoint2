@@ -34,7 +34,7 @@
       mo = (dt || new Date()).getMonth(),
       hot = mo >= 5 && mo <= 8 && HOT.test(day.country);
     stops.forEach(function (x) {
-      var it = x.item,
+      var it = /** @type {Spot | Food} */ (x.item) /* stops keeps only the slots with a place */,
         food = W.isFood(x.slot),
         c = W.classify(it, food),
         k = c.kind || "",

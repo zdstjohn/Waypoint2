@@ -17,6 +17,42 @@
     return c.items[W.norm(it.n)] || null;
   };
 
+  /** a record's closures for a stretch (a renovation, the winter), made safe: [{f, t, why}] with real dates, at most
+      4, or undefined @param {any} v */
+  W.cleanShut = function (v) {
+    if (!Array.isArray(v)) return undefined;
+    var day = /^\d{4}-\d{2}-\d{2}$/;
+    var out = v
+      .filter(function (s) {
+        return s && typeof s.f === "string" && typeof s.t === "string" && day.test(s.f) && day.test(s.t) && s.f <= s.t;
+      })
+      .slice(0, 4)
+      .map(function (s) {
+        return { f: s.f, t: s.t, why: typeof s.why === "string" ? s.why.slice(0, 40) : "" };
+      });
+    return out.length ? out : undefined;
+  };
+  /** the closure that covers trip day n, when the place is shut that day @param {any} it @param {number} n */
+  W.shutOn = function (it, n) {
+    if (!it || !it.shut || n == null) return null;
+    var d = W.dateOf(n);
+    if (!d) return null;
+    var iso = W.isoDay(d);
+    return (
+      it.shut.filter(function (/** @type {{f: string, t: string}} */ s) {
+        return s.f <= iso && iso <= s.t;
+      })[0] || null
+    );
+  };
+  /** "Closed Dec 20 – Jan 10 (winter holidays)" @param {{f: string, t: string, why: string}} s */
+  W.shutText = function (s) {
+    var fmt = function (/** @type {string} */ iso) {
+      var p = iso.split("-");
+      return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    };
+    return "Closed " + (s.f === s.t ? fmt(s.f) : fmt(s.f) + " – " + fmt(s.t)) + (s.why ? " (" + s.why + ")" : "");
+  };
+
   /* lay the checked facts over one list: a verified pin wins over a guessed one; a place that has closed is marked so
      the planner skips it; the official site fills an empty booking or menu link; hours fill in where unknown */
   function lay(list, items, food, added, pool) {
@@ -57,6 +93,8 @@
       if (r.hours && !it.hours) it.hours = r.hours;
       if (r.k != null) it.k = r.k;
       if (r.note) it.note = r.note;
+      /* shut for a stretch (the nightly "still open" check): warned on the days it covers, and kept off them */
+      it.shut = W.cleanShut(r.shut);
       if (r.place) it.place = r.place;
       /* a closed place names what to go to instead: added to the list once, with its own checked facts */
       if (r.replace && r.replace.n && !added[W.norm(r.replace.n)]) {

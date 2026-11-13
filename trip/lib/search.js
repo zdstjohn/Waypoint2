@@ -30,13 +30,14 @@
       ["dinner", "Dinner"]
     ];
 
+  /** a pin needs both halves: the map search is centred on it @returns {{ lat: number, lng: number } | null} */
   function centerFor(country, city) {
     var h = W.homebase(country, city);
-    if (h && h.lat != null) return { lat: h.lat, lng: h.lng };
+    if (h && h.lat != null && h.lng != null) return { lat: h.lat, lng: h.lng };
     var p = W.pool(country, city);
-    if (p && p.lat != null) return { lat: p.lat, lng: p.lng };
+    if (p && p.lat != null && p.lng != null) return { lat: p.lat, lng: p.lng };
     var c = W.findCity(country, city);
-    return c && c.lat != null ? { lat: c.lat, lng: c.lng } : null;
+    return c && c.lat != null && c.lng != null ? { lat: c.lat, lng: c.lng } : null;
   }
   function words(q) {
     return W.norm(q)
@@ -279,7 +280,7 @@
     st.local.concat(st.gg, st.mb, st.link ? [] : ai).forEach(function (r) {
       if (
         out.some(function (o) {
-          return same(o.n, r.n) && (o.lat == null || r.lat == null || W.km(o, r) < 1.5);
+          return same(o.n, r.n) && (o.lat == null || r.lat == null || (W.km(o, r) || 0) < 1.5);
         })
       ) {
         /* a Claude idea the map also knows: the map's pin and the "checked on the map" mark */
@@ -309,7 +310,7 @@
   function nearLine(r, day, P) {
     if (r.lat == null) return "";
     var home = W.homebase(day.country, day.city),
-      /** @type {{ d: number, a: any } | null} */ best = null;
+      best = /** @type {{ d: number, a: any } | null} */ (null);
     [home]
       .concat(
         (day.slots || []).map(function (x) {

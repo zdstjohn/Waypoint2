@@ -118,11 +118,12 @@
       return;
     }
     if (h === drawn) return;
-    var first = !drawn;
+    var first = !drawn,
+      box = host; /* (found or made above) */
     drawn = h;
-    W.keepInputs(host, function () {
-      host.innerHTML = h;
-      var s = /** @type {HTMLElement | null} */ (host.querySelector(".sheet"));
+    W.keepInputs(box, function () {
+      box.innerHTML = h;
+      var s = /** @type {HTMLElement | null} */ (box.querySelector(".sheet"));
       if (s && first) s.focus({ preventScroll: true });
     });
     document.documentElement.classList.add("modal-open");

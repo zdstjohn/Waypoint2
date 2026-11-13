@@ -113,25 +113,25 @@
         }).length,
         adults: p.adults,
         p: p,
-        countries: [],
+        countries: /** @type {string[]} */ ([]),
         flight: !!P.ap,
         longHaul: false,
-        train: [],
-        ferry: [],
-        car: [],
-        bus: [],
+        train: /** @type {string[]} */ ([]),
+        ferry: /** @type {string[]} */ ([]),
+        car: /** @type {string[]} */ ([]),
+        bus: /** @type {string[]} */ ([]),
         moves: Math.max(0, P.stops.length - 1),
         dayTrips: 0,
-        beach: [],
-        water: [],
-        nature: [],
-        hike: [],
-        museum: [],
-        carry: [],
-        longWalk: [],
-        eveOut: [],
+        beach: /** @type {string[]} */ ([]),
+        water: /** @type {string[]} */ ([]),
+        nature: /** @type {string[]} */ ([]),
+        hike: /** @type {string[]} */ ([]),
+        museum: /** @type {string[]} */ ([]),
+        carry: /** @type {string[]} */ ([]),
+        longWalk: /** @type {string[]} */ ([]),
+        eveOut: /** @type {string[]} */ ([]),
         months: {},
-        lat: null,
+        lat: /** @type {number | null} */ (null),
         nights: P.N,
         jet: 0
       };
@@ -600,7 +600,7 @@
     }
     if (d.packadd) {
       var inp = document.getElementById("pkNew"),
-        text = inp && inp.value.trim();
+        text = ((inp && inp.value) || "").trim();
       if (!text) return true;
       var own = S.packOwn || (S.packOwn = []);
       own.push({

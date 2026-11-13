@@ -283,10 +283,11 @@
             ML.addProtocol("wpvt", function (params) {
               var m = /^wpvt:\/\/([^/]+)\/(\d+)\/(\d+)\/(\d+)/.exec(params.url);
               if (!m) return Promise.resolve({ data: none() });
-              var key = m[2] + "/" + m[3] + "/" + m[4];
+              var key = m[2] + "/" + m[3] + "/" + m[4],
+                slug = m[1];
               /* a tile that fails to come out of its pack is tried twice more before the map is told */
               function once() {
-                return pack(m[1]).then(function (p) {
+                return pack(slug).then(function (p) {
                   return piece(p, key);
                 });
               }
@@ -316,10 +317,11 @@
               var m = /^wpgl:\/\/([^/]+)\/([0-9]+-[0-9]+)/.exec(params.url),
                 stack = m ? decodeURIComponent(m[1]).split(",")[0] : "";
               if (!m) return Promise.resolve({ data: none() });
-              return glyphs(parseInt(m[2], 10))
+              var range = m[2];
+              return glyphs(parseInt(range, 10))
                 .then(function (g) {
-                  return piece(g, stack + "/" + m[2]).then(function (d) {
-                    return d.byteLength ? d : piece(g, "Noto Sans Regular/" + m[2]);
+                  return piece(g, stack + "/" + range).then(function (d) {
+                    return d.byteLength ? d : piece(g, "Noto Sans Regular/" + range);
                   });
                 })
                 .then(function (d) {
@@ -349,7 +351,7 @@
       document.documentElement.getAttribute("data-theme") === "dark" ||
       (document.documentElement.getAttribute("data-theme") !== "light" &&
         window.matchMedia &&
-        matchMedia("(prefers-color-scheme: dark)").matches);
+        window.matchMedia("(prefers-color-scheme: dark)").matches);
     return dark
       ? {
           dark: true,

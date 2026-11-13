@@ -43,7 +43,7 @@ interface TripState { v: 2; algo?: number; tripId?: string; tripName?: string; s
 interface Booking { key?: string; kind: string; title?: string; day?: number; [k: string]: any }
 interface Costs { ages: string; cur?: string; breakfast?: number | null; lunch?: number | null; dinner?: number | null; transit?: number | null; lodge?: number | null; tickets: Record<string, number | null> }
 interface Cache { country: Record<string, { blurb: string; cities: BuiltCity[]; v?: number; part?: number }>; city: Record<string, Pool>; geo: Record<string, LatLng & { area?: string }>;
-  range: Record<string, { s?: number; r?: number; sig: string }>; legs?: Record<string, any>; cost: Record<string, Costs>; tz: Record<string, string>; live?: any; area: Record<string, any>;
+  range: Record<string, { s?: number; r?: number; sig: string }>; /** journeys between towns (always there: lib/core.js makes it with the cache) */ legs: Record<string, any>; cost: Record<string, Costs>; tz: Record<string, string>; live?: any; area: Record<string, any>;
   /** holidays and festivals from Claude per city, for the dates asked about (lib/holidays.js) */
   events: Record<string, { v: number; from: string; to: string; items: CityEvent[] }>;
   /** typical fares from Claude for a flight from home, one way, the whole group (lib/prices.js W.fareGuess) */
@@ -73,10 +73,22 @@ interface Ticket { kind: string; title: string; provider: string; ref: string; d
 /** one way of going, as Rome2Rio measured it (minutes door to door) */
 interface R2RRoute { name: string; min: number; carriers: string[] }
 interface DayTimes { rows: Partial<Record<Slot, TimeRow>>; nap?: { start: number; end: number; away?: boolean } | null;
-  travel?: { start: number; end: number; leg?: Leg | null; ticket?: Ticket; dep?: number; arr?: number } | null;
+  /** a moving day's journey; leg: the way between the two towns (W.legFor, always there for a stop after the first) */
+  travel?: { start: number; end: number; leg: TownLeg; ticket?: Ticket; dep?: number; arr?: number; zone?: boolean } | null;
   /** a free morning in the town you're leaving before a booked late departure */
   before?: { start: number; end: number; city: string } | null; [k: string]: any }
 interface Leg { min: number; mode: string; km?: number; [k: string]: any }
+/** the journey between two bases (lib/times.js W.legFor): best is the way chosen (Claude's options, opts), min its minutes */
+interface TownLeg { a: Stop; b: Stop; key: string; opts: any[] | null; best: any; pick: number; min: number; km: number | null; guessed: boolean; r2r: R2RRoute | null; [k: string]: any }
+/** one row of a day on the Today screen (screens/travel.js entries), in time order: the journey, a place, a rest, the
+    nap, the way back; i is its place in the day before sorting */
+type GoEntry = { start: number; end: number; i?: number } & (
+  | { k: "travel"; leg: TownLeg; tk: Ticket | null; dep?: number; arr?: number }
+  | { k: "stop"; x: SlotEntry & { item: Spot | Food }; R: TimeRow; food: boolean }
+  | { k: "rest"; x: SlotEntry }
+  | { k: "nap"; away: boolean }
+  | { k: "back" }
+);
 interface Energy { planScore?: number; level: number; label: string; walk: number; act: number; travel: number; score: number; big: number }
 interface Countdown { big: string; small: string; line: string }
 interface CheckItem { key: string; title?: string; short?: string; done: boolean; [k: string]: any }
@@ -86,7 +98,8 @@ interface Photo { url: string; credit?: string; page?: string; near?: string | b
 /** a checked place record (places/<city> in the database) */
 /** g: Google's place ID (kept for good); gpin/gat: the pin came from Google on that day (kept 30 days, never on the free map) */
 interface PlaceRecord { lat?: number | null; lng?: number | null; g?: string; gpin?: 1; gat?: string; [k: string]: any; checked?: string; osm?: string; name?: string; st?: Spot["st"]; site?: string; hours?: Hours; k?: Kid; note?: string; place?: string; replace?: Partial<Food & Spot> & { n: string }; approx?: 1; nopin?: 1; ashore?: 1; stay?: 1; pin_tried?: string; area?: 1; was?: [number, number] }
-interface OfflineState { planSig(P: Plan): string; takeBlock?(P: Plan): string; exportCopy?(P: Plan): Promise<any>; photoUrls(P: Plan): string[]; copyNote(P: Plan): string; cities?: Record<string, { photos: number; of: number; map: boolean }>; tripBlock(P: Plan): string; state: string; n: number; total: number; at: number; maps: any[]; err: string; off: boolean; copy: boolean; trip: any; copyState: string; copyErr: string; why: string; save(P: Plan, why?: string): void; tick(P: Plan): void; src(url: string): string; block(P: Plan): string; takeBlock(P: Plan): string; exportCopy(P: Plan): Promise<void>; click(d: DOMStringMap, P: Plan): boolean; [k: string]: any }
+/** takeBlock, tripBlock and exportCopy come with lib/offcopy.js, in the second script */
+interface OfflineState { planSig(P: Plan): string; takeBlock?(P: Plan): string; exportCopy?(P: Plan): Promise<any>; photoUrls(P: Plan): string[]; copyNote(P: Plan): string; cities?: Record<string, { photos: number; of: number; map: boolean }>; tripBlock?(P: Plan): string; state: string; n: number; total: number; at: number; maps: any[]; err: string; off: boolean; copy: boolean; trip: any; copyState: string; copyErr: string; why: string; save(P: Plan, why?: string): void; tick(P: Plan): void; src(url: string): string; block(P: Plan): string; click(d: DOMStringMap, P: Plan): boolean; [k: string]: any }
 /** a shared trip's documents, named and sealed from its code (lib/sharebox.js) */
 interface ShareBox { id: string; plain?: number; name: (label: string) => Promise<string>; seal: (obj: any) => Promise<any>; open: (doc: any) => Promise<any> }
 interface ReadOnly { code: string; box?: ShareBox; [k: string]: any }
@@ -138,7 +151,7 @@ interface Waypoint {
   autoLine: any;
   autoTick: any;
   autopilot: any;
-  badForDay: (it: any, wd: any, slot?: any, kd?: any) => any;
+  badForDay: (it: any, wd: any, slot?: any, kd?: any, n?: number) => any;
   beachFit: (x: any) => any;
   bestOrder: any;
   routeDist: (order: any[]) => number;
@@ -166,14 +179,16 @@ interface Waypoint {
   closeStop: () => boolean;
   closeTripMenu: () => void;
   confetti: any;
-  countdown: (P: Plan) => Countdown;
+  /** null without a plan with stops */
+  countdown: (P: Plan) => Countdown | null;
   countryCities: (name: string) => BuiltCity[];
   countryName: any;
   dataV: number;
   dateOf: (n: number) => Date | null;
   dayEnergy: (day: Day, P: Plan, T: DayTimes | null) => Energy | null;
   dayNav: any;
-  dayOfDate: (iso: string) => number;
+  /** null without a start date that reads as one (a date outside the trip gives a day before 1 or after the last) */
+  dayOfDate: (iso: string) => number | null;
   dayPool: any;
   dayTimes: (day: Day, P: Plan) => DayTimes | null;
   dayTripMax: (p: any) => number;
@@ -289,7 +304,7 @@ interface Waypoint {
   journalClick: any;
   journalHas: () => boolean;
   jumpToToday: ((P: Plan) => void) & { done?: any };
-  keepInputs: (el: any, draw: () => void) => void;
+  keepInputs: (el: HTMLElement, draw: () => void) => void;
   kidDinner: () => number | null;
   kidNames: (under?: number) => string[];
   kidPicks: any;
@@ -437,6 +452,10 @@ interface Waypoint {
   briefBlock: (day: Day) => string;
   briefStart: (day: Day) => void;
   briefClean: (r: any) => any;
+  /** lib/places.js: closures for a stretch, from the nightly "still open" check */
+  cleanShut: (v: any) => { f: string; t: string; why: string }[] | undefined;
+  shutOn: (it: any, n: number) => { f: string; t: string; why: string } | null;
+  shutText: (s: { f: string; t: string; why: string }) => string;
   menuCanRead: () => boolean;
   menuClean: (r: any) => { lang: string; dishes: { n: string; en: string; d: string; p: string; fit: string; why: string }[]; ask: { local: string; en: string }[]; note: string };
   menuRead: (key: string, files: FileList | File[]) => void;
@@ -637,7 +656,7 @@ interface Waypoint {
   accountCard: any;
   iconLink: (url: string, kind: string, label?: string) => string;
   patch: any;
-  draw: (el: any, html: string, sig?: string) => void;
+  draw: (el: HTMLElement, html: string, sig?: string) => void;
   drawn: any;
   typingHeld: () => boolean;
   rescueApply: any;
@@ -769,7 +788,8 @@ interface Waypoint {
   watchDrop: any;
   watchDrops: () => any;
   watchList: () => any;
-  weekday: (n: number) => number;
+  /** 0 (Sunday) to 6; null without a start date */
+  weekday: (n: number) => number | null;
   who: () => string;
   /** shared by the files that ask Claude (lib/ideas.js, lib/stays.js, lib/asks.js) */
   arrived: () => void;
@@ -791,8 +811,10 @@ declare var maplibregl: any;
 /** Device Memory API: Chrome only, absent in the standard lib */
 interface Navigator { deviceMemory?: number }
 interface EventTarget { files?: FileList | null; closest?(sel: string): Element | null; matches?(sel: string): boolean; getAttribute?(name: string): string | null; dataset?: DOMStringMap; tagName?: string; value?: string; id?: string; classList?: DOMTokenList; open?: boolean }
-interface Element { value?: string; dataset?: DOMStringMap; click?(): void; focus(opts?: FocusOptions): void; blur?(): void; select?(): void; type?: string; checked?: boolean; files?: FileList | null;
-  readOnly?: boolean; selectionStart?: number | null; selectionEnd?: number | null; setSelectionRange?(a: number, b: number): void; showPicker?(): void; offsetLeft?: number; offsetTop?: number; offsetWidth?: number; offsetHeight?: number; style?: CSSStyleDeclaration; hidden?: boolean; disabled?: boolean; __step?: any }
+/* dataset and style are always there: every element the app draws or finds is an HTML or SVG element (it makes none in
+   another namespace), and both kinds carry them. click and the rest stay optional: an SVG element has no click(). */
+interface Element { value?: string; dataset: DOMStringMap; click?(): void; focus(opts?: FocusOptions): void; blur?(): void; select?(): void; type?: string; checked?: boolean; files?: FileList | null;
+  readOnly?: boolean; selectionStart?: number | null; selectionEnd?: number | null; setSelectionRange?(a: number, b: number): void; showPicker?(): void; offsetLeft?: number; offsetTop?: number; offsetWidth?: number; offsetHeight?: number; style: CSSStyleDeclaration; hidden?: boolean; disabled?: boolean; __step?: any }
 
 /* marks lib/patch.js and the day screen leave on elements they draw into */
 interface Window { __WP_COPY_KEPT?: boolean }

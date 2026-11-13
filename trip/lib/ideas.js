@@ -43,7 +43,8 @@
      where locals go, or the best of both */
   W.FOCUS = { icons: "Must-sees", both: "Best of both", gems: "Hidden gems" };
   W.focus = function () {
-    return W.FOCUS[W.S.focus] ? W.S.focus : "icons";
+    var f = W.S.focus;
+    return f && W.FOCUS[f] ? f : "icons";
   };
   /* how a list request leans, in words */
   function focusAsk() {
@@ -151,8 +152,8 @@
   W.COUNTRY_V = 2;
   W.loadCountry = function (name) {
     var key = "country|" + name,
-      had = W.C.country[name];
-    if ((had && had.v >= W.COUNTRY_V) || W.status[key]) return;
+      had = /** @type {Cache["country"][string] | undefined} */ (W.C.country[name]);
+    if ((had && (had.v || 0) >= W.COUNTRY_V) || W.status[key]) return;
     if (
       !had &&
       W.kept &&
@@ -270,7 +271,7 @@
   W.FIRST_IDEAS = 15;
   /** @param {number} [stayDays] the days this trip spends in the place */
   W.firstIdeas = function (stayDays) {
-    return Math.max(W.FIRST_IDEAS, Math.min(30, 4 * (Math.round(+stayDays) || 0) + 3));
+    return Math.max(W.FIRST_IDEAS, Math.min(30, 4 * (Math.round(Number(stayDays)) || 0) + 3));
   };
   /* the days this trip spends in a place, as the plan stands (0 for a day trip or a place not in the trip) */
   W.stayDays = function (country, city) {
@@ -909,10 +910,9 @@
         var v = rankOf && rankOf.get(x);
         return v == null ? -1 : v;
       };
-    if (rankOf)
-      add.forEach(function (x) {
-        rankOf.set(x, r);
-      });
+    add.forEach(function (x) {
+      if (rankOf) rankOf.set(x, r);
+    });
     if (kind === "head") {
       var mine = {};
       add.forEach(function (x) {

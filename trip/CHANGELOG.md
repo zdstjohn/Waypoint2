@@ -2,6 +2,37 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v168
+
+"Still open" (the owner's pick from the second list of ideas, for the nightly place check, which runs on Fable).
+- The nightly place check asks again, a month after a place's last check, about the places of the trips coming up
+  (their month in that town within 60 days, or begun): still open, closed for good, or shut for a stretch that
+  takes in the trip (a renovation, holidays, a winter or summer season), with the dates (tools/place_check.py
+  opentodo and openapply; places to eat and the soonest months first, about 40 a night; "unsure" is asked again in a
+  week). The shared list keeps only a trip's month in a town, never its days, so that is all the check sees.
+- A record's closures ("shut": [{f, t, why}]) are laid over the lists (lib/places.js W.cleanShut: real dates only,
+  at most 4); W.shutOn(it, n) is the closure that takes in trip day n.
+- The planner keeps a place off the days it is shut (lib/plan.js score; W.badForDay with the day, so a pick of the
+  planner's that turns out shut is replanned, and Claude's own check hears of it).
+- A day you put such a place on yourself says so on the stop and in its sheet: "Closed Jun 8 – Jun 20 (renovation)"
+  (lib/times.js, with the day's other warnings).
+- Tests: stillopen (closures kept and cleaned, kept off the days, the warning, shown as text; the script's two steps
+  on a small database). 59 suites.
+
+Every file crash-safe (the owner's pick "make every file crash-safe", done by a helper and merged here).
+- All 75 source files are now in tsconfig.strict.json (strictNullChecks), up from 35; both type checks are clean.
+  Most fixes keep a checked value in a local so the check holds inside a closure; five casts that say a value is
+  there, each with why; no new "any".
+- Real guards where a missing value could have thrown: the weather for a day with a home pin that has a latitude
+  but no longitude (lib/gmaps.js wxGet, and the map area of a list); a city's stays answered without a list
+  (lib/stays.js); click, key and touch handlers whose target is the page or the window (fx, memories, sync, warm,
+  kids, today, flowacts, trip); a booking form with a box missing (screens/book.js); the screens' boxes on start.
+- Two small fixes found on the way: a trip whose start date can't be read counts down by its length, not
+  "Tomorrow" (lib/sync.js W.countdown); a pin with only one coordinate counts as no pin rather than as 0
+  (lib/core.js W.km, and where distances are worked out).
+- Types: W.dayOfDate, W.weekday and W.countdown can be null; TownLeg and GoEntry; a stale strict entry
+  (trip/lib/map.js, gone long ago) removed.
+
 ## v167
 
 Presses without square corners, and the desktop's hover glow in indigo (the owner's notes, from screenshots).

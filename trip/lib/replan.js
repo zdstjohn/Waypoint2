@@ -31,11 +31,12 @@
       home = W.homebase(day.country, day.city);
     /** @type {Record<string, any>[]} */ var out = [];
     if (!T) return out;
+    var rows = T.rows;
     (T.order || []).forEach(function (sl) {
       var x = day.slots.filter(function (y) {
           return y.slot === sl;
         })[0],
-        R = T.rows[sl];
+        R = rows[sl];
       if (!x || !R || R.skip || R.start == null || R.start <= nm + 5) return;
       var food = W.isFood(sl),
         e = x.item && W.bookEntryFor ? W.bookEntryFor(P, day, x.item) : null;

@@ -67,7 +67,8 @@
         o.km_on_foot = E.walk;
         o.load = E.label;
       }
-      var hol = W.dayHolidays ? W.dayHolidays(day) : [];
+      var hol = W.dayHolidays ? W.dayHolidays(day) : [],
+        /** @type {DayTimes["rows"]} */ rows = T ? T.rows : {};
       if (hol && hol.length)
         o.public_holiday = hol
           .map(function (/** @type {any} */ h) {
@@ -81,7 +82,7 @@
               var x = day.slots.filter(function (y) {
                   return y.slot === sl;
                 })[0],
-                R = T.rows[sl],
+                R = rows[sl],
                 it = x && x.item;
               if (!it || !R || R.skip || R.start == null) return null;
               var food = W.isFood(sl);
@@ -102,7 +103,7 @@
                     })
                     .join(", ");
               }
-              if (W.badForDay(it, W.weekday(day.n), sl, kd) || (W.holidayShut && W.holidayShut(it, day))) s.looks_closed_then = true;
+              if (W.badForDay(it, W.weekday(day.n), sl, kd, day.n) || (W.holidayShut && W.holidayShut(it, day))) s.looks_closed_then = true;
               var e = W.bookEntryFor ? W.bookEntryFor(P, day, it) : null;
               if (it.ticket) s.needs_ticket = true;
               if (it.lead) s.book_days_ahead = it.lead;

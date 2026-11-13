@@ -79,7 +79,7 @@
   }
   /* ======================= the day, in order ======================= */
   function entries(day, T) {
-    /** @type {{ k: string; start: number; end: number; x?: SlotEntry; R?: TimeRow; leg?: Leg | null; away?: boolean; food?: boolean; i?: number; tk?: Ticket | null; dep?: number; arr?: number }[]} */
+    /** @type {GoEntry[]} */
     var out = [];
     if (!T) return out;
     if (T.travel)
@@ -97,8 +97,17 @@
           return y.slot === sl;
         })[0],
         R = T.rows[sl];
-      if (!x || !R || R.skip || R.start == null) return;
-      if (x.item) out.push({ k: "stop", x: x, R: R, start: R.start, end: R.end, food: W.isFood(sl) });
+      /* (a row that is not skipped has both ends: lib/times.js) */
+      if (!x || !R || R.skip || R.start == null || R.end == null) return;
+      if (x.item)
+        out.push({
+          k: "stop",
+          x: /** @type {SlotEntry & { item: Spot | Food }} */ (x) /* (its place, just checked) */,
+          R: R,
+          start: R.start,
+          end: R.end,
+          food: W.isFood(sl)
+        });
       else if (x.rest) out.push({ k: "rest", x: x, start: R.start, end: R.end });
       if (sl === "lunch" && T.nap) out.push({ k: "nap", start: T.nap.start, end: T.nap.end, away: !!T.nap.away });
     });
@@ -116,8 +125,13 @@
         return e;
       })
       .sort(function (a, b) {
-        return a.start - b.start || a.i - b.i;
+        return a.start - b.start || (a.i || 0) - (b.i || 0); /* (each was given its place just above) */
       });
+  }
+  /** a place on the day (not the journey, a rest, the nap or the way back) @param {GoEntry} e
+      @returns {e is Extract<GoEntry, { k: "stop" }>} */
+  function isStop(e) {
+    return e.k === "stop";
   }
   function lastPlace(list, nm, home) {
     var from = null;
@@ -267,7 +281,7 @@
           tom.moveFrom
             ? travelLine(tT && tT.travel ? tT.travel.leg : null, tT && tT.travel ? { tk: tT.travel.ticket, arr: tT.travel.arr } : null) +
                 (tT && tT.travel ? (tT.travel.ticket ? " · leave by " : " · leave about ") + W.clock(tT.travel.start) : "")
-            : first
+            : first && first.k === "stop"
               ? W.clock(first.start) + " " + first.x.item.n
               : ""
         ) +
@@ -442,7 +456,7 @@
       b = P.days[n];
     /* (the kids' corner is a quiet row further down: the top of this screen is what you do now and next) */
     var kidsRow =
-      W.kidNames && P.p.kid
+      P.p.kid && W.kidNames
         ? '<button type="button" class="go-kids sk" data-view="kids">' +
           W.icon("star", 2.1) +
           "<span><b>" +
@@ -473,7 +487,7 @@
       esc(
         [
           fmt(W.dateOf(n), { weekday: "long", month: "short", day: "numeric" }),
-          live ? W.clock(nm) : "",
+          live && nm != null ? W.clock(nm) : "",
           live ? W.tripTimeNote(day.city) : ""
         ]
           .filter(Boolean)
@@ -577,29 +591,30 @@
     }
 
     /* now, and what's next */
-    var stops = list.filter(function (e) {
-      return e.k === "stop";
-    });
-    /** @type {typeof list[0] | null} */ var cur = null,
-      nxt = cur,
-      then = cur;
-    if (live) {
+    var stops = list.filter(isStop);
+    /* (set in the loops below) */
+    var cur = /** @type {GoEntry | null} */ (null),
+      nxt = /** @type {GoEntry | null} */ (null),
+      then = /** @type {GoEntry | null} */ (null);
+    if (live && nm != null) {
+      var now = nm; /* (the clock, on the day itself) */
       list.forEach(function (e) {
-        if (e.k !== "back" && e.start <= nm && nm < e.end) cur = e;
+        if (e.k !== "back" && e.start <= now && now < e.end) cur = e;
       });
       /* what's next can be the nap: heading back for it matters as much as any stop */
       list.forEach(function (e) {
-        if (!nxt && (e.k === "stop" || (e.k === "nap" && !(cur && cur.k === "nap"))) && e.start > nm && e !== cur) nxt = e;
+        if (!nxt && (e.k === "stop" || (e.k === "nap" && !(cur && cur.k === "nap"))) && e.start > now && e !== cur) nxt = e;
       });
     } else {
-      nxt = stops[0];
+      nxt = stops[0] || null;
     }
     var hero = cur || nxt,
+      after = nxt ? nxt.start : 0,
       second = cur
         ? nxt
         : nxt
           ? list.filter(function (e) {
-              return e.k === "stop" && e.start > nxt.start;
+              return e.k === "stop" && e.start > after;
             })[0]
           : null;
     var from = live
@@ -676,7 +691,7 @@
     }
 
     /* ideas near where you are now (your phone's location, or where the plan has you), on the day itself */
-    if (live && W.nearCard) h += W.nearCard(day, P, { from: from, nm: nm, live: live });
+    if (live && nm != null && W.nearCard) h += W.nearCard(day, P, { from: from, nm: nm, live: live });
 
     h += goTickets(P, n, live);
     h += goTonight(P, day, list, home, live, n, nm);
@@ -689,13 +704,13 @@
         "bag",
         "Day bag",
         bs ? (bs.n === bs.total ? "All packed" : bs.n + " of " + bs.total + " packed") : "",
-        !live || !first || nm < first.start,
+        !live || nm == null || !first || nm < first.start,
         W.dayBagCard(day, P, live)
       );
     }
     /* a photo and a line for the journal: an evening job, one line until the last stop is over */
     if (W.journalCard)
-      h += fold("journal", "Journal", "A photo and a line for today", !live || !last || nm >= last.end, W.journalCard(day));
+      h += fold("journal", "Journal", "A photo and a line for today", !live || nm == null || !last || nm >= last.end, W.journalCard(day));
     h += kidsRow;
     if (W.offline && W.offline.off) h = W.offline.block(P) + h; /* offline: say so first */
     if (W.offline && !W.offline.off) h += W.offline.block(P);
@@ -739,9 +754,9 @@
     if (vtWant) {
       var slotEl = el.querySelector(".vt-slot");
       if (!W.vtMount) W.needLater();
-      else if (slotEl && W.vtMount(slotEl, vtWant)) {
-        slotEl.parentNode.classList.add("vt-on");
-        slotEl.parentNode.classList.remove("vt-want");
+      else if (slotEl && W.vtMount(slotEl, vtWant) && slotEl.parentElement) {
+        slotEl.parentElement.classList.add("vt-on");
+        slotEl.parentElement.classList.remove("vt-want");
       }
     }
     if (W.awakeTick) W.awakeTick(live);
@@ -1038,7 +1053,7 @@
   document.addEventListener(
     "click",
     function (e) {
-      var b = e.target.closest && e.target.closest("button");
+      var b = e.target && e.target.closest && e.target.closest("button");
       if (!b) return;
       var d = b.dataset;
       function stop() {

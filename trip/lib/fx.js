@@ -223,7 +223,7 @@
   document.addEventListener(
     "click",
     function (e) {
-      var s = e.target.closest && e.target.closest("summary"),
+      var s = e.target && e.target.closest && e.target.closest("summary"),
         d = s && s.parentElement;
       if (!d || d.tagName !== "DETAILS") return;
       if (off()) {
@@ -249,7 +249,8 @@
         d.open = true;
       }
       if (W.saveFold) W.saveFold(d, opening); /* remember it now, so a redraw mid-animation keeps it the way you chose */
-      var body = Array.prototype.slice.call(d.children, 1);
+      var body = Array.prototype.slice.call(d.children, 1),
+        det = d; /* (the section found above, for fin below) */
       var a = d.animate([{ height: start + "px" }, { height: end + "px" }], {
         duration: opening ? 340 : 260,
         easing: opening ? EASE : EASE_IN
@@ -266,10 +267,10 @@
         );
       });
       function fin() {
-        if (!d.getAttribute("data-moving")) return;
-        d.removeAttribute("data-moving");
-        d.style.overflow = ov;
-        if (!opening) d.open = false;
+        if (!det.getAttribute("data-moving")) return;
+        det.removeAttribute("data-moving");
+        det.style.overflow = ov;
+        if (!opening) det.open = false;
         body.forEach(function (el) {
           el.getAnimations().forEach(function (x) {
             x.cancel();

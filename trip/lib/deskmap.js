@@ -53,7 +53,7 @@
     if (!day) return null;
     var D = W.deskPts,
       fresh = D && D.n === n && D.country === day.country && D.city === day.city && !!D.go === (v === "go");
-    if (!fresh) {
+    if (!fresh || !D) {
       var home = W.homebase(day.country, day.city);
       D = { n: n, country: day.country, city: day.city, pts: ptsOf(day), home: home.none ? null : home, slug: null, xp: false };
     }

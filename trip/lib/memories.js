@@ -17,7 +17,7 @@
   /* how ready you are: booked, packed and done, out of everything on the lists */
   W.readiness = function (P) {
     var list = W.checklist(P) || [],
-      pk = W.packing ? W.packing(P) : { pack: [], todo: [] },
+      pk = W.packing ? W.packing(P) : /** @type {{ pack: PackItem[]; todo: PackItem[] }} */ ({ pack: [], todo: [] }),
       t = S().pack || {};
     /* (what the trip's clock has passed, never marked booked, is no longer counted either way) */
     list = list.filter(function (c) {
@@ -124,7 +124,7 @@
         if (!x.item) return;
         var food = W.isFood(x.slot),
           c = W.classify(x.item, food),
-          lg = W.leg && prev ? W.leg(prev, x.item) : null;
+          lg = prev && W.leg ? W.leg(prev, x.item) : null;
         if (lg && lg.mode === "walking" && lg.d) st.km += lg.d;
         if (x.item.lat != null) prev = x.item;
         if (food) {
@@ -278,7 +278,7 @@
   document.addEventListener(
     "click",
     function (e) {
-      var b = e.target.closest && e.target.closest("button");
+      var b = e.target && e.target.closest && e.target.closest("button");
       if (!b) return;
       var d = b.dataset;
       if (d.mood && d.mk && !W.readOnly) {

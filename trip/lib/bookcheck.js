@@ -35,20 +35,18 @@
   /** each town's nights on the plan: [{si, name, first, last}] (the night of a day is spent in that day's town; the
       trip's last day ends at home) @param {Plan} P */
   function nights(P) {
-    return P.stops
-      .map(function (s, si) {
-        var ds = P.days.filter(function (d) {
-          return d.stop === si;
-        });
-        if (!ds.length) return null;
-        var first = ds[0].n,
-          last = ds[ds.length - 1].n;
-        if (last >= P.N) last = P.N - 1;
-        return { si: si, name: s.name, first: first, last: last };
-      })
-      .filter(function (x) {
-        return x && x.last >= x.first;
+    var out = /** @type {{ si: number, name: string, first: number, last: number }[]} */ ([]);
+    P.stops.forEach(function (s, si) {
+      var ds = P.days.filter(function (d) {
+        return d.stop === si;
       });
+      if (!ds.length) return;
+      var first = ds[0].n,
+        last = ds[ds.length - 1].n;
+      if (last >= P.N) last = P.N - 1;
+      if (last >= first) out.push({ si: si, name: s.name, first: first, last: last });
+    });
+    return out;
   }
   /** the problems, most useful first @param {Plan} P @returns {{day: number, slot: string, kind: string, text: string, fix: string}[]} */
   W.bookCheck = function (P) {

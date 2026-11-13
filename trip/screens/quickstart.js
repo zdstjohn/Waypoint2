@@ -129,8 +129,8 @@
   }
   function qsKids() {
     document.querySelectorAll("[data-qskid]").forEach(function (e) {
-      var v = Math.round(+e.value);
-      qs.kids[+e.dataset.qskid] = isFinite(v) ? Math.max(0, Math.min(17, v)) : 6;
+      var v = Math.round(Number(e.value));
+      qs.kids[Number(e.dataset.qskid)] = isFinite(v) ? Math.max(0, Math.min(17, v)) : 6;
     });
   }
   function qsGo() {
@@ -178,7 +178,7 @@
             return m.toUpperCase();
           });
     });
-    var days = Math.max(2, Math.min(60, Math.round(+($("qsDays") || {}).value) || 10)),
+    var days = Math.max(2, Math.min(60, Math.round(Number(($("qsDays") || {}).value)) || 10)),
       start = ($("qsStart") || {}).value || "",
       from = (($("qsFrom") || {}).value || "").trim();
     var trav = [];

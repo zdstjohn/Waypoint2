@@ -27,7 +27,7 @@
   var L = load();
   /** state: idle (not looked yet) | checking | on | off; why it is off: you (the switch) | no (you said no when Claude
       asked) | none (no Google Maps connection) | view (this view has no connections) | a refusal's code */
-  var G = { state: "idle", why: "", /** @type {any} */ mcp: null, /** @type {Promise<boolean> | null} */ p: null, wait: 0, bg: 0 };
+  var G = { state: "idle", why: "", mcp: /** @type {any} */ (null), p: /** @type {Promise<boolean> | null} */ (null), wait: 0, bg: 0 };
   W.rlOwn = L.rl;
 
   function load() {
@@ -248,16 +248,18 @@
       var P = G.state === "on" && W.plan ? W.plan() : null,
         sig = (W.S.tripId || "") + "|" + W.isoDay(W.now());
       if (!P || !P.days || !W.S.start || W.isExample || warmed === sig) return;
-      var tn = W.dayOfDate(W.isoDay(W.now()));
-      if (tn == null) return;
+      var found = W.dayOfDate(W.isoDay(W.now()));
+      if (found == null) return;
       warmed = sig;
-      P.days.forEach(function (day) {
+      var plan = P,
+        tn = found;
+      plan.days.forEach(function (day) {
         if (day.n < tn || day.n > tn + 2 || !day.slots || !day.slots.length) return;
         var home = W.homebase(day.country, day.city),
           prev = /** @type {any} */ (home);
         W.legWant++;
         try {
-          W.dayTimes(day, P);
+          W.dayTimes(day, plan);
           day.slots.forEach(function (x) {
             if (!x.item || x.item.lat == null) return;
             W.leg(prev, x.item);
@@ -349,7 +351,7 @@
       ahead = Math.round((Date.parse(iso) - Date.parse(W.isoDay(W.now()))) / 864e5);
     if (!(ahead >= 0 && ahead <= 9)) return null;
     var h = W.homebase(day.country, day.city);
-    if (!h || h.lat == null) return null;
+    if (!h || h.lat == null || h.lng == null) return null;
     var k = h.lat.toFixed(2) + "," + h.lng.toFixed(2) + "|" + iso,
       r = L.wx[k],
       age = r ? Date.now() - r.at : 1e15;
@@ -664,7 +666,7 @@
           return { text: n + ", " + day.city + ", " + day.country };
         })
       });
-      if (h && h.lat != null)
+      if (h && h.lat != null && h.lng != null)
         input.locationBias = {
           viewport: { low: { latitude: h.lat - 0.5, longitude: h.lng - 0.6 }, high: { latitude: h.lat + 0.5, longitude: h.lng + 0.6 } }
         };

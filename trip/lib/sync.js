@@ -46,7 +46,7 @@
   };
   function lget(k) {
     try {
-      return JSON.parse(localStorage.getItem(k));
+      return JSON.parse(localStorage.getItem(k) || "null");
     } catch (e) {
       return null;
     }
@@ -92,8 +92,10 @@
   lset("waypoint-dev", dev);
   var idx = lget("waypoint-trips-v1") || {}; /* id -> {name, updated, state (for trips other than the open one)} */
   if (!S.tripId) S.tripId = "t" + rid(11);
+  /* the open trip's entry in the list (its id is set just above; String() keys it the same way JavaScript would) */
   function meta() {
-    return idx[S.tripId] || (idx[S.tripId] = { name: W.tripName(), updated: W.isExample ? 0 : Date.now() });
+    var id = String(S.tripId);
+    return idx[id] || (idx[id] = { name: W.tripName(), updated: W.isExample ? 0 : Date.now() });
   }
   function saveIdx() {
     lset("waypoint-trips-v1", idx);
@@ -555,7 +557,7 @@
         return remote[b].updated - remote[a].updated;
       });
       if (W.isExample && ids.length && ids[0] !== S.tripId) {
-        var exId = S.tripId;
+        var exId = String(S.tripId);
         openTrip(ids[0], true);
         if (!idx[exId] || !idx[exId].updated) {
           delete idx[exId];
@@ -708,7 +710,7 @@
   function keepCurrent() {
     /* (the example, untouched, is not kept as a trip of yours: a new trip takes its place) */
     if (S.example) {
-      delete idx[S.tripId];
+      delete idx[String(S.tripId)];
       return;
     }
     var cur = meta();
@@ -1236,6 +1238,8 @@
     var N = P.N;
     if (!S.start || !W.dayOfDate) return { big: String(N), small: N === 1 ? "day" : "days", line: N + " days" };
     var n = W.dayOfDate(W.isoDay(W.now()));
+    /* (a start date that does not read as one: the length of the trip, as with none, never "Tomorrow") */
+    if (n == null) return { big: String(N), small: N === 1 ? "day" : "days", line: N + " days" };
     if (n >= 1 && n <= N) return { big: "Day " + n, small: "of " + N, line: "Day " + n + " of " + N };
     if (n > N) return { big: "Back", small: "home", line: "Back home" };
     var d = 1 - n;
@@ -1491,7 +1495,7 @@
       if (i.type !== "date" || i.value) vals[i.id] = i.value;
     });
     try {
-      if (aid && act.selectionStart != null) sel = [act.selectionStart, act.selectionEnd];
+      if (aid && act && act.selectionStart != null && act.selectionEnd != null) sel = [act.selectionStart, act.selectionEnd];
     } catch (e) {}
     draw();
     Object.keys(vals).forEach(function (id) {
@@ -1503,14 +1507,31 @@
       if (n) {
         n.focus();
         try {
-          if (sel) n.setSelectionRange(sel[0], sel[1]);
+          if (sel && n.setSelectionRange) n.setSelectionRange(sel[0], sel[1]);
         } catch (e) {}
       }
     }
   };
 
+  /** the share code to the clipboard (selected instead, to copy by hand, where that is refused); b: its Copy button
+      @param {HTMLInputElement} ci @param {Element} b */
+  function copyCode(ci, b) {
+    var done = function () {
+      b.textContent = "Copied";
+      setTimeout(function () {
+        if (b.isConnected) b.textContent = "Copy";
+      }, 1600);
+    };
+    try {
+      navigator.clipboard.writeText(ci.value).then(done, function () {
+        ci.select();
+      });
+    } catch (x) {
+      ci.select();
+    }
+  }
   document.addEventListener("click", function (e) {
-    var b = e.target.closest && e.target.closest("[data-sync]");
+    var b = e.target && e.target.closest && e.target.closest("[data-sync]");
     if (!b) return;
     var a = b.dataset.sync,
       id = b.dataset.id;
@@ -1592,7 +1613,7 @@
       var inp = $("tripNameIn");
       if (inp) {
         inp.focus();
-        inp.select();
+        if (inp.select) inp.select();
       }
       return;
     }
@@ -1656,20 +1677,7 @@
     }
     if (a === "copy") {
       var ci = $("shareCode");
-      if (!ci) return;
-      var done = function () {
-        b.textContent = "Copied";
-        setTimeout(function () {
-          if (b.isConnected) b.textContent = "Copy";
-        }, 1600);
-      };
-      try {
-        navigator.clipboard.writeText(ci.value).then(done, function () {
-          ci.select();
-        });
-      } catch (x) {
-        ci.select();
-      }
+      if (ci) copyCode(/** @type {HTMLInputElement} */ (ci) /* (the share code's box is an <input>) */, b);
       return;
     }
     if (a === "openshare") {
@@ -1687,7 +1695,7 @@
       e.preventDefault();
       e.stopPropagation();
       var s = document.querySelector('[data-sync="' + bt + '"]');
-      if (s) s.click();
+      if (s && s.click) s.click();
     },
     true
   );

@@ -802,8 +802,9 @@
         label = (R && R.label) || W.SLOT_NAME[x.slot];
       var tm = R && R.start != null && !R.skip ? '<span class="tm">' + W.clock(R.start) + "</span>" : "";
       var timed = nowM != null && R && !R.skip && R.start != null && R.end != null,
-        isPast = timed && R.end <= nowM,
-        isNow = timed && R.start <= nowM && nowM < R.end,
+        nm = nowM || 0 /* (read only when timed: today's page, with the clock) */,
+        isPast = timed && R.end <= nm,
+        isNow = timed && R.start <= nm && nm < R.end,
         liveCls = isPast ? " past" : isNow ? " is-now" : "",
         nowTag = isNow ? '<span class="now-tag">Now</span>' : "";
       /* the day's clock notes, as one quiet line under the stop: warnings first */
@@ -1432,7 +1433,9 @@
     /* the map is a way of looking at the trip (Day · Explore); the old Explore view draws the same thing */
     if (S.tview === /** @type {any} */ ("story")) S.tview = "days"; /* the storybook was removed in v118 */
     var xp = target === "explore" || S.tview === "map",
-      el = $(target === "explore" ? "viewExplore" : "viewTrip");
+      box = $(target === "explore" ? "viewExplore" : "viewTrip");
+    if (!box) return; /* (the screen's box, in index.html) */
+    var el = box;
     if (target !== "explore") el.classList.toggle("explore-v", xp);
     if (!P.stops.length) {
       el._sig = null;
@@ -1507,7 +1510,7 @@
                 return x.item && !W.isFood(x.slot);
               })
               .map(function (x) {
-                return x.item;
+                return /** @type {Spot | Food} */ (x.item); /* (kept just above: the slots with a place) */
               })
           )
         : null;
@@ -1788,9 +1791,9 @@
       var slotEl = el.querySelector(".vt-slot");
       /* the drawing code comes with the second script: until then the place stays held, saying the map is loading */
       if (!W.vtMount) W.needLater();
-      else if (slotEl && W.vtMount(slotEl, vtWant)) {
-        slotEl.parentNode.classList.add("vt-on");
-        slotEl.parentNode.classList.remove("vt-want");
+      else if (slotEl && W.vtMount(slotEl, vtWant) && slotEl.parentElement) {
+        slotEl.parentElement.classList.add("vt-on");
+        slotEl.parentElement.classList.remove("vt-want");
       }
     }
     var pill = el.querySelector('.dpill[aria-current="true"]'),
@@ -1802,19 +1805,30 @@
     }
     /* the day pills fade out at an edge only where there are more to scroll to */
     if (sc) {
+      var row = sc;
       var edges = function () {
-        sc.classList.toggle("more-l", sc.scrollLeft > 4);
-        sc.classList.toggle("more-r", sc.scrollLeft + sc.clientWidth < sc.scrollWidth - 4);
+        row.classList.toggle("more-l", row.scrollLeft > 4);
+        row.classList.toggle("more-r", row.scrollLeft + row.clientWidth < row.scrollWidth - 4);
       };
       edges();
-      if (!sc._edges) {
-        sc._edges = 1;
-        sc.addEventListener("scroll", edges, { passive: true });
+      if (!row._edges) {
+        row._edges = 1;
+        row.addEventListener("scroll", edges, { passive: true });
       }
     }
   };
 
   /* ---------- controller ---------- */
+  /** a screen's box shown or hidden (each is in index.html) @param {string} id @param {boolean} on */
+  function shown(id, on) {
+    var e = $(id);
+    if (e) e.hidden = !on;
+  }
+  /** a tab marked as the screen you're on, or not @param {string} id @param {boolean} on */
+  function current(id, on) {
+    var e = $(id);
+    if (e) e.setAttribute("aria-current", on ? "page" : "false");
+  }
   W.render = function () {
     if ((W.readOnly || window.__WP_OFFLINE) && (view === "setup" || view === "settings"))
       view = "trip"; /* a shared trip is view only; an offline copy is for the trip itself */
@@ -1832,18 +1846,18 @@
     firstRender = false;
     /* the desktop workspace puts its panes in place before the screen is drawn, so the screen is drawn at its real width */
     if (W.deskLayout) W.deskLayout(P);
-    if ($("viewKids")) $("viewKids").hidden = view !== "kids";
-    $("viewSetup").hidden = view !== "setup";
-    $("viewTrip").hidden = view !== "trip";
-    $("viewBook").hidden = view !== "book";
-    $("viewRecap").hidden = view !== "recap";
-    $("viewGo").hidden = view !== "go";
-    $("viewExplore").hidden = view !== "explore";
-    $("viewSettings").hidden = view !== "settings";
-    $("tabGo").setAttribute("aria-current", view === "go" ? "page" : "false");
-    $("tabSetup").setAttribute("aria-current", view === "setup" ? "page" : "false");
-    $("tabTrip").setAttribute("aria-current", view === "trip" ? "page" : "false");
-    $("tabBook").setAttribute("aria-current", view === "book" ? "page" : "false");
+    shown("viewKids", view === "kids");
+    shown("viewSetup", view === "setup");
+    shown("viewTrip", view === "trip");
+    shown("viewBook", view === "book");
+    shown("viewRecap", view === "recap");
+    shown("viewGo", view === "go");
+    shown("viewExplore", view === "explore");
+    shown("viewSettings", view === "settings");
+    current("tabGo", view === "go");
+    current("tabSetup", view === "setup");
+    current("tabTrip", view === "trip");
+    current("tabBook", view === "book");
     if (W.renderBar) W.renderBar(P);
     if (W.renderNext) W.renderNext(P);
     if (W.autoTick) W.autoTick(P);
@@ -1888,7 +1902,9 @@
   });
 
   document.addEventListener("click", function (e) {
-    var a = e.target.closest("[data-view]");
+    var t = e.target;
+    if (!t || !t.closest) return; /* (a click on the page itself, not on anything in it) */
+    var a = t.closest("[data-view]");
     if (a) {
       e.preventDefault();
       var to = /** @type {View} */ (a.dataset.view);
@@ -1906,7 +1922,7 @@
       });
       return;
     }
-    var b = e.target.closest("button");
+    var b = t.closest("button");
     if (!b || b.closest("#tripbar")) return;
     var d = b.dataset,
       P = W.P;
@@ -1981,7 +1997,7 @@
     }
     var day = P.days[S.day - 1];
     if (d.day || d.step) {
-      var nd = d.day ? +d.day : Math.max(1, Math.min(P.N, S.day + +d.step));
+      var nd = d.day ? +d.day : Math.max(1, Math.min(P.N, S.day + Number(d.step)));
       if (nd === S.day) return;
       W.fxFlip("day", nd > S.day ? 1 : -1, function () {
         S.day = nd;
@@ -2020,7 +2036,7 @@
         setTimeout(function () {
           var m = document.querySelector("#sheethost .menu-b"),
             sh = m && m.closest(".sheet");
-          if (m && sh) sh.scrollTop = m.offsetTop - 12;
+          if (m && sh) sh.scrollTop = (m.offsetTop || 0) - 12;
           else if (m) m.scrollIntoView({ block: "start" });
         }, 60);
       return;
@@ -2036,16 +2052,18 @@
     W.render();
   });
   document.addEventListener("keydown", function (e) {
-    if (e.key !== "Enter" || !e.target.matches("input")) return;
+    var t = e.target;
+    if (e.key !== "Enter" || !t || !t.matches || !t.matches("input")) return;
     e.preventDefault();
     if (view === "book") {
-      if (W.bookEnter) W.bookEnter(e.target);
+      if (W.bookEnter) W.bookEnter(t);
       return;
     }
-    if (W.setupEnter) W.setupEnter(e.target, W.P);
+    if (W.setupEnter) W.setupEnter(t, W.P);
   });
   document.addEventListener("change", function (e) {
-    if (view === "setup" && e.target.matches("input") && W.setupChange) W.setupChange(e.target);
+    var t = e.target;
+    if (view === "setup" && t && t.matches && t.matches("input") && W.setupChange) W.setupChange(t);
   });
   /* folded sections remember whether you left them open */
   W.saveFold = function (el, open) {
@@ -2065,7 +2083,7 @@
   document.addEventListener(
     "toggle",
     function (e) {
-      if (e.target && !e.target.getAttribute("data-moving")) W.saveFold(e.target, e.target.open);
+      if (e.target && e.target.getAttribute && !e.target.getAttribute("data-moving")) W.saveFold(e.target, e.target.open);
     },
     true
   );

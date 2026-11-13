@@ -6,6 +6,7 @@
   "use strict";
   var W = window.W;
   var S = {
+    /** @type {Record<string, any> | null} slug -> its pack (merge, below) */
     idx: null,
     idxState: "idle",
     engine: "idle",
@@ -127,15 +128,16 @@
   W.vtFor = function (country, city, lat, lng) {
     if (S.engine === "off") return null;
     loadIndex();
-    if (S.idxState !== "ready") return null;
-    var slug = W.slug(country + " " + city);
-    if (S.idx[slug]) return slug;
-    if (lat == null) return null;
-    var hit = null;
+    if (S.idxState !== "ready" || !S.idx) return null;
+    var idx = S.idx,
+      slug = W.slug(country + " " + city);
+    if (idx[slug]) return slug;
+    if (lat == null || lng == null) return null;
+    /** @type {string | null} */ var hit = null;
     /* another city's pack serves this one only when it is framed on a town (older packs framed a whole region, with
        street detail only around their own town, until the nightly helper rebuilds them) */
-    Object.keys(S.idx).forEach(function (k) {
-      var b = S.idx[k].places;
+    Object.keys(idx).forEach(function (k) {
+      var b = idx[k].places;
       if (!hit && b && b[2] - b[0] <= 0.3 && b[3] - b[1] <= 0.25 && lat >= b[1] && lat <= b[3] && lng >= b[0] && lng <= b[2]) hit = k;
     });
     return hit;

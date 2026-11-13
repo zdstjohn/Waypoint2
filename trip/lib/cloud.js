@@ -342,7 +342,7 @@
       alive: true,
       busy: false,
       again: false,
-      t: null,
+      t: /** @type {number | undefined} */ (undefined),
       poll: function () {
         if (!s.alive) return;
         if (s.busy) {

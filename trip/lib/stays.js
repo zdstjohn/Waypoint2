@@ -139,8 +139,9 @@
           c0.lodging = [];
           c0.lodgeFor = sig;
         }
-        var seen = {};
-        c0.lodging.forEach(function (x) {
+        var seen = {},
+          have = c0.lodging || (c0.lodging = []); /* (a copy from elsewhere can carry the mark without the list) */
+        have.forEach(function (x) {
           seen[W.norm(x.n)] = 1;
         });
         V.list(r && r.lodging, function (x) {
@@ -148,7 +149,7 @@
         }).forEach(function (x) {
           if (!seen[W.norm(x.n)]) {
             seen[W.norm(x.n)] = 1;
-            c0.lodging.push(x);
+            have.push(x);
           }
         });
         if (!tier) c0.lodgeAsked = 1;
@@ -192,19 +193,21 @@
       list = W.lodgeList(country, city, tier),
       S = W.S;
     var cur = W.lodgeShown(country, city, tier),
-      seen = (S.lodgeSeen[k] = S.lodgeSeen[k] || []);
+      lodge = S.lodge || (S.lodge = {}),
+      seenAll = S.lodgeSeen || (S.lodgeSeen = {}),
+      seen = (seenAll[k] = seenAll[k] || []);
     if (cur && seen.indexOf(W.norm(cur.n)) < 0) seen.push(W.norm(cur.n));
     var left = list.filter(function (x) {
       return seen.indexOf(W.norm(x.n)) < 0;
     });
     if (left.length < 2) W.loadLodging(country, city, tier);
-    if (left.length) S.lodge[k] = left[0].n;
+    if (left.length) lodge[k] = left[0].n;
     else {
-      S.lodgeSeen[k] = cur ? [W.norm(cur.n)] : [];
+      seenAll[k] = cur ? [W.norm(cur.n)] : [];
       var again = list.filter(function (x) {
         return !cur || x.n !== cur.n;
       })[0];
-      if (again) S.lodge[k] = again.n;
+      if (again) lodge[k] = again.n;
     }
   };
   /* every booking site's price for one place, side by side (Google Hotels), so you can see where it's cheapest */

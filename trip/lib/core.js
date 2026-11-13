@@ -137,7 +137,7 @@
   };
   function load(key) {
     try {
-      return JSON.parse(localStorage.getItem(key));
+      return JSON.parse(localStorage.getItem(key) || "null");
     } catch (e) {
       return null;
     }
@@ -276,7 +276,7 @@
 
   /* ---------- geo helpers ---------- */
   W.km = function (a, b) {
-    if (!a || !b || a.lat == null || b.lat == null) return null;
+    if (!a || !b || a.lat == null || b.lat == null || a.lng == null || b.lng == null) return null;
     var R = 6371,
       r = Math.PI / 180,
       dLa = (b.lat - a.lat) * r,
@@ -310,6 +310,7 @@
   W.legReal = 0; /* how many real times the screens have shown (W.legNote compares two readings) */
   W.legWant = 0; /* above 0 while a day is being drawn for the viewer (Today, the Trip screen's day): only then is a missing time asked for */
   W.leg = function (a, b, quiet) {
+    if (!a || !b) return null;
     var e = W.legEst(a, b);
     if (!e) return e;
     var k = W.rlKey(a, b),
@@ -437,7 +438,7 @@
   W.airport = function () {
     var v = (W.S.depart || "").trim().toLowerCase();
     if (!v) return null;
-    var m = window.AIRPORTS.filter(function (a) {
+    var m = (window.AIRPORTS || []).filter(function (a) {
       var label = (a[0] + " (" + a[1] + ")").toLowerCase();
       return label === v || a[1].toLowerCase() === v || a[0].toLowerCase() === v || label.indexOf(v) === 0;
     })[0];
@@ -530,10 +531,10 @@
       return;
     }
     var later = function () {
-      if (window.requestIdleCallback) requestIdleCallback(flush, { timeout: 300 });
+      if (window.requestIdleCallback) window.requestIdleCallback(flush, { timeout: 300 });
       else setTimeout(flush, 50);
     };
-    if (window.requestAnimationFrame) requestAnimationFrame(later);
+    if (window.requestAnimationFrame) window.requestAnimationFrame(later);
     else later();
   }
   /** the screen drawn again for something that changes how it looks but not the plan (a photo, the street map

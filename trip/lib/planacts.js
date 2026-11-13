@@ -107,7 +107,8 @@
       T = W.dayTimes(day, P),
       p = P.p;
     if (!T) return null;
-    var s = P.stops[day.stop],
+    var rows = T.rows,
+      s = P.stops[day.stop],
       home = W.homebase(day.country, day.city),
       used = s.used || (s.used = {});
     var undo = { picks: {}, mine: {}, free: {}, late: W.lateFor(day) },
@@ -125,7 +126,7 @@
       return !!(e && e.done);
     }
     function later(x) {
-      var R = T.rows[x.slot];
+      var R = rows[x.slot];
       return R && !R.skip && R.start != null && R.start > nm + 5;
     }
     function setFree(x, why) {
@@ -150,7 +151,7 @@
         var it = list[i],
           k = W.norm(it.n);
         if (avoid[k] || !filter(it)) continue;
-        if (W.badForDay(it, W.weekday(day.n), x.slot, W.kidDinner()) || (W.holidayShut && W.holidayShut(it, day))) continue;
+        if (W.badForDay(it, W.weekday(day.n), x.slot, W.kidDinner(), day.n) || (W.holidayShut && W.holidayShut(it, day))) continue;
         var sc = score(it, i, list.length, x.slot, cx, p, false);
         if (sc == null) sc = score(it, i, list.length, x.slot, cx, p, true);
         if (sc != null && sc > bs) {
@@ -176,7 +177,7 @@
     };
     var near = function (km) {
       return function (it) {
-        return it.lat == null || W.km(home, it) <= km;
+        return it.lat == null || (W.km(home, it) || 0) <= km;
       };
     };
     if (mode === "rain") {
@@ -207,7 +208,7 @@
       day.slots.forEach(function (x) {
         if (!x.item || !later(x)) return;
         if (W.isFood(x.slot)) {
-          if (x.slot === "dinner" && !booked(x.item) && W.km(home, x.item) > 1.2)
+          if (x.slot === "dinner" && !booked(x.item) && (W.km(home, x.item) || 0) > 1.2)
             swap(
               x,
               function (it) {
@@ -222,7 +223,7 @@
           return;
         }
         var c = W.classify(x.item, false);
-        if (!kept && x.slot !== "eve" && c.intensity <= 1 && W.km(home, x.item) <= 1.5) {
+        if (!kept && x.slot !== "eve" && c.intensity <= 1 && (W.km(home, x.item) || 0) <= 1.5) {
           kept = true;
           return;
         }
@@ -245,7 +246,7 @@
       });
     } else if (mode === "behind") {
       W.lateAdd(day, 45);
-      var T2 = W.dayTimes(day, P);
+      var T2 = /** @type {DayTimes} */ (W.dayTimes(day, P)); /* (the same day as T above, so it has times) */
       (T2.order || []).forEach(function (sl) {
         var x = day.slots.filter(function (y) {
             return y.slot === sl;
@@ -260,7 +261,7 @@
         var x = day.slots.filter(function (y) {
             return y.slot === sl;
           })[0],
-          R = T.rows[sl];
+          R = rows[sl];
         if (x && x.item && !W.isFood(sl) && R && !R.skip && R.end > nm) {
           nx = x;
           return true;
@@ -293,7 +294,8 @@
       nm = W.nowMin(),
       T = W.dayTimes(day, P);
     if (!T) return null;
-    var s = P.stops[day.stop],
+    var rows = T.rows,
+      s = P.stops[day.stop],
       used = s.used || (s.used = {});
     var undo = { picks: {}, mine: {}, free: {}, late: W.lateFor(day) },
       changed = [],
@@ -307,7 +309,7 @@
       var x = day.slots.filter(function (y) {
           return y.slot === a.slot;
         })[0],
-        R = x && T.rows[x.slot];
+        R = x && rows[x.slot];
       if (!x || !R || R.skip || R.start == null || R.start <= nm + 5) return;
       var e = x.item && W.bookEntryFor ? W.bookEntryFor(P, day, x.item) : null;
       if (e && e.done) return;

@@ -376,7 +376,7 @@
     } else if (d.next || d.peek || d.peekskip) {
       /* the next suggestion, an idea tapped, or Skip: shown up close in the swap, with Add and Skip; nothing is
          swapped in yet. With no other idea nearby, the next suggestion looks farther and puts it in (undo is offered) */
-      var ps = d.next || d.peek || d.peekskip,
+      var ps = d.next || d.peek || d.peekskip || "",
         po = W.slotOptions(day, ps, P);
       if (d.next && !po.length) {
         W.reroll(day, d.next, P);
@@ -410,8 +410,9 @@
     } else if (d.use) {
       X.useOpen = null;
       var us = d.use,
-        un = d.name,
+        un = d.name || "",
         sw2 = document.querySelector(".swap");
+      if (!un) return false; /* (every Add button names its place) */
       /* say what happened, with Undo; from Explore also the way to the day it went to */
       var inSwap = !!(sw2 && b.closest(".swap")),
         was = day.slots.filter(function (y) {

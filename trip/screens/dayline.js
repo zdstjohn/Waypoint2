@@ -26,7 +26,8 @@
   /** the day's effort as four bars ("" while the day is still loading) @param {Day} d @param {Plan} P */
   W.dayBars = function (d, P) {
     var T = d.slots && d.slots.length ? W.dayTimes(d, P) : null,
-      E = T && W.dayEnergy ? W.dayEnergy(d, P, T) : null;
+      E = T && W.dayEnergy ? W.dayEnergy(d, P, T) : null,
+      lv = E ? E.level : 0;
     return E
       ? '<span class="energy lv' +
           E.level +
@@ -35,7 +36,7 @@
           ' day"><span class="bars">' +
           [1, 2, 3, 4]
             .map(function (i) {
-              return "<i" + (i <= E.level ? ' class="on"' : "") + "></i>";
+              return "<i" + (i <= lv ? ' class="on"' : "") + "></i>";
             })
             .join("") +
           "</span></span>"

@@ -41,14 +41,21 @@
   W.countryRank = function (n) {
     return window.TD[n] ? 2 : known[n] || 0;
   };
-  $("countryList").innerHTML = names
-    .map(function (n) {
-      return '<option value="' + esc(n) + '">';
-    })
-    .join("");
-  $("airportList").innerHTML = window.AIRPORTS.map(function (a) {
-    return '<option value="' + esc(a[0] + " (" + a[1] + ")") + '">';
-  }).join("");
+  /* the lists the country and airport boxes offer (both in index.html; the airports come with the data, data/data2.js) */
+  var countryList = $("countryList"),
+    airportList = $("airportList");
+  if (countryList)
+    countryList.innerHTML = names
+      .map(function (n) {
+        return '<option value="' + esc(n) + '">';
+      })
+      .join("");
+  if (airportList)
+    airportList.innerHTML = (window.AIRPORTS || [])
+      .map(function (a) {
+        return '<option value="' + esc(a[0] + " (" + a[1] + ")") + '">';
+      })
+      .join("");
   function countryName(v) {
     var k = W.norm(v);
     if (!k) return "";
@@ -225,6 +232,7 @@
   function eatReport(P) {
     var n = W.eatNeeds && W.eatNeeds();
     if (!n || (!n.love && !n.avoid) || !P || !P.stops.length) return "";
+    var love = n.love;
     var busy = Object.keys(W.status).some(function (k) {
       return /^eat(fit|love)\|/.test(k) && W.status[k] === "loading";
     });
@@ -236,7 +244,7 @@
     P.stops.forEach(function (s) {
       var c = W.C.city[W.cityKey(s.country, s.name)];
       ((c && c.food) || []).forEach(function (x) {
-        if (n.love && W.eatLike(x) >= 2 && W.eatFit(x) !== "poor") loved++;
+        if (love && W.eatLike(x) >= 2 && W.eatFit(x) !== "poor") loved++;
         if (W.eatFit(x) === "poor") off++;
       });
     });
@@ -244,7 +252,7 @@
       d.slots.forEach(function (x) {
         if (!x.item || !W.isFood(x.slot)) return;
         meals++;
-        if (n.love && W.eatLike(x.item) >= 2) onMeals++;
+        if (love && W.eatLike(x.item) >= 2) onMeals++;
       });
     });
     var parts = [];
@@ -340,13 +348,14 @@
         stayPanel(s, /** @type {number} */ (staySi)) +
         "</div></div>";
     if (h === stayDrawn) return;
-    var first = !stayDrawn;
+    var first = !stayDrawn,
+      box = host; /* (found or made above) */
     stayDrawn = h;
-    W.keepInputs(host, function () {
-      var sc = host.querySelector(".sheet"),
+    W.keepInputs(box, function () {
+      var sc = box.querySelector(".sheet"),
         y = sc ? sc.scrollTop : 0;
-      host.innerHTML = h;
-      var now = /** @type {HTMLElement | null} */ (host.querySelector(".sheet"));
+      box.innerHTML = h;
+      var now = /** @type {HTMLElement | null} */ (box.querySelector(".sheet"));
       if (now && first) now.focus({ preventScroll: true });
       else if (now) now.scrollTop = y;
     });
@@ -1071,13 +1080,13 @@
       sel = a && a.selectionStart;
     /* edited in place, like the trip's screens (lib/patch.js): a redraw that comes while a finger is down no longer
        replaces what is under it. Thrown away and rebuilt, a tick on Plan could be lost when data arrived mid-tap. */
-    W.draw(el, h, "setup|" + (S.tripId || ""));
-    if (id && $(id)) {
-      var n = $(id);
-      if (n.value !== val && n.tagName === "INPUT" && n.type !== "number" && n.type !== "date") n.value = val;
+    if (el) W.draw(el, h, "setup|" + (S.tripId || "")); /* (the screen's box, in index.html) */
+    var n = id ? $(id) : null;
+    if (n) {
+      if (typeof val === "string" && n.value !== val && n.tagName === "INPUT" && n.type !== "number" && n.type !== "date") n.value = val;
       n.focus();
       try {
-        if (sel != null) n.setSelectionRange(sel, sel);
+        if (sel != null && n.setSelectionRange) n.setSelectionRange(sel, sel);
       } catch (e) {}
     }
     if (W.scrollToStop != null) {
@@ -1137,7 +1146,8 @@
   }
 
   function addCountry() {
-    var v = countryName($("countryIn").value);
+    var inp = $("countryIn"),
+      v = countryName((inp && inp.value) || "");
     if (!v) return;
     if (
       !S.countries.some(function (c) {
@@ -1149,9 +1159,10 @@
     W.render();
   }
   function addCity(i) {
-    var inp = $("cityIn" + i),
-      v = inp && inp.value.trim();
-    if (!v) return;
+    var found = $("cityIn" + i),
+      v = ((found && found.value) || "").trim();
+    if (!found || !v) return;
+    var inp = found;
     var c = S.countries[i],
       isle = W.isleChoice(c.name, v);
     /* an island is not a place to stay: its towns are offered instead, and nothing is added until one is chosen */
@@ -1178,7 +1189,8 @@
     var s = P.stops[i];
     if (!s) return;
     var ck = W.cityKey(s.country, s.name),
-      v = ($("stayIn" + i).value || "").trim();
+      box = $("stayIn" + i),
+      v = ((box && box.value) || "").trim();
     if (!v) {
       delete S.stays[ck];
       W.render();
@@ -1252,10 +1264,11 @@
         W.freshAll();
       }
     } /* stops you chose yourself stay */ else if (d.mode && c) {
+      var cn = c.name;
       if (d.mode === "manual" && c.mode !== "manual" && !c.picked.length)
         c.picked = P.stops
           .filter(function (s) {
-            return s.country === c.name;
+            return s.country === cn;
           })
           .map(function (s) {
             return s.name;
@@ -1329,13 +1342,16 @@
         });
     } else if (d.setstay != null) return setStay(+d.setstay, P);
     else if (d.stayarea != null) {
+      /* (the area tapped, from the place's list as it is now: a list that has changed since it was drawn may not have it) */
       var s = P.stops[+d.stayarea],
-        pool = W.C.city[W.cityKey(s.country, s.name)],
-        area = pool.stay.filter(function (x) {
+        pool = s ? W.C.city[W.cityKey(s.country, s.name)] : null,
+        area = ((pool && pool.stay) || []).filter(function (x) {
           return x.n === d.name;
         })[0];
-      S.stays[W.cityKey(s.country, s.name)] = { label: area.n, lat: area.lat, lng: area.lng };
-      W.freshPicks(s.country, s.name);
+      if (s && area) {
+        S.stays[W.cityKey(s.country, s.name)] = { label: area.n, lat: area.lat, lng: area.lng };
+        W.freshPicks(s.country, s.name);
+      }
     } else if (d.lreroll && d.si != null) {
       var ls = P.stops[+d.si],
         li = +d.si,

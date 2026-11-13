@@ -14,7 +14,7 @@
   W.todayN = function (P) {
     if (!W.S.start) return null;
     var n = W.dayOfDate(W.isoDay(W.now()));
-    return n >= 1 && n <= (P ? P.N : 999) ? n : null;
+    return n != null && n >= 1 && n <= (P ? P.N : 999) ? n : null;
   };
   function isToday(day) {
     return W.S.start && W.dayOfDate(W.isoDay(W.now())) === day.n;
