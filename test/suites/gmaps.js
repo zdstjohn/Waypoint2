@@ -133,6 +133,7 @@ exports.run = async t => {
     calls: window.__mcp.slice(n).map(c => [c[0], c[1], c[2]]), note: document.querySelector('.ps-src-note').textContent }), n0);
   const g1 = res.rows.find(r => r[0] === 'Gelateria Gelato');
   t.ok(g1 && g1[1] === 'On Google Maps' && /4\.9★ · Trendy and family-friendly ice cream shop/.test(g1[2]) && /query_place_id=ChIJgoogleOne/.test(g1[3]), 'the search shows Google\'s places, each linked to its own listing: ' + JSON.stringify(g1));
+  t.ok(res.rows.filter(r => r[0] === 'Caffè gelato').length === 1 && res.rows.find(r => r[0] === 'Caffè gelato')[1] === 'On Google Maps', 'a place both Google and Claude found shows once, as Google\'s: ' + JSON.stringify(res.rows));
   t.ok(!res.rows.some(r => r[0] === 'Far Google Place') && res.rows.some(r => r[1] === 'Suggested by Claude'), 'a far-off answer is left out, and Claude\'s ideas still come alongside');
   const sp = res.calls.filter(c => c[1] === 'search_places');
   t.ok(sp.length === 1 && sp[0][2].pageSize === 5 && !sp[0][2].includeExtendedDetails && /^gelato in Rome, Italy$/.test(sp[0][2].textQuery) && !res.calls.some(c => c[0] === 'Mapbox'), 'one basic Google request (five places, no extended details), and Mapbox is not asked as well');
@@ -179,13 +180,13 @@ exports.run = async t => {
     return { st: W.gmState(), more: window.__mcp.length - n, card: document.getElementById('set-gm').textContent, kept: !!JSON.parse(localStorage.getItem('waypoint-gmaps-v1') || '{}').no };
   });
   t.ok(no.st.state === 'off' && no.st.why === 'no' && no.more === 0 && no.kept && /You said no/.test(no.card) && /Ask me again/.test(no.card), 'when the viewer says no to Claude\'s question, the app stops asking and Settings offers to ask again: ' + JSON.stringify(no.st));
-  /* asked again, it is back; and when Google does not answer a search, the map search is Mapbox's, as before */
+  /* asked again, it is back; and when Google does not answer a search, it says so and Claude's places still come */
   await pg.evaluate(async () => { document.querySelector('[data-gm="on"]').click(); for (let i = 0; i < 30 && !W.gmOn(); i++) await new Promise(r => setTimeout(r, 100)); W.goView('trip'); W.S.day = 3; W.S.tview = 'map'; W.render(); await new Promise(r => setTimeout(r, 400)); });
   const fell = await pg.evaluate(async () => {
     window.__mcpFail = { search_places: 'server_unavailable' }; document.getElementById('placeQ').value = 'beach'; document.querySelector('[data-psearch="1"]').click(); await new Promise(r => setTimeout(r, 1200));
-    window.__mcpFail = null; return { rows: [...document.querySelectorAll('.ps-it')].map(li => li.querySelector('.ps-src').textContent), on: W.gmOn() };
+    window.__mcpFail = null; return { rows: [...document.querySelectorAll('.ps-it')].map(li => li.querySelector('.ps-src').textContent), on: W.gmOn(), text: document.querySelector('.psearch').textContent, mb: window.__mcp.some(c => c[0] === 'Mapbox') };
   });
-  t.ok(fell.rows.includes('On the map') && !fell.rows.includes('On Google Maps') && fell.on, 'when Google does not answer, the search falls back to Mapbox: ' + JSON.stringify(fell.rows));
+  t.ok(fell.rows.includes('Suggested by Claude') && !fell.rows.includes('On Google Maps') && /didn't answer this time/.test(fell.text) && !fell.mb && fell.on, 'when Google does not answer, it says so, Claude\'s places still come, and nothing else is asked: ' + JSON.stringify(fell));
 
   t.eq(errors(), [], 'no page errors with the connection');
   await ctx.close();

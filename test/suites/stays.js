@@ -1,5 +1,5 @@
 /* Where to stay (the stay panel in Plan, and the same panel as a sheet from "Pick a place"): a stay you booked
-   already, the places to pick from, and the other sites. v175 (you asked for it): the places come from Booking.com when
+   already, and the places to pick from (no links to other booking sites since v177). v175 (you asked for it): the places come from Booking.com when
    it can answer, real ones for your nights and your group with their prices, in the same three tiers by price a night,
    best rated first; Claude's picks when it can't (no connection here, no dates, nothing free, or an error, which says
    so with another try). Still no search box in it (gone since v152). */

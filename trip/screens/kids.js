@@ -126,12 +126,42 @@
     take(FINDS, 6 - pick.length);
     return pick;
   }
+  /* A town's hunt is kept as it was when the first thing was found (S.hunt[town]._l), and each find is ticked by its
+     words, not its place in the list: a re-plan that makes a town beachy (or not) changes the list, and a tick kept by
+     position would then move to another thing. Ticks from before v177 were by position, on the list as it is made now. */
+  function hunt(P, pl) {
+    var t = (S().hunt || {})[pl.key] || {},
+      list = Array.isArray(t._l) ? t._l : finds(P, pl);
+    return {
+      list: list,
+      got: function (/** @type {number} */ i) {
+        return !!(t[list[i]] || t[i]);
+      }
+    };
+  }
+  /* the list and its ticks for a town, for the tests */
   W.huntFinds = function (P, key) {
     var pl = places(P).filter(function (p) {
       return p.key === key;
     })[0];
-    return pl ? finds(P, pl) : [];
+    return pl ? hunt(P, pl).list : [];
   };
+  /* tick or untick the i-th find of a town; the list is kept from now on (and old ticks by position become ticks by words) */
+  function huntTick(P, pl, i) {
+    var s = S(),
+      hu = s.hunt || (s.hunt = {}),
+      h = hunt(P, pl),
+      f = h.list[i],
+      t = /** @type {Record<string, any>} */ ({ _l: h.list.slice() });
+    if (f == null) return h;
+    h.list.forEach(function (x, j) {
+      if (h.got(j)) t[x] = 1;
+    });
+    if (t[f]) delete t[f];
+    else t[f] = 1;
+    hu[pl.key] = t;
+    return hunt(P, pl);
+  }
 
   /* ---------- drawings: the night sky over the kids' corner, passport stamps, the treasure map's coins and chest ---------- */
   /* the logo's night scene (moon, stars, hills, the black cat), wide */
@@ -489,10 +519,11 @@
     var p = pl.filter(function (x) {
         return x.key === huntTown;
       })[0],
-      list = finds(P, p),
-      got = (S().hunt || {})[p.key] || {},
+      hh = hunt(P, p),
+      list = hh.list,
+      got = hh.got,
       n = list.filter(function (x, i) {
-        return got[i];
+        return got(i);
       }).length;
     var h =
       '<div class="k-towns">' +
@@ -527,15 +558,15 @@
         .map(function (f, i) {
           return (
             '<li><button type="button" class="' +
-            (got[i] ? "on" : "") +
+            (got(i) ? "on" : "") +
             '" data-hunt="' +
             esc(p.key) +
             '" data-hi="' +
             i +
             '" aria-pressed="' +
-            !!got[i] +
+            got(i) +
             '"><span class="hk" aria-hidden="true">' +
-            spotSvg(i + 1, !!got[i]) +
+            spotSvg(i + 1, got(i)) +
             "</span><span>" +
             esc(f.charAt(0).toUpperCase() + f.slice(1)) +
             "</span></button></li>"
@@ -609,20 +640,19 @@
         return;
       }
       if (d.hunt) {
-        var hu = s.hunt || (s.hunt = {}),
-          t = hu[d.hunt] || (hu[d.hunt] = {}),
-          i = Number(d.hi);
-        if (t[i]) delete t[i];
-        else t[i] = 1;
+        var town = places(P).filter(function (x) {
+          return x.key === d.hunt;
+        })[0];
+        if (!town) return;
+        var i = Number(d.hi),
+          h2 = huntTick(P, town, i),
+          n = h2.list.filter(function (x, j) {
+            return h2.got(j);
+          }).length;
         W.save();
         W.render();
-        var list2 = W.huntFinds(P, d.hunt),
-          n = list2.filter(function (x, j) {
-            return t[j];
-          }).length,
-          pl = d.hunt.split("|")[1] || "";
-        if (t[i] && n === list2.length) W.cheer("Treasure hunters!", "You found everything in " + pl + "!", { big: true });
-        else if (t[i]) W.cheer("Found it!", n + " of " + list2.length + " in " + pl + ".");
+        if (h2.got(i) && n === h2.list.length) W.cheer("Treasure hunters!", "You found everything in " + town.name + "!", { big: true });
+        else if (h2.got(i)) W.cheer("Found it!", n + " of " + h2.list.length + " in " + town.name + ".");
         return;
       }
     },

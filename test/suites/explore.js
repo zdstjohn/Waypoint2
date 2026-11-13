@@ -1,6 +1,7 @@
 /* Explore (the tab that replaced the map): search any place and put it on the day; today's route with the way between
    stops and the whole day in Google Maps; the free parts of the day with picks; every idea under the stop it's near.
-   Search sources, all mocked here: the city's own list, Mapbox (through the viewer's connection) and Claude. */
+   Search sources here: the city's own list and Claude (no map connection: Google Maps' own search is in gmaps.js;
+   Mapbox was taken out in v177). */
 const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb = require('../lib/db');
 exports.run = async t => {
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, db: mkdb() }); await exampleTrip(pg);
@@ -14,15 +15,13 @@ exports.run = async t => {
   t.ok(first.groups.length >= 2 && first.groups.some(g => /^Near /.test(g)) && first.near > 0, 'ideas are grouped by the stop they are near, with the time to get there: ' + first.groups.slice(0, 4).join(' / '));
 
 
-  /* search: three sources, one list; the same place from the map and Claude shows once, marked as on the map */
+  /* search without a map connection: the list and Claude, one list, and a line saying how to add the map */
   await pg.fill('#placeQ', 'gelato'); await pg.click('[data-psearch="1"]'); await pg.waitForTimeout(400); await settle(pg, 4000);
   const res = await pg.evaluate(() => ({ rows: [...document.querySelectorAll('.ps-it')].map(li => [li.querySelector('b').textContent, li.querySelector('.ps-src').textContent]),
-    google: (document.querySelector('.ps-google a') || {}).href || '', mcp: (window.__mcp || []).filter(c => c[0] === 'Mapbox').map(c => c[1]) }));
+    google: (document.querySelector('.ps-google a') || {}).href || '', mapbox: (window.__mcp || []).some(c => c[0] === 'Mapbox'), text: document.querySelector('.psearch').textContent }));
   const names = res.rows.map(r => r[0]);
-  t.ok(res.mcp.includes('search_and_geocode_tool'), 'the map search goes through the Mapbox connection');
-  t.ok(names.filter(n => n === 'Caffè gelato').length === 1 && res.rows.find(r => r[0] === 'Caffè gelato')[1] === 'On the map', 'a place both the map and Claude found shows once, marked as on the map: ' + JSON.stringify(res.rows));
-  t.ok(res.rows.some(r => r[1] === 'Suggested by Claude'), 'a place only Claude knows is marked as a suggestion');
-  t.ok(!names.includes('Far Away Place'), 'a result far from the city is left out');
+  t.ok(!res.mapbox && /Connect Google Maps in Claude/.test(res.text), 'no Mapbox any more; without Google Maps it says how to add the map: ' + res.text.slice(0, 200));
+  t.ok(names.filter(n => n === 'Caffè gelato').length === 1 && res.rows.find(r => r[0] === 'Caffè gelato')[1] === 'Suggested by Claude', 'Claude\'s places are marked as suggestions: ' + JSON.stringify(res.rows));
   t.ok(/google\.com\/maps\/search\/.*gelato/.test(res.google), 'Google Maps\' own results are one link away');
 
   /* add: pick the part of the day; the place joins the list as your own and the day shows it */
@@ -53,13 +52,12 @@ exports.run = async t => {
   const ad = await pg.evaluate(async () => { W.S.tview = 'days'; W.render(); const btn = document.querySelector('[data-addplace]'); if (!btn) return null; btn.click(); await new Promise(r => setTimeout(r, 300)); return { view: W.S.tview, focus: document.activeElement && document.activeElement.id }; });
   t.eq(ad, { view: 'map', focus: 'placeQ' }, 'the Day view\'s "Add a place" opens Explore with the search ready');
 
-  /* nothing found, and the map connection missing: says so, and still offers Claude and Google */
+  /* nothing found: says so, and Google Maps' own search is still a link away */
   const none = await pg.evaluate(async () => {
-    window.__mcpFail = { search_and_geocode_tool: 'server_not_connected' };
-    document.getElementById('placeQ').value = 'nothing here'; document.querySelector('[data-psearch="1"]').click(); await new Promise(r => setTimeout(r, 900));
-    window.__mcpFail = null; return document.querySelector('.psearch').textContent;
+    document.getElementById('placeQ').value = 'zz'; document.querySelector('[data-psearch="1"]').click(); await new Promise(r => setTimeout(r, 900));
+    return document.querySelector('.psearch').textContent;
   });
-  t.ok(/Connect Mapbox/.test(none) && /Search Google Maps/.test(none), 'without the map connection it says how to add it, and Google Maps is still a link away: ' + none.slice(0, 300));
+  t.ok(/Search Google Maps/.test(none), 'Google Maps is still a link away: ' + none.slice(0, 300));
   /* "Find more" asks for a few more at a time (10 things to do, 8 places to eat), and stops at the city's cap */
   const more = await pg.evaluate(async () => {
     /* an automatic top-up still on its way would make the button wait for it instead of asking: let it land first */

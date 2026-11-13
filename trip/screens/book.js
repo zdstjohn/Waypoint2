@@ -749,47 +749,22 @@
       });
   }
 
-  /* under a checklist item: live fares for flights, and links to the sites you use */
-  /* the other sites you use for this row, and live fares: small buttons beside the main link, results below */
+  /* under a checklist item: live fares for flights, and the price watch for a stay */
   function rowExtras(c, P) {
-    var chips = [],
-      panel = "";
     if (c.key === "flight|out" || c.key === "flight|home") {
-      var dir = c.key === "flight|out" ? "out" : "home",
-        s = dir === "out" ? P.stops[0] : P.stops[P.stops.length - 1],
-        ap = P.ap;
-      chips = W.altUrls("flight", {
-        from: dir === "out" ? ap.code || ap.name : s.name,
-        to: dir === "out" ? s.name : ap.code || ap.name,
-        date: W.dateOf(dir === "out" ? 1 : P.N)
-      });
+      var dir = c.key === "flight|out" ? "out" : "home";
       return {
-        chips: chips,
         fare: (W.fareChip ? W.fareChip(dir, P) : "") + (W.watchChip ? W.watchChip("fare", dir, P) : ""),
         panel: W.liveFares(dir, P, true)
       };
-    } else if (c.group === "stay") {
+    }
+    if (c.group === "stay" && W.watchChip) {
       var st = P.stops.filter(function (x) {
         return "stay|" + W.cityKey(x.country, x.name) === c.key;
       })[0];
-      if (st) {
-        var si = P.stops.indexOf(st),
-          f = P.days.filter(function (d) {
-            return d.stop === si;
-          })[0],
-          a = f && W.dateOf(f.n),
-          n = st.days - (si === P.stops.length - 1 ? 1 : 0),
-          b = a && new Date(a.getTime() + n * 864e5);
-        chips = W.altUrls("stay", { s: st, dates: a && n > 0 ? { in: W.isoDay(a), out: W.isoDay(b) } : {} });
-        if (W.watchChip) return { chips: chips, fare: W.watchChip("stay", W.cityKey(st.country, st.name), P), panel: "" };
-      }
-    } else if (c.group === "transport" && /ferry/i.test(c.kind)) {
-      var parts = c.title.split(" → ");
-      if (parts.length === 2) chips = W.altUrls("ferry", { a: { name: parts[0] }, b: { name: parts[1].replace(/ by .*$/, "") } });
-    } else if (c.group === "activity" && c.item) {
-      chips = W.altUrls("activity", { it: c.item, food: false, day: { city: c.city } });
+      if (st) return { fare: W.watchChip("stay", W.cityKey(st.country, st.name), P), panel: "" };
     }
-    return { chips: chips, fare: "", panel: panel };
+    return { fare: "", panel: "" };
   }
   /* ---------- the Bookings page ---------- */
   var calConfirm = false,
@@ -1141,7 +1116,7 @@
       var meta = [c.kind || "", c.day && !dayChip ? "Day " + c.day + (c.date ? " · " + fmtDay(c.date) : "") : "", sub]
         .filter(Boolean)
         .join(" · ");
-      var X = c.done ? { chips: [], fare: "", panel: "" } : rowExtras(c, P);
+      var X = c.done ? { fare: "", panel: "" } : rowExtras(c, P);
       var acts =
         (c.url
           ? link(
@@ -1150,11 +1125,6 @@
               "chip-a pri"
             )
           : "") +
-        X.chips
-          .map(function (u) {
-            return link(u[1], esc(u[0]) + " ↗", "chip-a");
-          })
-          .join("") +
         X.fare +
         go;
       return (
@@ -1319,7 +1289,7 @@
     /* each part on its own, then put together: on a phone (and a narrow window) the tab you are on; on the desktop's
        board every part, the two long lists (To book, Pack) in a wide column that flows them into columns of their own,
        the rest stacked beside it (in two stacks on a very wide screen). Each part is marked (data-wssec), so the rail can go to it. */
-    var part = { tobook: "", sites: "", booked: "", budget: "", pack: "", take: "" };
+    var part = { tobook: "", watch: "", booked: "", budget: "", pack: "", take: "" };
     if (on("tobook")) {
       part.tobook = section(
         "To book",
@@ -1336,19 +1306,12 @@
       );
       if (wide() && !all) part.tobook += budgetSeg(P, true);
       if (!ro)
-        part.sites =
-          section(
-            "Booking sites",
-            "Links for the sites you use, next to hotels, trains and tours.",
-            W.sitesRow ? W.sitesRow() : "",
-            "bk-sites"
-          ) +
-          section(
-            "Price watches",
-            "Your hotel and flights, re-checked each day. A drop of 3% or more shows up here.",
-            W.watchList ? W.watchList() : "",
-            "bk-watch"
-          );
+        part.watch = section(
+          "Price watches",
+          "Your hotel and flights, re-checked each day. A drop of 3% or more shows up here.",
+          W.watchList ? W.watchList() : "",
+          "bk-watch"
+        );
     }
     /* your bookings */
     if (on("booked")) {
@@ -1388,10 +1351,10 @@
         mark("booked", part.booked) +
         mark("budget", part.budget) +
         '</div><div class="bv-side">' +
-        part.sites +
+        part.watch +
         mark("take", part.take) +
         "</div></div>";
-    else h += part.tobook + part.sites + part.booked + part.budget + part.pack + part.take;
+    else h += part.tobook + part.watch + part.booked + part.budget + part.pack + part.take;
     W.keepInputs(el, function () {
       /* edited in place (lib/patch.js), so a tap is not lost to a redraw that comes while the finger is down */
       W.draw(

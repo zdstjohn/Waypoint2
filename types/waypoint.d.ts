@@ -149,8 +149,6 @@ interface Waypoint {
   ages: () => number[];
   ago: (t: any) => string;
   airport: any;
-  altLinksFor: (kind: string, c: any) => any;
-  altUrls: (kind: string, c: any) => any;
   anniversary: any;
   applyPlaces: (country: string, city: string, pool: Pool | null) => Pool | null;
   autoFound: any;
@@ -465,9 +463,6 @@ interface Waypoint {
   menuPick: (key: string) => void;
   menuReadBlock: (key: string) => string;
   menuState: (key: string) => { state: string; res?: any; err?: string; n: number } | null;
-  /** the Settings screen's Storage card and its buttons (lib/storage.js) */
-  storageCard: (card: (title: string, sub: string, body: string, id?: string) => string) => string;
-  storageClick: (d: DOMStringMap) => boolean;
   /** asks Rome2Rio (your connector) for real journey times between two stops, on a tap */
   checkRoutes: (a: any, b: any) => void;
   r2rMsg: string;
@@ -649,7 +644,6 @@ interface Waypoint {
   shareCode: (code: any) => string;
   sharePacks: boolean;
   shutBy: any;
-  sitesRow: any;
   sky: any;
   slotOptions: (day: Day, slot: string, P: Plan) => any[];
   slug: (s: string) => string;

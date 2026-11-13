@@ -205,22 +205,16 @@ lib/              the shared library
                   first. Places to stay, dates, bookings and the route stay yours. They need edit access to the page.
                   The shared copy says which picks a person made (S.mine), so a place someone chose stands on every
                   phone, also where the planner wouldn't have picked it.
-  route.js        (second script) trip shape check (and its one-tap fixes)   import.js  paste an itinerary   prices.js  live prices and booking sites (Where to stay's Booking.com places, v175)
+  route.js        (second script) trip shape check (and its one-tap fixes)   import.js  paste an itinerary   prices.js  live prices (Where to stay's Booking.com places, v175; no other-site links since v177)
   watch.js        price watches   sync.js  saved and shared trips   fx.js  motion   vtindex.js/vtmap.js  the street map (cities with a map pack)
-  storage.js      (second script) Settings > Storage, for people who can edit the app: finds stored files nothing points
-                  at (every 32-character id in the app's lists photos, maps, links, places, wanted, shared, your saved
-                  trips, this phone's storage, the page and its scripts counts as in use; files from the last two days
-                  are kept, as the nightly photo run records its uploads after making them), shows them with thumbnails,
-                  and deletes them only after you confirm, checking again first. It deletes nothing when a list can't be
-                  read in full (1000 documents) or when more than half the files would go.
   gmaps.js        (second script) Google Maps through the viewer's own connection: real times between stops (kept
                   with the trip as S.rl and read by W.leg in core.js; asked only for the day on show, W.legWant),
                   the forecast (W.wxLine), Google's listings for the search (W.gmSearch), a place from a pasted link
                   (W.gmFromLink), a day's places as a Google Maps list (W.gmListHtml), the Settings card (W.gmCard).
                   Basic requests only; 300 a day from a device. Without the connection nothing changes.
   search.js       find any place and put it on the day: the city's own ideas, Google's listings when the viewer has a
-                  Google Maps connection (else Mapbox: real places with exact pins, through the viewer's Mapbox
-                  connection) and Claude (marked "Suggested by Claude" until the nightly
+                  Google Maps connection (without it, a line says how to add it; Mapbox was taken out in v177) and
+                  Claude (marked "Suggested by Claude" until the nightly
                   check confirms it), merged into one list; a Google Maps search for the same words is one link away.
                   An added place joins the city's list as your own (S.imported, with the trip) and goes in the part of
                   the day you pick. The page can't reach the internet itself: the map comes through the connection.
@@ -286,9 +280,9 @@ screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.
                   screen (W.staySheet); quickstart.js (second script) the three questions for a
                   new trip (shown on the very first open; a stop's sheet keeps
                   "Leave free" and "Not for us" at its end, and "Not for us" asks once); family;
-                  settings.js is "Import a plan" and Storage (sharing lives in the trip menu); kids.js is "For the kids"
+                  settings.js is "Import a plan", the backup copy and Google Maps (sharing lives in the trip menu); kids.js is "For the kids"
                   (from the trip menu and Today): today's outings in big photo cards with a heart per kid, a passport
-                  that stamps each place, and a treasure hunt per town
+                  that stamps each place, and a treasure hunt per town (ticks kept by the find's words, the list kept from the first tick)
 vt/              street-map data: the detailed packs live in the asset store (maps/<city> in the
                   database lists them), built nightly by tools/build.py and pack2json.py. A pack stays under 4 MB
                   (PACK_MAX_MB): the closest zoom levels are dropped farthest from the town first, never within 0.8 km
@@ -359,9 +353,6 @@ Checks (node test/run.js, from the folder above trip/)
                 out first; three questions per town and no more; never for a meal you freed or a trip you only read.
   menus         the nightly places join Rome's list once (no name or markup: dropped); a planned meal's Menu opens its
                 panel at the menu (dishes, prices in the chosen currency, kids', source and date, Google Maps photos).
-  storage       Settings > Storage: of ten stored files it finds only the three old ones nothing points at (a place
-                photo, a map part, an old journal photo and today's uploads are never listed), deletes nothing by looking,
-                asks once more, keeps one that came into use in between, and refuses when most files would go.
   fuzz          random trips nobody wrote by hand: a seeded generator builds hundreds (1-3 countries, 1-4 places each or
                 "suggest", 3-21 days, any mix of ages, interests and focus, near or far departure, random rest days and
                 freed slots) and every plan is checked against the rules the hand-built tests check one trip at a time:

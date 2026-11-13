@@ -264,17 +264,7 @@
                     esc(W.ferrySearch(o, L.a, L.b).text) +
                     ' <span aria-hidden="true">↗</span></a>'
                   : "";
-            /* the ferry on Ferryhopper too, if you use it */
-            var alt =
-              fy && W.altUrls
-                ? W.altUrls("ferry", { a: L.a, b: L.b })
-                    .map(function (u) {
-                      return link(u[1], esc(u[0]) + " ↗");
-                    })
-                    .join("")
-                : "";
             var extra =
-              alt +
               (fl ? link(W.flightsUrl(o.from || L.a.name, o.to || L.b.name, W.dateOf(day.n)), "Compare flights") : "") +
               (o.book
                 ? '<button type="button" class="linkish small" data-gobook="' +

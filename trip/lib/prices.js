@@ -2,7 +2,8 @@
    - real flight fares (Expedia, through your connected account)
    - real places to stay for your nights, with their prices (Booking.com, through your connected account): what Where
      to stay shows when it can (v175)
-   - optional links to the sites you already use, next to the official ones */
+   No links to other booking sites since v177 (the owner's call): each row has its official link, and the live prices
+   above where the connection is there. */
 (function () {
   "use strict";
   var W = window.W,
@@ -39,27 +40,6 @@
   var busy = {},
     msg = {};
 
-  /* ---------- the sites you use ---------- */
-  var SITES = [
-    ["booking", "Booking.com"],
-    ["expedia", "Expedia"],
-    ["trip", "Trip.com"],
-    ["gyg", "GetYourGuide"],
-    ["ferryhopper", "Ferryhopper"]
-  ];
-  function on(k) {
-    return !!(S.sites || {})[k];
-  }
-  W.sitesRow = function () {
-    if (W.readOnly) return "";
-    return (
-      '<div class="sites"><span class="small muted">Show links to</span>' +
-      SITES.map(function (s) {
-        return '<button type="button" class="chip sm" data-site="' + s[0] + '" aria-pressed="' + on(s[0]) + '">' + s[1] + "</button>";
-      }).join("") +
-      "</div>"
-    );
-  };
   function iso(d) {
     return d ? W.isoDay(d) : "";
   }
@@ -76,106 +56,6 @@
     return { in: iso(a), out: iso(b), nights: nights };
   }
   W.stayDates = stayDates;
-  function urls(kind, c) {
-    var out = [],
-      q,
-      kids = kidsAges(),
-      A = adults();
-    if (kind === "stay") {
-      var dt = c.dates || {};
-      q = c.s.name + ", " + c.s.country;
-      if (on("booking"))
-        out.push([
-          "Booking.com",
-          "https://www.booking.com/searchresults.html?ss=" +
-            encodeURIComponent(q) +
-            (dt.in ? "&checkin=" + dt.in + "&checkout=" + dt.out : "") +
-            "&group_adults=" +
-            A +
-            "&group_children=" +
-            kids.length +
-            kids
-              .map(function (a) {
-                return "&age=" + a;
-              })
-              .join("") +
-            "&no_rooms=1"
-        ]);
-      if (on("expedia"))
-        out.push([
-          "Expedia",
-          "https://www.expedia.com/Hotel-Search?destination=" +
-            encodeURIComponent(q) +
-            (dt.in ? "&startDate=" + dt.in + "&endDate=" + dt.out : "") +
-            "&adults=" +
-            A +
-            (kids.length
-              ? "&children=" +
-                encodeURIComponent(
-                  kids
-                    .map(function (a) {
-                      return "1_" + a;
-                    })
-                    .join(",")
-                )
-              : "") +
-            "&rooms=1"
-        ]);
-      if (on("trip"))
-        out.push([
-          "Trip.com",
-          "https://www.trip.com/hotels/list?cityName=" +
-            encodeURIComponent(c.s.name) +
-            "&destName=" +
-            encodeURIComponent(c.s.name) +
-            "&searchWord=" +
-            encodeURIComponent(c.s.name) +
-            "&searchType=CT" +
-            (dt.in ? "&checkin=" + dt.in + "&checkout=" + dt.out : "") +
-            "&crn=1&adult=" +
-            A +
-            "&children=" +
-            kids.length
-        ]);
-    } else if (kind === "activity") {
-      if (on("gyg") && !c.food && (W.isPaid(c.it) || W.needsBooking(c.it)))
-        out.push(["GetYourGuide", "https://www.getyourguide.com/s/?q=" + encodeURIComponent(c.it.n + " " + c.day.city)]);
-    } else if (kind === "ferry") {
-      if (on("ferryhopper"))
-        out.push(["Ferryhopper", "https://www.ferryhopper.com/en/ferry-routes/direct/" + W.slug(c.a.name) + "-to-" + W.slug(c.b.name)]);
-    } else if (kind === "flight") {
-      var d = c.date,
-        md = d ? d.getMonth() + 1 + "/" + d.getDate() + "/" + d.getFullYear() : "";
-      if (on("expedia"))
-        out.push([
-          "Expedia",
-          "https://www.expedia.com/Flights-Search?trip=oneway&mode=search&leg1=" +
-            encodeURIComponent("from:" + c.from + ",to:" + c.to + (md ? ",departure:" + md + "TANYT" : "")) +
-            "&passengers=" +
-            encodeURIComponent(
-              "adults:" + A + (kids.length ? ",children:" + kids.length + "[" + kids.join(";") + "]" : "") + ",infantinlap:N"
-            ) +
-            "&options=cabinclass%3Aeconomy"
-        ]);
-    }
-    return out;
-  }
-  /* "Also on Booking.com · Expedia" */
-  W.altLinksFor = function (kind, c) {
-    var u = urls(kind, c);
-    if (!u.length) return "";
-    return (
-      '<div class="alt small"><span class="muted">Also on</span> ' +
-      u
-        .map(function (x) {
-          return link(x[1], esc(x[0]) + " ↗");
-        })
-        .join(" · ") +
-      "</div>"
-    );
-  };
-  W.altUrls = urls;
-
   /* ---------- connected accounts ---------- */
   function call(server, tool, input) {
     return W.getMcp().then(function (m) {
@@ -599,11 +479,6 @@
   };
 
   W.liveClick = function (d, P) {
-    if (d.site) {
-      var ss = S.sites || (S.sites = {});
-      ss[d.site] = !ss[d.site];
-      return true;
-    }
     if (d.live === "fare") {
       fetchFares(d.dir, P);
       return true;

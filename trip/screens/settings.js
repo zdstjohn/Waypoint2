@@ -1,5 +1,6 @@
-/* Waypoint trip settings, under the trip name: importing a plan, and the app's stored files (lib/storage.js). Calendar, PDF and the offline
-   copy live on Prepare (Take along); booking sites and price watches next to the prices they affect (Prepare, To book). */
+/* Waypoint trip settings, under the trip name: importing a plan, a copy of your trips and the Google Maps connection.
+   Calendar, PDF and the offline copy live on Prepare (Take along); price watches next to the prices they affect
+   (Prepare, To book). */
 (function () {
   "use strict";
   var W = window.W,
@@ -68,7 +69,6 @@
         "set-copy"
       );
     if (W.gmCard) h += W.gmCard(card); /* the viewer's Google Maps connection: what it adds, and its switch (lib/gmaps.js) */
-    if (W.storageCard) h += W.storageCard(card); /* the app's stored files, for people who can edit it (lib/storage.js) */
     W.keepInputs(host, function () {
       var t = W.$("importText"),
         keep = t && t.value;
@@ -137,7 +137,6 @@
       if (f) f.click();
       return;
     }
-    if (W.storageClick && W.storageClick(d)) return;
     if (W.importClick && W.importClick(d)) return;
     if (W.takeItClick && W.takeItClick(d, P)) return;
     if (W.liveClick && W.liveClick(d, P)) {

@@ -291,7 +291,6 @@
       esc(s.name) +
       '">Set</button></div>' +
       lodgeCards(s, i) +
-      (W.altLinksFor ? W.altLinksFor("stay", { s: s, dates: stayDatesFor(s) }) : "") +
       "</div>"
     );
   }

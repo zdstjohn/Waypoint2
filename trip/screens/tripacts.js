@@ -335,7 +335,6 @@
       rev +
       (food && W.menuBlock ? W.menuBlock(it, day, x.key) : "") +
       (it.st === "unsure" ? "<p class=\"small muted\">Couldn't confirm it's still open. Worth a quick check.</p>" : "") +
-      (W.altLinksFor ? W.altLinksFor("activity", { it: it, food: food, day: day }) : "") +
       placeLinks(
         it,
         day,
@@ -513,7 +512,7 @@
     } else if (d.unrescue) {
       var ud = P.days[(S.day || 1) - 1];
       if (ud && W.unrescue) W.unrescue(ud);
-    } else if ((d.live || d.site) && W.liveClick) W.liveClick(d, P);
+    } else if (d.live && W.liveClick) W.liveClick(d, P);
     else if (d.daytrip) {
       /* "Make it a day trip" / "Change day trip" open the choice; "Undo day trip" gives the day back to its town */
       var dn = +d.daytrip,

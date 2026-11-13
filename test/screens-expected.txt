@@ -1,7 +1,3 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v176. No journal anywhere (Today's fold, the recap's photos and notes, Settings' backup words); Today's top card has
-# the day's photo and how full a day, as on Trip.
-today-*
-recap-*
-settings-*
+# v177: none of the shot screens change (the cut cards are off the shots: Prepare's lower half, Settings for editors).

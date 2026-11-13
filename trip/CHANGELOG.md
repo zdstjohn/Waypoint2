@@ -2,6 +2,23 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v177
+
+The owner's cuts, from asking each reviewer for the one thing they'd take out (the owner: "Do your picks").
+- No "Booking sites" links: the Bookings card with its "Show links to" chips (Booking.com, Expedia, Trip.com,
+  GetYourGuide, Ferryhopper) and the "Also on…" links it added to stays, stops, ferries and the to-book list are gone
+  (lib/prices.js urls(), W.altLinksFor, W.altUrls, W.sitesRow). Each row keeps its official link, and the live
+  Booking.com and Expedia prices where the connection is there.
+- No Mapbox in Explore's place search (lib/search.js): the map there is Google Maps, through the viewer's connection.
+  Without it, the trip's list and Claude answer and a line says how to connect Google Maps; when Google doesn't answer,
+  it says so. Mapbox is off the artifact's connector list too.
+- No Settings card for unused stored files (lib/storage.js and its suite deleted): it was upkeep for whoever runs the
+  app, and the old journal photos it would have cleared don't exist (the saved trips' journals are empty).
+- The treasure hunt keeps a tick on the find it was for (screens/kids.js hunt, huntTick): ticks are kept by the find's
+  words, and a town's list is kept from its first tick, so a re-plan that makes a town beachy (or not) no longer moves
+  ticks to other finds. Ticks saved by position before v177 still show and become ticks by words at the next tap.
+- Tests: new suite cuts177; explore and gmaps search checks for Google only; the mock has no Mapbox.
+
 ## v176
 
 The owner's asks: the journal gone everywhere, Today's top card like Trip's, and a review for size and bugs.

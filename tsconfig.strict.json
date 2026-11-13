@@ -33,7 +33,6 @@
     "trip/lib/patch.js",
     "trip/lib/bookcore.js",
     "trip/lib/pwa.js",
-    "trip/lib/storage.js",
     "trip/lib/together.js",
     "trip/lib/towns.js",
     "trip/lib/asks.js",

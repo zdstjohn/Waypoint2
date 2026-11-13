@@ -62,7 +62,7 @@ exports.run = async t => {
     return { shown: !v.hidden, hi: /Mila & Leo/.test(v.textContent), place, picks: JSON.stringify(W.S.kidPicks), stamps: Object.keys(W.S.stamps || {}).length, hunt: JSON.stringify(W.S.hunt), same: P0 === P1 };
   });
   t.ok(kids.shown && kids.hi, 'the kids\' view says hello to the kids by name');
-  t.ok(/Mila/.test(kids.picks) && kids.stamps === 1 && /"1"|"0"/.test(kids.hunt), `a pick, a passport stamp and a treasure-hunt find are saved (${kids.picks})`);
+  t.ok(/Mila/.test(kids.picks) && kids.stamps === 1 && /":1/.test(kids.hunt), `a pick, a passport stamp and a treasure-hunt find are saved (${kids.picks})`);
   /* the kids' corner is drawn: the night sky, a stamp for every place (inked once stamped), a numbered spot or a coin for
      every find, and the chest that opens when all six are found */
   const drawn = await pg.evaluate(async () => {
