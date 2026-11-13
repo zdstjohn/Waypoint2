@@ -117,18 +117,10 @@
     '<svg class="chev" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>';
 
   /* one row per stop: its days, its dates and where you're staying */
+  /** a stop's check-in and check-out days (lib/prices.js works them out), or {} without dates @param {Stop} s */
   function stayDatesFor(s) {
-    var P = W.P,
-      si = P.stops.indexOf(s),
-      f = P.days.filter(function (d) {
-        return d.stop === si;
-      })[0],
-      a = f && W.dateOf(f.n),
-      n = s.days - (si === P.stops.length - 1 ? 1 : 0);
-    if (!a || n < 1) return {};
-    var b = new Date(a);
-    b.setDate(b.getDate() + n);
-    return { in: W.isoDay(a), out: W.isoDay(b) };
+    var dt = W.stayDates ? W.stayDates(s, W.P) : null;
+    return dt ? { in: dt.in, out: dt.out } : {};
   }
   function stopRow(s, i, c, ci, dayN) {
     var ck = W.cityKey(s.country, s.name),
@@ -220,9 +212,18 @@
       "</div>"
     );
   }
-  /* suggestions for where to stay are asked for once per place and party, while no stay is set */
+  /* Places to stay are got ready while no stay is set: from Booking.com once a search there has worked (lib/prices.js
+     W.liveLodge), else Claude's picks, asked for once per place and party. Where Booking.com may answer but has not
+     been asked yet, nothing is asked until you open Where to stay. */
   function wantLodging(s, hb) {
-    if (hb.set || W.sampleState === "off") return;
+    if (hb.set) return;
+    var L = W.liveLodge ? W.liveLodge(W.cityKey(s.country, s.name), W.P, "warm") : /** @type {LiveLodge} */ ({ st: "off" });
+    if (L.st === "idle" || L.st === "loading" || (L.st === "ok" && L.items && L.items.length)) return;
+    claudeLodging(s);
+  }
+  /** @param {Stop} s */
+  function claudeLodging(s) {
+    if (W.sampleState === "off") return;
     var cur = W.C.city[W.cityKey(s.country, s.name)];
     if (!cur || cur.lodgeFor !== W.lodgeSig() || !cur.lodgeAsked) W.loadLodging(s.country, s.name);
   }
@@ -593,44 +594,96 @@
     return h + "</div>";
   }
 
-  /* three places to stay per stop: budget, mid-range and a splurge, each with its own reroll */
+  /* three places to stay per stop: budget, mid-range and a splurge, each with its own reroll. From Booking.com, with
+     their prices for your nights, when it can answer (lib/prices.js W.liveLodge); else Claude's picks */
   var ICON_REROLL = W.icon("reroll", 2.5);
   var TYPE_NAME = { hotel: "Hotel", apartment: "Apartment", guesthouse: "Guesthouse", hostel: "Hostel", resort: "Resort", villa: "Villa" };
+  /** a tier's label, and its button for another place in that tier @param {Tier} t @param {number} i @param {Stop} s
+   *  @param {boolean} more @param {string} [src] */
+  function tierHead(t, i, s, more, src) {
+    var tn = W.TIER_NAME[t];
+    return (
+      '<div class="lodge-h"><span class="tier t-' +
+      t +
+      '">' +
+      tn +
+      "</span>" +
+      (more
+        ? '<button type="button" class="icon-btn" data-lreroll="' +
+          t +
+          '" data-si="' +
+          i +
+          (src ? '" data-lsrc="' + src : "") +
+          '" aria-label="Show a different ' +
+          tn.toLowerCase() +
+          " place in " +
+          esc(s.name) +
+          '" title="Show a different one">' +
+          ICON_REROLL +
+          "</button>"
+        : "") +
+      "</div>"
+    );
+  }
+  /** "Stay here", or "✓ Staying here" @param {Tier} t @param {number} i @param {boolean} on @param {string} [src] */
+  function stayBtn(t, i, on, src) {
+    return (
+      '<button type="button" class="btn quiet sm" data-lstay="' +
+      t +
+      '" data-si="' +
+      i +
+      (src ? '" data-lsrc="' + src : "") +
+      '" aria-pressed="' +
+      on +
+      '">' +
+      (on ? "✓ Staying here" : "Stay here") +
+      "</button>"
+    );
+  }
+  /** @param {Stop} s @param {number} i */
   function lodgeCards(s, i) {
-    if (W.sampleState === "off") return "";
     var ck = W.cityKey(s.country, s.name),
-      cur = W.C.city[ck],
-      sig = W.lodgeSig(),
-      key = "lodge|" + ck + "|" + sig;
-    if (!cur || cur.lodgeFor !== sig || !cur.lodgeAsked) W.loadLodging(s.country, s.name);
+      L = W.liveLodge ? W.liveLodge(ck, W.P, "open") : /** @type {LiveLodge} */ ({ st: "off" });
+    if (L.st === "ok" && L.items && L.items.length) return liveCards(s, i, ck, L);
+    if (L.st === "loading")
+      return (
+        '<div class="lodges-h">Or pick one of these <span class="lodges-src">· Booking.com</span></div><div class="lodges">' +
+        W.TIERS.map(function (t) {
+          return (
+            '<div class="lodge">' +
+            tierHead(t, i, s, false) +
+            '<p class="small muted"><span class="loading">Finding places on Booking.com…</span></p></div>'
+          );
+        }).join("") +
+        "</div>"
+      );
+    /* Claude's picks: Booking.com can't answer here, has nothing, needs your dates or failed (it says so, with another try) */
+    var note =
+      L.st === "error"
+        ? '<p class="small muted bk-note">' +
+          esc(L.msg || "") +
+          ' <button type="button" class="linkish" data-bkretry="' +
+          i +
+          '">Try Booking.com again</button></p>'
+        : L.st === "ok"
+          ? '<p class="small muted bk-note">Booking.com has nothing free in ' +
+            esc(s.name) +
+            " for your nights, so these are Claude's picks.</p>"
+          : L.st === "nodates"
+            ? '<p class="small muted bk-note">Add your dates under How long? to see real places and prices from Booking.com.</p>'
+            : "";
+    if (W.sampleState === "off") return note;
+    claudeLodging(s);
+    var cur = W.C.city[ck],
+      key = "lodge|" + ck + "|" + W.lodgeSig();
     var err = W.status[key] && W.status[key] !== "loading" ? W.status[key] : "",
       stay = S.stays[ck] || /** @type {Partial<Stay>} */ ({});
     var cards = W.TIERS.map(function (t) {
-      var it = W.lodgeShown(s.country, s.name, t),
-        tn = W.TIER_NAME[t];
+      var it = W.lodgeShown(s.country, s.name, t);
       var more = Object.keys(W.status).some(function (k) {
         return k.indexOf(key + "|" + t + "|") === 0 && W.status[k] === "loading";
       });
-      var head =
-        '<div class="lodge-h"><span class="tier t-' +
-        t +
-        '">' +
-        tn +
-        "</span>" +
-        (it
-          ? '<button type="button" class="icon-btn" data-lreroll="' +
-            t +
-            '" data-si="' +
-            i +
-            '" aria-label="Show a different ' +
-            tn.toLowerCase() +
-            " place in " +
-            esc(s.name) +
-            '" title="Show a different one">' +
-            ICON_REROLL +
-            "</button>"
-          : "") +
-        "</div>";
+      var head = tierHead(t, i, s, !!it);
       if (!it)
         return (
           '<div class="lodge">' +
@@ -660,15 +713,8 @@
             (/night/i.test(it.price) ? "" : " <span>/ night</span>") +
             "</div>"
           : "") +
-        '<div class="lodge-a"><button type="button" class="btn quiet sm" data-lstay="' +
-        t +
-        '" data-si="' +
-        i +
-        '" aria-pressed="' +
-        on +
-        '">' +
-        (on ? "✓ Staying here" : "Stay here") +
-        "</button>" +
+        '<div class="lodge-a">' +
+        stayBtn(t, i, on) +
         '<a class="price" href="' +
         esc(W.priceUrl(it, s.name)) +
         '" target="_blank" rel="noopener">Compare prices</a>' +
@@ -683,12 +729,69 @@
       );
     });
     return (
-      '<div class="lodges-h">Or pick one of these</div><div class="lodges">' +
+      '<div class="lodges-h">Or pick one of these</div>' +
+      note +
+      '<div class="lodges">' +
       cards.join("") +
       "</div>" +
       (err
         ? '<p class="small muted">' + esc(err) + ' <button type="button" class="linkish" data-lretry="' + i + '">Try again</button></p>'
         : "")
+    );
+  }
+  /** Booking.com's places for a stop: per tier the one on show, its rating, its price a night and for the whole stay,
+   *  and its own page to book @param {Stop} s @param {number} i @param {string} ck @param {LiveLodge} L */
+  function liveCards(s, i, ck, L) {
+    var stay = S.stays[ck] || /** @type {Partial<Stay>} */ ({}),
+      nights = (L.nights || 0) + " night" + (L.nights === 1 ? "" : "s");
+    var cards = W.TIERS.map(function (t) {
+      var it = W.liveShown(ck, t),
+        head = tierHead(t, i, s, W.liveTierSize(ck, t) > 1, "bk");
+      if (!it) return ""; /* (a few results fill a tier or two: no empty card for the others) */
+      var on = stay.label === it.n,
+        ph = W.picture(/** @type {any} */ (it), false, s.country, s.name, { credit: true }),
+        kind = it.type ? it.type.charAt(0).toUpperCase() + it.type.slice(1) : "";
+      return (
+        '<div class="lodge lodge-bk' +
+        (on ? " on" : "") +
+        '">' +
+        (ph ? '<div class="pic-wrap">' + ph + "</div>" : "") +
+        head +
+        "<h4>" +
+        esc(it.n) +
+        "</h4>" +
+        '<div class="small muted">' +
+        esc([kind, it.stars ? it.stars + "★" : "", it.area].filter(Boolean).join(" · ")) +
+        "</div>" +
+        (it.score
+          ? '<div class="small lrate"><b>' +
+            it.score.toFixed(1) +
+            "</b>/10" +
+            (it.reviews ? " · " + it.reviews.toLocaleString() + " reviews" : "") +
+            "</div>"
+          : "") +
+        '<div class="lprice">' +
+        esc(W.money(it.night, it.cur)) +
+        " <span>/ night</span></div>" +
+        '<div class="small muted">' +
+        esc(W.money(it.total, it.cur) + " for " + nights) +
+        "</div>" +
+        '<div class="lodge-a">' +
+        stayBtn(t, i, on, "bk") +
+        W.extLink(it.url, "Book on Booking.com ↗") +
+        '<a href="' +
+        esc(W.gmapsPlace(it, s.name)) +
+        '" target="_blank" rel="noopener">Map</a>' +
+        "</div></div>"
+      );
+    });
+    return (
+      '<div class="lodges-h">Or pick one of these <span class="lodges-src">· Booking.com prices for your ' +
+      esc(nights) +
+      (L.busy ? ", updating…" : L.at ? ", " + esc(W.ago(L.at)) : "") +
+      '</span></div><div class="lodges">' +
+      cards.join("") +
+      "</div>"
     );
   }
 
@@ -1366,19 +1469,22 @@
       var ls = P.stops[+d.si],
         li = +d.si,
         lt = d.lreroll;
-      if (ls) W.lodgeReroll(ls.country, ls.name, lt);
+      if (ls && d.lsrc === "bk") W.liveReroll(W.cityKey(ls.country, ls.name), lt);
+      else if (ls) W.lodgeReroll(ls.country, ls.name, lt);
       W.fxAfter(function () {
         var r = document.querySelector("#stop-" + li + ' [data-lreroll="' + lt + '"]');
         W.fxPulse(r && r.closest(".lodge"));
       });
     } else if (d.lstay && d.si != null) {
       var lsp = P.stops[+d.si],
-        lit = lsp && W.lodgeShown(lsp.country, lsp.name, d.lstay);
-      if (!lit) return false;
-      var lck = W.cityKey(lsp.country, lsp.name);
+        lck = lsp ? W.cityKey(lsp.country, lsp.name) : "",
+        bk = d.lsrc === "bk",
+        lit = lsp && (bk ? W.liveShown(lck, d.lstay) : W.lodgeShown(lsp.country, lsp.name, d.lstay));
+      if (!lsp || !lit) return false;
       if (S.stays[lck] && S.stays[lck].label === lit.n) delete S.stays[lck];
       else {
-        S.stays[lck] = { label: lit.n, lat: lit.lat, lng: lit.lng };
+        /* (a Booking.com place comes with its price for your nights, for the budget and the price watch) */
+        S.stays[lck] = bk ? W.liveStay(lck, /** @type {LiveLodging} */ (lit)) : { label: lit.n, lat: lit.lat, lng: lit.lng };
         /* fold the picks away, then show the chosen place on the city's row */
         var lsi = +d.si,
           lpanel = document.querySelector("#stop-" + lsi + " .stay-panel");
@@ -1400,6 +1506,9 @@
         openStay[lck] = false;
       }
       W.freshPicks(lsp.country, lsp.name); /* the days regroup around where you're staying */
+    } else if (d.bkretry != null) {
+      var bs = P.stops[+d.bkretry];
+      if (bs) W.liveLodgeRetry(W.cityKey(bs.country, bs.name));
     } else if (d.lretry != null) {
       var lr = P.stops[+d.lretry];
       if (lr) {

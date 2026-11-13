@@ -338,6 +338,10 @@ details.eat-f > summary:focus-visible{outline:2px solid var(--ink);outline-offse
 @media (hover:hover){.trav.add:hover{border-color:var(--muted);color:var(--fg)}}
 .trav.add:active{border-color:var(--muted);color:var(--fg)}
 .lodges-h{font-family:var(--f-body);text-transform:uppercase;letter-spacing:.08em;color:var(--label);margin-top:6px;font-weight:650;font-size:var(--t-cap)}
+/* v175: where the picks come from (Booking.com, with its prices for your nights), in the heading's own case */
+.lodges-src{text-transform:none;letter-spacing:0;font-weight:600;color:var(--muted)}
+.bk-note{margin:2px 0 4px}
+.lrate b{font-weight:800;color:var(--ink)}
 .lodges{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .lodge{border:var(--hair);border-radius:var(--r-md);padding:10px 12px;display:grid;gap:4px;align-content:start;background:var(--surface);overflow:hidden}
 .lodge.on{border:2px solid var(--on-primary);box-shadow:var(--lift)}

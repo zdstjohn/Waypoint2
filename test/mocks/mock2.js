@@ -214,6 +214,15 @@
       return { payload: { type: 'FeatureCollection', features: [f(q.replace(/^\w/, x => x.toUpperCase()) + ' Point', ['beach', 'outdoors'], 0.004, 0.002, 'beach'), f('Caffè ' + q, ['cafe', 'food and drink'], -0.002, 0.001, 'cafe'), f('Far Away Place', ['museum'], 3, 3, 'museum')] } };
     }
     if (tool === 'get-routes') { await new Promise(r => setTimeout(r, 60)); return { payload: { plain_text: 'Rome2rio searched for routes.', available_routes: [{ name: 'Train', duration: 95, carriers: ['Trenitalia Frecciarossa'] }, { name: 'Bus', duration: 210, carriers: ['FlixBus'] }, { name: 'Fly to Florence Airport', duration: 180, carriers: ['ITA Airways'] }, { name: 'Drive', duration: 170, carriers: [] }] } }; }
+    /* Booking.com: two real-looking places and two that must be dropped; window.__bkMore = n adds n more (prices
+       rising, ratings mixed), window.__bkNone answers with nothing */
+    if (tool === 'accommodations_search' && window.__bkNone) return { payload: { accommodations: [] } };
+    if (tool === 'accommodations_search' && window.__bkMore) {
+      const town = input.destination.split(',')[0];
+      return { payload: { accommodations: Array.from({ length: window.__bkMore }, (_, i) => ({ id: 100 + i, name: 'Stay ' + (i + 1) + ' ' + town, url: 'https://www.booking.com/hotel/x/stay-' + (i + 1) + '.html',
+        price: { book: 300 + i * 250, currency: 'EUR' }, rating: { number_of_reviews: i === 1 ? 4 : 400 + i * 10, review_score: i === 4 ? 6.1 : 9.5 - (i % 3) * 0.4, stars: 2 + (i % 4) }, accommodationType: i % 2 ? 'Apartment' : 'Hotel',
+        location: { district_name: 'Area ' + (i + 1), coordinates: { latitude: 41.89 + i * 0.002, longitude: 12.49 } } })) } };
+    }
     if (tool === 'accommodations_search') return { payload: { accommodations: [
       { id: 1, name: 'Casa Familia ' + input.destination.split(',')[0], url: 'https://www.booking.com/hotel/it/casa-familia.html?checkin=' + input.checkin_date, price: { book: Math.round(912.4 * (window.__pf || 1) * 100) / 100, currency: 'EUR' }, rating: { number_of_reviews: 1843, review_score: 9.1, stars: 3 }, accommodationType: 'Apartment', location: { district_name: 'Monti', city_name: 'Rome', coordinates: { latitude: 41.895, longitude: 12.494 } } },
       { id: 2, name: 'Hotel Bambini', url: 'https://www.booking.com/hotel/it/bambini.html', price: { book: 1240, currency: 'EUR' }, rating: { number_of_reviews: 640, review_score: 8.6, stars: 4 }, accommodationType: 'Hotel', location: { district_name: 'Prati', coordinates: { latitude: 41.907, longitude: 12.46 } } },

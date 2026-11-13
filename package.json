@@ -1,7 +1,7 @@
 {
   "name": "waypoint",
   "private": true,
-  "version": "0.174.0",
+  "version": "0.175.0",
   "description": "Waypoint: a family trip planner. Plain JavaScript, bundled with esbuild, checked with TypeScript, tested with Playwright.",
   "scripts": {
     "build": "node build/bundle.js",

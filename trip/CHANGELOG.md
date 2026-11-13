@@ -2,6 +2,26 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v175
+
+The owner's asks: Where to stay from Booking.com, and the pin-matcher fix pushed.
+- Where to stay shows Booking.com's real places for your nights and your whole group when Booking.com answers (the
+  Claude app with it connected; lib/prices.js W.liveLodge): each with its rating, its price a night and for the stay,
+  and its own Booking.com page to book. They fill the same three tiers by price a night (the cheapest third Budget,
+  the dearest Splurge), best rated first, a place rated under 7 by ten or more left out; the reroll goes through the
+  rest of that tier. One search a town, a few seconds, kept 6 hours; opening Where to stay asks first (so a
+  permission prompt comes from you), and once a search has worked the other towns are got ready one at a time. "Stay
+  here" keeps its price for the budget and the price watch (W.liveStay). Without the connection (the installable
+  app), without dates, with nothing free, or when Booking.com fails, Claude's picks as before, and the panel says why
+  (with "Try Booking.com again" after an error). No search box comes back (gone in v152).
+- Shared pieces: the place on show and the next one, for Claude's picks and Booking.com's (lib/stays.js W.pickShown,
+  W.pickNext); a stop's check-in and check-out days in one place (lib/prices.js W.stayDates, used by setup.js);
+  Booking.com's answer checked like any other (lib/validate.js V.bkStay: its page must be on booking.com).
+- The place check's matcher (tools/place_check.py label_fits, pushed before this release): a free-map label must name
+  the place, not only share a word with it.
+- Tests: stays rewritten for the Booking.com places (tiers, reroll, Stay here, an error, nothing free, no
+  connection); the mock's Booking.com can answer with more places or none (__bkMore, __bkNone).
+
 ## v174
 
 The owner's picks for a phone's Trip day and Simple view, the Explore map taken out, and fixes from an audit of the

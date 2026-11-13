@@ -182,10 +182,11 @@
         })
       : [];
   };
-  W.lodgeShown = function (country, city, tier) {
-    var k = W.cityKey(country, city) + "|" + tier,
-      list = W.lodgeList(country, city, tier),
-      S = W.S;
+  /* The pick on show from a list (k: the place and the tier), and the next one: Claude's picks and Booking.com's
+     (lib/prices.js) both go through these. The next one is one not shown yet; when all have been, round again. */
+  /** @template {{n: string}} T @param {string} k @param {T[]} list @returns {T | null} */
+  function pickShown(k, list) {
+    var S = W.S;
     S.lodge = S.lodge || {};
     S.lodgeSeen = S.lodgeSeen || {};
     var nm = S.lodge[k],
@@ -203,12 +204,12 @@
       list[0] ||
       null
     );
-  };
-  W.lodgeReroll = function (country, city, tier) {
-    var k = W.cityKey(country, city) + "|" + tier,
-      list = W.lodgeList(country, city, tier),
-      S = W.S;
-    var cur = W.lodgeShown(country, city, tier),
+  }
+  /** shows the next pick; returns how many were left not yet shown (so a caller can fetch more before they run out)
+   *  @param {string} k @param {{n: string}[]} list */
+  function pickNext(k, list) {
+    var S = W.S,
+      cur = pickShown(k, list),
       lodge = S.lodge || (S.lodge = {}),
       seenAll = S.lodgeSeen || (S.lodgeSeen = {}),
       seen = (seenAll[k] = seenAll[k] || []);
@@ -216,7 +217,6 @@
     var left = list.filter(function (x) {
       return seen.indexOf(W.norm(x.n)) < 0;
     });
-    if (left.length < 2) W.loadLodging(country, city, tier);
     if (left.length) lodge[k] = left[0].n;
     else {
       seenAll[k] = cur ? [W.norm(cur.n)] : [];
@@ -225,6 +225,15 @@
       })[0];
       if (again) lodge[k] = again.n;
     }
+    return left.length;
+  }
+  W.pickShown = pickShown;
+  W.pickNext = pickNext;
+  W.lodgeShown = function (country, city, tier) {
+    return pickShown(W.cityKey(country, city) + "|" + tier, W.lodgeList(country, city, tier));
+  };
+  W.lodgeReroll = function (country, city, tier) {
+    if (pickNext(W.cityKey(country, city) + "|" + tier, W.lodgeList(country, city, tier)) < 2) W.loadLodging(country, city, tier);
   };
   /* every booking site's price for one place, side by side (Google Hotels), so you can see where it's cheapest */
   W.priceUrl = function (it, city) {

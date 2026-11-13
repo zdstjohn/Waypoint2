@@ -340,6 +340,38 @@
       lng: p ? p.lng : null
     };
   };
+  /** a place to stay from Booking.com's search (v175): its name, its page on Booking.com itself, its price for the whole
+   *  stay and a night, its rating and its pin near the town; anything without a price or with a page elsewhere is dropped
+   *  @param {unknown} a0 @param {LatLng | null} center @param {number} nights @returns {LiveLodging | null} */
+  V.bkStay = function (a0, center, nights) {
+    if (!a0 || typeof a0 !== "object") return null;
+    var a = /** @type {Record<string, any>} */ (a0),
+      n = V.name(a.name),
+      pr = a.price || {},
+      total = V.money(pr.book) || 0,
+      url = V.web(a.url); /* (not V.url: that one keeps booking sites out, and this is one on purpose) */
+    if (!n || !(total > 0) || !(nights > 0) || !/^https:\/\/([a-z0-9-]+\.)*booking\.com\//i.test(url)) return null;
+    var loc = a.location || {},
+      co = loc.coordinates || {},
+      rt = a.rating || {},
+      p = V.pinNear(+co.latitude, +co.longitude, center, 120),
+      score = +rt.review_score,
+      stars = +rt.stars;
+    return {
+      n: n,
+      url: url,
+      total: total,
+      night: Math.round(total / nights),
+      cur: V.currency(pr.currency, "EUR"),
+      type: V.str(a.accommodationType, 30),
+      area: V.str(loc.district_name, 60),
+      score: score > 0 && score <= 10 ? Math.round(score * 10) / 10 : 0,
+      reviews: Math.max(0, Math.round(+rt.number_of_reviews || 0)),
+      stars: stars > 0 && stars <= 5 ? Math.round(stars) : 0,
+      lat: p ? p.lat : null,
+      lng: p ? p.lng : null
+    };
+  };
   /** transit notes */
   V.transit = function (t0) {
     if (!t0 || typeof t0 !== "object") return null;

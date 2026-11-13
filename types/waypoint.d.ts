@@ -23,6 +23,10 @@ interface Hours { o: number; c: number; closed: number[] }
 interface BeachFacts { calm?: "calm" | "some waves" | "often rough"; shallow?: boolean; shade?: string; lifeguard?: boolean; sand?: string; walk?: number; facilities?: boolean; note?: string }
 interface StayArea extends LatLng { n: string; d: string }
 interface Lodging extends LatLng { n: string; tier: Tier; type: string; area: string; d: string; price: string; site: string }
+/** a place to stay from Booking.com's search (lib/prices.js, v175): total = for the whole stay, night = a night; tier by price */
+interface LiveLodging extends LatLng { n: string; url: string; total: number; night: number; cur: string; type: string; area: string; score: number; reviews: number; stars: number; tier?: Tier }
+/** what Where to stay can show from Booking.com for a town (W.liveLodge) */
+interface LiveLodge { st: "off" | "nodates" | "idle" | "loading" | "error" | "ok"; items?: LiveLodging[]; at?: number; nights?: number; busy?: boolean; msg?: string }
 interface Transit { system: string; pass: string; airport: string; tip: string }
 /** everything the app knows about one city: Claude's lists plus what the checks laid over them */
 interface Pool extends LatLng { d?: string; spots: Spot[]; food: Food[]; stay?: StayArea[]; lodging?: Lodging[]; lodgeFor?: string; lodgeAsked?: 1; transit?: Transit | null; fallback?: boolean;
@@ -114,7 +118,7 @@ interface Validators { stats: { dropped: number; cleared: number; farPins: numbe
   /** a name that is not one real place (a group of places, two in one, a meal as a thing to do) */
   vague(n: string, food: boolean): boolean;
   spot(x: unknown, center: LatLng | null): Spot | null; food(x: unknown, center: LatLng | null, dflt?: { meal?: Meal; pic?: string }): Food | null; city(c: unknown): BuiltCity | null; stayArea(x: unknown, center: LatLng | null): StayArea | null;
-  lodging(x: unknown, center: LatLng | null, tiers: readonly Tier[], tier?: Tier): Lodging | null; transit(t: unknown): Transit | null; hours(h: unknown): Hours | null; beach(b: unknown): BeachFacts; status(x: unknown): "open" | "closed" | "unsure"; lead(x: unknown): number;
+  lodging(x: unknown, center: LatLng | null, tiers: readonly Tier[], tier?: Tier): Lodging | null; bkStay(a: unknown, center: LatLng | null, nights: number): LiveLodging | null; transit(t: unknown): Transit | null; hours(h: unknown): Hours | null; beach(b: unknown): BeachFacts; status(x: unknown): "open" | "closed" | "unsure"; lead(x: unknown): number;
   tz(x: unknown): string; money(x: unknown): number | null; currency(x: unknown, dflt?: string): string; range(y: unknown): { s: number; r: number } | null; list<T extends { n?: string; name?: string }>(arr: unknown, fn: (x: any) => T | null): T[] }
 
 /** the shared object every file adds to */
@@ -498,6 +502,15 @@ interface Waypoint {
   lodgeList: any;
   lodgeReroll: any;
   lodgeShown: (country: string, city: string, tier?: any) => any;
+  pickShown: <T extends { n: string }>(k: string, list: T[]) => T | null;
+  pickNext: (k: string, list: { n: string }[]) => number;
+  liveLodge: (ck: string, P: Plan, mode: "open" | "warm") => LiveLodge;
+  liveLodgeRetry: (ck: string) => void;
+  liveShown: (ck: string, tier: Tier) => LiveLodging | null;
+  liveReroll: (ck: string, tier: Tier) => void;
+  liveTierSize: (ck: string, tier: Tier) => number;
+  liveStay: (ck: string, x: LiveLodging) => Stay;
+  stayDates: (s: Stop, P: Plan) => { in: string; out: string; nights: number } | null;
   lodgeSig: any;
   mcpMsg: (e: any, s?: any) => string;
   me: any;

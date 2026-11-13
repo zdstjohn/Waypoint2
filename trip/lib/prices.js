@@ -1,5 +1,7 @@
 /* Waypoint live prices and booking sites:
    - real flight fares (Expedia, through your connected account)
+   - real places to stay for your nights, with their prices (Booking.com, through your connected account): what Where
+     to stay shows when it can (v175)
    - optional links to the sites you already use, next to the official ones */
 (function () {
   "use strict";
@@ -28,8 +30,11 @@
     );
   }
   var ago = W.ago;
+  /** the live answers kept with the cache: fares by route and day, places to stay by town (with what they were for) */
   function live() {
-    return W.C.live || (W.C.live = { fare: {} });
+    var l = W.C.live || (W.C.live = { fare: {} });
+    l.stay = l.stay || {};
+    return l;
   }
   var busy = {},
     msg = {};
@@ -70,6 +75,7 @@
     b.setDate(b.getDate() + nights);
     return { in: iso(a), out: iso(b), nights: nights };
   }
+  W.stayDates = stayDates;
   function urls(kind, c) {
     var out = [],
       q,
@@ -203,6 +209,162 @@
       input.user_query = hotel + " in " + s.name;
     }
     return { input: input, dt: dt, s: s };
+  };
+
+  /* ---------- where to stay, live from Booking.com (v175) ----------
+     With Booking.com connected (the Claude app), Where to stay shows real places for your nights and your group, each
+     with its price for the whole stay, in the same three tiers (by price a night: the cheapest third Budget, the dearest
+     Splurge), best rated first. Without the connection (the installable app), without dates, or when Booking.com fails
+     or has nothing, it shows Claude's picks as before (lib/stays.js). One search per town at a time, kept 6 hours. */
+  var BK_OLD = 6 * 3600e3;
+  /** @type {boolean | null} */ var bkOn = null; /* the connection: null until asked, false when this view has none */
+  /** @type {string[]} */ var bkQ = [];
+  var bkRun = false;
+  /** @type {Record<string, string>} */ var bkErrFor = {}; /* the search a message is about (dates and group) */
+  function bkSig(dt) {
+    return dt.in + "|" + dt.out + "|" + W.ages().join(",");
+  }
+  function bkPossible() {
+    return !W.readOnly && !W.standalone && bkOn !== false && !!(window.claude && window.claude.use);
+  }
+  /** What Where to stay can show from Booking.com for a town: "off" (no connection here: Claude's picks), "nodates",
+   *  "idle" (not asked yet), "loading", "error" (with msg) or "ok" (items: none when Booking.com had nothing free).
+   *  "open" asks Booking.com when needed (the panel is open); "warm" only once a search has worked (so the first ask,
+   *  and its permission prompt, comes from you opening Where to stay), one town at a time.
+   *  @param {string} ck @param {Plan} P @param {"open" | "warm"} mode @returns {LiveLodge} */
+  W.liveLodge = function (ck, P, mode) {
+    if (!bkPossible() || !P) return { st: "off" };
+    var I = W.stayInput(ck, P);
+    if (!I) return { st: "nodates" };
+    var sig = bkSig(I.dt),
+      L = live().stay[ck],
+      key = "stay|" + ck,
+      have = !!L && L.sig === sig && Array.isArray(L.items);
+    var ok = have ? { st: /** @type {"ok"} */ ("ok"), items: L.items, at: L.at, nights: I.dt.nights } : null;
+    if (ok && Date.now() - L.at < BK_OLD) return ok;
+    if (busy[key]) return ok ? Object.assign(ok, { busy: true }) : { st: "loading" };
+    if (msg[key] && bkErrFor[key] === sig) return { st: "error", msg: msg[key] };
+    if (mode === "warm" && !live().bkOk) return ok || { st: "idle" };
+    busy[key] = true; /* (on show as loading straight away; the search itself waits its turn) */
+    if (bkQ.indexOf(ck) < 0) bkQ.push(ck);
+    if (!bkRun) {
+      bkRun = true;
+      Promise.resolve().then(bkNext);
+    }
+    return ok ? Object.assign(ok, { busy: true }) : { st: "loading" };
+  };
+  /** after a message: ask Booking.com again @param {string} ck */
+  W.liveLodgeRetry = function (ck) {
+    delete msg["stay|" + ck];
+    delete bkErrFor["stay|" + ck];
+  };
+  function bkNext() {
+    var ck = bkQ.shift();
+    if (!ck) {
+      bkRun = false;
+      return;
+    }
+    bkFetch(ck, W.P).then(bkNext);
+  }
+  /** @param {string} ck @param {Plan} P */
+  function bkFetch(ck, P) {
+    var key = "stay|" + ck,
+      I = P && W.stayInput(ck, P);
+    if (!I) {
+      busy[key] = false;
+      return Promise.resolve();
+    }
+    var sig = bkSig(I.dt),
+      center = W.centerOf(ck);
+    msg[key] = "";
+    return W.getMcp()
+      .then(function (m) {
+        if (!m) {
+          bkOn = false; /* (no connections in this view: Claude's picks, without a message) */
+          return;
+        }
+        return m.callTool("Booking.com", "accommodations_search", I.input).then(function (r) {
+          var list = (r && r.payload && r.payload.accommodations) || [];
+          bkOn = true;
+          live().bkOk = Date.now();
+          live().stay[ck] = {
+            sig: sig,
+            at: Date.now(),
+            in: I.dt.in,
+            out: I.dt.out,
+            items: bkTiers(
+              /** @type {LiveLodging[]} */ (
+                (Array.isArray(list) ? list : [])
+                  .map(function (a) {
+                    return W.V.bkStay(a, center, I.dt.nights);
+                  })
+                  .filter(Boolean)
+              )
+            )
+          };
+        });
+      })
+      .then(null, function (e) {
+        msg[key] = W.mcpMsg(e, "Booking.com");
+        bkErrFor[key] = sig;
+      })
+      .then(function () {
+        busy[key] = false;
+        W.changed();
+      });
+  }
+  /* Booking.com's places in three tiers by price a night, the well rated first in each; places rated under 7 go when
+     enough others are left. A handful of results still fills a tier or two (a single one is Budget) */
+  /** @param {LiveLodging[]} list @returns {LiveLodging[]} */
+  function bkTiers(list) {
+    var good = list.filter(function (x) {
+      return !(x.score && x.score < 7 && x.reviews >= 10);
+    });
+    if (good.length >= 3) list = good;
+    var by = list.slice().sort(function (a, b) {
+        return a.night - b.night;
+      }),
+      n = by.length,
+      lo = Math.ceil(n / 3),
+      hi = n - Math.floor(n / 3);
+    by.forEach(function (x, i) {
+      x.tier = i < lo ? "budget" : i >= hi ? "luxury" : "mid";
+    });
+    /* best first in each tier: the rating, a little less for a place few people have reviewed */
+    function rank(x) {
+      return (x.score || 6) - (x.reviews < 30 ? 1 : x.reviews < 100 ? 0.3 : 0);
+    }
+    return by.sort(function (a, b) {
+      return W.TIERS.indexOf(/** @type {Tier} */ (a.tier)) - W.TIERS.indexOf(/** @type {Tier} */ (b.tier)) || rank(b) - rank(a);
+    });
+  }
+  /** a tier's places from Booking.com, the one on show and the next (through the same picker as Claude's)
+   *  @param {string} ck @param {Tier} tier */
+  function bkList(ck, tier) {
+    var L = live().stay[ck];
+    return ((L && L.items) || []).filter(function (x) {
+      return x.tier === tier;
+    });
+  }
+  W.liveShown = function (ck, tier) {
+    return W.pickShown(ck + "|" + tier + "|bk", bkList(ck, tier));
+  };
+  W.liveReroll = function (ck, tier) {
+    W.pickNext(ck + "|" + tier + "|bk", bkList(ck, tier));
+  };
+  W.liveTierSize = function (ck, tier) {
+    return bkList(ck, tier).length;
+  };
+  /** staying at a Booking.com place: it becomes your lodging, with its own pin and its real price in the budget (and
+   *  the price watch can follow it) @param {string} ck @param {LiveLodging} x @returns {Stay} */
+  W.liveStay = function (ck, x) {
+    var L = live().stay[ck] || {};
+    return {
+      label: x.n,
+      lat: x.lat,
+      lng: x.lng,
+      live: { total: x.total, cur: x.cur, url: x.url, at: L.at || Date.now(), in: L.in || "", out: L.out || "", src: "Booking.com" }
+    };
   };
   /* ---------- flight fares, live from Expedia ---------- */
   function fareTrip(dir, P) {

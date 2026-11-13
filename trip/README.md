@@ -62,7 +62,8 @@ lib/              the shared library
                   redrawn once per burst of answers) and W.redraw (only how a screen looks changed, as photos and the
                   street map coming or going: no re-plan, redrawn once per burst). What is asked lives in towns.js (destinations, always
                   towns, never whole islands), ideas.js (things to do, places to eat, how many are on show), stays.js
-                  (how long, and where to stay) and asks.js (beaches, getting between stops, food needs, events, costs,
+                  (how long, and Claude's picks of where to stay; Booking.com's real places for your nights come first when
+                  the connection answers: prices.js W.liveLodge) and asks.js (beaches, getting between stops, food needs, events, costs,
                   the time zone, addresses). In ideas.js: "Find more" asks for 10 more things to do (at
                   least 3 for the evening) and 8 more places to eat, and stops offering once a city has 60 things to do
                   and 40 places to eat (W.IDEA_CAP, W.ideasFull): past that the planner has plenty and the nightly checks
@@ -204,7 +205,7 @@ lib/              the shared library
                   first. Places to stay, dates, bookings and the route stay yours. They need edit access to the page.
                   The shared copy says which picks a person made (S.mine), so a place someone chose stands on every
                   phone, also where the planner wouldn't have picked it.
-  route.js        (second script) trip shape check (and its one-tap fixes)   import.js  paste an itinerary   prices.js  live prices and booking sites
+  route.js        (second script) trip shape check (and its one-tap fixes)   import.js  paste an itinerary   prices.js  live prices and booking sites (Where to stay's Booking.com places, v175)
   watch.js        price watches   sync.js  saved and shared trips   fx.js  motion   vtindex.js/vtmap.js  the street map (cities with a map pack)
   storage.js      (second script) Settings > Storage, for people who can edit the app: finds stored files nothing points
                   at (every 32-character id in the app's lists photos, maps, links, places, wanted, shared, your saved
