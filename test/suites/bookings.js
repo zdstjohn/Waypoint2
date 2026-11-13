@@ -14,6 +14,11 @@ exports.run = async t => {
     W.goView('settings'); await wait(500); const set = document.getElementById('viewSettings').textContent; W.goView('trip'); await wait(300);
     return { sites: /Booking sites|Show links to|Also on/.test(book), files: /Find unused files/.test(set), api: ['sitesRow', 'altUrls', 'altLinksFor', 'storageCard'].filter(k => k in W) }; });
   t.eq(gone, { sites: false, files: false, api: [] }, 'no booking-site links and no unused-files card');
+  /* (v181) "Watch price" on a stay only while its Booking.com price is for the nights it has now */
+  const wch = await pg.evaluate(() => { const P = W.P, s = P.stops[0], ck = W.cityKey(s.country, s.name), dt = W.stayDates(s, P), was = W.S.stays[ck];
+    const at = (i, o) => { W.S.stays[ck] = { label: 'Hotel X', live: { total: 900, cur: 'EUR', url: 'https://www.booking.com/x', at: 1, in: i, out: o, src: 'Booking.com' } }; return /Watch price/.test(W.watchChip('stay', ck, P)); };
+    const r = { now: at(dt.in, dt.out), old: at('2020-01-01', '2020-01-03') }; if (was) W.S.stays[ck] = was; else delete W.S.stays[ck]; return r; });
+  t.eq(wch, { now: true, old: false }, 'a stay\'s price watch is offered only for a price for the nights it has now');
   await pg.click('#tabBook'); await calm(pg, 3700);
   const chk = await pg.evaluate(() => ({ items: document.querySelectorAll('.chk').length, by: document.querySelectorAll('.chk .by').length, stays: [...document.querySelectorAll('.chk')].filter(c => /stay|hotel|place to stay/i.test(c.innerText)).length }));
   t.ok(chk.items >= 5, 'the checklist has things to book: ' + JSON.stringify(chk));

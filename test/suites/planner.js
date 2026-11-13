@@ -95,6 +95,12 @@ exports.run = async t => {
     t.ok(same.fort.length <= 1 && same.rest.length <= 1, 'three outings at one real place, or two names with one Google place ID, are planned once at most: ' + JSON.stringify(same));
     t.ok(same.town === 3, 'outings whose real place is only the town are not taken for one place: ' + same.town + ' of 3 still planned');
   } else t.note('Corfu did not plan six outings: ' + JSON.stringify(same));
+  /* (v181) a part of a day the planner couldn't fill says why, on the day */
+  const why = await pg.evaluate(async () => { const P = W.P; let hit = null;
+    P.days.forEach(d => d.slots.forEach(x => { if (!hit && x.why && W.WHY && W.WHY[x.why]) hit = { n: d.n, why: W.WHY[x.why] }; }));
+    if (!hit) return null; W.S.day = hit.n; W.S.tview = 'days'; W.goView('trip'); W.render(); await new Promise(r => setTimeout(r, 300));
+    return { why: hit.why, shown: document.getElementById('viewTrip').textContent.indexOf(hit.why) > -1 }; });
+  if (why) t.ok(why.shown, 'an empty part of a day says why: ' + why.why); else t.note('no empty part of a day on this trip');
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

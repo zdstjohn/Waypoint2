@@ -503,7 +503,7 @@ interface Waypoint {
   slotCap: (slot: string, p: Party) => number | undefined;
   isDayOut: (it: any, slot?: string) => boolean;
   RULES: Record<number, string>;
-  WHY: Record<string, string>;
+  WHY?: Record<string, string>;
   checkPlan: { (P?: Plan, opts?: { deep?: boolean; held?: { key: string; name: string }[] }): { day: number; slot: string; rule: number; what: string }[]; table: () => string };
   /** the day's photo, picked with its own places in mind (lib/photos.js) */
   /** (lib/ahead.js, second script) where the day's photo sits in the slim bar: the strip the top card's bottom edge showed */
@@ -585,6 +585,7 @@ interface Waypoint {
   /** join this device's changes since the two last agreed (base) with another device's version of the trip */
   merge3: (base: any, mine: any, theirs: any) => { state: any; changed: boolean };
   syncJoin: (a: any, b: any) => any;
+  syncPrune: (st: any, days: number) => number;
   planWrote?: Record<string, string | null>;
   syncCanon: (st: any) => string;
   /** how restaurant requests state the group's food needs ("" when there are none) */

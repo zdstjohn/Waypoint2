@@ -50,6 +50,16 @@ exports.run = async t => {
   t.ok(m3.s.picks.a === 'Cafe 9' && m3.s.picks.c === 'Garden' && !('b' in m3.s.picks) && m3.s.picks.e === 'Market' && m3.s.free.d === 1 && m3.s.start === '2027-06-08' && m3.s.days === 12 && m3.s.stays['Italy|Rome'].label === 'Hotel B' && m3.changed,
     'your changes here and theirs there are joined (the same slot changed on both: theirs): ' + JSON.stringify(m3.s.picks));
   t.ok(!m3.none && m3.noneSame, 'with nothing changed here, theirs is taken as it is');
+  /* (v181) the stamps of things taken away a month ago go; newer ones and those of things still there stay */
+  const pr = await pg.evaluate(() => { const at = d => (Date.now() - d * 864e5).toString(36).padStart(9, '0') + 'dX';
+    const st = { days: 3, picks: { a: { n: 'A' } }, ct: { 'picks::gone': at(40), 'picks::gone2': at(1), 'picks::a': at(40) } };
+    const n = W.syncPrune(st, 30); return { n, keys: Object.keys(st.ct).sort() }; });
+  t.eq(pr, { n: 1, keys: ['picks::a', 'picks::gone2'] }, 'a removal\'s stamp goes after 30 days; a newer one, and one for something still there, stay');
+  /* (v181) an edit found minutes after its tap (the app suspended before it saved) is still a person's change */
+  await pg.mouse.click(5, 300); await pg.waitForTimeout(150);
+  const late = await pg.evaluate(() => { const real = Date.now; Date.now = () => real() + 5 * 60000;
+    try { W.S.styles = (W.S.styles || []).concat(['zz-late-edit']); W.save(); return !!(W.S.ct && W.S.ct.styles); } finally { Date.now = real; W.S.styles = W.S.styles.filter(x => x !== 'zz-late-edit'); W.save(); } });
+  t.ok(late, 'an edit saved five minutes after its tap gets its stamp');
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

@@ -89,8 +89,13 @@
     return db.doc(col() + "/" + id).set(data);
   }
   function watchStay(ck, P) {
-    var st = W.S.stays[ck];
-    if (!st || !st.live || !db || !uid) return;
+    var st = W.S.stays[ck],
+      s = P.stops.filter(function (x) {
+        return W.cityKey(x.country, x.name) === ck;
+      })[0],
+      /* (a Booking.com price only while it is for the nights you have: W.stayLive, as for the budget; v181) */
+      lv = st && s && W.stayLive ? W.stayLive(st, s, P) : null;
+    if (!st || !lv || !db || !uid) return;
     var I = W.stayInput(ck, P, st.label);
     if (!I) return;
     var city = ck.split("|")[1],
@@ -105,11 +110,11 @@
       input: I.input,
       match: st.label,
       label: st.label + ", " + city + " · " + I.dt.nights + " night" + (I.dt.nights > 1 ? "s" : ""),
-      url: st.live.url || "",
+      url: lv.url || "",
       end: I.dt.in,
-      base: { total: st.live.total, cur: st.live.cur, at: Date.now() },
-      last: { total: st.live.total, cur: st.live.cur, at: Date.now() },
-      hist: [[Date.now(), st.live.total]],
+      base: { total: lv.total, cur: lv.cur, at: Date.now() },
+      last: { total: lv.total, cur: lv.cur, at: Date.now() },
+      hist: [[Date.now(), lv.total]],
       updated: Date.now()
     }).then(null, function () {});
   }
@@ -251,7 +256,17 @@
     if (W.readOnly || !db || !uid) return "";
     var w = docs[idFor(kind, key)];
     if (!w) {
-      var can = kind === "stay" ? !!(W.S.stays[key] && W.S.stays[key].live) : !!(P && W.fareMin(key, P)); /* (a fare needs the plan) */
+      /* (a stay can be watched only with a Booking.com price for the nights it has now; a fare needs the plan) */
+      var stop =
+          kind === "stay" && P
+            ? P.stops.filter(function (x) {
+                return W.cityKey(x.country, x.name) === key;
+              })[0]
+            : null,
+        can =
+          kind === "stay"
+            ? !!(P && W.S.stays[key] && stop && W.stayLive && W.stayLive(W.S.stays[key], stop, P))
+            : !!(P && W.fareMin(key, P));
       return can ? '<button type="button" class="chip-a" data-watch="' + kind + '" data-wkey="' + esc(key) + '">Watch price</button>' : "";
     }
     var d = drop(w),

@@ -406,7 +406,12 @@
       "|" +
       (W.dataV || 0) +
       "|" +
-      Object.keys(W.S.stays || {}).length;
+      Object.keys(W.S.stays || {}).length +
+      /* (your own and hidden items too: ones added or hidden on another phone come in by sync, not by a tap here; v181) */
+      "|" +
+      JSON.stringify(W.S.packOwn || []) +
+      "|" +
+      Object.keys(W.S.packHide || {}).join(",");
     if (memo && memo.sig === sig) return memo.v;
     var v = build(P);
     /* your own items join the list; removed ones leave it */

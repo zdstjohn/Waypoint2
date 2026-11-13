@@ -286,7 +286,8 @@
      that has seen the same changes holds the same trip.
      The clock (stampNow) never runs backwards and always moves past every stamp this device has seen, so a change
      made after seeing another's is the later one even on a phone whose clock is wrong.
-     Only what a person changed is stamped (note): a change found within two minutes of a tap. The planner's own
+     Only what a person changed is stamped (note): a change found within two minutes of a tap, or after a tap made
+     since the last look. The planner's own
      fill-ins are not: the picks a planning wrote or took off (W.planWrote, lib/plan.js) are the planner's, and the
      planner's own notes (S.under) and the measured times between stops (S.rl) never count. */
   var SEP = "::",
@@ -379,6 +380,26 @@
     return out;
   }
   W.syncJoin = join; /* (for the tests) */
+  /* A removal keeps its stamp so an old copy can't bring the value back (see above), but not for ever: the stamps of
+     things taken away more than `days` ago go, once they are in the account's copy (they are pruned only on the way
+     to it, after it was read and joined in). A phone that was offline that long and still holds such a value could
+     bring it back: a fair price for a trip that doesn't grow without end (v181: the sync reviewer's catch).
+     Returns how many went. @param {any} st @param {number} days */
+  function pruneCt(st, days) {
+    var ct = st && st.ct;
+    if (!ct) return 0;
+    var f = flat(st),
+      cut = Date.now() - days * 864e5,
+      n = 0;
+    Object.keys(ct).forEach(function (p) {
+      if (f[p] === undefined && parseInt(String(ct[p]).slice(0, 9), 36) < cut) {
+        delete ct[p];
+        n++;
+      }
+    });
+    return n;
+  }
+  W.syncPrune = pruneCt; /* (for the tests) */
   function canonTrip(st) {
     var o = Object.assign({}, st);
     delete o.tripId;
@@ -405,10 +426,12 @@
   /* how the trip stood at the last save: what differs at the next one is what changed */
   var appliedAt = 0 /* when another device's version was last put in place here */,
     snapF = /** @type {Record<string, string> | null} */ (null),
+    snapAt = 0 /* when snapF was taken */,
     dirty = false,
     noting = false;
   function resnap() {
     snapF = W.readOnly ? null : flat(S);
+    snapAt = Date.now();
     seeStamps(S.ct);
   }
   /* at every save: what changed since the last one; a person's changes get their stamp, kept with the change itself
@@ -419,6 +442,7 @@
     var cur = flat(S);
     if (!snapF) {
       snapF = cur;
+      snapAt = Date.now();
       seeStamps(S.ct);
       return;
     }
@@ -429,9 +453,13 @@
     /* (what changes by itself after another device's version was put in place, the planner going over the days
        again, is not a person's change: only a tap after that makes one. Two phones whose planners disagree about a
        slot would otherwise send it back and forth) */
-    var person = Date.now() - touched < 120000 && touched >= appliedAt,
+    /* (a tap within two minutes, or any tap since the last look however long ago (v181: a phone that suspended the app
+       before it saved still sends the edit as a person's), and after any version from another device was put in
+       place, makes it a person's change) */
+    var person = (Date.now() - touched < 120000 || touched > snapAt) && touched >= appliedAt,
       any = false;
     snapF = cur;
+    snapAt = Date.now();
     if (!person) return;
     dirty = true;
     d.forEach(function (p) {
@@ -626,9 +654,18 @@
             known[id] = docSig(r);
             applyRemote(id, r, true);
           }
+          /* (the stamps of things taken away a month ago go now: the account's copy, joined in above, has them) */
+          var live = id === S.tripId ? S : idx[id] && idx[id].state;
+          if (live) pruneCt(live, 30);
           var b = tripBody(id);
           if (!b) return;
+          /* too big for the account (a document holds about 250 KB): first the country lists, then the stamps of
+             removals older than a day; still too big, it is said once and not tried again every few seconds */
           if (JSON.stringify(b).length > 250000) delete b.cc;
+          if (JSON.stringify(b).length > 250000 && pruneCt(b.state, 1)) {
+            if (live && live.ct) live.ct = clone(b.state.ct || {});
+          }
+          if (JSON.stringify(b).length > 250000) throw { code: "too_big" };
           return col
             .doc(id)
             .set(b)

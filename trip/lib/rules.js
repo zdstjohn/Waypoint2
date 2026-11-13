@@ -42,6 +42,14 @@
     8: "Only names that are one real place",
     9: "What you chose by hand stays put"
   };
+  /* why a part of a day has no place, in words (the planner writes the key, x.why: lib/plan.js explain) */
+  W.WHY = {
+    journey: "The journey takes this part of the day",
+    light: "Left open so the travel day stays light",
+    late: "Too late in the day for this group",
+    yours: "The place you chose is not in this town's list any more",
+    none: "Nothing in this town's ideas fits here"
+  };
   var SLOTS = ["breakfast", "am", "lunch", "pm", "dinner", "eve"],
     WHY = { journey: 1, light: 1, late: 1, none: 1, yours: 1 },
     /* what the day's clock says when a place is not open for the visit (lib/times.js writes these) */

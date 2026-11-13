@@ -1024,11 +1024,18 @@
       (W.familyLine && W.familyLine()) ||
       (p.adults ? p.adults + " adult" + (p.adults === 1 ? "" : "s") : "") +
         (p.kids.length ? ", " + p.kids.length + " kid" + (p.kids.length === 1 ? "" : "s") + " (" + p.kids.join(", ") + ")" : "");
+    var blanks = S.travelers.filter(function (a) {
+        return a === "" || isNaN(a);
+      }).length,
+      noAge = blanks
+        ? (blanks === 1 ? "One traveler has" : blanks + " travelers have") +
+          " no age yet, so the plan treats them as adults: add ages for naps, early dinners and the kids' corner."
+        : "";
     h += step(
       "who",
       "02",
       "Who's going?",
-      [who, S.depart ? "from " + S.depart : ""].filter(Boolean).join(" · ") || "Add travelers",
+      [who, S.depart ? "from " + S.depart : "", blanks ? "add ages" : ""].filter(Boolean).join(" · ") || "Add travelers",
       '<label class="fld" for="depart"><span>Flying from</span><input class="field" id="depart" data-ta="airport" autocomplete="off" value="' +
         esc(S.depart) +
         '" placeholder="Your home city or airport"></label>' +
@@ -1073,7 +1080,10 @@
             );
           })
           .join("") +
-        '<button type="button" class="trav add" id="addAdult">+ Adult</button><button type="button" class="trav add" id="addChild">+ Child</button></div></div>'
+        '<button type="button" class="trav add" id="addAdult">+ Adult</button><button type="button" class="trav add" id="addChild">+ Child</button></div></div>' +
+        /* (a traveler with no age is planned as a grown-up: nothing for children unless their age says they're one,
+           the owner's rule. Said here, so a family that leaves ages blank knows why there are no naps; v181) */
+        (noAge ? '<p class="small muted no-age">' + noAge + "</p>" : "")
     );
 
     /* 3 · what you eat: allergies, diets, likes, before any restaurant is suggested */

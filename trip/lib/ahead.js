@@ -318,6 +318,14 @@
     root.style.setProperty("--pin-photo-size", Math.round(w) + "px " + Math.round(h) + "px");
     root.style.setProperty("--pin-photo-at", Math.round(x) + "px " + Math.round(y) + "px");
   }
-  W.pinPhotoFit = pinPhotoFit;
-  window.addEventListener("resize", pinPhotoFit);
+  /* at most once a frame, however many resizes or calls come in it (it reads the layout; v181) */
+  var pinFitTick = 0;
+  W.pinPhotoFit = function () {
+    if (!pinFitTick)
+      pinFitTick = requestAnimationFrame(function () {
+        pinFitTick = 0;
+        pinPhotoFit();
+      });
+  };
+  window.addEventListener("resize", W.pinPhotoFit);
 })();

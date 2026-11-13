@@ -39,7 +39,10 @@ exports.run = async t => {
     await pg.click('[data-late="15"]'); await pg.waitForTimeout(700);
     const t1 = await pg.evaluate(() => (document.querySelector('.go-rt li.next .t') || document.querySelector('.go-rt li:not(.done) .t') || {}).textContent);
     t.ok(t0 !== t1, `running 15 min late shifts the next time (${t0} -> ${t1})`);
-    await pg.click('[data-late="0"]'); await pg.waitForTimeout(400);
+    /* (v181) and offers Undo, which puts the plan back on time */
+    const und = await pg.evaluate(async () => { const b = document.querySelector('#undohost [data-undo]'); if (!b) return { offered: false }; b.click(); await new Promise(r => setTimeout(r, 400)); return { offered: true, late: W.S.late || 0 }; });
+    t.eq(und, { offered: true, late: 0 }, '+15 min offers Undo, and Undo puts the plan back on time');
+    if (await pg.$('[data-late="0"]')) { await pg.click('[data-late="0"]'); await pg.waitForTimeout(400); }
   } else t.note('no running-late control on this day');
   /* rescue the rest of today: rain swaps the outdoor stops still to come for indoor ones (or frees them); nothing started changes; undo restores */
   const before = await pg.evaluate(() => { const d = W.P.days[W.S.day - 1], T = W.dayTimes(d, W.P), nm = W.nowMin(); return d.slots.map(x => ({ slot: x.slot, n: x.item ? x.item.n : null, started: !!(T.rows[x.slot] && T.rows[x.slot].start != null && T.rows[x.slot].start <= nm), indoor: x.item && !W.isFood(x.slot) ? W.classify(x.item).indoor : null })); });

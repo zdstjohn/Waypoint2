@@ -1790,17 +1790,10 @@
     });
     return any;
   }
-  /* Why a part of a day has no place (rule 1: every day is full, or says why not). x.why is one of W.WHY's keys:
+  /* Why a part of a day has no place (rule 1: every day is full, or says why not). x.why is one of W.WHY's keys (lib/rules.js, second script: the words are only needed on screen):
      the checker (lib/rules.js) accepts an empty slot only with one of them, and proves "none" by looking for a
      place itself. Slots you freed (x.free), a rest day's (x.rest) and ones whose lists are on their way (x.loading)
      already say so. */
-  W.WHY = {
-    journey: "The journey takes this part of the day",
-    light: "Left open so the travel day stays light",
-    late: "Too late in the day for this group",
-    yours: "The place you chose is not in this town's list any more",
-    none: "Nothing in this town's ideas fits here"
-  };
   function explain(P) {
     P.days.forEach(function (d) {
       if (!d.slots || !d.slots.length || d.loading) return;

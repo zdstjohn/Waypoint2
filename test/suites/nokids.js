@@ -64,6 +64,10 @@ exports.run = async t => {
     return { n: got.length, kids: got.map(s => (s.match(/[^.]*\b(small children|a small child|with children|the kids|a parent)\b[^.]*/i) || [''])[0]).filter(Boolean) };
   });
   t.ok(asks.n >= 1 && asks.kids.length === 0, 'Claude\'s plan check and briefing don\'t mention children: ' + JSON.stringify(asks));
+  /* (v181) a traveler without an age: the plan treats them as an adult, and Plan says so */
+  const na = await pg.evaluate(async () => { W.S.travelers = [38, '']; W.goView('setup'); await new Promise(r => setTimeout(r, 400)); const txt = document.getElementById('viewSetup').textContent;
+    W.S.travelers = [38, 36]; W.goView('trip'); return /no age yet, so the plan treats them as adults/.test(txt); });
+  t.ok(na, 'Plan says a traveler with no age is planned as an adult');
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

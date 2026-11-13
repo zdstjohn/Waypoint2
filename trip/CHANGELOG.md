@@ -2,6 +2,24 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v181
+
+Everything the five reviewers raised about v180 (the owner: "fix all their issues including the smaller points").
+- Sync's change log no longer grows for ever: stamps of things taken away more than 30 days ago go, on the way to the
+  account, whose copy has them (lib/sync.js pruneCt, W.syncPrune). A trip still too big for the account drops older
+  ones, and if it is still too big it says so once instead of retrying every 15 seconds.
+- An edit found minutes after its tap (the app suspended before it saved) is still a person's change, stamped and sent
+  (note: a tap since the last look counts, as well as one within two minutes).
+- A hotel's price watch is offered, and starts, only from a Booking.com price for the nights it has now
+  (lib/watch.js uses W.stayLive, as the budget does).
+- The packing list sees your own and hidden items in its cache key, so ones added on another phone show at once.
+- "+15 min" offers Undo: the undo snapshot holds "running late" (late, lateAt) though sync leaves it out.
+- An empty part of a day says why (W.WHY, now in lib/rules.js: the journey, a light travel day, too late for this
+  group, nothing fitting, your place gone from the list).
+- Plan says when travelers have no age: they are planned as adults (nothing for children unless an age says so).
+- The slim bar's photo is placed at most once a frame (lib/ahead.js), however many resizes come in.
+- Tests: each fix checked in its suite (sync, bookings, packing, travel, planner, nokids).
+
 ## v180
 
 - The slim bar's photo shows the strip the top card's bottom edge showed, so the photo carries on as the card scrolls

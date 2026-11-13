@@ -59,6 +59,10 @@ exports.run = async t => {
   t.ok(sp.euroCash && sp.letter, 'euros for Spain, and the letter for grandparents travelling with the kids');
   t.ok(sp.cubes === sp.moves >= 3, `packing cubes only with 3+ hotel moves (${sp.moves})`);
 
+  /* (v181) an item added on another phone (it comes in by sync, with no tap here) shows on this one's list */
+  const own = await pg.evaluate(() => { W.packing(W.P); W.S.packOwn = (W.S.packOwn || []).concat([{ key: 'own-sync', text: 'Sun cream from Anna', who: 'all', todo: false }]);
+    const has = W.packing(W.P).pack.some(i => i.key === 'own-sync'); W.S.packOwn = W.S.packOwn.filter(i => i.key !== 'own-sync'); return has; });
+  t.ok(own, 'an own packing item that came by sync is on the list without a reload');
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

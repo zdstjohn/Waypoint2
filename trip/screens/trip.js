@@ -1094,8 +1094,10 @@
             "</article>";
         }
       } else if (R && R.skip && !swap) {
-        /* no time for anything here today (a long journey): nothing to show, except a note like "breakfast before you set off" */
+        /* no time for anything here today (a long journey, or too late for this group): a note like "breakfast before
+           you set off", else why the planner left it (lib/rules.js W.WHY; v181, the planner reviewer's ask) */
         if (R.info.length) list += '<div class="travel-note">' + esc(label) + " · " + esc(R.info.join(" · ")) + "</div>";
+        else if (x.why && W.WHY && W.WHY[x.why]) list += '<div class="travel-note">' + esc(label) + " · " + esc(W.WHY[x.why]) + "</div>";
       } else if (x.loading) {
         list +=
           '<div class="slot sk skel' +
@@ -1116,6 +1118,8 @@
           esc(label) +
           (x.free && !W.readOnly ? " · swap to add something" : "") +
           "</span>" +
+          /* (a part of the day the planner couldn't fill says why: W.WHY) */
+          (!x.free && !x.rest && x.why && W.WHY && W.WHY[x.why] ? '<span class="small muted why">' + esc(W.WHY[x.why]) + "</span>" : "") +
           (short && !short.said && W.slotShort(x) && x.slot !== "eve" && !x.trip ? ((short.said = true), short.html) : "") +
           "</div>" +
           (!W.canEdit() || x.rest ? "" : '<div class="slim-a">' + rr + "</div>") +

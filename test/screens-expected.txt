@@ -1,3 +1,8 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v180: none (the slim bar's photo shows only when a day has a photo, and the screenshots' trip has none).
+# v181: an empty part of a day may now say why (Day screens and the ones with the day behind them); the screenshots' trip has every age, so Plan is unchanged.
+trip-days-*
+swap-*
+menu-*
+stop-panel-*
+meal-panel-*

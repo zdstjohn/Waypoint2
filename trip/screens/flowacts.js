@@ -152,9 +152,16 @@
   var undo = null,
     undoTimer = null,
     clickSeq = 0;
+  /* what Undo puts back: the trip, and "running late" (late, lateAt), which isn't sent to other devices but is
+     yours to take back (v181: "+15 min" never offered Undo, as the snapshot left it out) */
+  var UNDO_VIEW = ["late", "lateAt"];
   function snap() {
     try {
-      return JSON.stringify(W.syncable(W.S));
+      var o = Object.assign({}, W.syncable(W.S));
+      UNDO_VIEW.forEach(function (k) {
+        if (W.S[k] !== undefined) o[k] = W.S[k];
+      });
+      return JSON.stringify(o);
     } catch (e) {
       return null;
     }
@@ -219,6 +226,9 @@
     });
     Object.keys(o).forEach(function (k) {
       S[k] = o[k];
+    });
+    UNDO_VIEW.forEach(function (k) {
+      if (!(k in o)) delete S[k];
     });
     undo = null;
     showUndo();
