@@ -2,6 +2,12 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v179
+
+- Scrolled down on a phone, the slim bar that takes the top card's place keeps the day's photo behind it, shaded the
+  same way (the owner's ask; lib/photos.js W.topPhoto puts the photo on the page's root too, html.top-photo, and
+  app.css draws it under .pin on Trip and Today). Without a photo the bar keeps its colours. banner checks it.
+
 ## v178
 
 The planner's rules and syncing between phones, made sound (two deep jobs, done by Fable in its own copy and merged

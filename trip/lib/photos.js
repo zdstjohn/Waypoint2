@@ -477,6 +477,10 @@
     top.style.setProperty("--top-photo", url ? 'url("' + url.replace(/["\\]/g, "") + '")' : "none");
     top.setAttribute("data-credit", url && ph ? "Photo: " + (ph.credit || "Wikimedia Commons") : "");
     top.classList.toggle("has-photo", !!url);
+    /* the slim bar that takes the card's place when you scroll down keeps the same photo (the owner's ask, v179) */
+    var root = document.documentElement;
+    root.style.setProperty("--top-photo", url ? 'url("' + url.replace(/["\\]/g, "") + '")' : "none");
+    root.classList.toggle("top-photo", !!url);
   };
   W.heroImg = function (ph, alt, lazy) {
     var off = (W.offline && W.offline.off) || window.__WP_OFFLINE,

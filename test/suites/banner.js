@@ -39,6 +39,10 @@ exports.run = async t => {
       const go = await boxes(pg), line = await pg.evaluate(() => (document.querySelector('#topline .tl-day') || {}).textContent || '');
       t.ok(go.top.photo && /url\(/.test(go.top.bg) && /Photo: /.test(go.top.credit) && /(Easy|Moderate|Full|Heavy|Rest) day/.test(line), tag + "Today: the day's photo, its credit and how full a day on the top card: " + JSON.stringify({ top: go.top, line }));
       await pg.evaluate(() => { W.goView('trip'); W.render(); }); await settle(pg);
+      /* v179 (the owner's ask): scrolled down, the slim bar that takes the card's place keeps the photo */
+      const pin = await pg.evaluate(async () => { window.scrollTo(0, 900); await new Promise(r => setTimeout(r, 500)); const p = document.getElementById('pin');
+        const r = { shown: !!p && !p.hidden, bg: p ? getComputedStyle(p, '::before').backgroundImage : '' }; window.scrollTo(0, 0); await new Promise(r => setTimeout(r, 300)); return r; });
+      t.ok(pin.shown && /url\(/.test(pin.bg), tag + 'scrolled down, the slim bar keeps the day\'s photo: ' + pin.bg.slice(0, 80));
     }
     t.eq(ex.above, day.above, tag + 'what is above the day does not move between the tabs');
     t.ok(day.old === 0 && ex.old === 0, tag + 'no street-map picture or its layers anywhere: ' + ex.old);

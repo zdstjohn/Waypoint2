@@ -1,14 +1,3 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v178 (listed after the fact; GitHub's comparison of v178 with v177 found these, all from the day's cards having Menu
-# and Swap behind one "more" button and the planner's fixes changing some stops, times and tickets on the example trip):
-trip-days-*
-today-*
-explore-*
-swap-*
-menu-*
-stop-panel-*
-meal-panel-*
-recap-*
-book-*
-book-add-*
+# v179: none (the slim bar's photo shows only when a day has a photo, and the screenshots' trip has none).
