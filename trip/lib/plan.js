@@ -978,7 +978,7 @@
       "mapZoom",
       "jetOpen",
       "legClosed",
-      "restDo",
+      "restDo" /* (v193 kept a rest card's tapped idea here; v194 has none: kept off the shared copy) */,
       "nextHide",
       "tview",
       "exF",

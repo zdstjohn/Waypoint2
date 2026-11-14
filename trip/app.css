@@ -449,18 +449,16 @@ img.pic{object-fit:cover}
 .dt-band{display:grid;gap:8px;margin:2px 0;padding:8px 8px 8px;border-radius:var(--r-lg);background:var(--accent-soft)}
 .dt-band-h{margin:2px 6px 0;font-size:var(--t-cap);font-weight:750;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);overflow-wrap:anywhere}
 .dt-band .slot.free.sk::before{background:var(--surface)}
-/* a rest day's morning and evening (v193): a sunrise or dusk tint, where you are, a few easy ideas to tap */
+/* a rest day's morning and evening (v193; v194 without ideas to tap): a sunrise or dusk tint and where you are */
 .slot.rest-c{display:block;padding:0;overflow:hidden;border-radius:var(--r-lg);cursor:default}
 .slots .slot.rest-c.sk::before{background:var(--surface)}
-.rest-c .rc-hero{display:flex;align-items:center;gap:12px;padding:14px 14px 10px}
+.rest-c .rc-hero{display:flex;align-items:center;gap:12px;padding:14px}
 .rest-c.am .rc-hero{background:linear-gradient(120deg,color-mix(in srgb,#F6C46B 30%,var(--surface)),color-mix(in srgb,#7FB89A 25%,var(--surface)))}
 .rest-c.ev .rc-hero{background:linear-gradient(120deg,color-mix(in srgb,#2c2f63 35%,var(--surface)),color-mix(in srgb,#8a4f7d 30%,var(--surface)))}
 .rest-c .rc-hero svg{width:30px;height:30px;flex:none;color:var(--fg)}
 .rest-c .rc-hero > div{display:grid;gap:1px;min-width:0}
 .rest-c .rc-hero b{font-size:var(--t-lead);text-align:left}
 .rest-c .rc-hero span{font-size:var(--t-sm);color:var(--muted);overflow-wrap:anywhere}
-.rest-c .rc-ideas{display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px 14px}
-.rest-c .rc-ideas .chip{margin:0}
 .num{width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font:750 var(--t-sm)/1 var(--f-display);flex:none}
 .slot.food .num{background:var(--food)}
 .when{font-size:var(--t-ui);font-weight:700;color:var(--muted)}

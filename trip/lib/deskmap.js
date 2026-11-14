@@ -190,7 +190,7 @@
       el.classList.toggle("hi", !!hiIdea && el.getAttribute("data-idea") === hiIdea);
     });
     /* a way between two stops lights its two pins on the map, not the stops in the list (only what is under the pointer glows there) */
-    document.querySelectorAll(".wrap .slot[data-slotkey]").forEach(function (el) {
+    document.querySelectorAll(".wrap .slot[data-slotkey]:not(.free):not(.rest-c)").forEach(function (el) {
       var k = el.getAttribute("data-slotkey") || "";
       el.classList.toggle("ws-hi", !hiLeg && hiKeys.indexOf(k) > -1);
       el.classList.toggle("ws-sel", !!sel && k === sel);
@@ -222,7 +222,8 @@
       var id = leg.getAttribute("data-wsleg") || "";
       return { keys: ends[id] || [], leg: id, idea: "" };
     }
-    var card = t.closest(".wrap .slot[data-slotkey]");
+    /* (a stop or a place to eat; not free time, a rest card or the free time of a day out: v194) */
+    var card = t.closest(".wrap .slot[data-slotkey]:not(.free):not(.rest-c)");
     if (card) return { keys: [card.getAttribute("data-slotkey") || ""], leg: "", idea: "" };
     var idea = t.closest(".wrap .idea[data-wsidea]");
     if (idea) return { keys: [], leg: "", idea: idea.getAttribute("data-wsidea") || "" };

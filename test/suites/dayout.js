@@ -1,8 +1,7 @@
 /* v193: a day out and a rest day, as the owner chose them ("B" and "E" of five each), and the next day on Today ("E").
    A morning that takes the whole day, 34 km out: its stops under one band titled for it, the parts of the day left open
    while out shown as one free-time row, the toddlers' nap on the go (not back at the hotel from 34 km away), and the map
-   of where you go (or none), never the home town's. A rest day's morning and evening: a card with ideas to tap, the one
-   tapped marked. Today: tomorrow in a banner above tonight, its button reading "Next day"; the day bag folded. */
+   of where you go (or none), never the home town's. A rest day's morning and evening: a calm card, nothing to pick (v194). Today: tomorrow in a banner above tonight, its button reading "Next day"; the day bag folded. */
 const { launch, open, settle } = require('../lib/page');
 exports.run = async t => {
   const b = await launch(); const { pg, errors } = await open(b, { width: 390, height: 844 });
@@ -38,14 +37,9 @@ exports.run = async t => {
   t.ok(maps.none.slug === null && maps.plain.slug === 'spain-barcelona', 'with no map of that place, no street map (not the home town\'s); any other day keeps the town\'s: ' + JSON.stringify([maps.none.slug, maps.plain.slug]));
   /* a rest day */
   await pg.evaluate(() => { W.S.rest = W.S.rest || {}; W.S.rest['Spain|Barcelona|5'] = 1; W.S.day = 5; W.render(); }); await pg.waitForTimeout(500);
-  const rest = await pg.evaluate(() => [...document.querySelectorAll('#viewTrip .rest-c')].map(a => ({ cls: a.className, t: a.querySelector('.rc-t').textContent, ideas: [...a.querySelectorAll('[data-restdo]')].map(x => x.textContent) })));
-  t.ok(rest.length === 2 && /Rest morning$/.test(rest[0].t) && /Quiet evening$/.test(rest[1].t) && rest[0].ideas.includes('Nap') && rest[1].ideas.includes('Bath time'), 'a rest day\'s morning and evening are cards with easy ideas (a nap with a toddler along): ' + JSON.stringify(rest));
+  const rest = await pg.evaluate(() => [...document.querySelectorAll('#viewTrip .rest-c')].map(a => ({ cls: a.className, t: a.querySelector('.rc-t').textContent, picks: a.querySelectorAll('button, .chip').length })));
+  t.ok(rest.length === 2 && /Rest morning$/.test(rest[0].t) && /Quiet evening$/.test(rest[1].t) && rest.every(r => r.picks === 0), 'a rest day\'s morning and evening are calm cards, with nothing to pick (v194): ' + JSON.stringify(rest));
   t.ok(!(await pg.evaluate(() => /Rest, pool or playground/.test(document.querySelector('#viewTrip .slots').textContent))), 'no more "Rest, pool or playground" rows');
-  await pg.click('#viewTrip .rest-c.am [data-v="Pool"]'); await pg.waitForTimeout(300);
-  const tap = await pg.evaluate(() => ({ on: [...document.querySelectorAll('#viewTrip .rest-c [aria-pressed="true"]')].map(x => x.textContent), keep: JSON.stringify(W.S.restDo) }));
-  await pg.click('#viewTrip .rest-c.am [data-v="Pool"]'); await pg.waitForTimeout(300);
-  const off = await pg.evaluate(() => document.querySelectorAll('#viewTrip .rest-c [aria-pressed="true"]').length);
-  t.ok(tap.on.join() === 'Pool' && /Pool/.test(tap.keep) && off === 0, 'an idea tapped is marked, and tapped again unmarked: ' + JSON.stringify(tap));
   /* Today, the evening before the day out */
   await pg.evaluate(() => { localStorage.setItem('waypoint-now', '2027-06-15T17:30:00'); W.S.day = 2; W.goView('go'); W.render(); }); await pg.waitForTimeout(1200);
   const today = await pg.evaluate(() => { const up = document.querySelector('#viewGo .go-up'), eve = document.querySelector('#viewGo .go-eve'), bag = document.querySelector('#viewGo details.go-fold[data-gofold="bag"]');

@@ -2,6 +2,14 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v194
+
+- A rest day's cards keep their tint, time and place, and lose the ideas to tap (the owner: "it shouldn't suggest what
+  to do like 'pool' etc. it's a rest day. Just let it be"). S.restDo is no longer written; the key stays view-only so
+  a v193 phone's note never reaches the shared copy.
+- The desktop: only stops (things to do, places to eat) glow under the pointer; free time, rest cards and a day out's
+  free-time row don't (lib/deskmap.js; the owner: "these are trying to glow on desktop").
+
 ## v193
 
 The owner picked each look from five previews drawn in the app ("B" for a day out, "E" for a rest day and for tomorrow).

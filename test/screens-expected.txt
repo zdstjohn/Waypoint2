@@ -33,3 +33,6 @@ early-today-*
 early-explore-*
 menu-*
 settings-*
+# v194: the What's new card (settings, the trip menu).
+settings-*
+menu-*

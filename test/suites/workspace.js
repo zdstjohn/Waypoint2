@@ -46,6 +46,10 @@ exports.run = async t => {
   t.ok(await pg.evaluate(() => document.querySelector('#wsCanvas .vt-pin[data-keys]').classList.contains('hi')), 'the pointer over a card lights its pin');
   await pg.hover('#wrNav'); await pg.waitForTimeout(150);
   t.ok(await pg.evaluate(() => !document.querySelector('#wsCanvas .vt-pin.hi') && !document.querySelector('.wrap .slot.ws-hi')), 'and nothing stays lit when it leaves');
+  /* v194, the owner: only things to do and places to eat glow; free time and a rest day's cards don't */
+  const quiet = await pg.evaluate(() => { const out = {}; for (const cls of ['free', 'rest-c']) { const c = document.querySelector('.wrap .slot[data-slotkey]:not(.free)'); c.classList.add(cls);
+      c.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); out[cls] = c.classList.contains('ws-hi'); c.classList.remove(cls); document.body.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); } return out; });
+  t.eq(quiet, { free: false, 'rest-c': false }, 'free time and a rest card do not light up under the pointer');
   await pg.hover('#wsCanvas .vt-pin[data-keys]'); await pg.waitForTimeout(200);
   t.ok(await pg.evaluate(k => document.querySelector('.wrap .slot[data-slotkey="' + k + '"]').classList.contains('ws-hi'), key), 'the pointer over a pin lights its card');
   /* v174: a city with a space in its name ("Naxos Town"). The pin's list of stops was split on spaces, so every pin in

@@ -820,23 +820,12 @@
       " again.</p></details>"
     );
   }
-  /** A rest day's morning or evening (v193, the owner's choice "E" of five: "these blank sections that say 'rest, pool
-      or playground' feel out of place"): a card with a sunrise or dusk tint, where you are, and a few easy ideas to tap.
-      The one tapped is marked (this phone only, S.restDo: a note to yourself, not part of the plan).
-      @param {SlotEntry} x @param {any} R its times @param {string} label @param {string} live @param {Plan} P @param {any} home */
-  function restCard(x, R, label, live, P, home) {
-    var ev = x.slot === "eve",
-      p = P.p,
-      ideas = ev
-        ? p.kid
-          ? ["Bath time", "Story and bed", "Early dinner in"]
-          : ["Early night", "A slow walk", "Dinner in"]
-        : p.kid
-          ? p.toddler
-            ? ["Pool", "Playground", "Nap", "Lie-in"]
-            : ["Pool", "Playground", "Lie-in", "Games"]
-          : ["Pool", "Lie-in", "Long breakfast", "A book"],
-      on = (W.S.restDo || {})[x.key] || "";
+  /** A rest day's morning or evening (v193, the owner's choice "E" of five; v194, the owner: "it shouldn't suggest
+      what to do like 'pool' etc. it's a rest day. Just let it be"): a card with a sunrise or dusk tint, its time and
+      where you are, and nothing to pick.
+      @param {SlotEntry} x @param {any} R its times @param {string} label @param {string} live @param {any} home */
+  function restCard(x, R, label, live, home) {
+    var ev = x.slot === "eve";
     return (
       '<article class="slot sk rest-c ' +
       (ev ? "ev" : "am") +
@@ -852,25 +841,7 @@
       "</b><span>" +
       (R && !R.skip && R.start != null ? W.clock(R.start) + " · " : "") +
       (home.none ? "at your stay" : "at " + esc(home.label)) +
-      '</span></div></div><div class="rc-ideas" role="group" aria-label="' +
-      (ev ? "Ideas for the evening" : "Ideas for the morning") +
-      '">' +
-      ideas
-        .map(function (i) {
-          return (
-            '<button type="button" class="chip" data-restdo="' +
-            esc(x.key) +
-            '" data-v="' +
-            esc(i) +
-            '" aria-pressed="' +
-            (on === i) +
-            '">' +
-            esc(i) +
-            "</button>"
-          );
-        })
-        .join("") +
-      "</div></article>"
+      "</span></div></div></article>"
     );
   }
   /** A day out's band (v193, the owner's choice "B" of five): the part of the day spent out (W.dayOut), from its first
@@ -1274,7 +1245,7 @@
           (food ? " food" : "") +
           '" aria-hidden="true"><span class="thumb"></span><span class="sl-b"><i></i><i></i><i></i></span></div>';
       } else if (x.rest) {
-        list += restCard(x, R, label, liveCls, P, home);
+        list += restCard(x, R, label, liveCls, home);
       } else {
         list +=
           '<article class="slot sk free slim' +
@@ -2180,14 +2151,6 @@
     if (!b || b.closest("#tripbar")) return;
     var d = b.dataset,
       P = W.P;
-    /* a rest morning's or evening's idea, tapped: marked, or unmarked when tapped again (this phone only) */
-    if (d.restdo) {
-      var rd = (W.S.restDo = W.S.restDo || {});
-      if (rd[d.restdo] === d.v) delete rd[d.restdo];
-      else rd[d.restdo] = d.v || "";
-      W.redraw();
-      return;
-    }
     if (d.acts) {
       actsShow(actsOpen === d.acts ? null : d.acts);
       /* (from the keyboard, into the menu; a tap leaves the focus where it was) */
