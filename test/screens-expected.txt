@@ -9,3 +9,5 @@ setup-*
 trip-*
 kids-*
 recap-*
+# v190: Settings' What's new card lists this version's changes.
+settings-*
