@@ -277,12 +277,21 @@
       t: "Today shows what is next, how long it takes to get there, and ideas for food or things to do close to where you are. A phone's location is only used when you ask for it.",
       i: "sun"
     },
-    {
-      k: "Phone",
-      h: "Keep it on your phone",
-      t: "Add Waypoint to your home screen and it opens like an app, and the days you have opened still work with no signal.",
-      i: "dir"
-    }
+    /* (the last screen says what is true where the trip is open: the website installs as an app; in Claude the trip is a
+       page that follows its owner's changes, lib/sync.js) */
+    W.standalone
+      ? {
+          k: "Phone",
+          h: "Keep it on your phone",
+          t: "Add Waypoint to your home screen and it opens like an app, and the days you have opened still work with no signal.",
+          i: "dir"
+        }
+      : {
+          k: "Latest",
+          h: "Always the latest plan",
+          t: "When whoever planned the trip changes a day, it changes here too. Open this page any time to see the plan as it stands.",
+          i: "swap"
+        }
   ];
   var tour = { open: false, n: 0 };
   function drawTour() {

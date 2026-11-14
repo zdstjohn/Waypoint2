@@ -297,11 +297,11 @@ window.TOP_COUNTRIES =
   );
 /* what is new, in plain words, for Settings (the newest version first; a line is one thing a traveler would notice) */
 window.WHATS_NEW = {
-  v: 191,
+  v: 192,
   items: [
     "Sunrise and sunset times on every dated day, in the local time of the place.",
     "A three-screen tour the first time you open a trip someone shared with you.",
-    "Places you've opened stay on your phone for a few days, so they come up at once, even with no signal.",
-    "The next town's map starts loading while you read today's day, so it is ready when you get there."
+    "The street map is ready sooner: its engine loads on Wi-Fi while you read the day.",
+    "On the website, switching back to the app only refreshes what is due."
   ]
 };

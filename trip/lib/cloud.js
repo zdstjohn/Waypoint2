@@ -319,16 +319,21 @@
   }
   /* listeners: each polls while the page is visible; a write here tells the listeners on that place at once */
   var subs = [];
+  C.subs = function () {
+    return subs; /* (for the tests: each listener's path, pace and when it last heard) */
+  };
   function nudge(path) {
     var par = parentOf(path);
     subs.forEach(function (s) {
       if (s.path === path || s.path === par) s.poll();
     });
   }
+  /* back on the page: a listener asks at once only when its last answer is older than its own pace; one that is fresher
+     waits out the rest of that pace (v192: every listener used to ask at once, each time the app was switched back to) */
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "visible")
       subs.forEach(function (s) {
-        s.poll();
+        s.wake();
       });
   });
   window.addEventListener("online", function () {
@@ -339,10 +344,20 @@
   function listen(path, every, fetchFn, deliver, onErr) {
     var s = {
       path: path,
+      every: every,
       alive: true,
       busy: false,
       again: false,
       t: /** @type {number | undefined} */ (undefined),
+      at: 0 /* when the last answer came (0: none yet) */,
+      wake: function () {
+        if (!s.alive || s.busy) return;
+        var left = every - (Date.now() - s.at);
+        if (left <= 0) return s.poll();
+        /* (the timer set while the page was hidden runs four times slower: back to the usual pace) */
+        clearTimeout(s.t);
+        s.t = setTimeout(s.poll, left);
+      },
       poll: function () {
         if (!s.alive) return;
         if (s.busy) {
@@ -364,6 +379,7 @@
           })
           .then(function () {
             s.busy = false;
+            s.at = Date.now();
             if (s.again) {
               s.again = false;
               s.poll();

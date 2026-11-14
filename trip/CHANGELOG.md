@@ -2,6 +2,27 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v192
+
+Measured before building (slow-phone profile, 4x CPU, slow 4G): first paint 1.03 s, no layout shift, every common tap
+20-66 ms, 1-3 layout passes a tap and 1-2 for a long scroll. Of six speed items asked for, four were already so
+(answers shown as they are written, only the screen on show is drawn, the neighbouring days' photos fetched ahead,
+nothing re-measured needlessly); two were built, and three of v191's additions were put right.
+
+- The map's engine is asked for in idle time while a day of a town with a street map is read, on the Day view or Today
+  (lib/ahead.js engineAhead, lib/vtmap.js W.vtEngineWarm), so a map waits only for the town's pack. Under the map
+  packs' rule: never in Simple view, offline, on a data saver, a slow connection or mobile data.
+- The website's listeners (lib/cloud.js listen): back on the page, one asks at once only when its last answer is older
+  than its own pace (wake); every listener used to ask each time the app was switched back to.
+- Put right from v191:
+  - W.vtPrefetchNext (lib/vtmap.js) is gone. lib/ahead.js already fetched the next town's map pack (the evening before,
+    never on mobile data, one a day); v191's copy of it had none of those rules.
+  - The library documents v191 kept in the phone's storage (lib/citylib.js kept/keep) are gone, and what it wrote is
+    removed. lib/ideastore.js already keeps every place's ideas on the phone and is looked in before anyone is asked;
+    the copy was never cleared and could have crowded the storage the trips need.
+  - The tour's last screen says what is true where the trip is open: the website installs as an app; in Claude the page
+    follows its owner's changes.
+
 ## v191
 
 - Sunrise and sunset on each dated day (W.sunTimes in lib/times.js, NOAA's formulas, shown in the place's own time zone;

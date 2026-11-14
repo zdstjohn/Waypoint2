@@ -55,23 +55,16 @@
       return s && s.exists ? s.data() || null : null;
     });
   }
-  /* the library's document for a place, kept on this phone for a few days (v191): a place opened again, or opened with no
-     signal, answers at once instead of waiting on the database. Only what the library said; one small key per place. */
-  var KEEP_DAYS = 3;
-  function kept(/** @type {string} */ slug) {
-    try {
-      var x = JSON.parse(localStorage.getItem("waypoint-lib-" + slug) || "null");
-      return x && x.d && Date.now() - x.at < KEEP_DAYS * 864e5 ? x.d : null;
-    } catch (e) {
-      return null;
+  /* (v191 kept each place's library document in this phone's storage for three days. The app already keeps every place's
+     ideas on the phone, lib/ideastore.js, and looks there before it asks anyone, so the copy bought nothing and was never
+     cleared. v192 took it out; what v191 wrote is removed here, once. This block can go after a few versions.) */
+  try {
+    for (var li = localStorage.length - 1; li >= 0; li--) {
+      var lk = localStorage.key(li);
+      if (lk && lk.indexOf("waypoint-lib-") === 0) localStorage.removeItem(lk);
     }
-  }
-  function keep(/** @type {string} */ slug, /** @type {any} */ d) {
-    try {
-      if (d) localStorage.setItem("waypoint-lib-" + slug, JSON.stringify({ at: Date.now(), d: d }));
-    } catch (e) {
-      /* storage full or blocked: the place is simply asked for again next time */
-    }
+  } catch (e) {
+    /* storage is blocked: there is nothing of v191's to remove */
   }
   /** the place a question is about, as a document id: a country alone, or a country and a city
       @param {string[]} place [country] or [country, city] */
@@ -136,19 +129,10 @@
     var timer = setTimeout(function () {
       finish(null, false);
     }, LIB_WAIT);
-    if (!docs[q.slug]) {
-      var had = kept(q.slug);
-      docs[q.slug] = had
-        ? Promise.resolve(had)
-        : db().then(function (d) {
-            return d
-              ? fresh(d.doc("citylib/" + q.slug)).then(function (/** @type {any} */ x) {
-                  keep(q.slug, x);
-                  return x;
-                })
-              : null;
-          });
-    }
+    if (!docs[q.slug])
+      docs[q.slug] = db().then(function (d) {
+        return d ? fresh(d.doc("citylib/" + q.slug)) : null;
+      });
     docs[q.slug].then(
       function (x) {
         clearTimeout(timer);
@@ -222,10 +206,7 @@
             });
           var body = { country: q.place[0], city: q.place[1] || "", q: add };
           return (x ? ref.update(body) : ref.set(body)).then(function () {
-            docs[q.slug] = fresh(ref).then(function (/** @type {any} */ y) {
-              keep(q.slug, y);
-              return y;
-            });
+            docs[q.slug] = fresh(ref);
           });
         });
       })

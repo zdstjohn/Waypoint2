@@ -198,6 +198,15 @@ exports.run = async t => {
     await signIn(A.pg, 'ann@example.com', 'ann-pass-123'); await A.pg.waitForTimeout(1500);
     const a10c = await A.pg.evaluate(() => ({ name: W.tripName(), trips: localStorage.getItem('waypoint-trips-v1') || '' }));
     t.ok(/Spain with Claude/.test(a10c.name + a10c.trips), 'Ann signs in again: her trips are back on the phone: ' + a10c.name);
+    /* 10b2 (v192). switching back to the app: a listener asks at once only when its last answer is older than its own pace */
+    const wake = await A.pg.evaluate(() => {
+      const subs = window.__WP_CLOUD.subs().filter(s => s.alive && !s.busy); if (subs.length < 2) return { n: subs.length };
+      const now = Date.now(); subs.forEach((s, i) => { s.at = i === 0 ? now - s.every - 1000 : now; });   /* the first is overdue, the rest have just heard */
+      let vis = 'hidden'; Object.defineProperty(document, 'visibilityState', { get: () => vis, configurable: true });
+      document.dispatchEvent(new Event('visibilitychange')); vis = 'visible'; document.dispatchEvent(new Event('visibilitychange'));
+      const out = { n: subs.length, due: subs[0].busy, others: subs.slice(1).filter(s => s.busy).length };
+      delete document.visibilityState; return out; });
+    t.ok(wake.n >= 2 && wake.due === true && wake.others === 0, 'back on the page, only a listener whose last answer is older than its pace asks again: ' + JSON.stringify(wake));
     /* 10c (v151). a trip deleted on another device does not come back from a phone that still has it */
     const gone = await A2.pg.evaluate(() => ({ open: W.S.tripId, name: W.tripName() }));
     await A2.pg.evaluate(async id => { document.querySelector('[data-sync="menu"]').click(); await new Promise(r => setTimeout(r, 400)); const del = document.querySelector('[data-sync="del"][data-id="' + id + '"]'); if (del) del.click(); await new Promise(r => setTimeout(r, 400));

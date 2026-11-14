@@ -1757,7 +1757,6 @@
       var gm = pts.length ? W.dayRouteUrl(day, pts, home) : "";
       if (W.bannerRoute) W.bannerRoute(gm); /* (on a phone the banner carries the route link) */
       /* a real street map (street names, buildings, landmarks) only for cities that have a map pack; never a sketch */
-      if (W.vtPrefetchNext) W.vtPrefetchNext(day);
       var vtSlug = W.vtFor ? W.vtFor(day.country, day.city, home.lat, home.lng) : null,
         mapBox = "";
       /* on the desktop workspace the map has its own pane (lib/deskmap.js), fed from here: this day's stops in order */

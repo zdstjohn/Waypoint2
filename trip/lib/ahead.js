@@ -1,9 +1,11 @@
 /* Waypoint, a step ahead: once what you are looking at has settled, the phone quietly fetches what you are about to
-   look at. Two things, both only on a connection that is not metered and never in Simple view or offline:
+   look at. Three things, all only on a connection that is not metered and never in Simple view or offline:
    (1) the next and the previous day's header photo and the first few stops' photos, so a swipe between days shows them
        at once (a day change drops what was not fetched yet), and
    (2) the evening before a day that moves to a new town, that town's street-map pack, asked of the pack worker
-       (lib/vtmap.js keeps it on the phone), at most one pack a day.
+       (lib/vtmap.js keeps it on the phone), at most one pack a day, and
+   (3) while a day of a town with a street map is read, the map's engine, so the map waits only for the town's pack
+       (v192).
    Nothing here changes what a screen shows; it only warms the browser's cache. */
 (function () {
   "use strict";
@@ -227,10 +229,30 @@
     }, 2000);
   }
 
+  /* ---------- the map's engine, before a map is on the screen (v192) ---------- */
+  /* Today opens with the day's street map where the town has one, and the engine that draws it is the largest file the
+     app has (it is fetched when a map is first shown). While a day of such a town is read, on the Day view or Today,
+     the engine is asked for in idle time, so the map waits only for the town's pack. Held to the map packs' rule (only
+     where the connection is known not to be mobile data), and asked once: the engine says when it is in or can't run. */
+  var engineWait = false;
+  function engineAhead(P) {
+    if (engineWait || !W.vtEngineWarm || !W.vtState || W.vtState() !== "idle") return;
+    if (document.readyState !== "complete" || !allowed() || !unmetered(true)) return;
+    var v = W.view ? W.view() : "",
+      day = P.days[W.S.day - 1];
+    if ((v !== "trip" && v !== "go") || !day || !mapSlugFor(P, day)) return;
+    engineWait = true;
+    idle(function () {
+      engineWait = false;
+      if (unmetered(true) && W.vtEngineWarm) W.vtEngineWarm();
+    }, 4000);
+  }
+
   /** Called after each screen is drawn (screens/trip.js). The work is planned only when the day (or the screen) changed. */
   W.aheadTick = function (P) {
     if (!P || !P.days || !P.days.length) return;
     mapAhead(P);
+    engineAhead(P);
     var key =
       (W.S.tripId || "") +
       "|" +

@@ -1,6 +1,7 @@
 /* A step ahead (lib/ahead.js): once the screen has settled the phone fetches the next and the previous day's header photo
    and first stop photos (so a swipe shows them at once), but never on Simple view or a saving/slow connection; and the
-   evening before a day that moves to a new town it asks for that town's street map: once a day, never on mobile data. */
+   evening before a day that moves to a new town it asks for that town's street map: once a day, never on mobile data;
+   and while a day of a town with a street map is read, the map's engine (v192), under the same rule. */
 const { launch, open, exampleTrip, settle, until } = require('../lib/page'); const mkdb = require('../lib/db');
 const GIF = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
 /* every place on the trip gets a photo at /_blob/<name>.gif (the plan's own names, once it is drawn) */
@@ -66,7 +67,7 @@ exports.run = async t => {
   /* ---- tomorrow's map ---- */
   const M = await mk(() => { Object.defineProperty(navigator, 'connection', { get: () => window.__conn || { saveData: false, effectiveType: '4g' }, configurable: true }); });
   await exampleTrip(M.pg);
-  await M.pg.evaluate(() => { W.offline.save = () => Promise.resolve(); W.offline.tick = () => {}; });   /* (the phone's own saving also asks for packs) */
+  await M.pg.evaluate(() => { W.offline.save = () => Promise.resolve(); W.offline.tick = () => {}; W.vtEngineWarm = () => {}; });   /* (the phone's own saving also asks for packs; the engine has its own checks below) */
   const mv = await M.pg.evaluate(() => { const P = W.plan(), i = P.days.findIndex(d => d.moveFrom); return { n: i + 1, start: W.S.start }; });
   t.ok(mv.n >= 2, 'the example trip has a day that moves to a new town: day ' + mv.n);
   const setClock = (hh) => M.pg.evaluate(([n, hh]) => { const d = new Date(W.S.start + 'T12:00:00'); d.setDate(d.getDate() + n - 2); const iso = W.isoDay(d);
@@ -86,6 +87,20 @@ exports.run = async t => {
   await M.pg.evaluate(() => { localStorage.setItem('waypoint-now', W.isoDay(new Date(W.S.start + 'T12:00:00')) + 'T19:00:00'); localStorage.removeItem('waypoint-ahead-map'); });
   const stay = await M.pg.evaluate(() => W.P.days[1] && !W.P.days[1].moveFrom);
   if (stay) t.eq(await run(null, 1), [], 'the evening before a day in the same town nothing is fetched');
+  /* ---- the map's engine (v192): asked for in idle time while a day of a town with a street map is read ---- */
+  await M.pg.evaluate(() => { localStorage.removeItem('waypoint-now'); });
+  const eng = async (conn, view, slug, none) => { await M.pg.evaluate(([c, view, slug]) => { window.__eng = 0; window.__conn = c; W.vtFor = () => slug; W.vtState = () => 'idle'; W.vtEngineWarm = () => { window.__eng++; }; W.goView(view); W.render(); }, [conn || null, view, slug]);
+    if (none) await M.pg.waitForTimeout(3000); else await until(() => M.pg.evaluate(() => window.__eng > 0), 14000, 200); return M.pg.evaluate(() => window.__eng); };
+  t.ok(await eng(null, 'trip', 'test-slug') > 0, 'on the Day view of a town with a street map the map\'s engine is asked for while idle');
+  t.ok(await eng(null, 'go', 'test-slug') > 0, 'and on Today');
+  t.eq(await eng(null, 'trip', null, 1), 0, 'not for a town without a street map');
+  t.eq(await eng({ saveData: false, effectiveType: '4g', type: 'cellular' }, 'trip', 'test-slug', 1), 0, 'not on mobile data');
+  t.eq(await eng({ saveData: true, effectiveType: '4g' }, 'trip', 'test-slug', 1), 0, 'not with Data Saver on');
+  t.eq(await eng(null, 'settings', 'test-slug', 1), 0, 'not on a screen that shows no day');
+  await M.pg.evaluate(() => { W.setSimple(true); }); t.eq(await eng(null, 'trip', 'test-slug', 1), 0, 'not in Simple view');
+  await M.pg.evaluate(() => { W.setSimple(false); W.goView('trip'); });
+  const once = await M.pg.evaluate(async () => { let st = 'idle', n = 0; W.vtState = () => st; W.vtEngineWarm = () => { n++; st = 'loading'; }; W.render(); await new Promise(r => setTimeout(r, 2500)); W.render(); W.render(); await new Promise(r => setTimeout(r, 2500)); return n; });
+  t.ok(once <= 1, 'and once only: an engine that is loading is not asked for again (' + once + ')');
   t.eq(M.errors(), [], 'no page errors');
   await M.ctx.close(); await b.close();
 };

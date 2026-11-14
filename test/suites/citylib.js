@@ -25,7 +25,8 @@ exports.run = async t => {
   const offered = pg => pg.evaluate(() => [...document.querySelectorAll('.country .chips .chip[data-pick]')].map(b => b.dataset.pick).slice(0, 3));
 
   /* ---- 1. the first phone: Claude writes it all, and it is kept ---- */
-  const A = await open(b, { width: 390, db: store }); await exampleTrip(A.pg);
+  /* (v191 kept each place's library document in the phone's storage and never cleared it; v192 removes what it wrote) */
+  const A = await open(b, { width: 390, db: store, init: () => { try { localStorage.setItem('waypoint-lib-croatia', '{"at":1,"d":{}}'); localStorage.setItem('waypoint-lib-italy-rome', '{"at":1,"d":{}}'); } catch (e) {} } }); await exampleTrip(A.pg);
   await toCroatia(A.pg);
   await A.pg.waitForFunction(() => document.querySelectorAll('.country .chips .chip[data-pick]').length >= 3, null, { timeout: 15000 });
   const three = await offered(A.pg);
@@ -34,6 +35,8 @@ exports.run = async t => {
     W.loadCity('Croatia', 'Town 77'); const b = W.loadPrio('spots|Croatia|Town 77'); W.holdLoads = false; W.pump(); return [a, b]; });
   t.ok(low[0] === 9 && low[1] < 9, 'a city Plan offers is asked for ahead, after everything else, and moves up once it is needed: ' + JSON.stringify(low));
   await A.pg.waitForFunction(three => three.every(c => W.pool('Croatia', c) && W.pool('Croatia', c).spots.length && (W.pool('Croatia', c).food || []).length), three, { timeout: 30000 });
+  const left = await A.pg.evaluate(() => Object.keys(localStorage).filter(k => k.indexOf('waypoint-lib-') === 0));
+  t.eq(left, [], 'what v191 kept of the library in the phone\'s storage is gone, and nothing new is kept there');
   const pa = await prompts(A.pg);
   const asked = c => pa.filter(p => p.includes('best things to do in and around ' + c + ', Croatia')).length;
   t.ok(pa.some(p => /List the cities, towns and areas that travelers visit in Croatia/.test(p)) && three.every(c => asked(c) === 1),

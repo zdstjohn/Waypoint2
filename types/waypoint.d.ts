@@ -675,7 +675,7 @@ interface Waypoint {
   libStats?: (cb: (s: { countries: number; cities: number; at: number } | null) => void) => void;
   libGet?: (q: any, cb: (r: any, general?: boolean) => void) => void;
   sunInline?: (day: Day) => string;
-  vtPrefetchNext?: (day: Day) => void;
+  vtEngineWarm?: () => void;
   tourOpen: () => void;
   tourClose: () => boolean;
   tourMaybe: () => void;

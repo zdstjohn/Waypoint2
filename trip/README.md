@@ -140,6 +140,11 @@ lib/              the shared library
                   day picks up from the arrival. Without a ticket, the journey's length is Rome2Rio's real time for the
                   way you go once you've tapped "Check real journey times" on the journey card (W.checkRoutes, your
                   Rome2Rio connector, get-routes), else Claude's estimate, else a guess from the distance ("rough")
+                  Sunrise and sunset for a place and day (W.sunTimes, NOAA's formulas, in the place's own time zone);
+                  the day's line under its name shows them (W.sunInline in gmaps.js).
+  ahead.js        (second script) a step ahead, in idle time and never on a data saver: the neighbouring days' photos;
+                  the next town's map pack the evening before a move, and the map's engine while a day of a town with a
+                  street map is read (neither on mobile data).
   daybag.js       (second script) Today's day bag: what to take out for the day, read off its stops (a beach:
                   swimsuits and sunscreen; a church: shoulders and knees covered; a market: cash; a boat: a layer and
                   something for seasickness; a hike: shoes and water; a travel day: tickets in one pocket and snacks),
@@ -312,7 +317,8 @@ screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.
                   trip": the places an easy day out from a day's town, or any other, and the day planned again there
                   (S.dayTrip); setup.js also draws where to stay as a sheet over any
                   screen (W.staySheet); quickstart.js (second script) the three questions for a
-                  new trip (shown on the very first open; a stop's sheet keeps
+                  new trip (shown on the very first open; and the three-screen tour a shared trip opens with, once per
+                  phone, W.tourOpen; a stop's sheet keeps
                   "Leave free" and "Not for us" at its end, and "Not for us" asks once); family;
                   settings.js is "Import a plan", the backup copy and Google Maps (sharing lives in the trip menu); kids.js is "For the kids"
                   (from the trip menu and Today): today's outings in big photo cards with a heart per kid, a passport

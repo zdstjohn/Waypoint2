@@ -22,3 +22,7 @@ stop-panel-*
 swap-*
 today-*
 trip-*
+# v192: the What's new card (Settings, and the trip menu's) lists this version's changes; nothing else on any screen
+# changes (checked against a v191 baseline).
+settings-*
+menu-*
