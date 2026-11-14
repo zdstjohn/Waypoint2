@@ -169,11 +169,7 @@
       cal = Object.keys(auto.cal || {}).length;
     if (!auto.checked) return '<p class="small muted auto-line">Autopilot is watching your inbox.' + aboutBtn() + "</p>" + aboutText();
     var when = new Date(auto.checked),
-      ago = isNaN(when.getTime())
-        ? ""
-        : when.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) +
-          " " +
-          W.clock(when.getHours() * 60 + when.getMinutes());
+      ago = isNaN(when.getTime()) ? "" : W.fmtDate(when, "wmd") + " " + W.clock(when.getHours() * 60 + when.getMinutes());
     return (
       '<p class="small muted auto-line">Autopilot checked your inbox ' +
       W.esc(ago) +
@@ -214,9 +210,9 @@
           '%" data-gobook="' +
           W.esc(c.key) +
           '" title="' +
-          W.esc((c.short || c.title) + " · by " + c.by.toLocaleDateString(undefined, { month: "short", day: "numeric" })) +
+          W.esc((c.short || c.title) + " · by " + W.fmtDate(c.by, "md")) +
           '"><span class="vh">' +
-          W.esc((c.short || c.title) + ", by " + c.by.toLocaleDateString(undefined, { month: "short", day: "numeric" })) +
+          W.esc((c.short || c.title) + ", by " + W.fmtDate(c.by, "md")) +
           "</span></button>"
         );
       })

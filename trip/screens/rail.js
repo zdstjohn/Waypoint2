@@ -94,7 +94,7 @@
           ds
             .map(function (d) {
               var dt = W.dateOf(d.n),
-                when = dt ? dt.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : d.city,
+                when = dt ? W.fmtDate(dt, "wmd") : d.city,
                 hl = W.dayHeadline(d, P) || d.city;
               return (
                 '<button type="button" class="wr-day' +

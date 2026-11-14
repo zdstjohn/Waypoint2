@@ -248,7 +248,12 @@ lib/              the shared library
                   the same question is answered at once next time (lib/core.js run looks it up first). The general
                   answers (asked for no one in particular: W.libGeneral) are filled nightly at random across the 150
                   most visited countries by tools/citylib.js, with the same words (tools/citylib-questions.json); a
-                  trip with only those for a city starts from them and asks its own question after, last in line
+                  trip with only those for a city starts from them and asks its own question after, last in line.
+                  The website reads its copy (the nightly task sends it there, tools/copy_to_cloud.js) and never
+                  writes. W.libStats reads citylib/_stats (the library's size, written by the nightly check) for
+                  Settings; W.libFrom marks the places answered from the library (Plan says so). Nightly flow:
+                  node tools/citylib.js plan, the task answers the questions, check (writes the documents and
+                  _stats), then the copy to the website; `gaps` prints what is still missing
   speedtest.js    one measurement, once, for the artifact's owner: is a list asked with low effort faster and as good?
                   (second script; writes data/users/<id>/diag/effort; W.EFFORT stays empty until that is read)
   offline.js      the trip without a signal: the photo index and photos kept on the phone (IndexedDB), map packs

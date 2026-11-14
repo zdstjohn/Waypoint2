@@ -13,12 +13,18 @@
   "use strict";
   var W = window.W,
     V = W.V,
-    KEY = "waypoint-speedtest-v2",
+    KEY = "waypoint-speedtest-v3",
     TEST = !!window.__WP_SPEEDTEST;
   var BUILD = "__BUILD__"; /* the build time, filled in by build/bundle.js */
   if (W.standalone || (navigator.webdriver && !TEST) || !window.claude || !window.claude.use) return;
+  /* (a run where both answers were errors is not a measurement: it is marked "again:N" and tried at the next visit, up to
+     three times, so one bad moment upstream does not end the test) */
+  var tries = 0;
   try {
-    if (localStorage.getItem(KEY)) return;
+    var seen = localStorage.getItem(KEY) || "";
+    if (seen.indexOf("again:") === 0) tries = +seen.slice(6) || 0;
+    else if (seen) return;
+    if (tries >= 3) return;
   } catch (e) {
     return;
   }
@@ -49,7 +55,19 @@
     }
     return null;
   }
+  /** one question, and once more after a pause if the platform answers "upstream_error" (a passing fault, not an answer)
+      @param {string} prompt @param {string} effort */
   function ask(prompt, effort) {
+    return ask1(prompt, effort).then(function (a) {
+      if (a.err !== "upstream_error") return a;
+      return new Promise(function (res) {
+        setTimeout(res, TEST ? 50 : 6000);
+      }).then(function () {
+        return ask1(prompt, effort);
+      });
+    });
+  }
+  function ask1(prompt, effort) {
     var t0 = Date.now(),
       first = 0,
       opts = /** @type {any} */ ({
@@ -158,6 +176,11 @@
               if (d > 1) far++;
             }
           });
+          /* nothing came back from either: not a result, so nothing is kept and the test is tried again next visit */
+          if (A.err && B.err) {
+            stop("again:" + (tries + 1));
+            return null;
+          }
           var out = {
             at: new Date().toISOString(),
             build: BUILD,

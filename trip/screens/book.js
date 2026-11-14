@@ -481,9 +481,7 @@
           last = W.dateOf(P.N);
         para(
           [
-            first
-              ? fmtDay(first, { month: "long", day: "numeric" }) + " – " + fmtDay(last, { month: "long", day: "numeric", year: "numeric" })
-              : P.N + " days",
+            first ? fmtDay(first, "md") + " – " + fmtDay(last, "mdy") : P.N + " days",
             P.stops
               .map(function (s) {
                 return s.name + " (" + s.days + ")";
@@ -534,8 +532,7 @@
                 })
               : d.slots || []
           ).filter(Boolean);
-          var head =
-            "Day " + d.n + " · " + d.city + (date ? " · " + fmtDay(date, { weekday: "long", month: "short", day: "numeric" }) : "");
+          var head = "Day " + d.n + " · " + d.city + (date ? " · " + fmtDay(date, "Wmd") : "");
           var from = "From " + home.label + (d.moveFrom ? " · travel day from " + d.moveFrom : "") + (d.tripLast ? " · flight home" : "");
           var tr = T && T.travel ? T.travel : null,
             L = tr ? tr.leg : null,
@@ -1182,7 +1179,8 @@
         return all || seg === k;
       };
     var groupHtml = function (g) {
-      /* by deadline, then by day; on the same day the trip's order: getting there, where you sleep, then the day's tickets and tables */
+      /* by the day it is used (what you need soonest first), then by when it must be booked; on the same day the trip's
+         order: getting there, where you sleep, then the day's tickets and tables (a row with no day goes last) */
       var ORD = { flight: 0, transport: 1, stay: 2, activity: 3, food: 4 };
       var items = list
         .filter(function (c) {
@@ -1190,8 +1188,8 @@
         })
         .sort(function (a, b) {
           return (
+            (a.day || 9e9) - (b.day || 9e9) ||
             (a.by ? +a.by : 9e15) - (b.by ? +b.by : 9e15) ||
-            (a.day || 0) - (b.day || 0) ||
             (ORD[a.group] != null ? ORD[a.group] : 5) - (ORD[b.group] != null ? ORD[b.group] : 5)
           );
         });
@@ -1240,9 +1238,7 @@
     var top =
       (left ? left + " to book" : "All booked") +
       (nextAll
-        ? " · next: " +
-          esc(nextAll.short || nextAll.title) +
-          (nextAll.by < today ? ", now" : " by " + fmtDay(nextAll.by, { month: "short", day: "numeric" }))
+        ? " · next: " + esc(nextAll.short || nextAll.title) + (nextAll.by < today ? ", now" : " by " + fmtDay(nextAll.by, "md"))
         : "") +
       (S.start ? "" : ' · add your start date under <a href="#plan" data-view="setup">Plan</a> for book-by dates');
     var nBook = left,

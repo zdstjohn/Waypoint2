@@ -295,3 +295,14 @@ window.TOP_COUNTRIES =
   "FR ES US IT TR MX GB DE GR AT TH CN JP PT NL HR SA AE MY CA PL HK HU VN CH SG ID KR MA DK EG IN CZ IE BE ZA SE NO AU MO TN BG RO DO NZ IL BR AR CL PE CO CR JO IS CY MT PH LK KH LA MM NP AL ME SI SK EE LV LT FI LU GE AM AZ UZ KZ BA RS MK MD QA OM BH KW LB TW BS JM BB CU PR PA GT EC BO UY PY HN NI SV BZ TT AW CW KY BM LC AG KN GD VC MV MU SC FJ PF NC KE TZ UG RW BW NA ZM ZW MZ MG ET GH SN CV MN KG BT BN TL SR GY DM MC LI AD SM VA GI FO GL TC VG VI".split(
     " "
   );
+/* what is new, in plain words, for Settings (the newest version first; a line is one thing a traveler would notice) */
+window.WHATS_NEW = {
+  v: 188,
+  items: [
+    "On a travel day, fold away the ways to get there once you've chosen one.",
+    "The \u00b7\u00b7\u00b7 menu for Menu and Swap is on the desktop too.",
+    "Dates read one way everywhere, and long names wrap instead of being cut off.",
+    "A shared city library: a city someone has opened already comes up in seconds, and it grows a little every night.",
+    "Typing UAE, Holland, Burma and other names finds the right country."
+  ]
+};

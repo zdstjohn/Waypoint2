@@ -48,19 +48,91 @@
         return '<option value="' + esc(a[0] + " (" + a[1] + ")") + '">';
       })
       .join("");
+  /* other names people type for a country, by the name the list uses (what Intl calls it: "Czechia", "Türkiye") */
+  var ALIASES = /** @type {[string, string][]} */ ([
+    ["usa", "United States"],
+    ["united states of america", "United States"],
+    ["u s a", "United States"],
+    ["u s", "United States"],
+    ["us", "United States"],
+    ["america", "United States"],
+    ["uk", "United Kingdom"],
+    ["great britain", "United Kingdom"],
+    ["britain", "United Kingdom"],
+    ["england", "United Kingdom"],
+    ["scotland", "United Kingdom"],
+    ["wales", "United Kingdom"],
+    ["uae", "United Arab Emirates"],
+    ["u a e", "United Arab Emirates"],
+    ["emirates", "United Arab Emirates"],
+    ["dubai", "United Arab Emirates"],
+    ["korea", "South Korea"],
+    ["republic of korea", "South Korea"],
+    ["st kitts", "St. Kitts & Nevis"],
+    ["saint kitts and nevis", "St. Kitts & Nevis"],
+    ["st vincent", "St. Vincent & Grenadines"],
+    ["saint vincent and the grenadines", "St. Vincent & Grenadines"],
+    ["turks and caicos", "Turks & Caicos Islands"],
+    ["us virgin islands", "U.S. Virgin Islands"],
+    ["vatican", "Vatican City"],
+    ["holy see", "Vatican City"],
+    ["lao", "Laos"],
+    ["viet nam", "Vietnam"]
+  ]);
+  /* a country's names as different browsers spell them (the list is the browser's own: "Türkiye" or "Turkey", "Macao SAR
+     China" or "Macao"): whichever one the list has is the country's name here */
+  var SAME = [
+    ["Czechia", "Czech Republic"],
+    ["Türkiye", "Turkey"],
+    ["Myanmar (Burma)", "Myanmar", "Burma"],
+    ["Hong Kong SAR China", "Hong Kong"],
+    ["Macao SAR China", "Macao", "Macau"],
+    ["Bosnia & Herzegovina", "Bosnia and Herzegovina", "Bosnia"],
+    ["North Macedonia", "Macedonia"],
+    ["Eswatini", "Swaziland"],
+    ["Timor-Leste", "East Timor"],
+    ["Côte d’Ivoire", "Ivory Coast"],
+    ["Cape Verde", "Cabo Verde"],
+    ["Netherlands", "The Netherlands", "Holland"],
+    ["Bahamas", "The Bahamas"]
+  ];
+  /** the name the list uses for a country that goes by this name (or the name as given) @param {string} n */
+  function canon(n) {
+    if (names.indexOf(n) > -1) return n;
+    var g = SAME.filter(function (x) {
+      return x.indexOf(n) > -1;
+    })[0];
+    return (
+      (g &&
+        g.filter(function (m) {
+          return names.indexOf(m) > -1;
+        })[0]) ||
+      n
+    );
+  }
+  /** the other names for the countries on offer, as [what is typed, the country's name in the list] (the type-ahead
+      matches them too, so "uae" and "holland" find their country) */
+  W.countryAliases = function () {
+    var out = /** @type {[string, string][]} */ ([]);
+    ALIASES.forEach(function (a) {
+      out.push([a[0], canon(a[1])]);
+    });
+    SAME.forEach(function (g) {
+      g.forEach(function (m) {
+        out.push([m, canon(m)]);
+      });
+    });
+    return out.filter(function (a) {
+      return names.indexOf(a[1]) > -1 && W.norm(a[0]) !== W.norm(a[1]);
+    });
+  };
   function countryName(v) {
     var k = W.norm(v);
     if (!k) return "";
-    var aliases = {
-      usa: "United States",
-      "united states of america": "United States",
-      us: "United States",
-      uk: "United Kingdom",
-      england: "United Kingdom",
-      scotland: "United Kingdom",
-      holland: "Netherlands"
-    };
-    if (aliases[k]) return aliases[k];
+    var hit = W.countryAliases().filter(function (a) {
+      return W.norm(a[0]) === k;
+    })[0];
+    if (hit) return hit[1];
     return (
       names.filter(function (n) {
         return W.norm(n) === k;
@@ -297,7 +369,7 @@
     '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
   function fmtIso(iso) {
     var d = new Date(iso + "T12:00:00");
-    return isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return isNaN(d.getTime()) ? iso : W.fmtDate(d, "md");
   }
   function stayLabel(s) {
     return ((S.stays[W.cityKey(s.country, s.name)] || {}).label || "") + "";
@@ -487,7 +559,9 @@
         (rows
           ? '<div class="stops">' +
             rows +
-            '</div><p class="small muted">Suggested for your days and who\'s going. Change anything to make it yours.</p>'
+            '</div><p class="small muted">Suggested for your days and who\'s going. Change anything to make it yours.' +
+            (W.libFrom && W.libFrom[W.slug(c.name)] ? " Ready from the shared library." : "") +
+            "</p>"
           : loadingList
             ? '<div class="loading">Finding destinations in ' + esc(c.name) + "…</div>"
             : '<p class="small muted">' +
@@ -1227,7 +1301,7 @@
     var d = new Date(S.start + "T12:00:00");
     if (isNaN(d.getTime())) return "";
     d.setDate(d.getDate() + n - 1);
-    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return W.fmtDate(d, "md");
   }
 
   /* ---------- actions ---------- */

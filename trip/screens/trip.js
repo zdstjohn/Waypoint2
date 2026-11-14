@@ -77,8 +77,8 @@
   };
   var ICON_REROLL = W.icon("reroll", 2.5);
   /* A stop card's buttons (Menu, Swap) sit behind one "more" button on a phone, in a small menu that opens under it
-     (the owner's pick, v178: a card a row shorter, so a day needs less scrolling). Wider screens show the buttons as
-     before; the "more" button is hidden there. One menu open at a time (actsOpen: its slot's key); it closes on any
+     (the owner's pick, v178: a card a row shorter, so a day needs less scrolling). Wider screens (v188) get the same button;
+     One menu open at a time (actsOpen: its slot's key); it closes on any
      choice in it, a tap elsewhere, Escape, or a new day. */
   var actsOpen = /** @type {string | null} */ (null);
   function actsWrap(key, name, inner) {
@@ -163,7 +163,7 @@
       DATES = {};
       nDates = 1;
     }
-    return (DATES[k] = d.toLocaleDateString(undefined, opts || { weekday: "short", month: "short", day: "numeric" }));
+    return (DATES[k] = W.fmtDate(d, opts || "wmd"));
   }
   /* travel day: how to get from the last place to this one, with the operators' own sites */
   /* how to look at the trip: Day (one day) and Explore (that day's place, with ideas around it). Labelled, so it's
@@ -272,6 +272,7 @@
           : /* (the state as a short tag, what the times are on a line of its own: one long tag wrapped to two lines) */
             '<span class="tk-st">Not booked yet</span><span class="tk-sub">Planned times, door to door</span>') +
         "</div>";
+    var bandEnd = h.length;
     /* your ticket, when one is booked with a time: the day is planned around it */
     if (tk)
       h +=
@@ -390,6 +391,25 @@
         ". " +
         link(W.gmapsDir(W.stopAt(L.a), { n: L.b.name + ", " + L.b.country, lat: null }, "transit"), "Navigate") +
         "</p>";
+    /* once the way is chosen (or a ticket is booked) the options can be folded away, leaving the ticket band: it stays
+       folded on this device until opened again */
+    if ((tk || (S.legPick || {})[L.key]) && h.length > bandEnd) {
+      var rest = h.slice(bandEnd),
+        closed = (S.legClosed || {})[L.key];
+      h =
+        h.slice(0, bandEnd) +
+        '<details class="leg-more"' +
+        (closed ? "" : " open") +
+        ' data-fold="leg-' +
+        esc(L.key) +
+        '"><summary><span><b>' +
+        (tk ? "Your " + esc((W.modeName(tk.kind) || "ticket").toLowerCase()) : po ? esc(W.modeName(po.mode)) : "How you\'re going") +
+        "</b>" +
+        (po && po.dur && !tk ? ' <span class="muted">· ' + esc(po.dur) + "</span>" : "") +
+        '</span><svg class="fold-chev" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6l4 4 4-4"/></svg></summary>' +
+        rest +
+        "</details>";
+    }
     return h + "</section>";
   }
   /* how tiring the day is (four bars), and making it a rest day */
@@ -565,9 +585,7 @@
       hrs = (g % 1 ? g : Math.round(g)) + " hour" + (g === 1 ? "" : "s");
     var li = [
       "<b>Before you go.</b> " +
-        (pre
-          ? "From " + pre.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) + ", move"
-          : "For 3 or 4 days before, move") +
+        (pre ? "From " + W.fmtDate(pre, "wmd") + ", move" : "For 3 or 4 days before, move") +
         " bedtime and wake-up " +
         dir +
         " by 30 minutes a day" +
@@ -1845,7 +1863,15 @@
         };
         var at = find();
         /* (under the rows that stay at the top on a phone, with the way there showing above it) */
-        if (at && at.getBoundingClientRect().top > window.innerHeight * 0.45) holdAt(find, 170);
+        /* (at least 170, and always room for the way there (about 56px, as drawn) under the day strip, plus a little air,
+           however tall the strip is: large text makes it taller) */
+        var gapFor = function () {
+          var bar = /** @type {HTMLElement | null} */ (document.querySelector("#viewTrip .daybar")),
+            /* (where it stays, not where it is: it is only stuck once the page has scrolled) */
+            below = bar ? (parseFloat(getComputedStyle(bar).top) || 0) + bar.offsetHeight : 0;
+          return Math.max(170, Math.round(below + 56 * (parseFloat(getComputedStyle(document.documentElement).fontSize) / 16) + 20));
+        };
+        if (at && at.getBoundingClientRect().top > window.innerHeight * 0.45) holdAt(find, gapFor);
       });
     }
     /* on a phone in list view the map is hidden: don't run it in the background */
@@ -2148,7 +2174,11 @@
     if (!f) return;
     if (f === "transit") S.transitOpen = open;
     else if (f === "jet") S.jetOpen = open;
-    else if (f.indexOf("step-") === 0) {
+    else if (f.indexOf("leg-") === 0) {
+      S.legClosed = S.legClosed || {};
+      if (open) delete S.legClosed[f.slice(4)];
+      else S.legClosed[f.slice(4)] = true;
+    } else if (f.indexOf("step-") === 0) {
       S.stepClosed = S.stepClosed || {};
       S.stepClosed[f.slice(5)] = !open;
     } else if (f === "eat-al" || f === "eat-di") {
@@ -2173,7 +2203,8 @@
   };
   /* go to a screen; anchor (a selector) lands on that part of it instead of the top, once the page has changed */
   /* Scroll so that an element sits `gap` px below the top of the screen, and keep it there for a moment: what is
-     above it can still grow as it loads (photos, the forecast, the day bag). Your own scrolling ends it at once. */
+     above it can still grow as it loads (photos, the forecast, the day bag). Your own scrolling ends it at once.
+     (`gap` may be a function, asked each frame.) */
   function holdAt(find, gap) {
     var until = Date.now() + 1800,
       mine = false,
@@ -2188,7 +2219,8 @@
       var b = find();
       if (b) {
         var top = b.getBoundingClientRect().top;
-        if (Math.abs(top - gap) > 4) window.scrollTo(0, Math.max(0, top + window.pageYOffset - gap));
+        var g = typeof gap === "function" ? gap() : gap;
+        if (Math.abs(top - g) > 4) window.scrollTo(0, Math.max(0, top + window.pageYOffset - g));
       }
       requestAnimationFrame(hold);
     })();

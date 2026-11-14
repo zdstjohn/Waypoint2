@@ -252,7 +252,7 @@ details.step > summary:focus-visible{outline:2px solid var(--ink);outline-offset
 .stop-a .icon-btn{width:34px;height:34px}
 .stay-btn{flex:1;min-width:0;display:flex;align-items:center;gap:8px;border:var(--hair);background:var(--surface);border-radius:var(--r-sm);padding:5px 10px;font-weight:700;font-size:var(--t-body);color:var(--muted);cursor:pointer;text-align:left}
 .stay-btn.set{color:var(--fg)}
-.stay-btn span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stay-btn span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
 .stay-btn svg{width:19px;height:15px;flex:none}
 .stay-btn .chev{width:14px;height:14px}
 .stay-btn[aria-expanded="true"] .chev{transform:rotate(180deg)}
@@ -1164,7 +1164,7 @@ table.budget tfoot th,table.budget tfoot td{border-top:2px solid var(--ink);font
 .go-top{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px}
 .go-top .icon-btn:disabled{opacity:.3;cursor:default}
 .gt-m{display:grid;justify-items:center;text-align:center;min-width:0}
-.gt-m b{font:750 clamp(1.375rem,6vw,1.875rem)/1.15 var(--f-display);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gt-m b{font:750 clamp(1.375rem,6vw,1.875rem)/1.15 var(--f-display);max-width:100%;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
 .gt-k{font:800 var(--t-cap)/1 var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
 .gt-k.live{color:var(--accent)}
 .gt-m .muted{font-size:var(--t-ui);font-weight:600}
@@ -1302,6 +1302,7 @@ table.budget tfoot th,table.budget tfoot td{border-top:2px solid var(--ink);font
 .set-c .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .set-c textarea{width:100%;resize:vertical;font:inherit;font-size:var(--t-body);line-height:1.45}
 .set-c > .btn{justify-self:start}
+.whatsnew{margin:0;padding-left:1.2em;display:grid;gap:6px}
 .wlist{list-style:none;margin:0;padding:0;display:grid;gap:2px}
 .wlist li{display:flex;align-items:center;gap:6px 12px;padding:9px 0;border-top:var(--hair)}
 .wlist li:first-child{border-top:0}
@@ -1436,7 +1437,7 @@ html.offline .brand::after{content:"Offline";position:absolute;right:-6px;top:-8
 @media (hover:hover){.top .trip-sw:hover{background:rgba(255,255,255,.08)}}
 .top .trip-sw[aria-expanded="true"]{background:rgba(255,255,255,.1)}
 .ts-n{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%}
-.ts-n b{font-size:var(--t-body);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ts-n b{font-size:var(--t-body);font-weight:800;overflow:hidden;text-overflow:ellipsis;min-width:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
 .ts-n svg{width:14px;height:14px;flex:none;transition:transform .15s}
 .trip-sw[aria-expanded="true"] .ts-n svg{transform:rotate(180deg)}
 .trip-sw > svg{display:none}
@@ -2157,8 +2158,8 @@ svg.arr.arr-r{margin:0 0 0 .35em}
   .go-near .nr-b .btn{display:inline-flex;align-items:center}
   /* the rest of what is tapped and drawn smaller than 44px (buttons, small links, tabs, the folds' headings): the same
      unseen margin, as wide as the thing (a narrow one 44px wide too), so the look stays */
-  :where(.btn,.linkish,.menu-btn,.ilink,.pl-a,.tl-go,.stay-btn,.trav.add,.sc-no,.vsw [role="tab"],.slot-toggle,.chk-gb,.fold,.gb-i,.tog,.lodge a,a.price,a.book,summary){position:relative}
-  :where(.btn,.linkish,.menu-btn,.ilink,.pl-a,.tl-go,.stay-btn,.trav.add,.sc-no,.vsw [role="tab"],.slot-toggle,.chk-gb,.fold,.gb-i,.tog,.lodge a,a.price,a.book,summary)::after{content:"";position:absolute;left:min(0px,calc(50% - 22px));right:min(0px,calc(50% - 22px));top:min(0px,calc(50% - 22px));bottom:min(0px,calc(50% - 22px))}
+  :where(.btn,.linkish,.icon-btn,.more-btn,.auth-seg button,.lo-book,.menu-btn,.ilink,.pl-a,.tl-go,.stay-btn,.trav.add,.sc-no,.vsw [role="tab"],.slot-toggle,.chk-gb,.fold,.gb-i,.tog,.lodge a,a.price,a.book,summary){position:relative}
+  :where(.btn,.linkish,.icon-btn,.more-btn,.auth-seg button,.lo-book,.menu-btn,.ilink,.pl-a,.tl-go,.stay-btn,.trav.add,.sc-no,.vsw [role="tab"],.slot-toggle,.chk-gb,.fold,.gb-i,.tog,.lodge a,a.price,a.book,summary)::after{content:"";position:absolute;left:min(0px,calc(50% - 22px));right:min(0px,calc(50% - 22px));top:min(0px,calc(50% - 22px));bottom:min(0px,calc(50% - 22px))}
   .brand{position:relative}
   .brand::before{content:"";position:absolute;left:0;right:0;top:min(0px,calc(50% - 22px));bottom:min(0px,calc(50% - 22px))}
 }
@@ -2275,6 +2276,12 @@ table.budget td + td *{font-family:var(--f-body);letter-spacing:0}
 .tk-d{font-size:.78125rem;font-weight:700;color:var(--move);background:var(--move-soft);padding:2px 7px;border-radius:var(--r-pill)}
 .legcard.tk .legopts,.legcard.tk .leg-tk,.legcard.tk .lo-r2r{margin-inline:6px}
 .lo + .lo{border-top:var(--hair)}
+.legcard .leg-more{display:block;margin-inline:6px}
+.legcard .leg-more > summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px;padding:0 12px;font-size:var(--t-body)}
+.legcard .leg-more > summary::-webkit-details-marker{display:none}
+.legcard .leg-more .fold-chev{width:16px;height:16px;flex:none;color:var(--muted);transition:transform .25s}
+.legcard .leg-more[open] .fold-chev{transform:rotate(180deg)}
+.legcard.tk .leg-more .legopts,.legcard.tk .leg-more .leg-tk,.legcard.tk .leg-more .lo-r2r{margin-inline:0}
 .lo.sel .lo-dot{border-color:var(--move);background:radial-gradient(circle,var(--move) 0 4px,transparent 5px)}
 /* ---- the phone's tab bar: floating glass (the gesture bar's inset lifts it; it is not padding inside it) ---- */
 @media (max-width:560px){
@@ -2340,3 +2347,22 @@ img.lqi.ld{opacity:1;transition:opacity .25s ease-out}
 .sl-acts{display:contents}
 .acts-w{display:contents}
 .more-btn{display:none}
+/* ...and on a wider screen too (v188, the owner: "yes i like the 3 dots") */
+@media (min-width:561px){
+  /* Menu and Swap behind one "more" button (v178): top right on a card without a photo, under the photo on one with */
+  #viewTrip .slot{position:relative}
+  #viewTrip .slot.acts-on{z-index:6}
+  #viewTrip .slot .acts-w{display:block;position:absolute;right:6px;top:6px;z-index:2}
+  #viewTrip .slot.haspic .acts-w{position:relative;right:auto;top:auto;grid-column:3;grid-row:2;justify-self:end;align-self:end;margin:-4px -6px -6px 0}
+  #viewTrip .slot.haspic > .slot-body,#viewTrip .slot.haspic > .num{grid-row:1 / span 2}
+  #viewTrip .slot:not(.haspic) .slot-body :is(.sl-l,.when,.nm){padding-right:30px}
+  #viewTrip .slot .more-btn{display:grid;place-items:center;width:40px;height:40px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--muted);cursor:pointer}
+  #viewTrip .slot .more-btn svg{width:20px;height:20px}
+  #viewTrip .slot .more-btn[aria-expanded="true"]{background:var(--sunk);color:var(--fg)}
+  #viewTrip .slot .acts-w .sl-acts{display:none}
+  #viewTrip .slot .acts-w.open .sl-acts{display:grid;position:absolute;right:0;top:calc(100% + 4px);min-width:176px;padding:6px;gap:2px;background:var(--surface);border:1px solid var(--ring);border-radius:var(--r-md);box-shadow:0 10px 28px rgba(0,0,0,.28)}
+  #viewTrip .slot .acts-w .sl-acts :is(.menu-btn,.icon-btn){display:flex;align-items:center;gap:10px;width:100%;height:auto;min-height:44px;padding:8px 12px;border:0;border-radius:var(--r-sm);background:transparent;color:var(--fg);font:700 .9375rem/1 var(--f-body);text-align:left}
+  #viewTrip .slot .acts-w .sl-acts :is(.menu-btn,.icon-btn):is(:hover,:focus-visible){background:var(--sunk)}
+  #viewTrip .slot .acts-w .sl-acts svg{width:18px;height:18px;flex:none}
+  #viewTrip .slot .acts-w .sl-acts .bt-l{display:inline}
+}

@@ -16,7 +16,7 @@
     return S.booked || (S.booked = {});
   }
   function fmtDay(d, o) {
-    return d ? d.toLocaleDateString(undefined, o || { weekday: "short", month: "short", day: "numeric" }) : "";
+    return W.fmtDate(d, o || "wmd");
   }
 
   /* ---------- the currency costs are shown in ----------
@@ -462,7 +462,7 @@
     if (c.past) return "Did you book it?";
     if (!c.by) return "";
     if (c.by < W.now()) return "Book now";
-    return (short ? "by " : "Book by ") + c.by.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return (short ? "by " : "Book by ") + W.fmtDate(c.by, "md");
   };
   W.checklist = function (P) {
     var out = [],

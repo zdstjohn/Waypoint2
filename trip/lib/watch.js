@@ -131,7 +131,7 @@
       server: "Expedia",
       tool: "search_flights",
       input: I.input,
-      label: I.F.from + " → " + I.F.to + " · " + I.F.date.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+      label: I.F.from + " → " + I.F.to + " · " + W.fmtDate(I.F.date, "md"),
       end: I.input.departure_date,
       base: { total: m.total, cur: m.cur, at: Date.now() },
       last: { total: m.total, cur: m.cur, at: Date.now() },

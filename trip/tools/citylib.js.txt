@@ -13,6 +13,11 @@
          Reads each answer <work_dir>/<id>.json (the JSON the question asks for), checks its shape, and writes
          <work_dir>/out/<slug>.json (the document's fields to write) and <work_dir>/writes.json
          [{collection: "citylib", doc_id, op: "set" | "update", if_version, file}]
+     node citylib.js gaps  <db_dir>
+         Prints what the library is still missing: countries with no town list, towns with no first lists.
+     node citylib.js doctor <db_dir>
+         Checks every stored answer against today's rules (its shape, that a city's lists are on a city); prints the
+         broken ones and exits 1 if there are any.
      node citylib.js pack  > citylib.js.txt
          This script with the country list and the questions built in, for the scheduled task to fetch.
 
@@ -85,12 +90,16 @@ const answer = (lib, s, h) => {
   const e = lib[s] && lib[s].data && lib[s].data.q && lib[s].data.q[h];
   return e && e.r && typeof e.r === "object" ? e.r : null;
 };
-const fill = (t, country, city) => t.split("{CITY}").join(city || "").split("{COUNTRY}").join(country);
+const fill = (t, country, city) =>
+  t
+    .split("{CITY}")
+    .join(city || "")
+    .split("{COUNTRY}")
+    .join(country);
 
-function plan(db, work, citiesN = 15, countriesN = 6, seed = 0) {
-  const lib = docsIn(path.join(db, "citylib")),
-    Q = questions();
-  for (const k of ["cities", "spots", "food"]) if (textHash(Q[k].t) !== Q[k].h) throw new Error("the " + k + " question's fingerprint does not match");
+/** what the library is still missing: countries with no town list, and the towns (the ones plan would fill) with no
+    first lists @returns {{codes: string[], bare: string[], open: {country: string, city: string, slug: string, kinds: string[]}[]}} */
+function gapsIn(lib, Q) {
   const codes = top();
   /* every town that could be filled: the countries with a town list, their most popular towns to stay in */
   const open = [],
@@ -112,13 +121,80 @@ function plan(db, work, citiesN = 15, countriesN = 6, seed = 0) {
         if (kinds.length) open.push({ country, city: x.c.name, slug: s, kinds });
       });
   });
+  return { codes, bare, open };
+}
+
+/** check every stored answer against today's rules; print what is broken (and return the list) */
+function doctor(db) {
+  const lib = docsIn(path.join(db, "citylib")),
+    bad = [];
+  let answers = 0,
+    docs = 0;
+  Object.keys(lib)
+    .sort()
+    .forEach(s => {
+      if (s === "_stats") return;
+      docs++;
+      const d = lib[s].data || {},
+        q = d.q;
+      if (!q || typeof q !== "object") return bad.push(s + ": no answers (q is missing)");
+      if (d.city === undefined || d.country === undefined) bad.push(s + ": no country or city name");
+      const size = Buffer.byteLength(JSON.stringify(d));
+      if (size > 200000) bad.push(s + ": " + size + " bytes (too big for one document)");
+      Object.keys(q).forEach(h => {
+        const e = q[h];
+        if (!e || e.drop) return; /* (a dropped answer is a marker, not an answer) */
+        answers++;
+        const r = e.r;
+        if (!r || typeof r !== "object") return bad.push(s + " " + h + ": the answer is not an object");
+        const kind = Array.isArray(r.cities) ? "cities" : Array.isArray(r.spots) ? "spots" : Array.isArray(r.food) ? "food" : "";
+        if (!kind) return bad.push(s + " " + h + ": not a list of towns, things to do or places to eat");
+        if ((kind === "cities") !== !d.city)
+          bad.push(s + " " + h + ": a " + kind + " list on a " + (d.city ? "city" : "country") + " document");
+        const why = ok(kind, r);
+        if (why) bad.push(s + " " + h + " (" + kind + "): " + why);
+        if (!(e.at > 0)) bad.push(s + " " + h + ": no time it was kept");
+      });
+    });
+  console.log(JSON.stringify({ documents: docs, answers, broken: bad.length }));
+  bad.forEach(b => console.log("  " + b));
+  return bad;
+}
+
+/** print the gaps (a plain list) */
+function gaps(db) {
+  const lib = docsIn(path.join(db, "citylib")),
+    g = gapsIn(lib, questions());
+  console.log("Countries with no town list yet (" + g.bare.length + " of " + g.codes.length + "): " + g.bare.join(", "));
+  const by = {};
+  g.open.forEach(t => (by[t.country] = by[t.country] || []).push(t.city + " (" + t.kinds.join(" + ") + ")"));
+  console.log("Towns missing lists (" + g.open.length + "):");
+  Object.keys(by)
+    .sort()
+    .forEach(c => console.log("  " + c + ": " + by[c].join(", ")));
+}
+
+function plan(db, work, citiesN = 15, countriesN = 6, seed = 0) {
+  const lib = docsIn(path.join(db, "citylib")),
+    Q = questions();
+  for (const k of ["cities", "spots", "food"])
+    if (textHash(Q[k].t) !== Q[k].h) throw new Error("the " + k + " question's fingerprint does not match");
+  const { codes, bare, open } = gapsIn(lib, Q);
   const tasks = [];
   const nCountries = open.length < citiesN ? countriesN * 2 : countriesN;
-  shuffle(bare, seed)
+  /* the most visited first (the list is in that order): a night picks at random among the next few that are empty, so the
+     likeliest picks fill before the rare ones, and no two nights are the same */
+  shuffle(bare.slice(0, Math.max(nCountries * 4, 12)), seed)
     .slice(0, nCountries)
-    .forEach(country => tasks.push({ kind: "cities", country, city: "", slug: slug(country), h: Q.cities.h, prompt: fill(Q.cities.t, country, "") }));
+    .forEach(country =>
+      tasks.push({ kind: "cities", country, city: "", slug: slug(country), h: Q.cities.h, prompt: fill(Q.cities.t, country, "") })
+    );
   const towns = shuffle(open, seed && seed + 1).slice(0, citiesN);
-  towns.forEach(t => t.kinds.forEach(kind => tasks.push({ kind, country: t.country, city: t.city, slug: t.slug, h: Q[kind].h, prompt: fill(Q[kind].t, t.country, t.city) })));
+  towns.forEach(t =>
+    t.kinds.forEach(kind =>
+      tasks.push({ kind, country: t.country, city: t.city, slug: t.slug, h: Q[kind].h, prompt: fill(Q[kind].t, t.country, t.city) })
+    )
+  );
   fs.mkdirSync(work, { recursive: true });
   tasks.forEach((t, i) => {
     t.id = "t" + (i + 1);
@@ -126,7 +202,14 @@ function plan(db, work, citiesN = 15, countriesN = 6, seed = 0) {
   });
   fs.writeFileSync(path.join(work, "tasks.json"), JSON.stringify(tasks, null, 1));
   const filled = codes.length - bare.length;
-  console.log(JSON.stringify({ tasks: tasks.length, countryLists: tasks.filter(t => t.kind === "cities").length, towns: towns.length, library: { countries: filled + " of " + codes.length, townsLeft: open.length } }));
+  console.log(
+    JSON.stringify({
+      tasks: tasks.length,
+      countryLists: tasks.filter(t => t.kind === "cities").length,
+      towns: towns.length,
+      library: { countries: filled + " of " + codes.length, townsLeft: open.length }
+    })
+  );
 }
 
 /** the answer's JSON (a fenced block or the first {...} in the text) */
@@ -182,10 +265,37 @@ function check(db, work) {
     fs.writeFileSync(file, JSON.stringify(body));
     const had = lib[s];
     /* update merges q into what is there (the app's other answers stay); a new place is set */
-    return had ? { collection: "citylib", doc_id: s, op: "update", if_version: had.version, file } : { collection: "citylib", doc_id: s, op: "set", file };
+    return had
+      ? { collection: "citylib", doc_id: s, op: "update", if_version: had.version, file }
+      : { collection: "citylib", doc_id: s, op: "set", file };
   });
+  /* the library's size after tonight, for the app's Settings (citylib/_stats): countries with a town list, and towns with
+     both first lists (what is there now, with what this night adds) */
+  const Q = questions(),
+    have = (s, h) => !!(by[s] && by[s].q[h]) || !!answer(lib, s, h);
+  const slugs = new Set(
+    Object.keys(lib)
+      .concat(Object.keys(by))
+      .filter(s => s !== "_stats")
+  );
+  let countries = 0,
+    cities = 0;
+  slugs.forEach(s => {
+    const meta = (by[s] && by[s].city !== undefined ? by[s] : lib[s] && lib[s].data) || {};
+    if (meta.city) {
+      if (have(s, Q.spots.h) && have(s, Q.food.h)) cities++;
+    } else if (have(s, Q.cities.h)) countries++;
+  });
+  const stats = { countries, cities, at: Date.now() },
+    sfile = path.join(out, "_stats.json");
+  fs.writeFileSync(sfile, JSON.stringify(stats));
+  writes.push(
+    lib._stats
+      ? { collection: "citylib", doc_id: "_stats", op: "update", if_version: lib._stats.version, file: sfile }
+      : { collection: "citylib", doc_id: "_stats", op: "set", file: sfile }
+  );
   fs.writeFileSync(path.join(work, "writes.json"), JSON.stringify(writes, null, 1));
-  console.log(JSON.stringify(Object.assign(report, { documents: writes.length })));
+  console.log(JSON.stringify(Object.assign(report, { documents: writes.length - 1, library: stats })));
 }
 
 function pack() {
@@ -196,14 +306,18 @@ function pack() {
   process.stdout.write(src);
 }
 
-module.exports = { norm, slug, citySlug, textHash, shuffle, parse, ok, plan, check };
+module.exports = { norm, slug, citySlug, textHash, shuffle, parse, ok, plan, check, gaps, doctor };
 if (require.main === module) {
   const [cmd, a, b, c, d] = process.argv.slice(2);
   if (cmd === "plan") plan(a, b, +c || 15, +d || 6, +process.env.CITYLIB_SEED || 0);
   else if (cmd === "check") check(a, b);
+  else if (cmd === "gaps") gaps(a);
+  else if (cmd === "doctor") process.exitCode = doctor(a).length ? 1 : 0;
   else if (cmd === "pack") pack();
   else {
-    console.error("usage: citylib.js plan <db_dir> <work_dir> [cities] [countries] | check <db_dir> <work_dir> | pack");
+    console.error(
+      "usage: citylib.js plan <db_dir> <work_dir> [cities] [countries] | check <db_dir> <work_dir> | gaps <db_dir> | doctor <db_dir> | pack"
+    );
     process.exit(2);
   }
 }

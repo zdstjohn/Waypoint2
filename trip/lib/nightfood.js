@@ -198,7 +198,7 @@
         '" target="_blank" rel="noopener">' +
         W.esc(host || "its website") +
         "</a>" +
-        (m.at ? ", read " + W.esc(new Date(m.at + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })) : "") +
+        (m.at ? ", read " + W.esc(W.fmtDate(new Date(m.at + "T12:00"), "md")) : "") +
         ". Dishes and prices change.</p>";
     } else
       h +=

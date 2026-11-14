@@ -186,6 +186,19 @@
   };
 
   /* ---------- dates ---------- */
+  /* The app's dates, in one style: the month is always short ("Jun 8"), the weekday short in rows ("Tue, Jun 8") and long in
+     headings ("Tuesday, Jun 8"); a year only where it is needed ("Jun 8, 2027"). Everything that shows a date asks here,
+     with a style: "md", "wmd" (the default), "Wmd" or "mdy". */
+  var DATE_STYLES = /** @type {Record<string, Intl.DateTimeFormatOptions>} */ ({
+    md: { month: "short", day: "numeric" },
+    wmd: { weekday: "short", month: "short", day: "numeric" },
+    Wmd: { weekday: "long", month: "short", day: "numeric" },
+    mdy: { month: "short", day: "numeric", year: "numeric" }
+  });
+  W.fmtDate = function (/** @type {Date | null | undefined} */ d, /** @type {string | Intl.DateTimeFormatOptions} [style] */ style) {
+    if (!d || isNaN(d.getTime())) return "";
+    return d.toLocaleDateString(undefined, (typeof style === "string" ? DATE_STYLES[style] : style) || DATE_STYLES.wmd);
+  };
   W.dateOf = function (n) {
     if (!W.S.start) return null;
     var d = new Date(W.S.start + "T12:00:00");

@@ -2,6 +2,45 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v188
+
+Small fixes and a few things you asked for.
+- A travel day: once you pick how you're getting there (or a ticket is booked) the options fold into one line under
+  the ticket ("Bus · 3h"), and stay folded on this device (trip.js legCard, S.legClosed, a view-only key).
+- Opening a day at what's on now keeps the walk there clear of the day strip at any text size (trip.js holdAt takes a
+  function for the gap).
+- One date style (times.js W.fmtDate: "md", "wmd", "Wmd", "mdy"): the month is always short. The 37 places that wrote
+  dates their own way now ask it; the kids' corner, the trip's dates and the memories no longer spell the month out.
+- Long names (Today's town, the day strip's stay, the stay button) wrap to two lines instead of being cut off.
+- The "···" menu (Menu and Swap behind one button, v178) is on a desktop too; the quick-button row steps aside while
+  it is open (app.css, desk.css).
+- Checks: the built-in places (test/lib/datacheck.js), drawn buttons nothing reads (test/lib/deadcheck.js), the day
+  keeps its scroll place when a stop's details close (back), the travel-day fold (flow).
+
+## v187
+
+Ten small jobs on the library, the website and the checks (each with a test where it can have one).
+- Settings has a "City library" line (how many countries and cities are ready: lib/citylib.js W.libStats, counted by
+  the nightly check into citylib/_stats) and a "What's new" card (data/data2.js WHATS_NEW).
+- Plan says "Ready from the shared library" under a country's towns that came from it (core.js W.libFrom).
+- The nightly plan picks among the next dozen most visited empty countries (not any of the 150), and
+  `node tools/citylib.js gaps <db_dir>` prints what is still missing.
+- Cities already seen stay on the phone after a reload and with no connection (a check in test/suites/citylib.js).
+- The longest country names fit a 360 px phone (test/suites/names.js). Sign in / New account and "Find flights" get
+  the unseen 44 px tap area (app.css), checked on the installable site in dark mode.
+
+## v186
+
+Small fixes from the owner's list.
+- To book lists what is needed soonest first (by the day it is used, then its book-by date: screens/book.js).
+- The speed measurement asks again after a passing "upstream_error" and does not count a run of two errors as done; it
+  is re-armed (key waypoint-speedtest-v3: lib/speedtest.js).
+- Other names for a country find it, typed and as you type: UAE, Holland, Czech Republic, Turkey, Burma, Macau and more,
+  matched to whichever spelling the browser's list uses (screens/setup.js ALIASES and SAME, lib/typeahead.js).
+- Logged errors: a screen that asks for the second script before it is in gets "not yet", never an error (core.js
+  W.needLater stand-in); the delete x and the "..." on a stop get the unseen 44 px tap area (app.css).
+- Sharing the installable site's link shows a proper title, description and picture (build/standalone.js, build/icon/og.js).
+
 ## v185
 
 The city library is built up for anyone who uses the app (the owner: "building up the library ... so someone can use

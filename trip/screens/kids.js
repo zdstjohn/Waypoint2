@@ -349,7 +349,7 @@
       "<div><b>Day " +
       day.n +
       "</b><span>" +
-      esc(d ? d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }) : day.city) +
+      esc(d ? W.fmtDate(d, "Wmd") : day.city) +
       "</span></div>" +
       '<button type="button" class="k-arrow" data-kday="1"' +
       (kday >= P.N ? " disabled" : "") +
@@ -469,13 +469,7 @@
       .map(function (p, i) {
         var st = stamped(p),
           d = W.dateOf(p.n);
-        var line = st
-          ? d
-            ? d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
-            : "Stamped"
-          : p.trip
-            ? "Day trip"
-            : "Not yet";
+        var line = st ? (d ? W.fmtDate(d, "mdy") : "Stamped") : p.trip ? "Day trip" : "Not yet";
         return (
           '<button type="button" class="stamp c' +
           (i % 6) +

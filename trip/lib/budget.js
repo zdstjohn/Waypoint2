@@ -145,7 +145,7 @@
       }
     };
     var dt = W.fxDate(),
-      when = dt ? new Date(dt + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
+      when = dt ? W.fmtDate(new Date(dt + "T12:00"), "md") : "";
     return (
       '<div class="cur-pick"><label for="curPick">Prices in</label><select class="field" id="curPick" data-curpick="1">' +
       '<option value=""' +

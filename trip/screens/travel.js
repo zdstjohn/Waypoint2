@@ -8,7 +8,7 @@
     $ = W.$;
   var nowMin = W.nowMin;
   function fmt(d, o) {
-    return d ? d.toLocaleDateString(undefined, o || { weekday: "short", month: "short", day: "numeric" }) : "";
+    return W.fmtDate(d, o || "wmd");
   }
   function svg(d, vb) {
     return (
@@ -492,13 +492,7 @@
       "</b>" +
       '<span class="muted">' +
       esc(
-        [
-          fmt(W.dateOf(n), { weekday: "long", month: "short", day: "numeric" }),
-          live && nm != null ? W.clock(nm) : "",
-          live ? W.tripTimeNote(day.city) : ""
-        ]
-          .filter(Boolean)
-          .join(" · ")
+        [fmt(W.dateOf(n), "Wmd"), live && nm != null ? W.clock(nm) : "", live ? W.tripTimeNote(day.city) : ""].filter(Boolean).join(" · ")
       ) +
       "</span></div>" +
       '<button type="button" class="icon-btn" data-goprev="' +

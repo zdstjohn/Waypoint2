@@ -186,8 +186,8 @@
     if (!el) return;
     var d1 = W.dateOf(1),
       dn = W.dateOf(P.N),
-      fmt = function (/** @type {Date | null} */ d, /** @type {Intl.DateTimeFormatOptions} */ o) {
-        return d ? d.toLocaleDateString(undefined, o) : "";
+      fmt = function (/** @type {Date | null} */ d, /** @type {string} */ o) {
+        return W.fmtDate(d, o);
       };
     var h =
       '<div class="recap"><button type="button" class="linkish back" data-view="trip">' +
@@ -199,9 +199,7 @@
       '<p class="muted">' +
       esc(
         [
-          d1
-            ? fmt(d1, { month: "long", day: "numeric" }) + " – " + fmt(dn, { month: "long", day: "numeric", year: "numeric" })
-            : P.N + " days",
+          d1 ? fmt(d1, "md") + " – " + fmt(dn, "mdy") : P.N + " days",
           P.stops
             .map(function (s) {
               return s.name;
@@ -230,7 +228,7 @@
         " · " +
         esc(day.city) +
         '</b><span class="muted">' +
-        esc(fmt(W.dateOf(day.n), { weekday: "long", month: "short", day: "numeric" })) +
+        esc(fmt(W.dateOf(day.n), "Wmd")) +
         "</span></div>" +
         (seen.length ? '<p class="small muted">' + esc(seen.join(" · ")) + "</p>" : "") +
         "</article>";

@@ -23,6 +23,9 @@ exports.run = async t => {
   const chk = await pg.evaluate(() => ({ items: document.querySelectorAll('.chk').length, by: document.querySelectorAll('.chk .by').length, stays: [...document.querySelectorAll('.chk')].filter(c => /stay|hotel|place to stay/i.test(c.innerText)).length }));
   t.ok(chk.items >= 5, 'the checklist has things to book: ' + JSON.stringify(chk));
   t.ok(chk.by >= 3, 'with "book by" dates');
+  /* (v186) in each group the rows follow the day they are used, soonest first */
+  const ord = await pg.evaluate(() => [...document.querySelectorAll('.chk-group')].map(g => [...g.querySelectorAll('.chk [data-goday]')].map(e => +e.dataset.goday)).filter(a => a.length > 1));
+  t.ok(ord.length > 0 && ord.every(a => a.every((d, i) => !i || d >= a[i - 1])), 'each group lists what is needed soonest first: ' + JSON.stringify(ord));
   /* the Day button sits at the start of its row (it was centred: ".go" is also the Today screen's class) */
   const dayChip = await pg.evaluate(() => { const c = document.querySelector('.chk-a [data-goday]'); if (!c) return null; const row = c.parentElement.getBoundingClientRect(), r = c.getBoundingClientRect(), sib = c.previousElementSibling;
     return { cls: c.className, left: Math.round(r.left - (sib ? sib.getBoundingClientRect().right + 6 : row.left)) }; });

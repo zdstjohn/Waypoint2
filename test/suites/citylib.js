@@ -56,6 +56,12 @@ exports.run = async t => {
   t.ok(gen.every(g => file[g.k] && file[g.k].t === g.t && file[g.k].h === g.h), 'the app\'s general questions are the nightly task\'s (tools/citylib-questions.json; if not, the new ones are in test/out)');
   t.ok(gen.every(g => !/Lean toward the travelers|food needs|Travelers' ages: \d/.test(g.t)) && /Travelers' ages: adults/.test(gen[1].t), 'and they are asked for no one in particular: no interests, no ages, no food needs');
   t.eq(A.errors(), [], 'no page errors (first phone)');
+  /* (v187) a city already seen stays on the phone: after a reload and then with the network gone (a flight), its lists are still there */
+  await A.pg.reload(); await A.pg.waitForFunction(() => window.W && W.P && W.P.days && W.P.days.length, null, { timeout: 15000 }).catch(() => {}); await A.pg.waitForTimeout(1200);
+  await A.ctx.setOffline(true); await A.pg.waitForTimeout(400);
+  const away = await A.pg.evaluate(three => three.map(c => { const p = W.pool('Croatia', c); return !!(p && (p.spots || []).length >= 8 && (p.food || []).length >= 8); }), three);
+  t.ok(away.every(Boolean), 'cities already seen still open with no connection after a reload: ' + JSON.stringify(away));
+  await A.ctx.setOffline(false);
   await A.ctx.close();
 
   /* ---- 2. someone else's phone, nothing on it yet: the same trip asks nobody ---- */

@@ -977,6 +977,7 @@
       "tripFolded",
       "mapZoom",
       "jetOpen",
+      "legClosed",
       "nextHide",
       "tview",
       "exF",

@@ -531,13 +531,7 @@
       var kept = window.__WP_COPY_KEPT !== false;
       return (
         '<section class="go-off sk copy"><span class="go-k">Offline copy</span><p>Saved ' +
-        (at
-          ? W.esc(
-              at.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) +
-                " " +
-                W.clock(at.getHours() * 60 + at.getMinutes())
-            )
-          : "") +
+        (at ? W.esc(W.fmtDate(at, "wmd") + " " + W.clock(at.getHours() * 60 + at.getMinutes())) : "") +
         ". Your plan, times, bookings and photos are in this file and need no connection. Searching, new ideas, prices and street maps need the live app.</p>" +
         '<p class="small">' +
         (kept
@@ -577,7 +571,7 @@
         (O.n === 1 ? "" : "s") +
         (O.maps.length ? " and " + O.maps.length + " street map" + (O.maps.length === 1 ? "" : "s") : "") +
         " on this phone · saved " +
-        W.esc(d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })) +
+        W.esc(W.fmtDate(d, "wmd")) +
         " " +
         W.clock(d.getHours() * 60 + d.getMinutes()) +
         '</p><div class="gr-b"><button type="button" class="chip" data-offsave="1">Save again</button><button type="button" class="chip" data-offcopy="1"' +

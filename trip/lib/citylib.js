@@ -141,6 +141,30 @@
       }
     );
   };
+  /** how big the library is ({countries, cities, at}, kept by the nightly task), or null when it is not known
+      @param {(s: {countries: number, cities: number, at: number} | null) => void} cb */
+  W.libStats = function (cb) {
+    var done = false,
+      end = function (/** @type {any} */ s) {
+        if (done) return;
+        done = true;
+        cb(s);
+      };
+    setTimeout(function () {
+      end(null);
+    }, LIB_WAIT);
+    db().then(function (d) {
+      if (!d) return end(null);
+      fresh(d.doc("citylib/_stats")).then(
+        function (x) {
+          end(x && typeof x.countries === "number" && typeof x.cities === "number" ? x : null);
+        },
+        function () {
+          end(null);
+        }
+      );
+    });
+  };
   /** keep a fresh answer from Claude for everyone @param {any} q @param {any} r */
   W.libSave = function (q, r) {
     /* (the website reads the library but doesn't add to it: its copy is the nightly task's, copied from the Claude

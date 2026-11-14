@@ -37,6 +37,21 @@
       '<header class="set-h"><h2>Settings</h2><p class="muted">' +
       esc(W.tripName ? W.tripName() : "This trip") +
       "</p></header>";
+    /* what is new (data/data2.js WHATS_NEW) */
+    var news = window.WHATS_NEW;
+    if (news && news.items && news.items.length)
+      h += card(
+        "What's new",
+        "",
+        '<ul class="small whatsnew">' +
+          news.items
+            .map(function (t) {
+              return "<li>" + esc(t) + "</li>";
+            })
+            .join("") +
+          "</ul>",
+        "set-new"
+      );
     if (W.accountCard) h += W.accountCard(card);
     if (W.installCard) h += W.installCard(card);
     if (!W.standalone || W.cloud)
@@ -69,6 +84,14 @@
         "set-copy"
       );
     if (W.gmCard) h += W.gmCard(card); /* the viewer's Google Maps connection: what it adds, and its switch (lib/gmaps.js) */
+    /* the shared city library: how much is ready (counted each night, lib/citylib.js) */
+    if (W.libStats)
+      h += card(
+        "City library",
+        "Towns and places Waypoint has ready for everyone, so a city opens in seconds.",
+        '<p class="small muted" id="libMsg" role="status">Counting…</p>',
+        "set-lib"
+      );
     W.keepInputs(host, function () {
       var t = W.$("importText"),
         keep = t && t.value;
@@ -78,6 +101,19 @@
         if (t2) t2.value = keep;
       }
     });
+    if (W.libStats)
+      W.libStats(function (st) {
+        var m = W.$("libMsg");
+        if (m)
+          m.textContent = st
+            ? st.countries +
+              (st.countries === 1 ? " country" : " countries") +
+              " and " +
+              st.cities +
+              (st.cities === 1 ? " city" : " cities") +
+              " ready."
+            : "Filled in a little more each night.";
+      });
   };
   /* ---------- a copy of your trips ---------- */
   var tripsMsg = "";

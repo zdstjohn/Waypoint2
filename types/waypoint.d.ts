@@ -1,7 +1,15 @@
 /* Waypoint: the shapes that travel between files. Hand-written; checked against the sources by tsc (checkJs, noEmit) in
    test/suites/types.js. W is one shared object every file adds to; everything typed `any` below has not been described yet. */
 
-type LatLng = { lat: number | null; lng: number | null; g?: [number, number] | null; pinAsked?: 1; gid?: string; gpin?: 1; [k: string]: any };
+type LatLng = {
+  lat: number | null;
+  lng: number | null;
+  g?: [number, number] | null;
+  pinAsked?: 1;
+  gid?: string;
+  gpin?: 1;
+  [k: string]: any;
+};
 type Slot = "breakfast" | "am" | "lunch" | "pm" | "dinner" | "eve";
 type View = "setup" | "trip" | "book" | "go" | "recap" | "settings" | "kids" | "explore";
 type Focus = "icons" | "both" | "gems";
@@ -13,77 +21,450 @@ type Meal = "breakfast" | "lunch" | "dinner" | "both" | "all";
 
 /** a thing to do, as a city's list keeps it. Spot and Food share one shape (the planner and the cards read either),
     the two names only say which list an item came from: a Food always has meal/cuisine/menu, a Spot always has s/ticket. */
-interface Spot extends LatLng { n: string; d: string; t: string[]; k: Kid; fame?: Fame; rating?: number; s: TimeOfDay; dur: string; ticket: string; book: string; bookV?: number; pic: string; place?: string;
-  st?: "open" | "closed" | "unsure" | "unverified" | "unfound" | "dup"; hours?: Hours | null; lead?: number; love?: string; gripe?: string; bch?: BeachFacts; note?: string; durAsked?: 1; mine?: boolean; indoor?: boolean;
-  meal?: Meal; cuisine?: string; price?: string; menu?: string; reserve?: boolean; fav?: boolean }
+interface Spot extends LatLng {
+  n: string;
+  d: string;
+  t: string[];
+  k: Kid;
+  fame?: Fame;
+  rating?: number;
+  s: TimeOfDay;
+  dur: string;
+  ticket: string;
+  book: string;
+  bookV?: number;
+  pic: string;
+  place?: string;
+  st?: "open" | "closed" | "unsure" | "unverified" | "unfound" | "dup";
+  hours?: Hours | null;
+  lead?: number;
+  love?: string;
+  gripe?: string;
+  bch?: BeachFacts;
+  note?: string;
+  durAsked?: 1;
+  mine?: boolean;
+  indoor?: boolean;
+  meal?: Meal;
+  cuisine?: string;
+  price?: string;
+  menu?: string;
+  reserve?: boolean;
+  fav?: boolean;
+}
 /** a place to eat */
-interface Food extends LatLng { n: string; d: string; cuisine: string; price: string; meal: Meal; /** the meals came from a checked record (lib/places.js) */ mealOk?: number; k: Kid; fame?: Fame; rating?: number; reserve: boolean; book: string; menu: string; dur: string; fav: boolean; pic: string; place?: string;
-  st?: Spot["st"]; hours?: Hours | null; lead?: number; love?: string; gripe?: string; note?: string; durAsked?: 1; s?: TimeOfDay; ticket?: string; t?: string[]; bookV?: number; bch?: BeachFacts; indoor?: boolean; mine?: boolean; fit?: string; fitw?: string; eat?: { f: string; w: string; l?: number; sig: string }; night?: string }
-interface Hours { o: number; c: number; closed: number[] }
-interface BeachFacts { calm?: "calm" | "some waves" | "often rough"; shallow?: boolean; shade?: string; lifeguard?: boolean; sand?: string; walk?: number; facilities?: boolean; note?: string }
-interface StayArea extends LatLng { n: string; d: string }
-interface Lodging extends LatLng { n: string; tier: Tier; type: string; area: string; d: string; price: string; site: string }
+interface Food extends LatLng {
+  n: string;
+  d: string;
+  cuisine: string;
+  price: string;
+  meal: Meal;
+  /** the meals came from a checked record (lib/places.js) */ mealOk?: number;
+  k: Kid;
+  fame?: Fame;
+  rating?: number;
+  reserve: boolean;
+  book: string;
+  menu: string;
+  dur: string;
+  fav: boolean;
+  pic: string;
+  place?: string;
+  st?: Spot["st"];
+  hours?: Hours | null;
+  lead?: number;
+  love?: string;
+  gripe?: string;
+  note?: string;
+  durAsked?: 1;
+  s?: TimeOfDay;
+  ticket?: string;
+  t?: string[];
+  bookV?: number;
+  bch?: BeachFacts;
+  indoor?: boolean;
+  mine?: boolean;
+  fit?: string;
+  fitw?: string;
+  eat?: { f: string; w: string; l?: number; sig: string };
+  night?: string;
+}
+interface Hours {
+  o: number;
+  c: number;
+  closed: number[];
+}
+interface BeachFacts {
+  calm?: "calm" | "some waves" | "often rough";
+  shallow?: boolean;
+  shade?: string;
+  lifeguard?: boolean;
+  sand?: string;
+  walk?: number;
+  facilities?: boolean;
+  note?: string;
+}
+interface StayArea extends LatLng {
+  n: string;
+  d: string;
+}
+interface Lodging extends LatLng {
+  n: string;
+  tier: Tier;
+  type: string;
+  area: string;
+  d: string;
+  price: string;
+  site: string;
+}
 /** a place to stay from Booking.com's search (lib/prices.js, v175): total = for the whole stay, night = a night; tier by price */
-interface LiveLodging extends LatLng { n: string; url: string; total: number; night: number; cur: string; type: string; area: string; score: number; reviews: number; stars: number; tier?: Tier }
+interface LiveLodging extends LatLng {
+  n: string;
+  url: string;
+  total: number;
+  night: number;
+  cur: string;
+  type: string;
+  area: string;
+  score: number;
+  reviews: number;
+  stars: number;
+  tier?: Tier;
+}
 /** what Where to stay can show from Booking.com for a town (W.liveLodge) */
-interface LiveLodge { st: "off" | "nodates" | "idle" | "loading" | "error" | "ok"; items?: LiveLodging[]; at?: number; nights?: number; busy?: boolean; msg?: string }
-interface Transit { system: string; pass: string; airport: string; tip: string }
+interface LiveLodge {
+  st: "off" | "nodates" | "idle" | "loading" | "error" | "ok";
+  items?: LiveLodging[];
+  at?: number;
+  nights?: number;
+  busy?: boolean;
+  msg?: string;
+}
+interface Transit {
+  system: string;
+  pass: string;
+  airport: string;
+  tip: string;
+}
 /** everything the app knows about one city: Claude's lists plus what the checks laid over them */
-interface Pool extends LatLng { d?: string; spots: Spot[]; food: Food[]; stay?: StayArea[]; lodging?: Lodging[]; lodgeFor?: string; lodgeAsked?: 1; transit?: Transit | null; fallback?: boolean;
-  rest?: { spots: Spot[]; food: Food[] }; showN?: { spots?: number; food?: number }; askedN?: number; mealAsks?: number; mealFor?: string;
-  indoorAsked?: 1; fameAsked?: 0 | 1; cityLow?: string }
+interface Pool extends LatLng {
+  d?: string;
+  spots: Spot[];
+  food: Food[];
+  stay?: StayArea[];
+  lodging?: Lodging[];
+  lodgeFor?: string;
+  lodgeAsked?: 1;
+  transit?: Transit | null;
+  fallback?: boolean;
+  rest?: { spots: Spot[]; food: Food[] };
+  showN?: { spots?: number; food?: number };
+  askedN?: number;
+  mealAsks?: number;
+  mealFor?: string;
+  indoorAsked?: 1;
+  fameAsked?: 0 | 1;
+  cityLow?: string;
+}
 /** a destination in a country list (built in, or from Claude) */
 /** isl = the island a town is on; whole = the entry is an island itself (kept only so an older trip that has one as a stop still works) */
-interface BuiltCity extends LatLng { name: string; region?: string; isl?: string; whole?: number; top?: number; day?: number; stay?: number; w?: number; pop?: number; t?: string[]; d?: string; spots?: Spot[] }
-interface Country { name: string; mode: "manual" | "suggest"; picked: string[]; rank?: number }
-interface Stay { label: string; lat?: number | null; lng?: number | null; live?: { total: number; cur: string; url: string; at: number; in: string; out: string; src: string } }
+interface BuiltCity extends LatLng {
+  name: string;
+  region?: string;
+  isl?: string;
+  whole?: number;
+  top?: number;
+  day?: number;
+  stay?: number;
+  w?: number;
+  pop?: number;
+  t?: string[];
+  d?: string;
+  spots?: Spot[];
+}
+interface Country {
+  name: string;
+  mode: "manual" | "suggest";
+  picked: string[];
+  rank?: number;
+}
+interface Stay {
+  label: string;
+  lat?: number | null;
+  lng?: number | null;
+  live?: { total: number; cur: string; url: string; at: number; in: string; out: string; src: string };
+}
 /** the trip, as saved (localStorage "waypoint-v2" and the account) */
-interface TripState { v: 2; algo?: number; tripId?: string; tripName?: string; styles: string[]; focus?: Focus; countries: Country[]; days: number; start: string; depart: string; travelers: (number | "")[]; names?: string[];
-  stays: Record<string, Stay>; picks: Record<string, string>; seen: Record<string, string[]>; mine?: Record<string, 1>; free?: Record<string, 1>; rest?: Record<string, 1>; dayTrip?: Record<string, { country: string; name: string; lat: number | null; lng: number | null; min: number | null }>; fold?: Record<string, unknown>; legPick?: Record<string, unknown>; nope?: Record<string, string>; eat?: { al?: string[]; di?: string[]; love?: string; avoid?: string; note?: string }; eatNone?: 1; eatOpen?: { al?: boolean; di?: boolean }; bag?: Record<string, Record<string, 1>>;
-  cityDays: Record<string, number>; day: number; example?: number; tview?: "days" | "map"; allPref?: boolean; stepClosed?: Record<string, boolean>; prepTab?: string; transitOpen?: unknown; jetOpen?: unknown; nextHide?: unknown; tripFolded?: any; mapZoom?: number; late?: any;
-  appMode?: string; appModeAt?: string; exF?: unknown; exSort?: unknown; pack?: Record<string, unknown>; packHide?: Record<string, 1>; packOwn?: PackItem[]; journal?: Record<string, { mood?: number; note?: string; photos?: { id: string; [k: string]: any }[] }>;
-  kidPicks?: Record<string, string[]>; hunt?: Record<string, Record<string, 1>>; stamps?: Record<string, string>; celebrated?: Record<string, string>; warmSeen?: string; lodge?: Record<string, string>; lodgeSeen?: Record<string, string[]>;
-  share?: any; imported?: any; bookings?: Booking[]; booked?: Record<string, any>; rl?: Record<string, number[]>; under?: Record<string, [string, string, number]>; [k: string]: any }
-interface Booking { key?: string; kind: string; title?: string; day?: number; [k: string]: any }
-interface Costs { ages: string; cur?: string; breakfast?: number | null; lunch?: number | null; dinner?: number | null; transit?: number | null; lodge?: number | null; tickets: Record<string, number | null> }
-interface Cache { country: Record<string, { blurb: string; cities: BuiltCity[]; v?: number; part?: number }>; city: Record<string, Pool>; geo: Record<string, LatLng & { area?: string }>;
-  range: Record<string, { s?: number; r?: number; sig: string }>; /** journeys between towns (always there: lib/core.js makes it with the cache) */ legs: Record<string, any>; cost: Record<string, Costs>; tz: Record<string, string>; live?: any; area: Record<string, any>;
+interface TripState {
+  v: 2;
+  algo?: number;
+  tripId?: string;
+  tripName?: string;
+  styles: string[];
+  focus?: Focus;
+  countries: Country[];
+  days: number;
+  start: string;
+  depart: string;
+  travelers: (number | "")[];
+  names?: string[];
+  stays: Record<string, Stay>;
+  picks: Record<string, string>;
+  seen: Record<string, string[]>;
+  mine?: Record<string, 1>;
+  free?: Record<string, 1>;
+  rest?: Record<string, 1>;
+  dayTrip?: Record<string, { country: string; name: string; lat: number | null; lng: number | null; min: number | null }>;
+  fold?: Record<string, unknown>;
+  legPick?: Record<string, unknown>;
+  nope?: Record<string, string>;
+  eat?: { al?: string[]; di?: string[]; love?: string; avoid?: string; note?: string };
+  eatNone?: 1;
+  eatOpen?: { al?: boolean; di?: boolean };
+  bag?: Record<string, Record<string, 1>>;
+  cityDays: Record<string, number>;
+  day: number;
+  example?: number;
+  tview?: "days" | "map";
+  allPref?: boolean;
+  stepClosed?: Record<string, boolean>;
+  prepTab?: string;
+  transitOpen?: unknown;
+  jetOpen?: unknown;
+  legClosed?: Record<string, boolean>;
+  nextHide?: unknown;
+  tripFolded?: any;
+  mapZoom?: number;
+  late?: any;
+  appMode?: string;
+  appModeAt?: string;
+  exF?: unknown;
+  exSort?: unknown;
+  pack?: Record<string, unknown>;
+  packHide?: Record<string, 1>;
+  packOwn?: PackItem[];
+  journal?: Record<string, { mood?: number; note?: string; photos?: { id: string; [k: string]: any }[] }>;
+  kidPicks?: Record<string, string[]>;
+  hunt?: Record<string, Record<string, 1>>;
+  stamps?: Record<string, string>;
+  celebrated?: Record<string, string>;
+  warmSeen?: string;
+  lodge?: Record<string, string>;
+  lodgeSeen?: Record<string, string[]>;
+  share?: any;
+  imported?: any;
+  bookings?: Booking[];
+  booked?: Record<string, any>;
+  rl?: Record<string, number[]>;
+  under?: Record<string, [string, string, number]>;
+  [k: string]: any;
+}
+interface Booking {
+  key?: string;
+  kind: string;
+  title?: string;
+  day?: number;
+  [k: string]: any;
+}
+interface Costs {
+  ages: string;
+  cur?: string;
+  breakfast?: number | null;
+  lunch?: number | null;
+  dinner?: number | null;
+  transit?: number | null;
+  lodge?: number | null;
+  tickets: Record<string, number | null>;
+}
+interface Cache {
+  country: Record<string, { blurb: string; cities: BuiltCity[]; v?: number; part?: number }>;
+  city: Record<string, Pool>;
+  geo: Record<string, LatLng & { area?: string }>;
+  range: Record<string, { s?: number; r?: number; sig: string }>;
+  /** journeys between towns (always there: lib/core.js makes it with the cache) */ legs: Record<string, any>;
+  cost: Record<string, Costs>;
+  tz: Record<string, string>;
+  live?: any;
+  area: Record<string, any>;
   /** holidays and festivals from Claude per city, for the dates asked about (lib/holidays.js) */
   events: Record<string, { v: number; from: string; to: string; items: CityEvent[] }>;
   /** typical fares from Claude for a flight from home, one way, the whole group (lib/prices.js W.fareGuess) */
-  fare?: Record<string, { cur: string; total: number }> }
-interface CityEvent { n: string; from: string; to: string; kind: string; closes: boolean; crowds: boolean; note: string }
-interface Holiday { n: string; big: number; src: string; note?: string; custom?: boolean }
-interface Party { toddler: boolean; kid: boolean; senior: boolean; adults: number; kids: number[] }
-interface Traveler { name: string; age: number | null; i: number }
+  fare?: Record<string, { cur: string; total: number }>;
+}
+interface CityEvent {
+  n: string;
+  from: string;
+  to: string;
+  kind: string;
+  closes: boolean;
+  crowds: boolean;
+  note: string;
+}
+interface Holiday {
+  n: string;
+  big: number;
+  src: string;
+  note?: string;
+  custom?: boolean;
+}
+interface Party {
+  toddler: boolean;
+  kid: boolean;
+  senior: boolean;
+  adults: number;
+  kids: number[];
+}
+interface Traveler {
+  name: string;
+  age: number | null;
+  i: number;
+}
 /** a base of the trip */
-interface Stop { country: string; name: string; c: BuiltCity | { name: string }; manual?: boolean; days: number; set?: boolean; trips?: { name: string; [k: string]: any }[]; [k: string]: any }
-interface SlotEntry { slot: Slot; key: string; item: Spot | Food | null; rest?: boolean; free?: boolean; trip?: boolean; [k: string]: any }
-interface Day { n: number; country: string; city: string; dayInCity: number; stop: number; tripFirst: boolean; tripLast: boolean; moveFrom: string | null; jet: boolean; rest?: boolean; loading?: boolean; slots: SlotEntry[]; trip?: { name: string; [k: string]: any } | null; fullDay?: boolean; [k: string]: any }
+interface Stop {
+  country: string;
+  name: string;
+  c: BuiltCity | { name: string };
+  manual?: boolean;
+  days: number;
+  set?: boolean;
+  trips?: { name: string; [k: string]: any }[];
+  [k: string]: any;
+}
+interface SlotEntry {
+  slot: Slot;
+  key: string;
+  item: Spot | Food | null;
+  rest?: boolean;
+  free?: boolean;
+  trip?: boolean;
+  [k: string]: any;
+}
+interface Day {
+  n: number;
+  country: string;
+  city: string;
+  dayInCity: number;
+  stop: number;
+  tripFirst: boolean;
+  tripLast: boolean;
+  moveFrom: string | null;
+  jet: boolean;
+  rest?: boolean;
+  loading?: boolean;
+  slots: SlotEntry[];
+  trip?: { name: string; [k: string]: any } | null;
+  fullDay?: boolean;
+  [k: string]: any;
+}
 /** the plan the planner returns (memoized until the trip or the data changes) */
-interface Airport { code: string; name: string; lat: number; lng: number }
+interface Airport {
+  code: string;
+  name: string;
+  lat: number;
+  lng: number;
+}
 /** the meals a town's ideas leave without a place, as the plan stands (lib/plan.js mealGaps) */
-interface MealGap { country: string; city: string; breakfast: number; lunch: number; dinner: number;
+interface MealGap {
+  country: string;
+  city: string;
+  breakfast: number;
+  lunch: number;
+  dinner: number;
   /** each empty meal: its day, and the stop it should be near (n: "" when there is none), within about km of it */
-  at: { meal: string; day: number; n: string; lat: number | null; lng: number | null; km: number }[] }
-interface Plan { stops: Stop[]; days: Day[]; N: number; p: Party; ap: Airport | null; gaps?: Record<string, MealGap> }
+  at: { meal: string; day: number; n: string; lat: number | null; lng: number | null; km: number }[];
+}
+interface Plan {
+  stops: Stop[];
+  days: Day[];
+  N: number;
+  p: Party;
+  ap: Airport | null;
+  gaps?: Record<string, MealGap>;
+}
 /** where the day starts and ends: your stay, or (none: no stay picked yet) the city centre, never shown as an address */
-interface Homebase extends LatLng { label: string; set: boolean; pending?: boolean; none?: boolean; city?: string }
-interface Profile { act?: string; min: number; intensity: number; indoor?: boolean; weather?: boolean; adults?: boolean; slots: string[] }
-interface Classification { kind: string; act: string | null; min: number; intensity: number; indoor: boolean; weather: boolean; adults: boolean; slots: string[]; stroller?: boolean }
-interface TimeRow { start?: number; end?: number; skip?: boolean; late?: boolean; free?: boolean; label?: string; warn: string[]; info: string[]; /** the notes among info that are nice to know, not needed to run the day (Simple view leaves them out) */ more?: string[] }
+interface Homebase extends LatLng {
+  label: string;
+  set: boolean;
+  pending?: boolean;
+  none?: boolean;
+  city?: string;
+}
+interface Profile {
+  act?: string;
+  min: number;
+  intensity: number;
+  indoor?: boolean;
+  weather?: boolean;
+  adults?: boolean;
+  slots: string[];
+}
+interface Classification {
+  kind: string;
+  act: string | null;
+  min: number;
+  intensity: number;
+  indoor: boolean;
+  weather: boolean;
+  adults: boolean;
+  slots: string[];
+  stroller?: boolean;
+}
+interface TimeRow {
+  start?: number;
+  end?: number;
+  skip?: boolean;
+  late?: boolean;
+  free?: boolean;
+  label?: string;
+  warn: string[];
+  info: string[];
+  /** the notes among info that are nice to know, not needed to run the day (Simple view leaves them out) */ more?: string[];
+}
 /** a booked journey with a time (lib/bookcore.js W.legTicket): minutes from midnight; an arrival the next day is past 1440 */
-interface Ticket { kind: string; title: string; provider: string; ref: string; dep: number; arr: number | null; /** the two ends are on different clocks: the times stand as booked, no length is worked out */ zone?: boolean }
+interface Ticket {
+  kind: string;
+  title: string;
+  provider: string;
+  ref: string;
+  dep: number;
+  arr: number | null;
+  /** the two ends are on different clocks: the times stand as booked, no length is worked out */ zone?: boolean;
+}
 /** one way of going, as Rome2Rio measured it (minutes door to door) */
-interface R2RRoute { name: string; min: number; carriers: string[] }
-interface DayTimes { rows: Partial<Record<Slot, TimeRow>>; nap?: { start: number; end: number; away?: boolean } | null;
+interface R2RRoute {
+  name: string;
+  min: number;
+  carriers: string[];
+}
+interface DayTimes {
+  rows: Partial<Record<Slot, TimeRow>>;
+  nap?: { start: number; end: number; away?: boolean } | null;
   /** a moving day's journey; leg: the way between the two towns (W.legFor, always there for a stop after the first) */
   travel?: { start: number; end: number; leg: TownLeg; ticket?: Ticket; dep?: number; arr?: number; zone?: boolean } | null;
   /** a free morning in the town you're leaving before a booked late departure */
-  before?: { start: number; end: number; city: string } | null; [k: string]: any }
-interface Leg { min: number; mode: string; km?: number; [k: string]: any }
+  before?: { start: number; end: number; city: string } | null;
+  [k: string]: any;
+}
+interface Leg {
+  min: number;
+  mode: string;
+  km?: number;
+  [k: string]: any;
+}
 /** the journey between two bases (lib/times.js W.legFor): best is the way chosen (Claude's options, opts), min its minutes */
-interface TownLeg { a: Stop; b: Stop; key: string; opts: any[] | null; best: any; pick: number; min: number; km: number | null; guessed: boolean; r2r: R2RRoute | null; [k: string]: any }
+interface TownLeg {
+  a: Stop;
+  b: Stop;
+  key: string;
+  opts: any[] | null;
+  best: any;
+  pick: number;
+  min: number;
+  km: number | null;
+  guessed: boolean;
+  r2r: R2RRoute | null;
+  [k: string]: any;
+}
 /** one row of a day on the Today screen (screens/travel.js entries), in time order: the journey, a place, a rest, the
     nap, the way back; i is its place in the day before sorting */
 type GoEntry = { start: number; end: number; i?: number } & (
@@ -93,41 +474,184 @@ type GoEntry = { start: number; end: number; i?: number } & (
   | { k: "nap"; away: boolean }
   | { k: "back" }
 );
-interface Energy { planScore?: number; level: number; label: string; walk: number; act: number; travel: number; score: number; big: number }
-interface Countdown { big: string; small: string; line: string }
-interface CheckItem { key: string; title?: string; short?: string; done: boolean; [k: string]: any }
-interface PackItem { key: string; text: string; who?: string; why?: string; own?: boolean; group?: string; [k: string]: any }
-interface PackLists { pack: PackItem[]; todo: PackItem[]; facts: Record<string, any>; hidden?: number }
-interface Photo { url: string; credit?: string; page?: string; near?: string | boolean; /** a large copy of the same picture (stored by the nightly helper), for wide headers */ big?: string; /** the small copy (320 px wide, or smw), the WebP twins, the normal copy's width when not 720, and a 16 px blurred preview (base64 WebP) */ sm?: string; smw?: number; w?: number; webp?: { sm?: string; url?: string; big?: string }; lq?: string }
+interface Energy {
+  planScore?: number;
+  level: number;
+  label: string;
+  walk: number;
+  act: number;
+  travel: number;
+  score: number;
+  big: number;
+}
+interface Countdown {
+  big: string;
+  small: string;
+  line: string;
+}
+interface CheckItem {
+  key: string;
+  title?: string;
+  short?: string;
+  done: boolean;
+  [k: string]: any;
+}
+interface PackItem {
+  key: string;
+  text: string;
+  who?: string;
+  why?: string;
+  own?: boolean;
+  group?: string;
+  [k: string]: any;
+}
+interface PackLists {
+  pack: PackItem[];
+  todo: PackItem[];
+  facts: Record<string, any>;
+  hidden?: number;
+}
+interface Photo {
+  url: string;
+  credit?: string;
+  page?: string;
+  near?: string | boolean;
+  /** a large copy of the same picture (stored by the nightly helper), for wide headers */ big?: string;
+  /** the small copy (320 px wide, or smw), the WebP twins, the normal copy's width when not 720, and a 16 px blurred preview (base64 WebP) */ sm?: string;
+  smw?: number;
+  w?: number;
+  webp?: { sm?: string; url?: string; big?: string };
+  lq?: string;
+}
 /** a checked place record (places/<city> in the database) */
 /** g: Google's place ID (kept for good); gpin/gat: the pin came from Google on that day (kept 30 days, never on the free map) */
-interface PlaceRecord { lat?: number | null; lng?: number | null; g?: string; gpin?: 1; gat?: string; [k: string]: any; checked?: string; osm?: string; name?: string; st?: Spot["st"]; site?: string; hours?: Hours; k?: Kid; note?: string; place?: string; replace?: Partial<Food & Spot> & { n: string }; approx?: 1; nopin?: 1; ashore?: 1; stay?: 1; pin_tried?: string; area?: 1; was?: [number, number] }
+interface PlaceRecord {
+  lat?: number | null;
+  lng?: number | null;
+  g?: string;
+  gpin?: 1;
+  gat?: string;
+  [k: string]: any;
+  checked?: string;
+  osm?: string;
+  name?: string;
+  st?: Spot["st"];
+  site?: string;
+  hours?: Hours;
+  k?: Kid;
+  note?: string;
+  place?: string;
+  replace?: Partial<Food & Spot> & { n: string };
+  approx?: 1;
+  nopin?: 1;
+  ashore?: 1;
+  stay?: 1;
+  pin_tried?: string;
+  area?: 1;
+  was?: [number, number];
+}
 /** takeBlock, tripBlock and exportCopy come with lib/offcopy.js, in the second script */
-interface OfflineState { planSig(P: Plan): string; takeBlock?(P: Plan): string; exportCopy?(P: Plan): Promise<any>; photoUrls(P: Plan): string[]; copyNote(P: Plan): string; cities?: Record<string, { photos: number; of: number; map: boolean }>; tripBlock?(P: Plan): string; state: string; n: number; total: number; at: number; maps: any[]; err: string; off: boolean; copy: boolean; trip: any; copyState: string; copyErr: string; why: string; save(P: Plan, why?: string): void; tick(P: Plan): void; src(url: string): string; block(P: Plan): string; click(d: DOMStringMap, P: Plan): boolean; [k: string]: any }
+interface OfflineState {
+  planSig(P: Plan): string;
+  takeBlock?(P: Plan): string;
+  exportCopy?(P: Plan): Promise<any>;
+  photoUrls(P: Plan): string[];
+  copyNote(P: Plan): string;
+  cities?: Record<string, { photos: number; of: number; map: boolean }>;
+  tripBlock?(P: Plan): string;
+  state: string;
+  n: number;
+  total: number;
+  at: number;
+  maps: any[];
+  err: string;
+  off: boolean;
+  copy: boolean;
+  trip: any;
+  copyState: string;
+  copyErr: string;
+  why: string;
+  save(P: Plan, why?: string): void;
+  tick(P: Plan): void;
+  src(url: string): string;
+  block(P: Plan): string;
+  click(d: DOMStringMap, P: Plan): boolean;
+  [k: string]: any;
+}
 /** a shared trip's documents, named and sealed from its code (lib/sharebox.js) */
-interface ShareBox { id: string; plain?: number; name: (label: string) => Promise<string>; seal: (obj: any) => Promise<any>; open: (doc: any) => Promise<any> }
-interface ReadOnly { code: string; box?: ShareBox; [k: string]: any }
-interface Milestone { key: string; title: string; text: string; also?: string[]; go?: View }
-interface Readiness { pct: number; [k: string]: any }
+interface ShareBox {
+  id: string;
+  plain?: number;
+  name: (label: string) => Promise<string>;
+  seal: (obj: any) => Promise<any>;
+  open: (doc: any) => Promise<any>;
+}
+interface ReadOnly {
+  code: string;
+  box?: ShareBox;
+  [k: string]: any;
+}
+interface Milestone {
+  key: string;
+  title: string;
+  text: string;
+  also?: string[];
+  go?: View;
+}
+interface Readiness {
+  pct: number;
+  [k: string]: any;
+}
 /** the one door for Claude's answers (lib/validate.js) */
-interface Validators { stats: { dropped: number; cleared: number; farPins: number }; str(x: unknown, max?: number): string; name(x: unknown): string | null; num(x: unknown): number | null; clamp(x: unknown, lo: number, hi: number, dflt: number): number;
-  web(x: unknown): string; shared(x: unknown, depth?: number): any; pool(p: unknown): Pool | null;
-  oneOf<T extends string>(x: unknown, list: readonly T[], dflt: T): T; intOf<T extends number>(x: unknown, set: readonly T[], dflt: T | undefined): T | undefined; fame(x: unknown): Fame | undefined; rating(x: unknown): number | undefined; tags(t: unknown): string[]; url(x: unknown): string;
+interface Validators {
+  stats: { dropped: number; cleared: number; farPins: number };
+  str(x: unknown, max?: number): string;
+  name(x: unknown): string | null;
+  num(x: unknown): number | null;
+  clamp(x: unknown, lo: number, hi: number, dflt: number): number;
+  web(x: unknown): string;
+  shared(x: unknown, depth?: number): any;
+  pool(p: unknown): Pool | null;
+  oneOf<T extends string>(x: unknown, list: readonly T[], dflt: T): T;
+  intOf<T extends number>(x: unknown, set: readonly T[], dflt: T | undefined): T | undefined;
+  fame(x: unknown): Fame | undefined;
+  rating(x: unknown): number | undefined;
+  tags(t: unknown): string[];
+  url(x: unknown): string;
   oneEach<T>(list: T[], key: string): T[];
-  pin(lat: unknown, lng: unknown): { lat: number; lng: number } | null; pinNear(lat: unknown, lng: unknown, center: LatLng | null | undefined, km?: number): { lat: number; lng: number } | null;
+  pin(lat: unknown, lng: unknown): { lat: number; lng: number } | null;
+  pinNear(lat: unknown, lng: unknown, center: LatLng | null | undefined, km?: number): { lat: number; lng: number } | null;
   /** a name that is not one real place (a group of places, two in one, a meal as a thing to do) */
   vague(n: string, food: boolean): boolean;
   trainRide(n: string): boolean;
-  spot(x: unknown, center: LatLng | null): Spot | null; food(x: unknown, center: LatLng | null, dflt?: { meal?: Meal; pic?: string }): Food | null; city(c: unknown): BuiltCity | null; stayArea(x: unknown, center: LatLng | null): StayArea | null;
-  lodging(x: unknown, center: LatLng | null, tiers: readonly Tier[], tier?: Tier): Lodging | null; bkStay(a: unknown, center: LatLng | null, nights: number): LiveLodging | null; transit(t: unknown): Transit | null; hours(h: unknown): Hours | null; beach(b: unknown): BeachFacts; status(x: unknown): "open" | "closed" | "unsure"; lead(x: unknown): number;
-  tz(x: unknown): string; money(x: unknown): number | null; currency(x: unknown, dflt?: string): string; range(y: unknown): { s: number; r: number } | null; list<T extends { n?: string; name?: string }>(arr: unknown, fn: (x: any) => T | null): T[] }
+  spot(x: unknown, center: LatLng | null): Spot | null;
+  food(x: unknown, center: LatLng | null, dflt?: { meal?: Meal; pic?: string }): Food | null;
+  city(c: unknown): BuiltCity | null;
+  stayArea(x: unknown, center: LatLng | null): StayArea | null;
+  lodging(x: unknown, center: LatLng | null, tiers: readonly Tier[], tier?: Tier): Lodging | null;
+  bkStay(a: unknown, center: LatLng | null, nights: number): LiveLodging | null;
+  transit(t: unknown): Transit | null;
+  hours(h: unknown): Hours | null;
+  beach(b: unknown): BeachFacts;
+  status(x: unknown): "open" | "closed" | "unsure";
+  lead(x: unknown): number;
+  tz(x: unknown): string;
+  money(x: unknown): number | null;
+  currency(x: unknown, dflt?: string): string;
+  range(y: unknown): { s: number; r: number } | null;
+  list<T extends { n?: string; name?: string }>(arr: unknown, fn: (x: any) => T | null): T[];
+}
 
 /** the shared object every file adds to */
 interface Waypoint {
   placeSearch: (q: string, country: string, city: string) => void;
   searchBlock: (day: Day, P: Plan) => string;
   searchClick: (d: DOMStringMap, day: Day, P: Plan) => boolean;
-  dayRouteUrl: (day: Day, stops: { n: string; lat: number | null; lng: number | null; gid?: string }[], home: { label?: string; n?: string; lat: number | null; lng: number | null; none?: boolean; pending?: boolean }) => string;
+  dayRouteUrl: (
+    day: Day,
+    stops: { n: string; lat: number | null; lng: number | null; gid?: string }[],
+    home: { label?: string; n?: string; lat: number | null; lng: number | null; none?: boolean; pending?: boolean }
+  ) => string;
   loadPins: (country: string, city: string, names: string[]) => void;
   $: (id: string) => HTMLElement | null;
   C: Cache;
@@ -190,6 +714,7 @@ interface Waypoint {
   countryName: any;
   dataV: number;
   dateOf: (n: number) => Date | null;
+  fmtDate: (d: Date | null | undefined, style?: string | Intl.DateTimeFormatOptions) => string;
   dayEnergy: (day: Day, P: Plan, T: DayTimes | null) => Energy | null;
   dayNav: any;
   /** null without a start date that reads as one (a date outside the trip gives a day before 1 or after the last) */
@@ -218,7 +743,17 @@ interface Waypoint {
   deskQuick: (x: SlotEntry, it: any, day: Day, P: Plan) => string;
   deskSum: (sm: { stops: number; move: number; first: number | null; last: number | null; booked: number }, day?: Day) => string;
   deskMap: (P: Plan) => void;
-  deskPts: { n: number; country: string; city: string; pts: any[]; home: any; slug: string | null; xp: boolean; go?: boolean; gm?: string } | null;
+  deskPts: {
+    n: number;
+    country: string;
+    city: string;
+    pts: any[];
+    home: any;
+    slug: string | null;
+    xp: boolean;
+    go?: boolean;
+    gm?: string;
+  } | null;
   deskIdeas: { n: string; lat: number | null; lng: number | null; food: boolean }[];
   railRender: (P: Plan) => void;
   palOpen: () => void;
@@ -303,7 +838,7 @@ interface Waypoint {
   isToday: any;
   iso: any;
   isoDay: (d: Date) => string;
-  jetlag: (P: { stops: any[]; ap: any }) => any;   /* (the plan, or just its stops and airports while it is being made) */
+  jetlag: (P: { stops: any[]; ap: any }) => any; /* (the plan, or just its stops and airports while it is being made) */
   joinNames: any;
   jumpToToday: ((P: Plan) => void) & { done?: any };
   keepInputs: (el: HTMLElement, draw: () => void) => void;
@@ -316,6 +851,7 @@ interface Waypoint {
   lateFor: (day: Day) => number;
   /** every country Plan can take (screens/setup.js) */
   countryNames: () => string[];
+  countryAliases: () => [string, string][];
   /** how well a place matches "Food you love": 2, 1 or 0 (lib/eat.js) */
   eatLike: (it: any) => number;
   /** the "like" part of a question about places to eat, when there is something they love */
@@ -376,7 +912,13 @@ interface Waypoint {
   gmListCell: (day: Day) => { cell: string; label: string; msg: string } | null;
   gmRow: (day: Day, gm: string, n0: number, lean?: boolean) => string;
   nearCard: (day: Day, P: Plan, ctx: { from: any; nm: number; live: boolean }) => string;
-  nearIdeas: (day: Day, P: Plan, at: LatLng, food: boolean, nm: number) => { it: any; km: number; open: boolean | null; city: string; country: string }[];
+  nearIdeas: (
+    day: Day,
+    P: Plan,
+    at: LatLng,
+    food: boolean,
+    nm: number
+  ) => { it: any; km: number; open: boolean | null; city: string; country: string }[];
   gmOn: () => boolean;
   gmSearch: (q: string, c: LatLng, city: string, country: string) => Promise<any[]>;
   gmState: () => { state: string; why: string; left: number };
@@ -441,7 +983,17 @@ interface Waypoint {
   priceText: (s: any, local?: string) => string;
   /** nightly restaurants and menus (lib/nightfood.js) */
   withNightFood: (country: string, city: string, pool: any) => void;
-  menuFor: (it: any, country: string, city: string) => { src: string; at: string; sections: { h: string; items: { n: string; p: string; d: string }[] }[]; kids: { n: string; p: string }[]; note: string } | null;
+  menuFor: (
+    it: any,
+    country: string,
+    city: string
+  ) => {
+    src: string;
+    at: string;
+    sections: { h: string; items: { n: string; p: string; d: string }[] }[];
+    kids: { n: string; p: string }[];
+    note: string;
+  } | null;
   menuBlock: (it: any, day: Day, key?: string) => string;
   /** lib/menuread.js: a menu read from a photo, for this family */
   /** lib/bookcheck.js: your bookings against the plan */
@@ -459,7 +1011,12 @@ interface Waypoint {
   shutOn: (it: any, n: number) => { f: string; t: string; why: string } | null;
   shutText: (s: { f: string; t: string; why: string }) => string;
   menuCanRead: () => boolean;
-  menuClean: (r: any) => { lang: string; dishes: { n: string; en: string; d: string; p: string; fit: string; why: string }[]; ask: { local: string; en: string }[]; note: string };
+  menuClean: (r: any) => {
+    lang: string;
+    dishes: { n: string; en: string; d: string; p: string; fit: string; why: string }[];
+    ask: { local: string; en: string }[];
+    note: string;
+  };
   menuRead: (key: string, files: FileList | File[]) => void;
   menuPick: (key: string) => void;
   menuReadBlock: (key: string) => string;
@@ -504,7 +1061,13 @@ interface Waypoint {
   isDayOut: (it: any, slot?: string) => boolean;
   RULES: Record<number, string>;
   WHY?: Record<string, string>;
-  checkPlan: { (P?: Plan, opts?: { deep?: boolean; held?: { key: string; name: string }[] }): { day: number; slot: string; rule: number; what: string }[]; table: () => string };
+  checkPlan: {
+    (
+      P?: Plan,
+      opts?: { deep?: boolean; held?: { key: string; name: string }[] }
+    ): { day: number; slot: string; rule: number; what: string }[];
+    table: () => string;
+  };
   /** the day's photo, picked with its own places in mind (lib/photos.js) */
   /** (lib/ahead.js, second script) where the day's photo sits in the slim bar: the strip the top card's bottom edge showed */
   pinPhotoFit?: () => void;
@@ -622,7 +1185,13 @@ interface Waypoint {
   routeCheck: any;
   routeClick: any;
   /** prompt: the question, or the name of one in W.ASKS with what its words and its answer need (the "ask" piece) */
-  run: (key: string, prompt: string | { ask: string; a: any[]; lib?: { place: string[]; kind: string; own?: boolean } }, tier: "quick" | "default" | "complex", onOk?: (r: any) => void, stream?: { list: string; take: (items: any[], head: any) => void; min?: number }) => void;
+  run: (
+    key: string,
+    prompt: string | { ask: string; a: any[]; lib?: { place: string[]; kind: string; own?: boolean } },
+    tier: "quick" | "default" | "complex",
+    onOk?: (r: any) => void,
+    stream?: { list: string; take: (items: any[], head: any) => void; min?: number }
+  ) => void;
   /** the questions to Claude and their answers' handlers, by name (lib/ideasask.js, lib/staysask.js, lib/asksask.js) */
   ASKS: Record<string, { q: (...a: any[]) => string; ok: (...a: any[]) => (r: any) => void; stream?: (...a: any[]) => any }>;
   /** what those files use from the loaders' own files */
@@ -649,7 +1218,13 @@ interface Waypoint {
   /** an error the app carries on from: kept in the error log so it leaves a trace (lib/errlog.js) */
   caught: (e: any, where: string) => void;
   /** a copy of every trip on this device, to keep as a file; and trips back from one (lib/sync.js, Settings) */
-  tripsExport: () => { app: string; kind: string; v: number; saved: string; trips: { id: string; name: string; updated: number; state: any }[] } | null;
+  tripsExport: () => {
+    app: string;
+    kind: string;
+    v: number;
+    saved: string;
+    trips: { id: string; name: string; updated: number; state: any }[];
+  } | null;
   tripsImport: (doc: any) => number;
   /** lib/ideastore.js: ideas kept in IndexedDB, the storage entry holding only this trip's */
   kept: (kind: "city" | "country", key: string, again: () => void) => boolean;
@@ -669,6 +1244,8 @@ interface Waypoint {
   textHash: (s: string) => string;
   /* the city library (lib/citylib.js, in the "ask" piece) */
   libFor?: (lib: { place: string[]; kind: string; own?: boolean }, text: string) => any;
+  libFrom?: Record<string, number>;
+  libStats?: (cb: (s: { countries: number; cities: number; at: number } | null) => void) => void;
   libGet?: (q: any, cb: (r: any, general?: boolean) => void) => void;
   libGeneral?: (kind: string) => string;
   libSave?: (q: any, r: any) => void;
@@ -725,7 +1302,12 @@ interface Waypoint {
   vt: any;
   vtActive: () => boolean;
   pinGroups: <T>(pts: T[], project: (p: T) => { x: number; y: number }, minPx?: number) => { x: number; y: number; items: T[] }[];
-  vtFor?: (country: string, city: string, lat?: number | null, lng?: number | null) => string | null;   /* (lib/vtindex.js; guarded where it is used) */
+  vtFor?: (
+    country: string,
+    city: string,
+    lat?: number | null,
+    lng?: number | null
+  ) => string | null; /* (lib/vtindex.js; guarded where it is used) */
   vtLoadTest: any;
   vtPieceTest: any;
   vtReadyTest: any;
@@ -749,7 +1331,20 @@ interface Waypoint {
   vtZoom: (how: any) => void;
   wantPhotos?: (country: string, city: string, pool: Pool | null, P?: Plan) => void;
   IDEA_CAP: { spots: number; food: number };
-  tripPhotoCoverage: (P: Plan) => { stops: number; withPhoto: number; pct: number; rows: { key: string; country: string; city: string; stops: number; urls: string[]; map: string | null; items: Record<string, string> }[] };
+  tripPhotoCoverage: (P: Plan) => {
+    stops: number;
+    withPhoto: number;
+    pct: number;
+    rows: {
+      key: string;
+      country: string;
+      city: string;
+      stops: number;
+      urls: string[];
+      map: string | null;
+      items: Record<string, string>;
+    }[];
+  };
   vtSize: (slug: string) => number;
   logError: (msg: any, where: string, stack?: any) => void;
   currentView: () => string;
@@ -817,7 +1412,14 @@ interface Waypoint {
   legIcon: (mode: string) => string;
   routeHome: (home: { label: string }) => string;
   routeLeg: (a: any, b: any, city: string, last?: boolean, note?: string) => string;
-  routeStop: (p: { it?: any; n: string; lat?: number | null; food?: boolean; slot: string; num: number }, city: string, when: string, cls?: string, key?: string, from?: any) => string;
+  routeStop: (
+    p: { it?: any; n: string; lat?: number | null; food?: boolean; slot: string; num: number },
+    city: string,
+    when: string,
+    cls?: string,
+    key?: string,
+    from?: any
+  ) => string;
   kindIcon: (it: any, food: boolean, slot?: string) => string;
   stopTag: (n: number) => string;
   /** the stop keys a map pin stands for (one per line in its data-keys) */
@@ -841,7 +1443,7 @@ interface Waypoint {
   /** (for the tests) what a photo's markup would ask for: the WebP copy's srcset when it has one */
   aheadReqOf?: (html: string) => { src: string; srcset: string | null; sizes: string | null } | null;
   watchBanner: () => string;
-  watchChip?: (kind: string, key: string, P?: Plan | null) => string;   /* (second script) */
+  watchChip?: (kind: string, key: string, P?: Plan | null) => string; /* (second script) */
   watchClick: (d: any, P: Plan) => any;
   watchDrop: any;
   watchDrops: () => any;
@@ -857,7 +1459,16 @@ interface Waypoint {
   withImported: (country: string, city: string, pool: any) => any;
 }
 
-interface Window { W: Waypoint; STYLES: [string, string][]; TD: Record<string, { blurb?: string; cities: BuiltCity[] }>; AIRPORTS?: [string, string, number, number][]; claude?: { use(name: string): Promise<any> }; __WP_OFFLINE?: any; __uid?: string; [k: string]: any }
+interface Window {
+  W: Waypoint;
+  STYLES: [string, string][];
+  TD: Record<string, { blurb?: string; cities: BuiltCity[] }>;
+  AIRPORTS?: [string, string, number, number][];
+  claude?: { use(name: string): Promise<any> };
+  __WP_OFFLINE?: any;
+  __uid?: string;
+  [k: string]: any;
+}
 declare var W: Waypoint;
 declare var STYLES: [string, string][];
 declare var TD: Record<string, { blurb?: string; cities: BuiltCity[] }>;
@@ -867,13 +1478,54 @@ declare var maplibregl: any;
 /* Browser shapes as this app uses them. Event targets here are always elements (the handlers run on clicks and inputs),
    and ids looked up with W.$ are often inputs: these say so once, instead of a cast at every site. */
 /** Device Memory API: Chrome only, absent in the standard lib */
-interface Navigator { deviceMemory?: number }
-interface EventTarget { files?: FileList | null; closest?(sel: string): Element | null; matches?(sel: string): boolean; getAttribute?(name: string): string | null; dataset?: DOMStringMap; tagName?: string; value?: string; id?: string; classList?: DOMTokenList; open?: boolean }
+interface Navigator {
+  deviceMemory?: number;
+}
+interface EventTarget {
+  files?: FileList | null;
+  closest?(sel: string): Element | null;
+  matches?(sel: string): boolean;
+  getAttribute?(name: string): string | null;
+  dataset?: DOMStringMap;
+  tagName?: string;
+  value?: string;
+  id?: string;
+  classList?: DOMTokenList;
+  open?: boolean;
+}
 /* dataset and style are always there: every element the app draws or finds is an HTML or SVG element (it makes none in
    another namespace), and both kinds carry them. click and the rest stay optional: an SVG element has no click(). */
-interface Element { value?: string; dataset: DOMStringMap; click?(): void; focus(opts?: FocusOptions): void; blur?(): void; select?(): void; type?: string; checked?: boolean; files?: FileList | null;
-  readOnly?: boolean; selectionStart?: number | null; selectionEnd?: number | null; setSelectionRange?(a: number, b: number): void; showPicker?(): void; offsetLeft?: number; offsetTop?: number; offsetWidth?: number; offsetHeight?: number; style: CSSStyleDeclaration; hidden?: boolean; disabled?: boolean; __step?: any }
+interface Element {
+  value?: string;
+  dataset: DOMStringMap;
+  click?(): void;
+  focus(opts?: FocusOptions): void;
+  blur?(): void;
+  select?(): void;
+  type?: string;
+  checked?: boolean;
+  files?: FileList | null;
+  readOnly?: boolean;
+  selectionStart?: number | null;
+  selectionEnd?: number | null;
+  setSelectionRange?(a: number, b: number): void;
+  showPicker?(): void;
+  offsetLeft?: number;
+  offsetTop?: number;
+  offsetWidth?: number;
+  offsetHeight?: number;
+  style: CSSStyleDeclaration;
+  hidden?: boolean;
+  disabled?: boolean;
+  __step?: any;
+}
 
 /* marks lib/patch.js and the day screen leave on elements they draw into */
-interface Window { __WP_COPY_KEPT?: boolean }
-interface HTMLElement { _sig?: string | null; _html?: string | null; _edges?: number }
+interface Window {
+  __WP_COPY_KEPT?: boolean;
+}
+interface HTMLElement {
+  _sig?: string | null;
+  _html?: string | null;
+  _edges?: number;
+}

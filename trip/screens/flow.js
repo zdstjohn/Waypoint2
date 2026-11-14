@@ -8,7 +8,7 @@
     esc = W.esc,
     $ = W.$;
   function fmt(d, o) {
-    return d ? d.toLocaleDateString(undefined, o || { month: "short", day: "numeric" }) : "";
+    return W.fmtDate(d, o || "md");
   }
   var CHEV =
     '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>';
@@ -184,7 +184,7 @@
       a = W.dateOf(ds[0].n),
       b = W.dateOf(ds[ds.length - 1].n);
     if (!a || !b) return "";
-    var mo = { month: "short", day: "numeric" };
+    var mo = "md";
     return a.getMonth() === b.getMonth() ? fmt(a, mo) + "–" + b.getDate() : fmt(a, mo) + " – " + fmt(b, mo);
   }
   /** "Jun 7–10": the dates of a place you stay (the desktop rail's day list, screens/rail.js) */

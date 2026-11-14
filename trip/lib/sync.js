@@ -14,6 +14,7 @@
     "tripFolded",
     "mapZoom",
     "jetOpen",
+    "legClosed",
     "late",
     "lateAt",
     "nextHide",

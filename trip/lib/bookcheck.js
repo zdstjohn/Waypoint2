@@ -26,7 +26,7 @@
   /** "Jun 9" for a trip day @param {number} n */
   function date(n) {
     var d = W.dateOf(n);
-    return d ? d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "Day " + n;
+    return d ? W.fmtDate(d, "md") : "Day " + n;
   }
   /* a place's name against a booking's words, the way the rest of the bookings match them (lib/bookcore.js) */
   function like(/** @type {string} */ name, /** @type {string} */ text) {

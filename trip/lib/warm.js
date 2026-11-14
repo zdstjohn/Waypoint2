@@ -14,7 +14,7 @@
     return new Date(n.getFullYear(), n.getMonth(), n.getDate());
   }
   function md(d) {
-    return d ? d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
+    return d ? W.fmtDate(d, "md") : "";
   }
 
   /* ======================= the family, by name ======================= */

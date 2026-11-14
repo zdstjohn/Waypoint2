@@ -37,7 +37,7 @@
       };
     (P.days || []).forEach(function (d) {
       var dt = W.dateOf(d.n),
-        when = dt ? dt.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }) : "";
+        when = dt ? W.fmtDate(dt, "Wmd") : "";
       add(
         "Day",
         "Day " + d.n + " · " + (W.dayHeadline(d, P) || d.city),

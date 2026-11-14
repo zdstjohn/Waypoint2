@@ -35,6 +35,11 @@
     }
   })();
   document.documentElement.classList.toggle("simple", SIMPLE);
+  /* (the second script is not in until lib/later.js says so: a screen that asks before then gets "not yet", never an
+     error: the 11-09 build's error log had 22 failed draws from asking too early) */
+  W.needLater = function () {
+    return false;
+  };
   W.simple = function () {
     return SIMPLE;
   };
@@ -182,7 +187,7 @@
           ? Math.round(m / 60) + " h ago"
           : m < 10080
             ? Math.round(m / 1440) + " d ago"
-            : new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+            : W.fmtDate(new Date(t), "md");
   };
   /** a script from elsewhere; with integrity (its sha384), the browser runs it only if it is exactly that file
       @param {string} src @param {string} [integrity] */
@@ -765,6 +770,8 @@
             if (!r) return ask(q);
             /* answered from the library: the same handler and checks as Claude's answer, at once */
             delete W.status[key];
+            /* (kept for the screens that say so: "from the shared library") */
+            (W.libFrom = W.libFrom || {})[q.slug] = 1;
             try {
               onOk(r);
             } catch (e) {

@@ -198,11 +198,21 @@ exports.run = async t => {
   { const S2 = await open(b, { width: 390, height: 844, db: mkdb(), init: 'window.__WP_SPEEDTEST = 1;' }); await exampleTrip(S2.pg);
     await S2.pg.evaluate(() => W.needLater());
     const doc = await S2.pg.evaluate(async () => { for (let i = 0; i < 150; i++) { const d = await window.__dbOp('get', 'data/users/u-test/diag/d/effort', null); if (d) return JSON.parse(d); await new Promise(r => setTimeout(r, 200)); } return null; });
-    const mark = await S2.pg.evaluate(() => ({ key: localStorage.getItem('waypoint-speedtest-v2'), bad: window.__badPaths || [] }));
+    const mark = await S2.pg.evaluate(() => ({ key: localStorage.getItem('waypoint-speedtest-v3'), bad: window.__badPaths || [] }));
     t.ok(doc && doc.usual && doc.low && doc.usual.ok >= 8 && doc.low.ok >= 8 && doc.usual.ms >= 0 && doc.shared >= 8 && typeof doc.usual.pins[0] === 'string' && /Italy/.test(doc.city),
       'the speed measurement asks the list twice and saves what it measured: ' + JSON.stringify(doc && { city: doc.city, usual: [doc.usual.ms, doc.usual.ok], low: [doc.low.ms, doc.low.ok], shared: doc.shared, far: doc.pinsOver1km }));
     t.ok(mark.key === 'done' && !mark.bad.length, 'at a path the database accepts, once: ' + JSON.stringify(mark));
     t.eq(S2.errors(), [], 'no page errors during the measurement');
     await S2.ctx.close(); }
+  /* (v186) the first answer fails upstream ("upstream_error", as on the owner's phone): it is asked again after a pause, so the
+     measurement still has both answers; had both failed, nothing would be kept and the next visit would try again */
+  { const FAIL = 'window.__WP_SPEEDTEST = 1; (() => { const iv = setInterval(() => { if (window.W && W.SAMPLE && W.SAMPLE.json && !W.SAMPLE.__w) { W.SAMPLE.__w = 1; clearInterval(iv); const o = W.SAMPLE.json; let n = 0; window.__failed = 0;'
+      + ' W.SAMPLE.json = function () { if (n++ < 1) { window.__failed++; return Promise.reject({ code: "upstream_error" }); } return o.apply(this, arguments); }; } }, 5); })();';
+    const S3 = await open(b, { width: 390, height: 844, db: mkdb(), init: FAIL }); await exampleTrip(S3.pg);
+    await S3.pg.evaluate(() => W.needLater());
+    const doc = await S3.pg.evaluate(async () => { for (let i = 0; i < 150; i++) { const d = await window.__dbOp('get', 'data/users/u-test/diag/d/effort', null); if (d) return JSON.parse(d); await new Promise(r => setTimeout(r, 200)); } return null; });
+    const f = await S3.pg.evaluate(() => ({ failed: window.__failed, key: localStorage.getItem('waypoint-speedtest-v3') }));
+    t.ok(doc && doc.usual && doc.usual.err === '' && doc.usual.ok >= 8 && doc.low.ok >= 8 && f.failed === 1 && f.key === 'done', 'a failed first answer is asked again and the measurement is kept: ' + JSON.stringify({ f, usual: doc && [doc.usual.err, doc.usual.ok] }));
+    await S3.ctx.close(); }
   await b.close();
 };

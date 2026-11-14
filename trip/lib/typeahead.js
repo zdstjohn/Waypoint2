@@ -50,6 +50,19 @@
         g = n.indexOf(q) === 0 ? 0 : (" " + n).indexOf(" " + q) > -1 ? 1 : n.indexOf(q) > -1 ? 2 : -1;
       if (g > -1 && n !== q) out.push({ v: o.v, sub: o.sub, rank: o.rank, g: g });
     });
+    /* a country's other names ("uae", "holland", "burma") find it too */
+    if (inp.dataset.ta === "country" && W.countryAliases)
+      W.countryAliases().forEach(function (a) {
+        var an = W.norm(a[0]);
+        if (an.indexOf(q) !== 0 || W.norm(a[1]) === q) return;
+        if (
+          out.some(function (o) {
+            return o.v === a[1];
+          })
+        )
+          return;
+        out.push({ v: a[1], sub: "also " + a[0], rank: W.countryRank(a[1]), g: 0 });
+      });
     out.sort(function (a, b) {
       return a.g - b.g || b.rank - a.rank || (a.v < b.v ? -1 : 1);
     });

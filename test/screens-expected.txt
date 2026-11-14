@@ -1,3 +1,11 @@
 # Screens this commit means to change (test/suites/visual.js). Read only when a commit changes this file, so an old list
 # never hides a later change: replace it whenever a commit changes how screens look.
-# v185: none (the library fills more cities; nothing is drawn differently).
+# v187: Settings gets a "What's new" card and a "City library" line; Plan may say "Ready from the shared library" under a
+# country's towns. v186 (To book order, the unseen tap areas) changes no screen.
+settings-*
+setup-*
+# v188: a travel day's options fold to one line; dates are written one way (the month short) in the kids' corner and
+# memories.
+trip-*
+kids-*
+recap-*

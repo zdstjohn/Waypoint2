@@ -89,7 +89,7 @@
     if (!w || !wrap || !empty || !title) return;
     var stops = w.pts.length,
       dt = W.dateOf(w.day.n),
-      when = dt ? dt.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "";
+      when = dt ? W.fmtDate(dt, "wmd") : "";
     W.draw(
       title,
       "<b>Day " +

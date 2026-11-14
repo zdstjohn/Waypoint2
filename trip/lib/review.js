@@ -268,10 +268,7 @@
     var stale = v.sig !== W.reviewSig(P),
       when = new Date(v.at),
       same = W.isoDay(when) === W.isoDay(new Date());
-    var at =
-      (same ? "today" : when.toLocaleDateString(undefined, { month: "short", day: "numeric" })) +
-      " at " +
-      when.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    var at = (same ? "today" : W.fmtDate(when, "md")) + " at " + when.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
     var h =
       '<section class="pcheck sk" aria-label="Check my plan"><div class="pcheck-h"><h3>' +
       ICON +

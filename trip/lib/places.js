@@ -48,7 +48,7 @@
   W.shutText = function (s) {
     var fmt = function (/** @type {string} */ iso) {
       var p = iso.split("-");
-      return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      return W.fmtDate(new Date(+p[0], +p[1] - 1, +p[2]), "md");
     };
     return "Closed " + (s.f === s.t ? fmt(s.f) : fmt(s.f) + " – " + fmt(s.t)) + (s.why ? " (" + s.why + ")" : "");
   };

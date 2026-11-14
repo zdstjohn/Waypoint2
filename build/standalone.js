@@ -40,12 +40,15 @@ fs.writeFileSync(path.join(DIST, 'vt', 'index.json'), '{}\n');
 ['maplibre-gl-csp.js', 'maplibre-gl-csp-worker.js', 'packworker.js', 'ping.js', 'glyphs.wasm', 'glyphs-ext.wasm'].forEach(f => copy(path.join(TRIP, 'vt', f), 'vt/' + f));
 const icons = fs.readdirSync(ICONS).filter(f => f.endsWith('.png')).sort();
 icons.forEach(f => copy(path.join(ICONS, f), f));
+/* the picture a shared link shows (build/icon/og.js); not kept on the phone, so not in the list of icons above */
+copy(path.join(ICONS, '..', 'og-image.png'), 'og-image.png');
 
 /* the page: the Claude page's body, in a document of its own */
 let body = fs.readFileSync(path.join(TRIP, 'index.html'), 'utf8')
   .replace(/<title>[^<]*<\/title>\s*/, '').replace(/<meta name="claude:[^>]*>\s*/g, '')
   .replace(/(href|src)="(app\.min\.css|app\.js)"/g, (m, a, f) => `${a}="${f}?v=${V}"`);
 if (!body.includes(`app.js?v=${V}`) || !body.includes(`app.min.css?v=${V}`)) throw new Error('index.html: the script or stylesheet tag was not found');
+const SITE = 'https://waypoint-livid-three.vercel.app';   /* (a shared link's picture needs a full address) */
 const head = `<!doctype html>
 <html lang="en">
 <head>
@@ -55,6 +58,15 @@ const head = `<!doctype html>
 <meta name="description" content="Plan a family trip day by day: where to go, what to eat, when to rest, and what to book.">
 <meta name="theme-color" content="#F6F1E6" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1C1F37" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Waypoint">
+<meta property="og:title" content="Waypoint: plan a family trip, day by day">
+<meta property="og:description" content="Where to go, what to eat, when to rest, and what to book, with kids in mind.">
+<meta property="og:image" content="${SITE}/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The Waypoint W, a night sky with a moon and a cat, and the words Plan a family trip, day by day.">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">

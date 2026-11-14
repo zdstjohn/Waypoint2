@@ -533,6 +533,6 @@
   };
   function fmt(iso) {
     var d = new Date(iso + "T12:00:00");
-    return isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return isNaN(d.getTime()) ? iso : W.fmtDate(d, "md");
   }
 })();

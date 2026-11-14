@@ -151,7 +151,7 @@
                   '"><b>Day ' +
                   d.n +
                   "</b><span>" +
-                  esc(dt ? dt.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : "") +
+                  esc(dt ? W.fmtDate(dt, "wmd") : "") +
                   "</span>" +
                   '<span class="muted">' +
                   (y && y.item ? "now: " + esc(y.item.n) : "free") +
