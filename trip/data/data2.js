@@ -297,10 +297,9 @@ window.TOP_COUNTRIES =
   );
 /* what is new, in plain words, for Settings (the newest version first; a line is one thing a traveler would notice) */
 window.WHATS_NEW = {
-  v: 188,
+  v: 190,
   items: [
     "On a travel day, fold away the ways to get there once you've chosen one.",
-    "The \u00b7\u00b7\u00b7 menu for Menu and Swap is on the desktop too.",
     "Dates read one way everywhere, and long names wrap instead of being cut off.",
     "A shared city library: a city someone has opened already comes up in seconds, and it grows a little every night.",
     "Typing UAE, Holland, Burma and other names finds the right country."

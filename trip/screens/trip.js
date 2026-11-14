@@ -77,9 +77,9 @@
   };
   var ICON_REROLL = W.icon("reroll", 2.5);
   /* A stop card's buttons (Menu, Swap) sit behind one "more" button on a phone, in a small menu that opens under it
-     (the owner's pick, v178: a card a row shorter, so a day needs less scrolling). Wider screens (v188) get the same button;
-     One menu open at a time (actsOpen: its slot's key); it closes on any
-     choice in it, a tap elsewhere, Escape, or a new day. */
+     (the owner's pick, v178: a card a row shorter, so a day needs less scrolling). Wider screens show the buttons as
+     before; the "more" button is hidden there (v188 tried it on the desktop; the owner put the buttons back). One menu
+     open at a time (actsOpen: its slot's key); it closes on any choice in it, a tap elsewhere, Escape, or a new day. */
   var actsOpen = /** @type {string | null} */ (null);
   function actsWrap(key, name, inner) {
     if (!inner) return "";

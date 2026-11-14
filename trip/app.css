@@ -2347,22 +2347,3 @@ img.lqi.ld{opacity:1;transition:opacity .25s ease-out}
 .sl-acts{display:contents}
 .acts-w{display:contents}
 .more-btn{display:none}
-/* ...and on a wider screen too (v188, the owner: "yes i like the 3 dots") */
-@media (min-width:561px){
-  /* Menu and Swap behind one "more" button (v178): top right on a card without a photo, under the photo on one with */
-  #viewTrip .slot{position:relative}
-  #viewTrip .slot.acts-on{z-index:6}
-  #viewTrip .slot .acts-w{display:block;position:absolute;right:6px;top:6px;z-index:2}
-  #viewTrip .slot.haspic .acts-w{position:relative;right:auto;top:auto;grid-column:3;grid-row:2;justify-self:end;align-self:end;margin:-4px -6px -6px 0}
-  #viewTrip .slot.haspic > .slot-body,#viewTrip .slot.haspic > .num{grid-row:1 / span 2}
-  #viewTrip .slot:not(.haspic) .slot-body :is(.sl-l,.when,.nm){padding-right:30px}
-  #viewTrip .slot .more-btn{display:grid;place-items:center;width:40px;height:40px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--muted);cursor:pointer}
-  #viewTrip .slot .more-btn svg{width:20px;height:20px}
-  #viewTrip .slot .more-btn[aria-expanded="true"]{background:var(--sunk);color:var(--fg)}
-  #viewTrip .slot .acts-w .sl-acts{display:none}
-  #viewTrip .slot .acts-w.open .sl-acts{display:grid;position:absolute;right:0;top:calc(100% + 4px);min-width:176px;padding:6px;gap:2px;background:var(--surface);border:1px solid var(--ring);border-radius:var(--r-md);box-shadow:0 10px 28px rgba(0,0,0,.28)}
-  #viewTrip .slot .acts-w .sl-acts :is(.menu-btn,.icon-btn){display:flex;align-items:center;gap:10px;width:100%;height:auto;min-height:44px;padding:8px 12px;border:0;border-radius:var(--r-sm);background:transparent;color:var(--fg);font:700 .9375rem/1 var(--f-body);text-align:left}
-  #viewTrip .slot .acts-w .sl-acts :is(.menu-btn,.icon-btn):is(:hover,:focus-visible){background:var(--sunk)}
-  #viewTrip .slot .acts-w .sl-acts svg{width:18px;height:18px;flex:none}
-  #viewTrip .slot .acts-w .sl-acts .bt-l{display:inline}
-}

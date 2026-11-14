@@ -2,6 +2,11 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v190
+
+- Menu and Swap are separate buttons again on a wide desktop (v188 had put them behind "..." there; the owner asked for
+  them back). A phone, and the desktop's narrow pane, keep the "..." menu.
+
 ## v189
 
 - The desktop's row of hover buttons on a stop card (drag, open, a day earlier or later, show on the map) is gone
@@ -20,8 +25,6 @@ Small fixes and a few things you asked for.
 - One date style (times.js W.fmtDate: "md", "wmd", "Wmd", "mdy"): the month is always short. The 37 places that wrote
   dates their own way now ask it; the kids' corner, the trip's dates and the memories no longer spell the month out.
 - Long names (Today's town, the day strip's stay, the stay button) wrap to two lines instead of being cut off.
-- The "···" menu (Menu and Swap behind one button, v178) is on a desktop too; the quick-button row steps aside while
-  it is open (app.css, desk.css).
 - Checks: the built-in places (test/lib/datacheck.js), drawn buttons nothing reads (test/lib/deadcheck.js), the day
   keeps its scroll place when a stop's details close (back), the travel-day fold (flow).
 
