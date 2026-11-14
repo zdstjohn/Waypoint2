@@ -1358,10 +1358,10 @@ table.budget tfoot th,table.budget tfoot td{border-top:2px solid var(--ink);font
 @media (prefers-reduced-motion:no-preference){details.step > summary .chev,details.ideas summary::before,details.transit summary::before,.stay-btn .chev,.slot-body .nm .chev{transition:transform .32s cubic-bezier(.2,.8,.2,1)}}
 @media (hover:hover) and (prefers-reduced-motion:no-preference){.lodge:hover,.idea:hover{transform:translateY(-1px);box-shadow:var(--lift)}}
 @media (hover:hover) and (prefers-reduced-motion:no-preference){.dpill:not([aria-current="true"]):hover{background:var(--soft)}}
-@keyframes wp-out{to{opacity:0;transform:translateX(-18px)}}
-@keyframes wp-in{from{opacity:0;transform:translateX(24px)}}
-@keyframes wp-out-back{to{opacity:0;transform:translateX(18px)}}
-@keyframes wp-in-back{from{opacity:0;transform:translateX(-24px)}}
+@keyframes wp-out{to{opacity:0;transform:translateX(var(--wp-x,-18px))}}
+@keyframes wp-in{from{opacity:0;transform:translateX(var(--wp-x,24px))}}
+@keyframes wp-out-back{to{opacity:0;transform:translateX(var(--wp-x,18px))}}
+@keyframes wp-in-back{from{opacity:0;transform:translateX(var(--wp-x,-24px))}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 @media (prefers-reduced-motion:reduce){.btn:hover{transform:none}}
 @media (prefers-reduced-motion:reduce){::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}}
@@ -1387,6 +1387,30 @@ table.budget tfoot th,table.budget tfoot td{border-top:2px solid var(--ink);font
 .wf{display:grid;gap:2px;padding:10px 12px;border-radius:var(--r-md);background:var(--sight-soft);border:var(--hair)}
 .wf p{margin:0;line-height:1.45}
 .wf b{font-weight:700}
+
+/* ---------- Motion II: a day slides across, a stop's card grows into its sheet (v197) ---------- */
+/* (in the second stylesheet: each rule is under a class only this part's moments set) */
+/* another day slides across: the day you leave goes out one side as the next comes in from the other (the page turn's
+   own keyframes, with a longer way to go) */
+html.vt-day::view-transition-old(dayflip){animation:wp-out .3s cubic-bezier(.4,0,.2,1) both;--wp-x:-28%}
+html.vt-day::view-transition-new(dayflip){animation:wp-in .3s cubic-bezier(.4,0,.2,1) both;--wp-x:28%}
+html.vt-day[data-flip="back"]::view-transition-old(dayflip){animation-name:wp-out-back;--wp-x:28%}
+html.vt-day[data-flip="back"]::view-transition-new(dayflip){animation-name:wp-in-back;--wp-x:-28%}
+/* while it slides, what stays put stays on top: the sliding day is drawn over the page, and would cover the tabs and
+   the day strip for a moment. (Not the banner: the tabs live in it, and a named box would hold them in it.) */
+html.vt-day .tabs{view-transition-name:tabbar}
+html.vt-day main:not([hidden]) .daybar{view-transition-name:daybar}
+/* a stop's card grows into its sheet, and the sheet settles back into its card (screens/sheet.js). The box moves and
+   grows; what is in it changes over by fading, at its own size, so no words are ever stretched. The sheet's own slide
+   up is left out while it grows out of the card. */
+html.vt-stop::view-transition-group(stop){animation-duration:.34s;animation-timing-function:cubic-bezier(.2,.8,.2,1)}
+html.vt-stop::view-transition-old(stop),html.vt-stop::view-transition-new(stop){height:100%;width:100%;object-fit:none;object-position:top left;overflow:clip}
+html.vt-stop::view-transition-old(stop){animation:fadeIn .14s linear both reverse}
+html.vt-stop::view-transition-new(stop){animation:fadeIn .26s cubic-bezier(.2,.8,.2,1) .06s both}
+html.vt-stop::view-transition-old(root),html.vt-stop::view-transition-new(root){animation-duration:.22s}
+html.vt-stop .sheet{animation:none}
+/* a stop's card gives a little under a finger, as the buttons do */
+@media (prefers-reduced-motion:no-preference){.slots .slot{transition:transform .14s cubic-bezier(.2,.8,.2,1)}.slots .slot:has(.slot-toggle:active){transform:scale(.985)}}
 
 /* ---------- offline ---------- */
 .go-off{display:grid;gap:8px;padding:12px 14px}

@@ -219,6 +219,17 @@
     }
   };
 
+  /* for a transition made in the second script (a stop's card growing into its sheet: screens/sheet.js): is this one
+     given the plain change (reduced motion, no such transition in this browser, a modest or slow phone, a turn
+     already running), and the turn's start and end (with how long its first frame took, which is how "slow" is learned) */
+  W.fxPlain = function () {
+    return off() || flipping || slowFlips >= 1 || !document.startViewTransition;
+  };
+  W.fxTurn = function (on, ms) {
+    flipping = on;
+    if (ms > 120) slowFlips++;
+  };
+
   /* folding sections (<details>): slide open and closed instead of snapping */
   document.addEventListener(
     "click",

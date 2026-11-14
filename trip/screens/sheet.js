@@ -221,11 +221,67 @@
     if (!x || !x.item) return;
     if (!sheet) opener = /** @type {HTMLElement | null} */ (document.activeElement);
     if (W.closeTripMenu) W.closeTripMenu(); /* (one thing on top at a time: the trip menu stayed open behind it) */
+    var fresh = !sheet;
     sheet = { key: key, slot: x.slot, mode: "acts" };
     drawn = "";
-    draw();
+    /* a sheet opening over the page grows out of the stop's own card (morph, below); beside the plan on a wide screen, and
+       when one sheet gives way to another, it is simply there */
+    var card = fresh && !(W.deskSplit && W.deskSplit()) ? cardOf(key) : null;
+    if (card)
+      morph(card, draw, function () {
+        return /** @type {HTMLElement | null} */ (document.querySelector("#sheethost .sheet"));
+      });
+    else draw();
     if (W.deskSheet) W.deskSheet();
   };
+  /* One thing becomes another: a stop's card grows into its sheet, and the sheet settles back into its card (v197).
+     The browser's own shared-element transition does it: `from` is on screen now, update() changes the page, to()
+     gives what it became. Changed plainly where lib/fx.js says so (W.fxPlain). */
+  function morph(from, update, to) {
+    if (!from || !W.fxPlain || W.fxPlain()) return update();
+    var root = document.documentElement,
+      b = /** @type {HTMLElement | null} */ (null),
+      ran = false,
+      t,
+      t0 = performance.now();
+    var done = function () {
+      W.fxTurn(false, 0);
+      root.classList.remove("vt-stop");
+      from.style.viewTransitionName = "";
+      if (b) b.style.viewTransitionName = "";
+    };
+    W.fxTurn(true, 0);
+    root.classList.add("vt-stop");
+    from.style.viewTransitionName = "stop";
+    try {
+      t = document.startViewTransition(function () {
+        ran = true;
+        from.style.viewTransitionName = "";
+        update();
+        b = to();
+        if (b) b.style.viewTransitionName = "stop";
+      });
+    } catch (e) {
+      done();
+      if (!ran) update();
+      return;
+    }
+    t.ready.then(
+      function () {
+        W.fxTurn(true, performance.now() - t0);
+      },
+      function () {}
+    );
+    t.finished.then(done, done);
+  }
+  /** the card (or the row on Today) a stop's sheet opens from, when it is on the screen @param {string} key */
+  function cardOf(key) {
+    var t = /** @type {HTMLElement | null} */ (null);
+    document.querySelectorAll("main:not([hidden]) [data-open]").forEach(function (el) {
+      if (!t && el.getAttribute("data-open") === key) t = /** @type {HTMLElement} */ (el.closest(".slot, .rc-stop") || el);
+    });
+    return t && t.getClientRects().length ? t : null;
+  }
   /** the stop whose sheet is open ("" when none): the desktop workspace marks its card and its pin */
   W.sheetKey = function () {
     return sheet ? sheet.key : "";
@@ -233,8 +289,14 @@
   /** close it: true when it was open */
   W.sheetClose = function () {
     if (!sheet) return false;
+    var key = sheet.key,
+      panel = /** @type {HTMLElement | null} */ (document.querySelector("#sheethost .sheet"));
     sheet = null;
-    draw();
+    if (panel && !(W.deskSplit && W.deskSplit()))
+      morph(panel, draw, function () {
+        return cardOf(key);
+      });
+    else draw();
     if (W.deskSheet) W.deskSheet();
     return true;
   };

@@ -297,12 +297,12 @@ window.TOP_COUNTRIES =
   );
 /* what is new, in plain words, for Settings (the newest version first; a line is one thing a traveler would notice) */
 window.WHATS_NEW = {
-  v: 196,
+  v: 197,
   items: [
+    "The day's map shows your route along the streets, and the line draws itself when you open a day. It works offline too.",
+    "A stop's card grows into its details, and days slide across when you change day.",
     "In Granada, Seville and Córdoba, a stop's details show its opening hours and entry rule from the official page, with the day they were checked. The planner keeps a place off a day it's closed.",
     "Settings has a Storage card: how full the photo and map store is, and a way to clear the files nothing uses so the nightly photos have room again.",
-    "Rest days just rest: a calm morning and evening card, with nothing to pick.",
-    "On a computer, only things to do and places to eat light up under the pointer.",
-    "A day trip is grouped under one band, and the time you're out is one free-time row. A toddler's nap is on the go, not back at the hotel."
+    "Rest days just rest: a calm morning and evening card, with nothing to pick."
   ]
 };

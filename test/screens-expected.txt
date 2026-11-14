@@ -42,3 +42,7 @@ menu-*
 # v196: the What's new card (settings, the trip menu); the world library changes no screen of a city without a record.
 settings-*
 menu-*
+# v197: the What's new card (settings, the trip menu). The route is drawn on the map's own canvas and the motion is
+# off under reduced motion (as these screens are drawn), so no screen changes.
+settings-*
+menu-*

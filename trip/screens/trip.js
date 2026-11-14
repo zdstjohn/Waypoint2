@@ -1976,11 +1976,14 @@
       h += dayIdeas(P, day, home, pool, pts, T, ck, xp);
     }
     /* the same day on the same screen is edited in place (lib/patch.js); another day or view is drawn afresh */
+    var wasWaiting = !!el.querySelector(".skel-list");
     W.draw(
       el,
       h + (xpCols ? "</div>" : "") + "</div>",
       "day|" + S.tripId + "|" + S.day + "|" + (xp ? "map" : "list") + "|" + (W.simple() ? 1 : 0)
     );
+    /* the day arriving where its placeholders were: its stops come in one after another (v197) */
+    if (wasWaiting && !el.querySelector(".skel-list")) W.fxStagger(el.querySelectorAll(".slots > .slot"), { step: 50, y: 8, dur: 400, max: 12 });
     /* today, opened afresh (from another tab or day, or as the app starts): the day opens at what is on now, or at
        what is next, not at a morning that is over. Once per visit to the day: after that the scrolling is yours.
        (A frame later: arriving on a screen puts it at the top first.) */

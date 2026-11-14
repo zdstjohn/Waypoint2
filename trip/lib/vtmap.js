@@ -1263,8 +1263,8 @@
       S.markers.push(new ML.Marker({ element: pinEl({ home: 1 }) }).setLngLat([home.lng, home.lat]).addTo(S.map));
     S.pinPts = all;
     groupPins();
-    /* (no line between the stops: a straight line from pin to pin is a flight path, not the way you would walk or
-       ride; the lettered pins say the order, and the list gives each hop's real way and time) */
+    /* (never a straight line from pin to pin: that is a flight path, not the way you would walk. The day's way along
+       the streets is drawn by showRoute, below, from the map's own streets) */
   }
   /* ---------- for the desktop workspace (lib/deskmap.js) ---------- */
   /** small unnumbered pins for places not on the day (Explore's ideas): [{n, lat, lng, food}], at most 60; [] clears */
@@ -1369,6 +1369,221 @@
     if (!animate) groupPins();
   }
 
+  /* ---------- the day's way along the streets (v197) ----------
+     From where you're staying to each stop in turn, as you would walk it: worked out from the pack's own streets
+     (lib/streetroute.js), so it needs no signal and lies exactly on the streets drawn. It draws itself when a day
+     opens (at once for people who ask their device for less motion). A hop too long to be a walk (a ride), one that
+     leaves the detailed map, or one to a pin that is Google's has no line: the list still gives its way and time. */
+  var ROUTE = {
+    sig: "",
+    turn: 0,
+    raf: 0,
+    /** @type {any} */ net: null,
+    netKey: "",
+    /** @type {number[][][]} */ lines: []
+  };
+  var WALK_KM = 3 /* a hop longer than this is a ride */,
+    NET_TILES = 12; /* at most this many detailed tiles make one network (a city centre is 1 to 6) */
+  function routeLayers() {
+    if (!S.map || S.map.getSource("wp-route")) return;
+    var cs = getComputedStyle(document.documentElement),
+      accent = cs.getPropertyValue("--accent").trim() || "#4338CA",
+      surface = cs.getPropertyValue("--surface").trim() || "#fff";
+    /* under the map's names (a street's name stays readable over its own route), over everything else */
+    var first = (S.map.getStyle().layers || []).filter(function (l) {
+      return l.type === "symbol";
+    })[0];
+    S.map.addSource("wp-route", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    S.map.addLayer(
+      {
+        id: "wp-route-case",
+        type: "line",
+        source: "wp-route",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": surface, "line-width": ["interpolate", ["linear"], ["zoom"], 12, 5, 16, 9], "line-opacity": 0.92 }
+      },
+      first && first.id
+    );
+    S.map.addLayer(
+      {
+        id: "wp-route",
+        type: "line",
+        source: "wp-route",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": accent, "line-width": ["interpolate", ["linear"], ["zoom"], 12, 2.5, 16, 4.5] }
+      },
+      first && first.id
+    );
+  }
+  /** the lines as far as `p` (0 to 1) of their whole length: what one frame of the drawing shows
+      @param {number[][][]} lines @param {number} p @returns {number[][][]} */
+  function routeFrame(lines, p) {
+    if (p >= 1) return lines;
+    var lens = lines.map(function (l) {
+        var d = 0;
+        for (var i = 1; i < l.length; i++) d += Math.hypot((l[i][0] - l[i - 1][0]) * Math.cos((l[i][1] * Math.PI) / 180), l[i][1] - l[i - 1][1]);
+        return d;
+      }),
+      left =
+        p *
+        lens.reduce(function (a, b) {
+          return a + b;
+        }, 0),
+      out = [];
+    for (var k = 0; k < lines.length && left > 0; k++) {
+      var l = lines[k];
+      if (lens[k] <= left) {
+        out.push(l);
+        left -= lens[k];
+        continue;
+      }
+      var part = [l[0]];
+      for (var i = 1; i < l.length; i++) {
+        var d = Math.hypot((l[i][0] - l[i - 1][0]) * Math.cos((l[i][1] * Math.PI) / 180), l[i][1] - l[i - 1][1]);
+        if (d < left) {
+          part.push(l[i]);
+          left -= d;
+        } else {
+          var f = d ? left / d : 0;
+          part.push([l[i - 1][0] + (l[i][0] - l[i - 1][0]) * f, l[i - 1][1] + (l[i][1] - l[i - 1][1]) * f]);
+          break;
+        }
+      }
+      left = 0;
+      if (part.length > 1) out.push(part);
+    }
+    return out;
+  }
+  W.vtRouteFrame = routeFrame;
+  function routeData(lines) {
+    var src = S.map && S.map.getSource("wp-route");
+    if (!src) return;
+    src.setData({
+      type: "FeatureCollection",
+      features: lines.map(function (l) {
+        return { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: l } };
+      })
+    });
+  }
+  /** the day's hops as pairs of pins: the screen's own (Today knows the returns to where you're staying), else from
+      where you're staying to each stop in turn @param {any} o */
+  function routeHops(o) {
+    var ok = function (p) {
+        return p && p.lat != null && p.lng != null && !p.gpin; /* (Google's pins stay on Google's maps) */
+      },
+      /** @type {any[][]} */ hops = [];
+    if (o.hops) hops = o.hops.slice();
+    else {
+      var prev = o.home;
+      (o.pts || []).forEach(function (p) {
+        if (ok(prev) && ok(p)) hops.push([prev, p]);
+        if (ok(p)) prev = p;
+      });
+    }
+    return hops.filter(function (h) {
+      var d = (ok(h[0]) && ok(h[1]) && W.km(h[0], h[1])) || 0;
+      return d > 0.03 && d <= WALK_KM;
+    });
+  }
+  /** the street network for these hops, from the pack's detailed tiles: null when the pack has none there */
+  function routeNet(slug, hops) {
+    var R = /** @type {NonNullable<typeof W.streetRoute>} */ (W.streetRoute),
+      /** @type {Record<string, number[]>} */ want = {};
+    hops.forEach(function (h) {
+      (R.tilesFor(h, 6) || []).forEach(function (t) {
+        want[t[0] + "/" + t[1]] = t;
+      });
+    });
+    return pack(slug).then(function (p) {
+      var keys = Object.keys(want)
+        .filter(function (k) {
+          return p.hdr.t[R.Z + "/" + k];
+        })
+        .sort()
+        .slice(0, NET_TILES);
+      if (!keys.length) return null;
+      var key = slug + "|" + keys.join(",");
+      if (ROUTE.netKey === key && ROUTE.net) return ROUTE.net;
+      return Promise.all(
+        keys.map(function (k) {
+          return piece(p, R.Z + "/" + k).then(function (buf) {
+            return { x: want[k][0], y: want[k][1], buf: buf };
+          });
+        })
+      ).then(function (tiles) {
+        return new Promise(function (done) {
+          R.graphSoon(tiles, function (G) {
+            ROUTE.net = G;
+            ROUTE.netKey = key;
+            done(G);
+          });
+        });
+      });
+    });
+  }
+  function showRoute(o) {
+    var R0 = W.streetRoute;
+    if (!R0 || !S.map || !S.ready || !S.map.getSource("wp-route")) return;
+    var R = R0;
+    var hops = /^(day|go|ws)\|/.test(o.key || "") ? routeHops(o) : [],
+      sig =
+        S.slug +
+        "|" +
+        hops
+          .map(function (h) {
+            return W.rlKey(h[0], h[1]);
+          })
+          .join(";");
+    if (sig === ROUTE.sig) return;
+    ROUTE.sig = sig;
+    var turn = ++ROUTE.turn;
+    if (ROUTE.raf) cancelAnimationFrame(ROUTE.raf);
+    ROUTE.raf = 0;
+    ROUTE.lines = [];
+    routeData([]);
+    if (!hops.length) return;
+    routeNet(S.slug, hops)
+      .then(function (G) {
+        if (!G || turn !== ROUTE.turn) return;
+        /* a hop a slice, so a long day's search never holds the screen */
+        var /** @type {number[][][]} */ lines = [],
+          i = 0;
+        (function next() {
+          if (turn !== ROUTE.turn) return;
+          if (i < hops.length) {
+            var l = R.path(G, hops[i][0], hops[i][1]);
+            i++;
+            if (l) lines.push(l);
+            setTimeout(next, 0);
+            return;
+          }
+          ROUTE.lines = lines;
+          if (!lines.length) return;
+          if (W.fxOff && W.fxOff()) return routeData(lines);
+          var t0 = performance.now(),
+            ms = Math.min(2200, 500 + 280 * lines.length),
+            last = 0;
+          (function frame(now) {
+            if (turn !== ROUTE.turn) return;
+            var p = Math.min(1, (now - t0) / ms);
+            /* (about 30 pictures a second are plenty for a line growing) */
+            if (p >= 1 || now - last > 30) {
+              last = now;
+              routeData(routeFrame(lines, 1 - Math.pow(1 - p, 2)));
+            }
+            ROUTE.raf = p < 1 ? requestAnimationFrame(frame) : 0;
+          })(t0);
+        })();
+      })
+      .then(null, function (e) {
+        W.caught(e, "the day's route on the map");
+      });
+  }
+  /** (for the tests and the desktop map: the lines now drawn, as [lng, lat] points) */
+  W.vtRouteLines = function () {
+    return ROUTE.lines;
+  };
+
   /* ---------- show the map in a slot; returns true once the detailed map is on screen ---------- */
   W.vtMount = function (slot, o) {
     if (!slot || S.engine === "off") return false;
@@ -1451,6 +1666,12 @@
             S.map.on("load", function () {
               S.ready = true;
               S.sig = "";
+              ROUTE.sig = "";
+              try {
+                routeLayers();
+              } catch (e) {
+                W.caught(e, "the route's layers on the map");
+              }
               if (S.pend) W.vtMount(S.pend.slot, S.pend.o);
               W.redraw(); /* (the street map coming or going changes the screen, not the plan) */
             });
@@ -1539,6 +1760,7 @@
       S.moved = false;
       setPins(o.pts, o.home);
       fit(o.pts, o.home, !first && o.animate);
+      showRoute(o);
     } else if (resized && !S.moved && S.el.clientHeight)
       fit(o.pts, o.home, false); /* the map changed size (list/map switch): frame the stops again */
     return true;

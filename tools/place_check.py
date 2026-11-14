@@ -417,6 +417,7 @@ def nominatim_cands(name, food, lat, lng):
     return out
 
 FOOD_CLASS = {"restaurant", "cafe", "bar", "fast_food", "ice_cream", "bakery", "beer", "alcohol_shop", "pastry", "confectionery", "deli", "wine", "food_court", "marketplace", "grocery"}
+SHOP_CLASS = FOOD_CLASS | {"shop", "grocery", "clothing_store", "books", "gift", "souvenir", "bank", "laundry"}
 def tile_cands(name, food, plat, plng, lat, lng):
     """candidates from the named places on the app's own map tiles around the guessed pin: no lookup service needed,
     and the pin lands exactly where the map writes the name"""
@@ -433,6 +434,9 @@ def tile_cands(name, food, plat, plng, lat, lng):
         if food and (cls in FOOD_CLASS or sub in FOOD_CLASS): s += 0.15
         if food and cls in ("museum", "attraction", "monument", "castle", "place_of_worship", "park", "beach", "town_hall", "bus", "railway"): s *= 0.5
         if cls == "lodging" and not re.search(r"\b(hotel|inn|resort|apartments?|rooms|suites|villa|hostel|pension)\b", name, re.I): s *= 0.3
+        # a shop, café or bar that borrowed a sight's name ("Alhambra", "Colosseum") is not the sight: its label says
+        # less than the place's name does, and it is a business
+        if not food and (cls in SHOP_CLASS or sub in SHOP_CLASS) and len(toks(nm)) < len(toks(name)): s *= 0.5
         if cls in ("bus", "railway", "ferry_terminal", "parking", "fuel") and not re.search(r"\b(bus|station|port|terminal|ferry|harbou?r)\b", name, re.I): s *= 0.3
         d = km(plat, plng, la, ln)
         if d > 3: s *= 0.7
@@ -471,7 +475,10 @@ def match(name, food, lat, lng, guess=None):
     # an OpenStreetMap pin well out in the water is not the place (a boat, a buoy, a ferry route): never take it
     for c in cands:
         if c["s"] >= 0.4 and not watery(name) and water_m(c["lat"], c["lng"]) > 150: c["s"] = 0
-    best = max(cands, key=lambda c: (c["s"], -c["km"])) if cands else None
+    # of two equally good names, the one nearer where the place was guessed to be (not the one nearer the middle of
+    # town: Granada has a shop called Alhambra by Plaza Nueva, a kilometre from the Alhambra on its hill)
+    ref = guess if guess else (lat, lng)
+    best = max(cands, key=lambda c: (c["s"], -km(ref[0], ref[1], c["lat"], c["lng"]))) if cands else None
     if best and best["s"] <= 0: best = None
     if food and GENERIC.search(name) and not (best and best["s"] >= 0.99): kind = "generic"
     else: kind = "exp" if (not food and EXPERIENCE.search(name) and not (best and best["s"] >= 0.99 and best["km"] < 3)) else "place"

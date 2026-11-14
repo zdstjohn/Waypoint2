@@ -2,6 +2,37 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v197
+
+- The day's route along the streets, on the street map (Today, the Trip day beside its map, the desktop pane): from
+  where you're staying to each stop in turn, as you would walk it, a line that draws itself when a day opens (at once
+  with reduced motion). New lib/streetroute.js works the walk out from the map pack's own detailed tiles: it reads the
+  street lines, joins them into a network (a tile keeps a street's corners, not every point another street meets it,
+  so each stretch is cut where another street's corner or end lies on it and where another crosses it; a bridge or
+  tunnel joins only its own kind; a street cut at a tile's edge carries on in the next), and finds the shortest walk
+  (A*), a footpath sooner than a main road. Nothing is asked of any service, so it works offline and the same on
+  the website, the line lies exactly on the streets drawn, and no data of Google's is put on the map (the rule the
+  pins already kept). Checked against Google's own walks for a day in Seville: each of six hops within 0.1 km. The
+  network is built a few milliseconds at a time (about 100 ms of work for a city centre). lib/vtmap.js: showRoute,
+  two line layers under the map's names; Today hands over its hops with the returns to where you're staying
+  (o.hops). A hop over 3 km (a ride), one off the detailed map, or one to a Google pin has no line.
+- Motion: a stop's card grows into its sheet and the sheet settles back into it (the browser's shared-element
+  transition, in screens/sheet.js; lib/fx.js says when a change is to be plain: W.fxPlain); another day slides across
+  (the day you leave goes out one side as the next comes in), with the tabs and the day strip kept on top while it
+  does; when a day arrives where its placeholders were, its stops come in one after another; a stop's card gives a
+  little under a finger. As before: none of it with reduced motion, and a modest phone gets the plain change. The
+  first download is no bigger for it (492 KB, as v196): the morph is in the second script, its styles in the second
+  stylesheet (app.css "Motion II"), and the day's longer slide reuses the page turn's keyframes with a distance of
+  its own (--wp-x).
+- The nightly place check no longer pins a famous sight on a shop that shares its name (Granada's Alhambra sat on a
+  shop's label by Plaza Nueva, about 1 km from the monument): tools/place_check.py gives a shop's label half the
+  weight when it has fewer words than the name looked for, and between equal matches takes the one nearest the
+  place's own rough position when it has one (the city centre only when it has none). tools/worldlib.js: a pin is marked as Google's only when Google
+  gave it; a record that is already in the database is marked so (exists), and the nightly task reads its version
+  before writing over it.
+- Tests: new suite route (the router on streets made in the test, and Today's map on a made-up pack with detailed
+  tiles: test/lib/synthpack.js).
+
 ## v196
 
 - The world library (the "Waypoint World Library — design" doc): one checked record per destination, world/<country-city>,

@@ -151,6 +151,7 @@
         pts: w.pts,
         home: w.D.home,
         animate: false /* (a new day is shown at once: pins never glide across the map) */,
+        hops: w.D.hops /* (Today's ways on foot, where it gave them: the map draws them along the streets) */,
         city: w.day.city
       });
     wrap.classList.toggle("vt-on", !!ok);

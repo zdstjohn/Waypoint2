@@ -238,6 +238,12 @@ lib/              the shared library
                   phone, also where the planner wouldn't have picked it.
   route.js        (second script) trip shape check (and its one-tap fixes)   import.js  paste an itinerary   prices.js  live prices (Where to stay's Booking.com places, v175; no other-site links since v177)
   watch.js        price watches   sync.js  saved and shared trips   fx.js  motion   vtindex.js/vtmap.js  the street map (cities with a map pack); on a day out far away, the map of where you go or none (W.vtForDay)
+  streetroute.js  (second script, v197) the walk between two pins along the streets, from the map pack's own detailed
+                  tiles: reads a tile's street lines, joins them into a network (a street is cut where another meets or
+                  crosses it; a bridge joins only its own kind; streets carry on across tile edges), and finds the
+                  shortest walk (A*), a footpath sooner than a main road. Pure functions, built in slices so the
+                  screen never waits. lib/vtmap.js draws the day's hops with it (showRoute): the line grows when a day
+                  opens. No service is asked: it works offline, and the same on the website
   gmaps.js        (second script) Google Maps through the viewer's own connection: real times between stops (kept
                   with the trip as S.rl and read by W.leg in core.js; asked only for the day on show, W.legWant),
                   the forecast (W.wxLine), Google's listings for the search (W.gmSearch), a place from a pasted link

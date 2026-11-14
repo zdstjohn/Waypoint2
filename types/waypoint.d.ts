@@ -219,7 +219,7 @@ interface Waypoint {
   deskSheet: () => void;
   deskSum: (sm: { stops: number; move: number; first: number | null; last: number | null; booked: number }, day?: Day) => string;
   deskMap: (P: Plan) => void;
-  deskPts: { n: number; country: string; city: string; pts: any[]; all?: any[]; place?: string; home: any; slug: string | null; xp: boolean; go?: boolean; gm?: string } | null;
+  deskPts: { n: number; country: string; city: string; pts: any[]; all?: any[]; place?: string; home: any; slug: string | null; xp: boolean; go?: boolean; gm?: string; hops?: any[][] } | null;
   deskIdeas: { n: string; lat: number | null; lng: number | null; food: boolean }[];
   railRender: (P: Plan) => void;
   palOpen: () => void;
@@ -269,6 +269,9 @@ interface Waypoint {
   fxCollapse: (sel: any, done?: any, opts?: any) => void;
   fxExpand: (sel: any, opts?: any) => void;
   fxFlip: (kind: string, dir: number, update: () => void, after?: (() => void) | null) => void;
+  /** for a transition made in the second script: is it to be plain here, and its start and end (lib/fx.js) */
+  fxPlain: () => boolean;
+  fxTurn: (on: boolean, ms: number) => void;
   fxOff: any;
   /** a screen just opened: for a moment the page carries "view-enter" so what arrives moves in once */
   fxEnter: () => void;
@@ -768,6 +771,18 @@ interface Waypoint {
   vtWarm: (slug: string) => any;
   vtWorkerUsed: any;
   vtZoom: (how: any) => void;
+  /** the way between two pins along the streets, from the map pack's own data (lib/streetroute.js, second script) */
+  streetRoute?: {
+    Z: number;
+    roads: (buf: ArrayBuffer | Uint8Array) => any[];
+    tilesFor: (pts: { lat: number; lng: number }[], max?: number) => number[][] | null;
+    graph: (tiles: { x: number; y: number; buf: ArrayBuffer | Uint8Array }[]) => any;
+    graphSoon: (tiles: { x: number; y: number; buf: ArrayBuffer | Uint8Array }[], then: (G: any) => void) => void;
+    path: (G: any, from: { lat: number; lng: number }, to: { lat: number; lng: number }) => number[][] | null;
+  };
+  /** one frame of the route drawing itself, and the lines now drawn (lib/vtmap.js) */
+  vtRouteFrame?: (lines: number[][][], p: number) => number[][][];
+  vtRouteLines?: () => number[][][];
   wantPhotos?: (country: string, city: string, pool: Pool | null, P?: Plan) => void;
   IDEA_CAP: { spots: number; food: number };
   tripPhotoCoverage: (P: Plan) => { stops: number; withPhoto: number; pct: number; rows: { key: string; country: string; city: string; stops: number; urls: string[]; map: string | null; items: Record<string, string> }[] };

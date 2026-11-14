@@ -46,6 +46,23 @@ pc.set_city("Naples", "Italy")
 ok(not f("Capri Watch", ["Capri Island Day Trip", "Capri"], 295), "a shop called Capri Watch is not the island")
 ok(not f("Trattoria e pizzeria spaccanapoli", ["Naples Historic Centre (Spaccanapoli)", "SpaccaNapoli"], 45), "a restaurant named after the street is not the street")
 
+# --- two map labels with one name (v197): the Alhambra on its hill, and a shop called Alhambra by Plaza Nueva ---
+pc.set_city("Granada", "Spain")
+_keep = (pk.pois_near, pc.photon, pc.nominatim_cands, pc.water_m)
+pk.pois_near = lambda lat, lng, ring=1: [("Alhambra", ["Alhambra"], "shop", "gift", 37.1747139, -3.5996211), ("Alhambra", ["Alhambra"], "castle", "castle", 37.1760561, -3.588109)]
+pc.photon = lambda q, lat, lng: []; pc.nominatim_cands = lambda *a: []; pc.water_m = lambda la, ln: 0
+_c = pc.tile_cands("Alhambra and Nasrid Palaces", False, 37.1761, -3.5881, 37.1765, -3.599)
+ok(len(_c) == 2 and _c[0]["s"] <= 0.5 and _c[1]["s"] >= 0.99, "a shop that borrowed the sight's name scores half; the castle of that name scores whole")
+_b, _v, _ = pc.match("Alhambra and Nasrid Palaces", False, 37.1765, -3.599, [37.1761, -3.5881])
+ok(_b and abs(_b["lng"] + 3.588109) < 1e-6 and _v == "ok", "the Alhambra's pin is the castle's label, not the shop's")
+pk.pois_near = lambda lat, lng, ring=1: [("Alhambra", ["Alhambra"], "attraction", "attraction", 37.1747139, -3.5996211), ("Alhambra", ["Alhambra"], "castle", "castle", 37.1760561, -3.588109)]
+_b, _v, _ = pc.match("Alhambra and Nasrid Palaces", False, 37.1765, -3.599, [37.1761, -3.5881])
+ok(_b and abs(_b["lng"] + 3.588109) < 1e-6, "of two labels with the same name and standing, the one by the place's guessed pin wins, not the one nearer the middle of town")
+pk.pois_near = lambda lat, lng, ring=1: [("Mercado de Triana", ["Mercado de Triana"], "shop", "marketplace", 37.3857, -6.0034)]
+_c = pc.tile_cands("Mercado de Triana", False, 37.3857, -6.0034, 37.3886, -5.9953)
+ok(_c and _c[0]["s"] >= 0.99, "a market that is the sight itself keeps its whole score: its label says as much as its name")
+pk.pois_near, pc.photon, pc.nominatim_cands, pc.water_m = _keep
+
 # --- opening hours as OpenStreetMap writes them (minutes from midnight; closed: 0 = Sunday) ---
 h = pc.hours_from_osm
 ok(h("Mo-Fr 09:00-17:00") == {"o": 540, "c": 1020, "closed": [0, 6]}, "weekdays nine to five: closed at the weekend")

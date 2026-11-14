@@ -1,7 +1,9 @@
 /* A made-up street-map pack for Rome's centre, so the tests (and the header screenshots) can draw the app's real map
    engine where the machine has no real pack. NOT real map data: invented streets, a river and parks, in the same
-   vector-tile layout the nightly packs use (water, park, transportation, building; z12 tiles). Served in place of
-   vt/index.json and vt/italy-rome.wasm for one browser context:  await require('./synthpack').serve(ctx);  */
+   vector-tile layout the nightly packs use (water, park, transportation, building; z8 to z12 tiles, and the detailed
+   z14 ones the day's route is worked out from). Served in place of vt/index.json and vt/italy-rome.wasm for one
+   browser context:  await require('./synthpack').serve(ctx);
+   layer() also makes single tiles for the street-route tests (class, and optionally subclass and brunnel). */
 const zlib = require('zlib');
 const SLUG = 'italy-rome';
 const C = [12.4964, 41.9028]; /* the middle (lng, lat) */
@@ -25,10 +27,12 @@ function geometry(rings, type, tx, ty) {
   return g;
 }
 function layer(name, feats, tx, ty) {
-  const keys = ['class'], vals = []; const body = [...tag(1, 2), ...vint(name.length), ...str(name)];
+  const keys = ['class', 'subclass', 'brunnel'], vals = []; const body = [...tag(1, 2), ...vint(name.length), ...str(name)];
+  const val = v => { let i = vals.indexOf(v); if (i < 0) { vals.push(v); i = vals.length - 1; } return i; };
   feats.forEach(f => {
-    let vi = vals.indexOf(f.cls); if (vi < 0) { vals.push(f.cls); vi = vals.length - 1; }
-    const tags = [0, vi], geom = geometry(f.rings, f.type, tx, ty);
+    const tags = [0, val(f.cls)], geom = geometry(f.rings, f.type, tx, ty);
+    if (f.sub) tags.push(1, val(f.sub));
+    if (f.brunnel) tags.push(2, val(f.brunnel));
     const fb = [...lenField(2, tags.flatMap(vint)), ...tag(3, 0), ...vint(f.type), ...lenField(4, geom)];
     body.push(...lenField(2, fb));
   });
@@ -75,7 +79,18 @@ function build() {
       const gz = zlib.gzipSync(buf); parts.push(gz); index[z + '/' + x + '/' + y] = [off, gz.length]; off += gz.length;
     }
   }
-  const hdr = Buffer.from(JSON.stringify({ t: index, places: T.bounds, b: [T.bounds[0] - 0.05, T.bounds[1] - 0.04, T.bounds[2] + 0.05, T.bounds[3] + 0.04], zmin: 8 }));
+  /* the detailed tiles (z14, 5x5 around the middle), as a real pack has for its city: the day's route along the streets
+     is worked out from these (lib/streetroute.js) */
+  {
+    const z = 14, n = Math.pow(2, z);
+    const tileX = lng => ((lng + 180) / 360) * n, tileY = lat => { const r = (lat * Math.PI) / 180; return ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * n; };
+    const cx = Math.floor(tileX(C[0])), cy = Math.floor(tileY(C[1]));
+    for (let x = cx - 2; x <= cx + 2; x++) for (let y = cy - 2; y <= cy + 2; y++) {
+      const tx = lng => (tileX(lng) - x) * 4096, ty = lat => (tileY(lat) - y) * 4096;
+      const gz = zlib.gzipSync(Buffer.from([...layer('water', T.water, tx, ty), ...layer('park', T.parks, tx, ty), ...layer('transportation', T.lines, tx, ty), ...layer('building', T.blocks, tx, ty)])); parts.push(gz); index[z + '/' + x + '/' + y] = [off, gz.length]; off += gz.length;
+    }
+  }
+  const hdr = Buffer.from(JSON.stringify({ t: index, places: T.bounds, b: [T.bounds[0] - 0.05, T.bounds[1] - 0.04, T.bounds[2] + 0.05, T.bounds[3] + 0.04], zmin: 8, zmax: 14 }));
   const len = Buffer.alloc(4); len.writeUInt32BE(hdr.length);
   return Buffer.concat([Buffer.from('WPVT1\n'), len, hdr, ...parts]);
 }
@@ -88,4 +103,4 @@ async function serve(ctx) {
 }
 /* (the app asked for the list of packs when it started, before this was in place: ask again) */
 async function again(pg) { await pg.evaluate(() => { W.vt.idxState = 'idle'; W.vt.idx = null; W.vtFor('Italy', 'Rome', 41.9, 12.5); }); await pg.waitForFunction(() => W.vt.idxState === 'ready', null, { timeout: 8000 }); }
-module.exports = { serve, again, build, SLUG };
+module.exports = { serve, again, build, layer, SLUG };

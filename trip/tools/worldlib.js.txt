@@ -16,7 +16,8 @@
          Reads <work_dir>/<slug>.facts.json (what the task read: {"<key>": {hours?, entry?}}, shapes in FACTS below)
          and <work_dir>/<slug>.legs.jsonl (one {"n", "walk", "transit"?, "drive"?, "src", "at"} a line), assembles each
          record, checks it, and writes <work_dir>/out/<slug>.json and <work_dir>/writes.json
-         [{collection: "world", doc_id, op: "set", if_version?, file}], printing {built, refused, unsure, stale}.
+         [{collection: "world", doc_id, op: "set", exists?, if_version?, file}], printing {built, refused, unsure, stale}.
+         (exists: the record is in the database already: its version is read before it is written over)
      node worldlib.js doctor <db_dir>
          Checks every stored record against today's rules; prints what is broken or out of date; exits 1 if broken.
 
@@ -397,7 +398,7 @@ function assemble(sl, db, facts, legs, when) {
     /* the pin: a checked one (the place check's), else Claude's, marked */
     if (typeof chk.lat === "number" && chk.st === "open") {
       p.pin = [chk.lat, chk.lng];
-      p.pinSrc = chk.g ? "google" : "osm";
+      p.pinSrc = chk.gpin ? "google" : "osm"; /* (g alone is Google's ID for links: the pin may still be the map's own) */
       tally.checked++;
     } else if (typeof x.lat === "number" && x.lat) {
       p.pin = [x.lat, x.lng];
@@ -622,6 +623,7 @@ function build(dbDir, work) {
     const file = path.join(work, "out", s + ".json");
     fs.writeFileSync(file, JSON.stringify(a.rec));
     const w = { collection: "world", doc_id: s, op: "set", file };
+    if (db.world[s]) w.exists = true; /* (a write to a record that exists needs its version: the task reads it first) */
     if (db.world[s] && db.world[s].version) w.if_version = db.world[s].version;
     writes.push(w);
     sum.built.push(s);

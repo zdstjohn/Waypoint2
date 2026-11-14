@@ -32,6 +32,7 @@
     chevD: svg('<path d="M4 7.5l6 6 6-6"/>')
   };
   var todayRoute = ""; /* today's whole route in Google Maps (the banner's route button on a phone) */
+  var todayHops = /** @type {any[][]} */ ([]); /* today's ways on foot, in order: [from, to] pins (the map draws them along the streets) */
 
   /* ======================= which mode ======================= */
   /* a mode you pick lasts for that day; otherwise the trip's dates decide */
@@ -363,7 +364,10 @@
       pts = /** @type {any[]} */ ([]),
       rows = "",
       lr0 = W.legReal;
+    /* (each way walked, in order, for the map's line along the streets: lib/vtmap.js) */
+    var hops = /** @type {any[][]} */ ([]);
     var legRow = function (a, b2, last, note) {
+      if (a && b2 && a.lat != null && b2.lat != null) hops.push([a, b2]);
       return W.routeLeg(a, b2, day.city, last, note);
     };
     var homePt = { n: home.label, label: home.label, lat: home.lat, lng: home.lng, none: home.none };
@@ -431,6 +435,7 @@
       rows += legRow(prev, homePt, true);
     var gm = pts.length ? W.dayRouteUrl(day, pts, home) : "";
     todayRoute = gm;
+    todayHops = hops;
     h +=
       '<section class="go-day go-route sk"><div class="go-rh"><h3>' +
       "Today's route" +
@@ -559,7 +564,7 @@
           : { slug: null, pts: mapPts, place: day.city },
       vtSlug = vd.slug,
       mapIn = "",
-      vtWant = null,
+      vtWant = /** @type {any} */ (null),
       /* on the desktop workspace the map has its own pane (lib/deskmap.js), fed from here */
       paneMap = !!(W.deskSplit && W.deskSplit());
     W.deskPts = {
@@ -665,6 +670,8 @@
 
     /* today, stop by stop, with the map: straight under what's now and next */
     h += goRoute(P, day, list, home, live, cur, nxt, nm, mapBtn, mapIn);
+    if (vtWant) vtWant.hops = todayHops;
+    if (W.deskPts) W.deskPts.hops = todayHops;
 
     /* running late, and rescuing the rest of the day */
     var late = W.lateFor(day),
