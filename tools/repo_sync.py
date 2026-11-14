@@ -26,7 +26,7 @@ for item in ITEMS:
         for f in files:
             rel = os.path.relpath(os.path.join(d, f), ROOT)
             if keep(rel): wanted.add(rel)
-wanted.add(os.path.join("build", "bundle.js")); wanted.add(os.path.join("build", "standalone.js")); wanted.add(os.path.join("build", "icon", "make-icons.js"))
+wanted.add(os.path.join("build", "bundle.js")); wanted.add(os.path.join("build", "standalone.js")); wanted.add(os.path.join("build", "icon", "make-icons.js")); wanted.add(os.path.join("build", "icon", "og.js")); wanted.add(os.path.join("build", "icon", "og-image.png"))
 for f in sorted(os.listdir(os.path.join(ROOT, "build", "icon", "out"))): wanted.add(os.path.join("build", "icon", "out", f))
 for rel in sorted(wanted):
     dst = os.path.join(REPO, rel); os.makedirs(os.path.dirname(dst), exist_ok=True); shutil.copy2(os.path.join(ROOT, rel), dst)

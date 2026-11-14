@@ -15,7 +15,7 @@ module.exports = ROOT => {
   const re = /\bdata-([a-z][a-z0-9-]*)=/g;
   while ((m = re.exec(src))) drawn.add(m[1]);
   /* drawn as a mark only: the tap is handled by class or by any tap outside a stop (checked by hand, v187) */
-  const MARKS = new Set(["wsgrip", "liftoff"]);
+  const MARKS = new Set(["liftoff"]);
   const camel = n => n.replace(/-([a-z0-9])/g, (_, c) => c.toUpperCase());
   const dead = [...drawn].filter(n => {
     if (MARKS.has(n)) return false;

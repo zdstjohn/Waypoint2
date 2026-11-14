@@ -256,28 +256,4 @@
     },
     true
   );
-  /* a card's "Show on the map" */
-  document.addEventListener(
-    "click",
-    function (e) {
-      var t = /** @type {HTMLElement | null} */ (e.target),
-        b = t && t.closest ? /** @type {HTMLElement | null} */ (t.closest("[data-wspin]")) : null;
-      if (!b || !W.desk()) return;
-      e.preventDefault();
-      e.stopPropagation();
-      var k = b.dataset.wspin || "",
-        D = W.deskPts,
-        p =
-          D &&
-          D.pts.filter(function (q) {
-            return q.key === k;
-          })[0];
-      if (!W.wsPrefs.map) W.wsSet("map", 1);
-      if (p && p.lat != null && W.vtSee) {
-        W.vtSee(p.lng, p.lat, document.querySelector("#sheethost .sheet") ? 432 : 0);
-        set([k], "", "");
-      }
-    },
-    true
-  );
 })();

@@ -33,7 +33,7 @@ exports.run = async t => {
   t.ok(!dv.route && !dv.daybar && !dv.vsw, 'the day has no route card, row of day numbers or Day / Explore switch of its own (the rail and the map are those)');
   t.ok(/\d+ stops?/.test(dv.sum) && /getting around/.test(dv.sum) && /to/.test(dv.sum), 'a line adds the day up: ' + dv.sum.replace(/\s+/g, ' '));
   t.ok(dv.legs >= 2 && dv.buf >= 1, 'each way between two stops is a row, with the time to spare where there is some (' + dv.legs + ' ways, ' + dv.buf + ' with spare time)');
-  t.ok(dv.qa >= 3, 'each card carries its quick actions (' + dv.qa + ')');
+  t.ok(dv.qa === 0, 'a card has no row of quick buttons on the desktop (' + dv.qa + ')');
 
   /* ---------- the map pane without a street map: the route as a list ---------- */
   const em = await pg.evaluate(() => { const e = document.getElementById('wcEmpty'); return { shown: !e.hidden && e.offsetParent !== null, text: e.textContent, items: e.querySelectorAll('li').length, gm: (e.querySelector('a[href*="google."]') || {}).textContent, title: document.getElementById('wcTitle').textContent, sketch: !!e.querySelector('svg, canvas') }; });
@@ -43,7 +43,7 @@ exports.run = async t => {
   /* ---------- a card and its pin (a stand-in pin: the tests have no map pack) ---------- */
   const key = await pg.evaluate(() => { const x = W.P.days[1].slots.find(x => x.item && !W.isFood(x.slot)); const p = document.createElement('a'); p.className = 'vt-pin'; p.href = 'https://www.google.com/maps'; p.setAttribute('data-keys', x.key); p.innerHTML = '<b>C</b><span>stand-in</span>'; p.style.cssText = 'position:absolute;right:60px;top:300px;z-index:9'; document.getElementById('wsCanvas').appendChild(p); return x.key; });
   await pg.hover('.wrap .slot[data-slotkey="' + key + '"]'); await pg.waitForTimeout(200);
-  t.ok(await pg.evaluate(() => document.querySelector('#wsCanvas .vt-pin[data-keys]').classList.contains('hi') && getComputedStyle(document.querySelector('.wrap .slot.ws-hi .ws-qa')).opacity === '1'), 'the pointer over a card lights its pin, and shows the card\'s quick actions');
+  t.ok(await pg.evaluate(() => document.querySelector('#wsCanvas .vt-pin[data-keys]').classList.contains('hi')), 'the pointer over a card lights its pin');
   await pg.hover('#wrNav'); await pg.waitForTimeout(150);
   t.ok(await pg.evaluate(() => !document.querySelector('#wsCanvas .vt-pin.hi') && !document.querySelector('.wrap .slot.ws-hi')), 'and nothing stays lit when it leaves');
   await pg.hover('#wsCanvas .vt-pin[data-keys]'); await pg.waitForTimeout(200);
@@ -96,24 +96,18 @@ exports.run = async t => {
   await pg.keyboard.press('Escape'); await pg.waitForTimeout(200);
   t.ok(await pg.evaluate(() => !document.querySelector('#wsPal.on')), 'Esc closes the palette');
 
-  /* ---------- a stop to another day: the quick action, and a card dropped on a day in the rail ---------- */
+  /* ---------- a card dropped on a day in the rail (v188: no hover row of quick buttons any more) ---------- */
   await pg.evaluate(() => { W.S.day = 2; W.render(); scrollTo(0, 0); }); await settle(pg, 1500);
   const was = await pg.evaluate(() => { const x = W.P.days[1].slots.find(x => x.item && !W.isFood(x.slot)); return { key: x.key, slot: x.slot, a: x.item.n, b: (W.P.days[2].slots.find(y => y.slot === x.slot).item || {}).n }; });
   const at = slot => pg.evaluate(slot => [(W.P.days[1].slots.find(y => y.slot === slot).item || {}).n, (W.P.days[2].slots.find(y => y.slot === slot).item || {}).n], slot);
-  await pg.evaluate(k => document.querySelector('.wrap .slot[data-slotkey="' + k + '"] [data-wsmove="3"]').click(), was.key); await settle(pg, 1500);
-  let now = await at(was.slot);
-  t.ok(now[1] === was.a && now[0] === was.b && /Moved to Day 3/.test(await pg.evaluate(() => (document.getElementById('undohost') || {}).textContent || '')), '"Move to Day 3" on a card trades it with Day 3\'s same part, with Undo: ' + was.a);
-  await pg.evaluate(() => { const u = document.querySelector('#undohost [data-undo], #undohost button'); if (u) u.click(); }); await settle(pg, 1500);
-  now = await at(was.slot);
-  t.ok(now[0] === was.a && now[1] === was.b, 'Undo puts it back');
   const card = '.wrap .slot[data-slotkey="' + was.key + '"]';
   await pg.hover(card); await pg.waitForTimeout(150);
-  const g = await (await pg.$(card + ' .ws-grip')).boundingBox(), dd = await (await pg.$('.wr-day[data-wsday="3"]')).boundingBox(), far = await pg.$('.wr-day[data-wsday="' + (await pg.evaluate(() => W.P.days.find(d => d.stop === 1).n)) + '"]');
+  const g = await (await pg.$(card + ' > .num, ' + card + ' .thumb')).boundingBox(), dd = await (await pg.$('.wr-day[data-wsday="3"]')).boundingBox(), far = await pg.$('.wr-day[data-wsday="' + (await pg.evaluate(() => W.P.days.find(d => d.stop === 1).n)) + '"]');
   await pg.mouse.move(g.x + g.width / 2, g.y + g.height / 2); await pg.mouse.down(); await pg.mouse.move(g.x - 30, g.y + 30, { steps: 4 }); await pg.mouse.move(dd.x + 70, dd.y + dd.height / 2, { steps: 8 }); await pg.waitForTimeout(120);
   const mid = await pg.evaluate(() => ({ drop: (document.querySelector('.wr-day.drop') || {}).dataset, on: document.documentElement.classList.contains('ws-dragging') }));
   const farCan = await far.evaluate(e => e.classList.contains('can'));
   await pg.mouse.up(); await settle(pg, 1500);
-  now = await at(was.slot);
+  const now = await at(was.slot);
   t.ok(mid.on && mid.drop && mid.drop.wsday === '3' && now[1] === was.a, 'a card dragged by its handle onto Day 3 in the rail moves there');
   t.ok(!farCan, 'a day in another town is not somewhere to drop it (a place stays in its town)');
   await pg.evaluate(() => { const u = document.querySelector('#undohost [data-undo], #undohost button'); if (u) u.click(); }); await settle(pg, 1200);

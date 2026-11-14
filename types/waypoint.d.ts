@@ -740,7 +740,6 @@ interface Waypoint {
   deskAfter: (P: Plan) => void;
   deskSplit: () => boolean;
   deskSheet: () => void;
-  deskQuick: (x: SlotEntry, it: any, day: Day, P: Plan) => string;
   deskSum: (sm: { stops: number; move: number; first: number | null; last: number | null; booked: number }, day?: Day) => string;
   deskMap: (P: Plan) => void;
   deskPts: {

@@ -839,10 +839,6 @@
       nowM = W.isToday(day) ? W.nowMin() : null,
       /* Simple view: each card says only what you need to run the day (time, place, the way there, warnings, booking) */
       simple = W.simple();
-    /* a card's quick actions on the desktop (drag it, open it, a day earlier or later, find it on the map): lib/desk.js */
-    function quick(x, it) {
-      return desk && W.deskQuick ? W.deskQuick(x, it, day, P) : "";
-    }
     /* on its own, a city has only the handful of ideas built into the app: say so where they've run out */
     if (
       W.standalone &&
@@ -1057,7 +1053,6 @@
             esc(x.key) +
             '">' +
             nowTag +
-            quick(x, it) +
             W.stopMark(it, true, x.slot, num) +
             '<div class="slot-body"><button type="button" class="slot-toggle" data-open="' +
             esc(x.key) +
@@ -1089,7 +1084,6 @@
             esc(x.key) +
             '">' +
             nowTag +
-            quick(x, it) +
             W.stopMark(it, false, x.slot, num) +
             '<div class="slot-body"><button type="button" class="slot-toggle" data-open="' +
             esc(x.key) +

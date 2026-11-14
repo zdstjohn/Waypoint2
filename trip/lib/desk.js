@@ -193,74 +193,6 @@
   };
 
   /* ---------- what a card carries on the desktop (asked for by screens/trip.js as it draws the day) ---------- */
-  function qa(attrs, label, svg, off) {
-    return (
-      '<button type="button" ' +
-      attrs +
-      ' aria-label="' +
-      label +
-      '" title="' +
-      label +
-      '"' +
-      (off ? " disabled" : "") +
-      '><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-      svg +
-      "</svg></button>"
-    );
-  }
-  /** a card's quick actions, shown on hover or focus: drag it (onto another stop, or a day in the rail), open it, a
-      day earlier or later in the same place, find it on the map @param {SlotEntry} x @param {any} it @param {Day} day @param {Plan} P */
-  W.deskQuick = function (x, it, day, P) {
-    var esc = W.esc,
-      k = esc(x.key),
-      ed = W.canEdit(),
-      near = function (n) {
-        return P.days.filter(function (d) {
-          return d.stop === day.stop && d.n === n;
-        })[0];
-      },
-      prev = near(day.n - 1),
-      next = near(day.n + 1);
-    return (
-      '<div class="ws-qa" role="group" aria-label="Quick actions for ' +
-      esc(it.n) +
-      '">' +
-      (ed
-        ? qa(
-            'class="ws-grip" data-wsgrip="' + k + '"',
-            "Drag onto another stop to trade places, or onto a day in the sidebar",
-            '<circle cx="5.500" cy="4" r=".9"/><circle cx="10.500" cy="4" r=".9"/><circle cx="5.500" cy="8" r=".9"/><circle cx="10.500" cy="8" r=".9"/><circle cx="5.500" cy="12" r=".9"/><circle cx="10.500" cy="12" r=".9"/>'
-          )
-        : "") +
-      qa(
-        'data-open="' + k + '"',
-        "Open the details",
-        '<path d="M3 11.500 10.800 3.700l1.500 1.500L4.500 13H3z"/><path d="M9.500 5l1.500 1.500"/>'
-      ) +
-      (ed
-        ? qa(
-            'data-wsmove="' + (prev ? prev.n : "") + '" data-wskey="' + k + '"',
-            prev ? "Move to Day " + prev.n : "No earlier day in " + esc(day.city),
-            '<path d="M9.500 3.500 5 8l4.500 4.500"/>',
-            !prev
-          ) +
-          qa(
-            'data-wsmove="' + (next ? next.n : "") + '" data-wskey="' + k + '"',
-            next ? "Move to Day " + next.n : "No later day in " + esc(day.city),
-            '<path d="M6.500 3.500 11 8l-4.500 4.500"/>',
-            !next
-          )
-        : "") +
-      (it.lat != null
-        ? qa(
-            'data-wspin="' + k + '"',
-            "Show on the map",
-            '<path d="M8 14s4.200-3.900 4.200-7.300a4.200 4.200 0 0 0-8.400 0C3.800 10.100 8 14 8 14z"/><circle cx="8" cy="6.700" r="1.400"/>'
-          )
-        : "") +
-      "</div>"
-    );
-  };
   /** the line over a day: how many stops, how long between them, when it starts and ends, what its tickets come to,
       how many are booked @param {{ stops: number, move: number, first: number | null, last: number | null, booked: number }} sm @param {Day} [day] */
   W.deskSum = function (sm, day) {
@@ -461,15 +393,7 @@
   document.addEventListener(
     "click",
     function (e) {
-      var t = /** @type {HTMLElement | null} */ (e.target),
-        mv = t && t.closest ? /** @type {HTMLElement | null} */ (t.closest("[data-wsmove]")) : null;
-      /* a card's "a day earlier / a day later": the stop trades places with that day's same part */
-      if (mv && W.desk()) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (mv.dataset.wsmove && W.moveStop) W.moveStop(mv.dataset.wskey || "", +mv.dataset.wsmove);
-        return;
-      }
+      var t = /** @type {HTMLElement | null} */ (e.target);
       var b = t && t.closest ? /** @type {HTMLElement | null} */ (t.closest("[data-ws]")) : null;
       if (!b || !W.desk()) return;
       var p = String(b.dataset.ws).split(":");

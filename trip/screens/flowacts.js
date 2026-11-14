@@ -388,7 +388,7 @@
   }
   /** @type {{ x: number; y: number; key: string; id: number; t?: ReturnType<typeof setTimeout> } | null} */ var hold = null;
   document.addEventListener("pointerdown", function (e) {
-    var h = e.target && e.target.closest && e.target.closest(".slots .slot .thumb, .slots .slot > .num, .slots .slot .ws-grip");
+    var h = e.target && e.target.closest && e.target.closest(".slots .slot .thumb, .slots .slot > .num");
     if (!h || !W.canEdit() || W.view() !== "trip" || e.button > 0) return;
     var card = h.closest(".slot");
     if (!card || !card.dataset.slotkey) return;

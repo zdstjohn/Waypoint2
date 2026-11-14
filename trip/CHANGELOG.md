@@ -2,6 +2,14 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v189
+
+- The desktop's row of hover buttons on a stop card (drag, open, a day earlier or later, show on the map) is gone
+  (the owner: "get rid of this on desktop"): the card is dragged by its number or photo, opens when clicked, and moves to
+  another day from its "..." menu or the actions sheet. lib/desk.js deskQuick, the two handlers and desk.css go with it.
+- The repository copy now carries the link-preview image and its script (tools/repo_sync.py): v188's website build
+  failed on Vercel for want of build/icon/og-image.png.
+
 ## v188
 
 Small fixes and a few things you asked for.

@@ -170,16 +170,6 @@
   /* (a pane beside the map is for the plan: the day's photo is a band, not half the screen) */
   @container ws (max-width:700px){.day-h.has-hero{min-height:168px}}
   html.ws .slot{position:relative}
-  .ws-qa{position:absolute;top:-24px;right:44px;z-index:3;display:flex;gap:2px;padding:2px;border-radius:var(--r-sm);background:var(--surface);border:var(--hair);box-shadow:var(--sh-1);opacity:0;pointer-events:none;transition:opacity .12s}
-  html.ws .slot:hover > .ws-qa,html.ws .slot:focus-within > .ws-qa,html.ws .slot.ws-sel > .ws-qa{opacity:1;pointer-events:auto}
-  .ws-qa button{width:28px;height:28px;display:grid;place-items:center;border:0;border-radius:var(--r-xs);background:transparent;color:var(--muted);cursor:pointer}
-  .ws-qa button:hover{background:var(--sunk);color:var(--fg)}
-  .ws-qa button[disabled]{opacity:.35;cursor:default}
-  .ws-qa button svg{width:15px;height:15px}
-  .ws-qa .ws-grip{cursor:grab}
-  /* the "···" menu of a stop (as on a phone) opens over the row of quick buttons, which steps aside while it is open */
-  html.ws #viewTrip .slot .acts-w.open{z-index:5}
-  html.ws #viewTrip .slot.acts-on > .ws-qa{opacity:0;pointer-events:none}
   .ws-sum{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;padding:8px 12px;border-radius:var(--r-md);background:var(--sunk);font:700 var(--t-sm)/1.3 var(--f-body);color:var(--muted)}
   .ws-sum b{color:var(--fg);font-weight:800}
   .ws-buf{color:var(--muted);font-weight:700;white-space:nowrap}
@@ -254,7 +244,6 @@
 }
 @media (min-width:1024px) and (hover:none){
   /* (a touch screen has no hover: the actions are a row of the card, always there) */
-  html.ws .slot > .ws-qa{opacity:1;pointer-events:auto;position:static;grid-column:1 / -1;grid-row:2;justify-self:end;margin:-4px 0 0;box-shadow:none}
 }
 @media (min-width:1024px) and (prefers-reduced-motion:reduce){
   html.ws .sheet{animation:none!important}
