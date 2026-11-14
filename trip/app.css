@@ -1375,6 +1375,14 @@ table.budget tfoot th,table.budget tfoot td{border-top:2px solid var(--ink);font
 @keyframes livePulse{50%{opacity:.35}}
 @media (prefers-reduced-motion:reduce){.gh-k.now::before{animation:none}}
 
+/* ---------- Settings: stored files (v195): how full the photos' and street maps' store is ---------- */
+.st-box{display:grid;gap:8px}
+.st-box p{margin:0}
+.st-bar{height:8px;border-radius:4px;background:var(--sunk);overflow:hidden}
+.st-bar i{display:block;height:100%;border-radius:4px;background:var(--accent)}
+.st-bar.full i{background:var(--note)}
+@media (prefers-reduced-motion:no-preference){.st-bar i{transition:width .6s ease}}
+
 /* ---------- offline ---------- */
 .go-off{display:grid;gap:8px;padding:12px 14px}
 .go-off .go-k{font-weight:800;font-size:var(--t-body)}

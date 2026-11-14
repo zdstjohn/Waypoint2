@@ -642,6 +642,8 @@ interface Waypoint {
   setAppMode: any;
   setView: (v: View) => void;
   settingsClick: any;
+  /** the Storage card's collections (screens/settings.js, v195; for the tests) */
+  storeTest?: { cols: string[] };
   setupChange: any;
   setupClick: any;
   setupEnter: any;

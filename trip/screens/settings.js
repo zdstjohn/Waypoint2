@@ -92,6 +92,14 @@
         '<p class="small muted" id="libMsg" role="status">Counting…</p>',
         "set-lib"
       );
+    /* the photos' and street maps' file store (owner only: storage, below) */
+    if (!W.readOnly && !W.standalone && window.claude)
+      h += card(
+        "Storage",
+        "Photos and street maps the nightly tasks keep for the app. Files nothing uses any more can be removed to make room.",
+        '<div id="storeBox" class="st-box" role="status">' + storeBody() + "</div>",
+        "set-store"
+      );
     W.keepInputs(host, function () {
       var t = W.$("importText"),
         keep = t && t.value;
@@ -101,6 +109,7 @@
         if (t2) t2.value = keep;
       }
     });
+    storeLook();
     if (W.libStats)
       W.libStats(function (st) {
         var m = W.$("libMsg");
@@ -165,8 +174,276 @@
       t.value = "";
     }
   });
+  /* ---------- storage (v195) ----------
+     The artifact's file store (the assets capability: only someone who can edit the artifact gets it) holds the photos
+     and street-map packs the nightly tasks upload; it takes 5,000 files. Nothing removed the files that stopped being
+     used (photos the nightly photo look turned down, copies replaced by better ones, the parts of map packs built again),
+     and once it was full the nightly photos had nowhere to go (the owner, v195: "it says file storage is full").
+     Here: how full it is; the files no database document points at ("/_blob/<id>" anywhere in the collections the
+     nightly tasks write); and, after a confirmation on the page, removing them. Never a file from the last two days
+     (a nightly run uploads first and writes the document after), never on a read that failed or looks short. */
+  var STORE_COLS = ["photos", "maps", "places", "menus", "morefood", "links", "wanted", "citylib", "fx"],
+    STORE_KEEP_DAYS = 2,
+    BLOB = /\/_blob\/([0-9a-f]{32})/g;
+  var store = /** @type {{ st: string, usage: any, unused: any[], bytes: number, done: number, freed: number, msg: string }} */ ({
+    st: "idle",
+    usage: null,
+    unused: [],
+    bytes: 0,
+    done: 0,
+    freed: 0,
+    msg: ""
+  });
+  var assetsP = /** @type {Promise<any> | null} */ (null);
+  function assetsApi() {
+    if (!assetsP)
+      assetsP = (window.claude ? window.claude.use("assets") : Promise.resolve(null)).then(
+        function (a) {
+          return a || null;
+        },
+        function () {
+          return null;
+        }
+      );
+    return assetsP;
+  }
+  /** a size in the units a phone's storage shows (1 GB = 1,024 MB) */
+  function mb(/** @type {number} */ b) {
+    var M = 1048576;
+    return b >= 1024 * M ? +(b / (1024 * M)).toFixed(2) + " GB" : Math.max(1, Math.round(b / M)) + " MB";
+  }
+  function n0(/** @type {number} */ n) {
+    return n.toLocaleString();
+  }
+  function storeBody() {
+    var u = store.usage,
+      meter = u
+        ? '<p class="small"><b>' +
+          n0(u.files) +
+          "</b> of " +
+          n0(u.maxFiles) +
+          " files · " +
+          mb(u.bytes) +
+          " of " +
+          mb(u.maxBytes) +
+          "</p>" +
+          '<div class="st-bar' +
+          (u.files >= 0.95 * u.maxFiles ? " full" : "") +
+          '" aria-hidden="true"><i style="width:' +
+          Math.min(100, Math.round((100 * u.files) / Math.max(1, u.maxFiles))) +
+          '%"></i></div>'
+        : "";
+    var B = function (/** @type {string} */ act, /** @type {string} */ label, /** @type {boolean} */ quiet) {
+      return '<button type="button" class="btn' + (quiet ? " quiet" : "") + '" data-store="' + act + '">' + label + "</button>";
+    };
+    switch (store.st) {
+      case "idle":
+      case "look":
+        return '<p class="small muted">Checking…</p>';
+      case "ready":
+        return (
+          meter +
+          (u && u.files >= u.maxFiles ? '<p class="small warn">The store is full: new photos can\'t be added.</p>' : "") +
+          '<div class="row">' +
+          B("scan", "Find unused files", true) +
+          "</div>"
+        );
+      case "scan":
+        return meter + '<p class="small muted">Looking through the photos and maps in use…</p>';
+      case "found":
+        return store.unused.length
+          ? meter +
+              '<p class="small"><b>' +
+              n0(store.unused.length) +
+              " files</b> (" +
+              mb(store.bytes) +
+              ") aren't used by anything in the app.</p>" +
+              '<div class="row">' +
+              B("ask", "Remove them", false) +
+              "</div>"
+          : meter + '<p class="small muted">Every file is in use.</p>';
+      case "ask":
+        return (
+          meter +
+          '<p class="small"><b>Remove ' +
+          n0(store.unused.length) +
+          " files for good?</b> They can't be brought back. The photos and maps the app uses stay.</p>" +
+          '<div class="row">' +
+          B("go", "Remove for good", false) +
+          B("cancel", "Cancel", true) +
+          "</div>"
+        );
+      case "del":
+        return meter + '<p class="small muted">Removed ' + n0(store.done) + " of " + n0(store.unused.length) + "…</p>";
+      case "done":
+        return (
+          meter +
+          '<p class="small">Removed ' +
+          n0(store.done) +
+          " files and freed " +
+          mb(store.freed) +
+          "." +
+          (store.msg ? " " + W.esc(store.msg) : "") +
+          "</p>" +
+          '<div class="row">' +
+          B("scan", "Look again", true) +
+          "</div>"
+        );
+      default:
+        return meter + '<p class="small warn">' + W.esc(store.msg || "Couldn't check the store.") + "</p>";
+    }
+  }
+  function storeDraw() {
+    var el = W.$("storeBox");
+    if (el) el.innerHTML = storeBody();
+    var c = W.$("set-store");
+    if (c) c.hidden = store.st === "none";
+  }
+  /** how full the store is (when Settings opens; the card hides where the store is not this viewer's to tidy) */
+  function storeLook() {
+    if (store.st !== "idle" || W.readOnly || W.standalone || !window.claude) return storeDraw();
+    store.st = "look";
+    assetsApi()
+      .then(function (a) {
+        if (!a) {
+          store.st = "none";
+          return;
+        }
+        return a.list().then(function (/** @type {any} */ r) {
+          store.usage = r.usage;
+          store.st = "ready";
+        });
+      })
+      .then(null, function (/** @type {any} */ e) {
+        store.st = "err";
+        store.msg = "Couldn't read the store" + (e && e.code ? " (" + e.code + ")" : "") + ".";
+      })
+      .then(storeDraw);
+  }
+  /** the files no document points at, older than two days */
+  function storeScan() {
+    store.st = "scan";
+    storeDraw();
+    var used = /** @type {Record<string, number>} */ ({});
+    Promise.all([assetsApi(), window.claude ? window.claude.use("db") : null])
+      .then(function (r) {
+        var a = r[0],
+          d = r[1];
+        if (!a || !d) throw { code: "unavailable" };
+        return Promise.all(
+          STORE_COLS.map(function (c) {
+            return d
+              .collection(c)
+              .get()
+              .then(function (/** @type {any} */ snap) {
+                (snap.docs || []).forEach(function (/** @type {any} */ doc) {
+                  var t = JSON.stringify(doc.data() || {}),
+                    m;
+                  BLOB.lastIndex = 0;
+                  while ((m = BLOB.exec(t))) used[m[1]] = 1;
+                });
+              });
+          })
+        ).then(function () {
+          return a.list();
+        });
+      })
+      .then(function (/** @type {any} */ r) {
+        var all = r.assets || [],
+          cut = Date.now() - STORE_KEEP_DAYS * 864e5,
+          nUsed = Object.keys(used).length;
+        store.usage = r.usage;
+        /* a read that found almost nothing in use is a read that went wrong: remove nothing */
+        if (all.length > 200 && nUsed < all.length / 20) throw { code: "short", n: nUsed };
+        store.unused = all.filter(function (/** @type {any} */ x) {
+          return !used[x.id] && Date.parse(x.createdAt) < cut;
+        });
+        store.bytes = store.unused.reduce(function (/** @type {number} */ s, /** @type {any} */ x) {
+          return s + (x.sizeBytes || 0);
+        }, 0);
+        store.st = "found";
+      })
+      .then(null, function (/** @type {any} */ e) {
+        store.st = "err";
+        store.msg =
+          e && e.code === "short"
+            ? "Only " + e.n + " files looked in use, which can't be right, so nothing will be removed. Try again later."
+            : "Couldn't check which files are in use" + (e && e.code ? " (" + e.code + ")" : "") + ". Nothing was removed.";
+      })
+      .then(storeDraw);
+  }
+  /** remove the unused files, a few at a time; stops at the first refusal */
+  function storeRemove() {
+    store.st = "del";
+    store.done = 0;
+    store.freed = 0;
+    store.msg = "";
+    storeDraw();
+    var list = store.unused.slice(),
+      stop = false;
+    assetsApi().then(function (a) {
+      if (!a) {
+        store.st = "err";
+        store.msg = "The store isn't open to this view.";
+        return storeDraw();
+      }
+      function one() {
+        var x = list.shift();
+        if (!x || stop) return Promise.resolve();
+        var del = function () {
+          return a.delete(x.id);
+        };
+        return del()
+          .then(null, function (/** @type {any} */ e) {
+            if (e && e.code === "store_unavailable") return del();
+            throw e;
+          })
+          .then(
+            function () {
+              store.done++;
+              store.freed += x.sizeBytes || 0;
+              if (store.done % 20 === 0) storeDraw();
+            },
+            function (/** @type {any} */ e) {
+              stop = true;
+              store.msg = "It stopped" + (e && e.code ? " (" + e.code + ")" : "") + "; the rest are still there.";
+            }
+          )
+          .then(one);
+      }
+      Promise.all([one(), one(), one(), one()])
+        .then(function () {
+          return a.list().then(
+            function (/** @type {any} */ r) {
+              store.usage = r.usage;
+            },
+            function () {}
+          );
+        })
+        .then(function () {
+          store.st = "done";
+          store.unused = [];
+          storeDraw();
+        });
+    });
+  }
+  /** the card's buttons; true when handled @param {DOMStringMap} d */
+  function storeClick(d) {
+    if (!d.store) return false;
+    if (d.store === "scan") storeScan();
+    else if (d.store === "ask" && store.unused.length) {
+      store.st = "ask";
+      storeDraw();
+    } else if (d.store === "cancel") {
+      store.st = "found";
+      storeDraw();
+    } else if (d.store === "go" && store.st === "ask") storeRemove();
+    return true;
+  }
+  W.storeTest = { cols: STORE_COLS }; /* (for the tests) */
   W.settingsClick = function (b, d, P) {
     if (d.sync) return; /* sharing buttons are handled by sync.js */
+    if (storeClick(d)) return;
     if (d.trips === "save") return saveTrips();
     if (d.trips === "open") {
       var f = W.$("tripsFile");

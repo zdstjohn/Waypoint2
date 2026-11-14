@@ -323,7 +323,9 @@ screens/          one file per screen. The tabs are Plan (setup.js), Trip (trip.
                   new trip (shown on the very first open; and the three-screen tour a shared trip opens with, once per
                   phone, W.tourOpen; a stop's sheet keeps
                   "Leave free" and "Not for us" at its end, and "Not for us" asks once); family;
-                  settings.js is "Import a plan", the backup copy and Google Maps (sharing lives in the trip menu); kids.js is "For the kids"
+                  settings.js is "Import a plan", the backup copy, Google Maps and Storage (the owner clears the photo and
+                  map files nothing uses; STORE_COLS names the collections it reads, so a new collection that points at
+                  files must be added there); kids.js is "For the kids"
                   (from the trip menu and Today): today's outings in big photo cards with a heart per kid, a passport
                   that stamps each place, and a treasure hunt per town (ticks kept by the find's words, the list kept from the first tick)
 vt/              street-map data: the detailed packs live in the asset store (maps/<city> in the

@@ -2,6 +2,17 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v195
+
+- Settings > Storage (screens/settings.js, the owner: "it says file storage is full ... now my nightly photo check won't
+  do anything"). The artifact's file store takes 5,000 files; photos the nightly photo look turned down, copies replaced
+  by better ones and the parts of rebuilt map packs were never removed, so it filled. The card, for a viewer who can
+  edit the artifact only (`claude.use("assets")`), shows how full it is; "Find unused files" reads the collections the
+  nightly tasks write (STORE_COLS) for every "/_blob/<id>" and lists the files none of them names, leaving out any from
+  the last two days (a nightly run uploads first and writes its document after); "Remove them" asks on the page, then
+  removes them four at a time and counts the store again. A scan that finds under one file in twenty in use is taken
+  as a failed read and removes nothing. New suite: storage.
+
 ## v194
 
 - A rest day's cards keep their tint, time and place, and lose the ideas to tap (the owner: "it shouldn't suggest what

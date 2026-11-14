@@ -36,3 +36,6 @@ settings-*
 # v194: the What's new card (settings, the trip menu).
 settings-*
 menu-*
+# v195: Settings gets a Storage card; the What's new card (settings, the trip menu).
+settings-*
+menu-*

@@ -130,7 +130,8 @@ def prepare(db_dir, vt_index_path, work, max_lookups=300, max_packs=3):
     missing = [s for s, w in wanted.items() if s not in index and (w.get("pts") or w.get("center"))]
     # packs built when a pack's frame followed every place (day trips too): one framed wider than about 25 km is
     # rebuilt around its town, after the cities that have no pack yet. The new record replaces the old one; the old
-    # parts stay in the asset store until the owner clears unused files (Settings > Storage).
+    # parts stay in the asset store until the owner clears unused files (Settings > Storage, which keeps every file a
+    # document in its STORE_COLS collections names: a new collection that points at files must be added there).
     wide = []
     older = []   # packs laid out the old way (no "lay": 2 in their record): the town centre arrives with the rest
     if os.path.isdir(maps_dir):
