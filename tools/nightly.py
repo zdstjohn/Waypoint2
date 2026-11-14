@@ -213,8 +213,10 @@ def finish(db_dir, work, uploaded_path):
                 if wb: items[k]["webp"] = wb
                 if r.get("lq"): items[k]["lq"] = r["lq"]
                 if r.get("w") and r["w"] != 720: items[k]["w"] = r["w"]
-        doc = {"items": items, "tried": p.get("tried") or cur.get("tried") or {}, "tried2": p.get("tried2") or cur.get("tried2") or {}}
-        if cur.get("turned_down"): doc["turned_down"] = cur["turned_down"]   # photos the look rejected (kept for the record)
+        # every field the document already has stays (its pack: v198-v201, the photo look's turned_down, anything a later
+        # version adds); only the items and the finder's notes are this step's to change
+        doc = dict(cur)
+        doc.update({"items": items, "tried": p.get("tried") or cur.get("tried") or {}, "tried2": p.get("tried2") or cur.get("tried2") or {}})
         wnt = wanted_all.get(slug) or {}
         for f in ("city", "country"):   # the city's name stays on the document (the app also finds photos by city name)
             if cur.get(f) or wnt.get(f): doc[f] = cur.get(f) or wnt.get(f)

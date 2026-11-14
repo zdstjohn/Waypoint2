@@ -198,6 +198,25 @@ try:
 except Exception as _e:
     ok(False, "prepare's mapwant checks ran: %r" % (_e,))
 
+# --- nightly.py finish keeps every field of a photos document: a packed city's "pack" above all (v201) ---
+try:
+    import tempfile as _tf, nightly as _ng
+    _w = _tf.mkdtemp(); _db = os.path.join(_w, "db"); os.makedirs(_db + "/photos"); os.makedirs(_db + "/wanted")
+    _pk = {"url": "/_blob/" + "f" * 32, "n": 3, "bytes": 1000, "at": "2026-11-14"}
+    json.dump({"city": "Bath", "country": "United Kingdom", "pack": _pk, "items": {"roman baths": {"url": "/_blob/" + "1" * 32, "pk": 1, "credit": "x"}}, "no": ["Old.jpg"]}, open(_db + "/photos/united-kingdom-bath.json", "w"))
+    json.dump({"city": "Bath", "country": "United Kingdom"}, open(_db + "/wanted/united-kingdom-bath.json", "w"))
+    _nf = os.path.join(_w, "new.webp"); open(_nf, "wb").write(b"RIFF")
+    json.dump({"united-kingdom-bath": {"items": {"bath abbey": {"file": _nf, "credit": "y", "page": "https://commons.wikimedia.org/wiki/File:A.jpg", "lq": "UklG", "w": 720}}, "tried": {}, "tried2": {}, "no": []}}, open(os.path.join(_w, "pending.json"), "w"))
+    json.dump({_nf: "/_blob/" + "2" * 32}, open(os.path.join(_w, "up.json"), "w"))
+    _so = sys.stdout; sys.stdout = io.StringIO()
+    try: _ng.finish(_db, _w, os.path.join(_w, "up.json"))
+    finally: sys.stdout = _so
+    _d = json.load(open(os.path.join(_w, "photos", "united-kingdom-bath.json")))
+    ok(_d.get("pack") == _pk and _d["items"]["roman baths"].get("pk") == 1 and _d["items"]["bath abbey"]["url"] == "/_blob/" + "2" * 32 and _d.get("no") == ["Old.jpg"],
+       "a new photo in a packed city keeps the city's pack and its packed photos (v201): " + json.dumps(sorted(_d)))
+except Exception as _e:
+    ok(False, "nightly finish's keep-every-field check ran: %r" % (_e,))
+
 # --- the photo copies: small, WebP twins, blurred preview (big_photos.py, photos2.py, nightly.py), with no network ---
 import subprocess
 _here = os.path.dirname(os.path.abspath(__file__))
@@ -208,11 +227,11 @@ if os.path.exists(_chk):
     except Exception: _j = None; ok(False, "the photo copies check ran: " + (_r.stderr or _r.stdout)[-300:])
     if _j:
         _f = _j["files"]; _by = lambda suf: [v for k, v in _f.items() if k.endswith(suf)]
-        ok(_j["planned"]["colosseum"] == ["big", "sm", "smwebp", "webp"] and _j["planned"]["pantheon"] == ["bigwebp", "sm", "smwebp", "webp"], "a photo gets only the copies it lacks: " + json.dumps(_j["planned"]))
-        ok(all(v[1][0] == 320 for v in _by(".sm.jpg") + _by(".sm.webp")), "a small copy is 320 px wide")
-        ok(_j["again_fetches"] == 0, "copies made on an earlier go are not fetched again")
-        ok(all(r.get("lq") and r.get("sm", "").startswith("/_blob/") and set(r.get("webp", {})) >= {"sm", "url"} for k, r in _j["record"].items()), "the record carries sm, webp {sm, url} and lq: " + json.dumps(_j["record"]))
-        ok(_j["record"]["pantheon"]["big"] == "/_blob/" + "b" * 32 and "big" in _j["record"]["pantheon"]["webp"], "an existing large copy is kept, and only its WebP is added")
+        ok(_j["planned"] == {"colosseum": ["lq"], "pantheon": ["lq"]}, "v201: only a missing blurred preview is made; nothing for a photo that has one or is in its city's pack: " + json.dumps(_j["planned"]))
+        ok(_j["files"] == {} and _j["summary"]["files"] == 0, "and no file is made or uploaded: " + json.dumps(_j["files"]))
+        ok(_j["again_fetches"] == 0, "previews made on an earlier go are not fetched again")
+        ok(all(r.get("lq") for k, r in _j["record"].items() if k in ("colosseum", "pantheon")) and _j["record"]["pantheon"]["big"] == "/_blob/" + "b" * 32 and "webp" not in _j["record"]["pantheon"], "the records get their preview and keep everything else as it was: " + json.dumps(_j["record"]))
+        ok("trevi fountain" not in _j["record"] or set(_j["record"]["trevi fountain"]) <= {"pk"}, "a packed photo gets nothing")
         ok(_j["p2"]["lq_bytes"] < 400 and _j["p2"]["smw"] == 320, "the blurred preview stays a few hundred characters")
     for _n in ("nightly", "photos2", "big_photos"):   # the published copy is the same file
         _a, _b = os.path.join(_here, _n + ".py"), os.path.join(_here, "..", "trip", "tools", _n + ".py.txt")

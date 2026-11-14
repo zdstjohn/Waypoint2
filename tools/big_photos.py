@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Large copies, small copies, WebP twins and blurred previews of the photos trips use.
+"""Blurred previews for the photos trips use (until v200 also large copies, small copies and WebP twins).
+
+v201: only the blurred preview ("lq", on the record, no file) is still made, for a photo that lacks one and is not
+in its city's pack; nothing is uploaded. The copies below filled the app's file store. What follows describes the
+records as they are, and the old steps for reference.
 
 The app's photos are stored at 720 px (JPEG): fine in a list, soft when one fills a wide screen, and heavy for a
 72 px thumbnail. For the places a trip actually has on its days (and the city itself) this fetches the same Wikimedia
@@ -175,15 +179,12 @@ def prepare(db, work, cap, small_cap=80):
             if isfood and it.get("near"): continue         # the app shows a restaurant only with its own picture
             name = commons_name(it.get("page"))
             if not name: continue
-            wb = it.get("webp") if isinstance(it.get("webp"), dict) else {}
-            need = {}
-            if not isfood and not it.get("near") and not it.get("big"): need["big"] = 1
-            if it.get("big") and not wb.get("big"): need["bigwebp"] = 1
-            if not it.get("sm"): need["sm"] = 1
-            if not wb.get("sm"): need["smwebp"] = 1
-            if not wb.get("url"): need["webp"] = 1
-            if not it.get("lq") and not need: need["lq"] = 1
-            if not need: continue
+            # v201: no more copies. The 1920 px, 320 px and WebP twins (up to five files a photo, up to 280 new files a
+            # night) filled the app's file store; a city's photos now live in its pack (tools/photopack.js), and a photo
+            # with pk has no file of its own at all. What is still made here: the blurred preview a record lacks, which
+            # is stored on the record and costs no file.
+            if it.get("pk") or it.get("lq"): continue
+            need = {"lq": 1}
             stem = os.path.join(work, "big", "%s__%s" % (slug, hashlib.md5(k.encode()).hexdigest()[:10]))
             suffix = {"big": ".jpg", "bigwebp": ".big.webp", "sm": ".sm.jpg", "smwebp": ".sm.webp", "webp": ".webp"}
             seen.add((slug, k))

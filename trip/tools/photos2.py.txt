@@ -490,17 +490,20 @@ def download(slug, path, img_dir):
         ii = file_info(x["title"][5:], state["info"])
         if not ii:
             continue
-        dest = os.path.abspath(os.path.join(img_dir, slug, hashlib.sha1(k.encode()).hexdigest()[:14] + ".jpg"))
+        dest = os.path.abspath(os.path.join(img_dir, slug, hashlib.sha1(k.encode()).hexdigest()[:14] + ".webp"))
         try:
             im = Image.open(io.BytesIO(fetch_thumb(ii["thumb"]))).convert("RGB")
             im.thumbnail((720, 720))
             os.makedirs(os.path.dirname(dest), exist_ok=True)
-            im.save(dest, "JPEG", quality=JPEG_Q["url"], optimize=True, progressive=True)
+            # one file a photo (v201): the 720 px picture as WebP, nothing else. The JPEG twin, the small copies and the
+            # 1920 px copies filled the app's file store (5,000 files) and phones show WebP; a city's photos end up in
+            # its pack (tools/photopack.js), where a thumbnail is the same picture drawn small.
+            open(dest, "wb").write(webp_bytes(im, "url"))
             x["file"] = dest; n += 1
-            try:   # the small copy, the WebP twins and the blurred preview (a failure here never loses the photo)
-                x["more"] = copies(im, dest[:-4])
+            try:   # the blurred preview, kept on the record (no file of its own; a failure here never loses the photo)
+                x["more"] = {"lq": tiny_preview(im), "w": im.width}
             except Exception as e:
-                print("  extra copies failed", k, e, file=sys.stderr)
+                print("  preview failed", k, e, file=sys.stderr)
             if n % 10 == 0:
                 json.dump(state, open(path, "w"), indent=0, ensure_ascii=False)
         except Exception as e:
@@ -551,10 +554,9 @@ def pending(db, work, only):
                 items[k]["near"] = x["near"]
             uploads.append(f)
             more = x.get("more") or {}
-            extra = {a: os.path.abspath(b) for a, b in (more.get("files") or {}).items() if os.path.exists(b)}
-            if extra:
-                items[k].update({"extra": extra, "lq": more.get("lq", ""), "w": more.get("w"), "smw": more.get("smw")})
-                uploads.extend(extra.values())
+            # (photos downloaded before v201 may still have extra copies on disk: they are no longer uploaded)
+            if more.get("lq"):
+                items[k].update({"lq": more["lq"], "w": more.get("w")})
         tried, tried2 = dict(cur.get("tried") or {}), dict(cur.get("tried2") or {})
         for k in items:
             tried.pop(k, None); tried2.pop(k, None)

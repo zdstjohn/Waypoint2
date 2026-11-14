@@ -2,6 +2,17 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v201
+
+- The file store stops filling up (it held about 4,470 of its 5,000 files). The nightly photo task made up to five
+  files a photo (a 720 px JPEG, its WebP twin, 320 px copies in both, and 1920 px copies for headers), up to about 280
+  new files a night. Now: a new photo is one file, its 720 px picture as WebP (tools/photos2.py), with its blurred
+  preview on the record as before; tools/big_photos.py makes no more copies, only a missing preview, and never for a
+  photo in its city's pack. Phones already show WebP, and the trip PDF holds no photos.
+- tools/nightly.py finish keeps every field a photos document has. It rebuilt the document from a fixed list, which
+  would have dropped a packed city's "pack" the first night a trip went there and left its photos blank. Test in
+  tools/test_tools.py (it fails with the old code).
+
 ## v200
 
 - Settings > Storage finds the files the photo packs replaced. A photo kept only in its city's pack (pk) still carries
