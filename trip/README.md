@@ -262,6 +262,10 @@ lib/              the shared library
                   Settings; W.libFrom marks the places answered from the library (Plan says so). Nightly flow:
                   node tools/citylib.js plan, the task answers the questions, check (writes the documents and
                   _stats), then the copy to the website; `gaps` prints what is still missing
+  world.js        (second script) the world library (v196): a trip city's checked record, world/<country-city>,
+                  laid over its lists after the place check's (weekly hours by season, always-closed dates, the official
+                  entry rule, pins looked up again, Google's walks); kept on the phone for the trip's cities. Made by
+                  tools/worldlib.js (plan / build / doctor), run by a nightly task
   speedtest.js    one measurement, once, for the artifact's owner: is a list asked with low effort faster and as good?
                   (second script; writes data/users/<id>/diag/effort; W.EFFORT stays empty until that is read)
   offline.js      the trip without a signal: the photo index and photos kept on the phone (IndexedDB), map packs

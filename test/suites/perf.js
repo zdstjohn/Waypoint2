@@ -9,7 +9,7 @@ exports.run = async t => {
 
   /* startup */
   const st = await pg.evaluate(() => {
-    const res = performance.getEntriesByType('resource').map(e => ({ n: e.name.replace(/^.*8771\//, ''), kb: Math.round((e.transferSize || e.encodedBodySize || 0) / 1024) }));
+    const res = performance.getEntriesByType('resource').map(e => ({ n: e.name.replace(/^.*:\d+\//, ''), kb: Math.round((e.transferSize || e.encodedBodySize || 0) / 1024) }));
     return { n: res.length, external: res.filter(r => /^https?:/.test(r.n)).map(r => r.n), scripts: res.filter(r => /\.js$/.test(r.n)).length, fonts: res.filter(r => /woff2$/.test(r.n)).length, list: res.map(r => r.n) };
   });
   t.ok(st.n <= 12, `startup makes at most 12 requests (${st.n}: ${st.list.join(', ')})`);

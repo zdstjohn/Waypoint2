@@ -2,6 +2,24 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v196
+
+- The world library (the "Waypoint World Library — design" doc): one checked record per destination, world/<country-city>,
+  made by tools/worldlib.js (plan, build, doctor; published as tools/worldlib.js.txt), which a nightly task would run
+  once the owner approves its wording.
+  Every fact carries its source page and the day it was checked; a fact without them is refused; what has expired is
+  re-checked first. First batch: Granada, Seville, Córdoba, from the database's own city library and place checks and
+  the official pages (the Alhambra, the cathedrals, the Real Alcázar, the Mezquita, the science park).
+- The app's side, lib/world.js (second script): a trip city's record is laid over its lists (after the place check's):
+  hours per weekday for the trip's season (it.wk; W.hoursFor in lib/times.js gives the planner and the day's clock a
+  weekday's own hours: Granada's cathedral opens at 3 pm on Sundays, so a Sunday morning never has it), the dates a
+  place is always closed (as closures on the trip's days), the official entry rule (price, timed entry, booking, the
+  ticket page), a pin looked up again, and Google's walks between its places (W.leg, kept 30 days). A stop's details say
+  what was checked, where and when (W.worldFacts). The trip's own cities are kept on the phone for offline use.
+- The website gets the records with the nightly copy (tools/copy_to_cloud.js sends world/ too; the staging table's
+  rule lets them in: migration nightly_copy_allow_world).
+- Tests: new suite world; WP_PORT lets a second copy of the app run the tests beside the first.
+
 ## v195
 
 - Settings > Storage (screens/settings.js, the owner: "it says file storage is full ... now my nightly photo check won't

@@ -642,6 +642,14 @@ interface Waypoint {
   setAppMode: any;
   setView: (v: View) => void;
   settingsClick: any;
+  /** a place's hours on a weekday (lib/times.js; the world library's weekly hours where known) */
+  hoursFor: (it: any, wd: number | null | undefined) => any;
+  /** the world library (lib/world.js, second script) */
+  applyWorld?: (country: string, city: string, pool: any) => any;
+  worldFacts?: (it: any, day: any) => string;
+  worldPool?: (country: string, city: string) => any;
+  worldHave?: () => string[];
+  rlWorld?: Record<string, any[]>;
   /** the Storage card's collections (screens/settings.js, v195; for the tests) */
   storeTest?: { cols: string[] };
   setupChange: any;

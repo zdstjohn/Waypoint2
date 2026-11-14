@@ -69,7 +69,7 @@ exports.run = async t => {
 
   /* next open (same phone), before the database answers: the saved index fills photos in */
   const pg2 = await ctx.newPage(); await pg2.addInitScript(() => { window.__noDb = true; });
-  await pg2.goto('http://127.0.0.1:8771/index.html#trip'); await pg2.waitForTimeout(1500);
+  await pg2.goto('http://127.0.0.1:' + (process.env.WP_PORT || 8771) + '/index.html#trip'); await pg2.waitForTimeout(1500);
   const seeded = await pg2.evaluate(() => { const p = W.photoFor({ n: 'Colosseum' }, false, 'Italy', 'Rome'); return p && p.url; });
   t.ok(/colosseum/.test(seeded || ''), 'the photo index saved on the phone fills in without the database');
   await pg2.close();

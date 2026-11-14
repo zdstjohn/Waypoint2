@@ -553,15 +553,16 @@
       if (!easy || (W.km(ctx.home, item) || 0) > Math.max(1.5, ctx.geo.R)) return null;
       if (W.classify(item, false).intensity >= 2) return null; /* (a boat tour or a play park is no rest) */
     }
-    /* shut that day of the week */
-    if (item.hours && ctx.wd != null && item.hours.closed.indexOf(ctx.wd) > -1) return null;
+    /* shut that day of the week (its own hours that day, where the world library knows them) */
+    var hrs = W.hoursFor(item, ctx.wd);
+    if (hrs && ctx.wd != null && hrs.closed.indexOf(ctx.wd) > -1) return null;
     if (ctx.n != null && W.shutOn(item, ctx.n)) return null; /* shut for a stretch that takes in this day (lib/places.js) */
-    if (ctx.hol && ctx.hol.length && ctx.sun && item.hours && item.hours.closed.indexOf(0) > -1)
+    if (ctx.hol && ctx.hol.length && ctx.sun && W.hoursFor(item, 0) && W.hoursFor(item, 0).closed.indexOf(0) > -1)
       return null; /* a public holiday keeps Sunday hours */
-    if (W.shutBy(item.hours, slot)) return null; /* already shut by then (a museum for the evening) */
+    if (W.shutBy(hrs, slot)) return null; /* already shut by then (a museum for the evening) */
     /* with children where locals dine late: dinner places that open early win */
     var early = 0,
-      h = item.hours;
+      h = hrs;
     if (slot === "dinner" && ctx.kd != null && h && h.o < 1440) early = h.o > ctx.kd + 30 ? -9 : h.o <= ctx.kd ? 2 : 0;
     var g = geoPenalty(item, slot, ctx, strict);
     if (g == null) return null;

@@ -216,6 +216,7 @@
       if (W.withImported) W.withImported(country, city, c);
       if (W.withNightFood) W.withNightFood(country, city, c);
       if (W.applyPlaces) W.applyPlaces(country, city, c);
+      if (W.applyWorld) W.applyWorld(country, city, c);
       return c;
     }
     if (W.sampleState === "off") {

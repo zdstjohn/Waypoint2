@@ -781,7 +781,7 @@
       var lg = W.leg(prev, it),
         way = lg ? lg.min : 10,
         start = up15(Math.max(t + way, minStart(x.slot))),
-        h = it.hours;
+        h = W.hoursFor(it, wd);
       /* after free time, the next thing starts when it should (at least 45 minutes of free time first); the free row shrinks to fit */
       if (lastFree) {
         start = up15(Math.max(Math.min(t, lastFree.start + 45) + way, minStart(x.slot)));
@@ -892,11 +892,19 @@
     return out;
   };
 
+  /** a place's hours on a weekday: the world library's weekly hours where it has them (it.wk, lib/world.js), else the
+      one pair every list carries @param {any} it @param {number | null | undefined} wd */
+  W.hoursFor = function (it, wd) {
+    var h = it && it.hours;
+    if (!h || !it.wk || wd == null || it.wk.length !== 7) return h;
+    var x = it.wk[wd];
+    return x ? { o: x[0], c: x[1], closed: [] } : { o: 0, c: 0, closed: [wd] };
+  };
   /* is a place shut on this trip day, or a dinner that opens too late for children? (the planner avoids these) */
   W.badForDay = function (it, wd, slot, kd, n) {
     if (W.gone(it)) return true; /* closed for good, or no such place */
     if (n != null && W.shutOn(it, n)) return true; /* shut for a stretch that takes in that day */
-    var h = it && it.hours;
+    var h = W.hoursFor(it, wd);
     if (!h) return false;
     if (wd != null && h.closed.indexOf(wd) > -1) return true;
     if (W.shutBy(h, slot)) return true;

@@ -111,7 +111,7 @@ async function size(b, [tag, scale, dark, width], dir, dbg) {
   if (width < 1000) {
     await pg.evaluate(() => { W.goView('trip'); W.save(); }); await settle(pg);
     await pg.route('**/*', r => { const u = r.request().url().split('?')[0]; return /\/(index\.html|app\.js|app\.min\.css)$|\.woff2$/.test(u) || !/^http:\/\/127\.0\.0\.1/.test(u) ? r.continue() : r.abort(); });
-    await pg.goto('about:blank'); await pg.goto('http://127.0.0.1:8771/index.html#trip'); await pg.waitForTimeout(2000);
+    await pg.goto('about:blank'); await pg.goto('http://127.0.0.1:' + (process.env.WP_PORT || 8771) + '/index.html#trip'); await pg.waitForTimeout(2000);
     if (scale !== 1) await pg.addStyleTag({ content: `html{font-size:${scale * 100}% !important}` });
     for (const [id, go] of [['early-trip', () => {}], ['early-today', () => W.goView('go')], ['early-explore', () => W.goView('explore')]]) {
       await pg.evaluate(go); await pg.waitForTimeout(900); await settle(pg); await quietly(pg, 1000, 20000);

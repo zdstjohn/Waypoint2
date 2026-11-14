@@ -39,3 +39,6 @@ menu-*
 # v195: Settings gets a Storage card; the What's new card (settings, the trip menu).
 settings-*
 menu-*
+# v196: the What's new card (settings, the trip menu); the world library changes no screen of a city without a record.
+settings-*
+menu-*

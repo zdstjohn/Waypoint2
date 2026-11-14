@@ -37,7 +37,7 @@ exports.run = async t => {
     await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
 
     const t0 = Date.now();
-    await pg.goto('http://127.0.0.1:8771/index.html#trip', { waitUntil: 'load' });
+    await pg.goto('http://127.0.0.1:' + (process.env.WP_PORT || 8771) + '/index.html#trip', { waitUntil: 'load' });
     await pg.waitForFunction(() => document.querySelectorAll('#viewTrip .slot').length > 2, null, { timeout: 30000 }).catch(() => {});
     await pg.waitForTimeout(1500);
     const load = await pg.evaluate(() => { const v = window.__v, nav = performance.getEntriesByType('navigation')[0];

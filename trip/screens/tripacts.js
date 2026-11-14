@@ -306,7 +306,8 @@
               .join("")
         : ""
     );
-    var meta = (food ? [it.cuisine, it.price] : [W.priceText(it.ticket, W.curOf(day.country))])
+    /* (the price shows once: in the world library's checked facts when it has them, below) */
+    var meta = (food ? [it.cuisine, it.price] : [it.wf && it.wf.e ? "" : W.priceText(it.ticket, W.curOf(day.country))])
       .filter(Boolean)
       .map(function (m) {
         return "<span>" + esc(m) + "</span>";
@@ -329,6 +330,7 @@
       "</p>" +
       (it.d ? '<p class="sd-d">' + esc(it.d) + "</p>" : "") +
       (notes ? '<div class="slot-notes sd-notes">' + notes + "</div>" : "") +
+      (W.worldFacts ? W.worldFacts(it, day) : "") +
       (main || booked ? '<div class="slot-act">' + booked + main + "</div>" : "") +
       (meta ? '<div class="meta">' + meta + "</div>" : "") +
       (food ? "" : beachCheck(it)) +

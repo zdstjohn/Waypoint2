@@ -400,7 +400,7 @@
     var e = W.legEst(a, b);
     if (!e) return e;
     var k = W.rlKey(a, b),
-      v = (W.S.rl && W.S.rl[k]) || (W.rlOwn && W.rlOwn[k]);
+      v = (W.S.rl && W.S.rl[k]) || (W.rlOwn && W.rlOwn[k]) || (W.rlWorld && W.rlWorld[k]);
     if (v && v[0] > 0) {
       W.legReal++;
       return { d: e.d, mode: RL_MODE[v[2]] || e.mode, min: v[0], label: RL_LABEL[v[2]] || e.label, real: true, km: v[1] / 10 };

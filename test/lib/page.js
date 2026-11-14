@@ -2,6 +2,8 @@
    Math.random so two runs draw the same plan, an example trip loaded and the day list rendered. */
 const { chromium } = require('playwright'); const fs = require('fs'); const path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..');
+/* the test server (test/run.js starts it): WP_PORT lets a second copy of the app run its tests beside this one */
+const BASE = 'http://127.0.0.1:' + (process.env.WP_PORT || 8771);
 const SEED = `(() => { let s = 12345; Math.random = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; })();`;
 const cov = require('./cov');   /* (collects what ran, only in a coverage run: node test/run.js --cov) */
 async function launch() {
@@ -21,7 +23,7 @@ async function open(browser, { width = 360, height = 800, dark = false, scale = 
   for (const m of mocks) await pg.addInitScript(fs.readFileSync(path.join(ROOT, m), 'utf8'));
   await pg.addInitScript(`window.__uid=${JSON.stringify(uid)};`);
   if (!firstRun) await pg.addInitScript(() => { try { localStorage.setItem('waypoint-welcome', '1'); localStorage.setItem('waypoint-tour-seen', '1'); } catch (e) {} });   /* the welcome sheet only in the test that checks it */
-  await pg.goto('http://127.0.0.1:8771/index.html' + hash); await pg.waitForTimeout(2000);
+  await pg.goto(BASE + '/index.html' + hash); await pg.waitForTimeout(2000);
   if (scale !== 1) await pg.addStyleTag({ content: `html{font-size:${scale * 100}% !important}` });
   return { pg, ctx, errors: () => errors.slice() };
 }
@@ -71,4 +73,4 @@ async function reveal(pg, sel) {
   await pg.evaluate(sel => { const el = document.querySelector(sel), w = el && el.closest('.acts-w'), mb = w && w.querySelector('.more-btn');
     if (mb && getComputedStyle(mb).display !== 'none' && !w.classList.contains('open')) mb.click(); }, sel);
 }
-module.exports = { launch, open, exampleTrip, settle, ROOT, calm, started, until, reveal };
+module.exports = { launch, open, exampleTrip, settle, ROOT, BASE, calm, started, until, reveal };
