@@ -149,23 +149,8 @@ def prepare(db_dir, vt_index_path, work, max_lookups=300, max_packs=3):
     soon_first = sorted(older, key=lambda s: (soon(s), s))
     missing += [s for s in soon_first[:int(os.environ.get("RELAY_MAX", "2"))] if s not in missing]
     summary["rebuilt"] = [s for s in missing[:max_packs] if s in wide or s in older]
-    # trips' cities first; when every one has a pack, the built-in cities (by their centre) get theirs too
-    if len(missing) < max_packs:
-        try:
-            import re, unicodedata
-            def slug_of(x):
-                x = unicodedata.normalize("NFD", x.lower()); x = "".join(c for c in x if not unicodedata.combining(c)); return re.sub(r"[^a-z0-9]+", "-", x).strip("-")
-            for df in ("data1.js", "data2.js"):
-                src = open(os.path.join(db_dir, df)).read() if os.path.exists(os.path.join(db_dir, df)) else ""
-                for blk in re.split(r"\n  (?=[A-Za-z\"][A-Za-z\" ]*: \{ blurb:)", src):
-                    m = re.match(r"\"?([A-Za-z ]+)\"?: \{ blurb:", blk)
-                    if not m: continue
-                    for c in re.finditer(r"\{ name: \"([^\"]+)\", lat: ([-\d.]+), lng: ([-\d.]+)", blk):
-                        sl = slug_of(m.group(1) + " " + c.group(1))
-                        if sl in index or sl in wanted or sl in missing: continue
-                        wanted[sl] = {"city": c.group(1), "country": m.group(1), "center": [float(c.group(2)), float(c.group(3))], "spots": [], "food": []}; missing.append(sl)
-        except Exception as e:
-            print("built-in cities", e, file=sys.stderr)
+    # only the cities of trips get a pack (v195, the owner): packs for the app's built-in cities that no trip used filled
+    # the file store, so none are built ahead any more; a city gets its pack the night after a trip first needs it
     if missing and max_packs > 0:
         import build as vb
         from mvt import get

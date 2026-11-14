@@ -12,6 +12,8 @@ Newest first. Each note says what changed and where in the code. How the code is
   the last two days (a nightly run uploads first and writes its document after); "Remove them" asks on the page, then
   removes them four at a time and counts the store again. A scan that finds under one file in twenty in use is taken
   as a failed read and removes nothing. New suite: storage.
+- The nightly photos and maps task (tools/nightly.py) builds street-map packs only for the cities of trips: the packs it
+  built ahead for the app's built-in cities (125, about 232 MB) were in no trip and are removed (the owner's call).
 
 ## v194
 
