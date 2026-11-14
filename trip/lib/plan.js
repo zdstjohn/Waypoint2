@@ -109,17 +109,20 @@
     });
   }
   /* a day trip, never a place to stay: one the country list says is a day trip; a park or a reserve, always; mountains, a
-     lake, falls or a stretch of coast, unless it is a city by name (Salt Lake City) or the country list says it is a
-     place to stay (the Gold Coast) */
+     lake, falls, a stretch of coast or a beach, unless it is a city by name (Salt Lake City) or the country list says it
+     is a place to stay (the Gold Coast, Playa del Carmen). v202, the owner: "In Greece ... it suggested I stay at
+     beaches. Stays should be limited to towns" (Navagio Beach; a beach whose name doesn't say so, like Elafonisi, is
+     marked a day trip by the country list's question, which now names beaches). Not by tags: Santorini, Mallorca and
+     the Algarve are tagged beach and relax, and are places to stay */
   var PARK =
       /\b(national park|natural park|nature park|nature reserve|parque nacional|parque natural|parc national|parc naturel|parco nazionale|parco naturale|nationalpark|naturpark|reserve|reserva)\b/i,
     SCENERY =
-      /\b(sierra|mountains?|massif|valley|valle|vall[ée]e|gorges?|canyon|caves?|lake|lago|lac|falls|waterfalls?|desert|volcano|glacier|forest|coast|costa|riviera|c[ôo]te|region|province)\b/i;
+      /\b(sierra|mountains?|massif|valley|valle|vall[ée]e|gorges?|canyon|caves?|lake|lago|lac|falls|waterfalls?|desert|volcano|glacier|forest|coast|costa|riviera|c[ôo]te|region|province|beach(es)?|playa|plage|spiaggia|praia|strand|bay|cove|lagoon|cape|dunes?|reef|islets?|shipwreck)\b/i;
   /* (also the Plan's quick-add chips: a day trip is never offered as somewhere to stay) */
   W.dayTrip = dayTrip;
   function dayTrip(c) {
     var n = c.name || "";
-    return !!c.day || PARK.test(n) || (!c.stay && SCENERY.test(n) && !/\b(city|town)\b/i.test(n));
+    return !!c.day || PARK.test(n) || (!c.stay && SCENERY.test(n) && !/\b(city|town|village)\b/i.test(n));
   }
 
   /* where you sleep in a city: your lodging if set, otherwise the city center */
@@ -277,7 +280,13 @@
                       ? stay
                       : cities;
               })()
-            : cities.slice()
+            : /* (any list: places to stay only, day trips are for the days, v202) */
+              (function () {
+                var stay = cities.filter(function (x) {
+                  return !dayTrip(x);
+                });
+                return stay.length ? stay : cities.slice();
+              })()
         ).sort(function (a, b) {
           return best
             ? (b.top || 0) - (a.top || 0) || bestScore(b, p, cn) - bestScore(a, p, cn)
@@ -539,9 +548,7 @@
     if (!W.isFood(slot) && W.V.trainRide(item.n)) return null; /* a train journey is not a thing to do (rule 5) */
     /* the group's food needs: a place that can't feed them is never planned; one that clearly can is a little ahead */
     var eatF = W.isFood(slot) && W.eatFit ? W.eatFit(item) : "",
-      /* what you love counts for more than a good rating (a place for it: +7; one with some of it: +3) */
-      eatL = W.isFood(slot) && W.eatLike ? W.eatLike(item) : 0,
-      eatB = (eatF === "good" ? 3 : eatF === "ok" ? 0.5 : 0) + (eatL === 2 ? 7 : eatL === 1 ? 3 : 0);
+      eatB = eatF === "good" ? 3 : eatF === "ok" ? 0.5 : 0;
     if (eatF === "poor") return null;
     /* the first days after a long flight: no timed entries first thing */
     if (ctx.jet && slot === "am" && W.needsBooking(item)) return null;
@@ -755,7 +762,7 @@
     );
   }
   function key(day, slot) {
-    return day.country + "|" + day.city + "|" + day.dayInCity + "|" + slot;
+    return W.restKey(day) + "|" + slot;
   }
 
   /* ---------- "not for us" ---------- */
@@ -1010,8 +1017,14 @@
     var sig = planSig();
     if (memo && memo.sig === sig) return memo.P;
     var was = Object.assign({}, W.S.picks),
-      P = planNow(),
-      now = W.S.picks || {},
+      P;
+    W.timesMemo(true); /* (a day's clock is worked out once for what the planner leaves it: lib/times.js) */
+    try {
+      P = planNow();
+    } finally {
+      W.timesMemo(false);
+    }
+    var now = W.S.picks || {},
       wrote = W.planWrote || (W.planWrote = {});
     /* which picks this planning wrote or took off: they are the planner's, not a person's change (lib/sync.js sends
        and stamps only what a person changed, and reads this to tell the two apart) */
@@ -1050,9 +1063,12 @@
     var days = [],
       n = 0,
       jl = W.jetlag({ stops: st, ap: ap }),
-      fitted = {};
+      fitted = {},
+      seen = /** @type {Record<string, number>} */ ({});
     CUR = { p: p, stops: st, days: days, ap: ap };
     st.forEach(function (s, si) {
+      var tk = s.country + "|" + s.name,
+        visit = (seen[tk] = (seen[tk] || 0) + 1);
       for (var d = 0; d < s.days; d++) {
         n++;
         days.push({
@@ -1060,6 +1076,7 @@
           country: s.country,
           city: s.name,
           dayInCity: d + 1,
+          visit: visit /* (2 and up for a town the trip comes back to: its days' keys then have a "v2" of their own) */,
           stop: si,
           tripFirst: n === 1,
           tripLast: n === N,
@@ -1120,7 +1137,6 @@
         var pool = found;
         if (round === 0 && !pool.fallback && W.loadEatFit) {
           W.loadEatFit(s.country, s.name); /* the group's food needs: check these places */
-          if (W.loadLoved) W.loadLoved(s.country, s.name); /* and a few places for what you love, if the list has few */
         }
         if (round === 0 && !pool.fallback && W.loadFame)
           W.loadFame(s.country, s.name); /* ratings for the ideas already there (no new ones) */
@@ -1940,14 +1956,6 @@
       m = mine();
     Object.keys(W.S.picks).forEach(function (k) {
       if (k.indexOf(pre) === 0 && !m[k]) delete W.S.picks[k];
-    });
-  };
-  /* a city's meals chosen again, keeping the ones you chose yourself (what you love changed) */
-  W.freshMeals = function (country, city) {
-    var pre = country + "|" + city + "|",
-      m = mine();
-    Object.keys(W.S.picks).forEach(function (k) {
-      if (k.indexOf(pre) === 0 && !m[k] && W.isFood(k.slice(k.lastIndexOf("|") + 1))) delete W.S.picks[k];
     });
   };
   /* every city's days planned again, keeping the stops you chose yourself (the trip's feel changed) */

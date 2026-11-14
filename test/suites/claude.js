@@ -120,12 +120,17 @@ exports.run = async t => {
       const pool = W.C.city['Croatia|Zagreb'] || {}, P = W.plan(), d1 = P.days[0];
       const q = window.__asked.filter(x => /^List/.test(x.head) && /Zagreb/.test(x.head));
       W.goView('trip'); W.S.tview = 'days'; W.render();
-      return { note: (document.querySelector('#viewTrip .arriving') || {}).textContent || '', got: (pool.spots || []).map(x => x.n), busy: W.status['spots|Croatia|Zagreb'], pin: pool.lat, planned: (d1.slots || []).filter(x => x.item && /written/.test(x.item.n)).length, bookV: (pool.spots[0] || {}).bookV,
+      const nn = document.querySelector('#viewTrip .arriving'), dv = document.querySelector('#viewTrip .dayview');
+      return { note: (nn || {}).textContent || '', pos: nn && getComputedStyle(nn).position, top: dv && Math.round(dv.getBoundingClientRect().top + scrollY), got: (pool.spots || []).map(x => x.n), busy: W.status['spots|Croatia|Zagreb'], pin: pool.lat, planned: (d1.slots || []).filter(x => x.item && /written/.test(x.item.n)).length, bookV: (pool.spots[0] || {}).bookV,
         first: q.map(x => x.head.replace(/ in (and around )?Zagreb.*/, '')), links: q.map(x => x.book || x.menu), streamed: q.map(x => x.opts.onText) };
     });
     t.eq(early.got, ['Zagreb written 0', 'Zagreb written 1', 'Zagreb written 2'], 'the places written so far are taken in while the rest is still being written (a half-written one waits)');
     t.ok(early.busy === 'loading' && early.pin === 45.81 && early.planned >= 1, 'the city has its pin and the day already shows some of them: ' + JSON.stringify([early.busy, early.pin, early.planned]));
     t.ok(/More ideas for Zagreb are on the way/.test(early.note), 'and the day says more ideas are on the way (' + early.note + ')');
+    /* the note is over the screen, not a line in it: the day does not move down for it, or up again when the lists are in (the
+       late layout shift on a fresh trip, CLS 0.03-0.10 a few seconds after the first paint) */
+    t.eq(early.pos, 'fixed', 'the note does not take room in the day');
+    t.ok(early.top > 0, 'the day was measured with the note up (' + early.top + ')');
     t.eq([early.first, early.links, early.streamed], [['List the 12 best things to do', 'List 12 places to eat'], [false, false], [true, true]], 'a 5-day stay asks for 12 of each first, without booking or menu links, each taken in as it is written');
     t.ok(early.bookV === undefined, 'a place from a list without links is left for the later check of its links');
     const whole = await ps.evaluate(async () => {
@@ -136,9 +141,11 @@ exports.run = async t => {
       for (let i = 0; i < 80 && W.cityBusy('Croatia|Zagreb'); i++) await new Promise(r => setTimeout(r, 100));
       const pool = W.C.city['Croatia|Zagreb'], more = window.__asked.filter(x => /MORE/.test(x.head) && /Zagreb/.test(x.head)).map(x => x.head.replace(/ in (and around )?Zagreb.*/, ''));
       W.render();
-      return { note: !!document.querySelector('#viewTrip .arriving'), n: pool.spots.filter(x => /written/.test(x.n)).length, order: pool.spots.slice(0, 3).map(x => x.n.slice(-1)).join(''), asked: pool.askedN, more };
+      const dv = document.querySelector('#viewTrip .dayview');
+      return { note: !!document.querySelector('#viewTrip .arriving'), top: dv && Math.round(dv.getBoundingClientRect().top + scrollY), n: pool.spots.filter(x => /written/.test(x.n)).length, order: pool.spots.slice(0, 3).map(x => x.n.slice(-1)).join(''), asked: pool.askedN, more };
     });
     t.ok(whole.n === 12 && whole.order === '012' && !whole.note, 'when the whole list is in, each place is there once, in the list\'s own order, and the note is gone: ' + JSON.stringify(whole));
+    t.eq(whole.top, early.top, 'the day stays where it was when the note goes away');
     t.ok(whole.asked >= 12 && whole.more.some(h => /^List 11 MORE things to do/.test(h)) && whole.more.some(h => /^List 11 MORE places to eat/.test(h)), 'the rest of the stay\'s 23 come afterwards, in the background: ' + JSON.stringify(whole.more));
     /* a short stay asks for its 15 at once */
     const short = await ps.evaluate(async () => {

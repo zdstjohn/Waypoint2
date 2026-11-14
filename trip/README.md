@@ -6,8 +6,10 @@ One page. `index.html` is the markup; the code is plain files under data/, lib/ 
 drawing the street map, the Prepare screen, live prices and price watch, the booking autopilot, planning together, place search in Explore, the
 the day bag, family, settings, the kids' corner, the recap, the packing list: LATER in build/bundle.js) go into a second script, `app2.js`, which lib/later.js loads once the first screen has painted (on idle time, or at once when you open one
 of them, with "Loading…" for the moment it takes); W.needLater() says whether it has arrived. Their styles go into
-`app2.css`, which comes with it (a rule moves only when it sits in one of those screens' sections of app.css and none of
-its class names appears in the first script or index.html; build/bundle.js splitCss), and the screens count as ready when
+`app2.css`, which comes with it (a rule moves when every selector of it has a class that the first script and index.html never name, a class built
+at run time ("lv" + n) counting as named; a move that would turn the cascade round is pinned back to app.min.css and the
+split made again; build/bundle.js splitCss. The firstpaint suite checks that the first screens look the same with the
+two sheets as one), and the screens count as ready when
 both have come. The street map is in two: lib/vtindex.js (first script: which cities have a pack, the map's state, so
 the first screen holds the map's place) and lib/vtmap.js (second: packs, the engine, the look, pins). The one map moves
 into each redrawn screen, and a WebGL picture that moves is blank (black) until it draws again, so it is asked to redraw
@@ -52,7 +54,7 @@ index.html        markup (header, tabs, one <main> per view); loads app.js and a
 app.css           the stylesheet, grouped by screen: fonts, foundations, header, Setup, My trip, a stop, storybook,
                   Explore, Bookings, Today, settings, motion
 fonts/            Plus Jakarta Sans (the text and headings), Instrument Serif (place names and the biggest titles),
-                  JetBrains Mono (the budget's amounts) and Dela Gothic One (the logo) as woff2, served by the app itself
+                  JetBrains Mono (the budget's amounts) and Dela Gothic One (the logo: only the letters of WAYPOINT, 0.8 KB; the whole font is in build/icon/fonts for the icon) as woff2, served by the app itself
                   (Latin; extended Latin letters in a separate file the browser fetches only when a label needs them).
                   Colours are tokens at the top of app.css: one per kind of thing (food, sights, getting around, pace),
                   and --primary / --on-primary for the main colour (main buttons, the tab and the day you're on)
@@ -62,10 +64,11 @@ lib/              the shared library
                   v, by) keeps a value from a better source over a worse one, whatever order they came in (Claude 1, the
                   map 2, Google 3, the official check 4; the source stays on it.fsrc). Three ways to say something happened: W.changed
                   (the trip or its data changed: re-plan, save, redraw now), W.arrived (an answer came: re-plan,
-                  redrawn once per burst of answers) and W.redraw (only how a screen looks changed, as photos and the
-                  street map coming or going: no re-plan, redrawn once per burst). What is asked lives in towns.js (destinations, always
+                  redrawn once per burst of answers) and W.redraw (only how a screen looks changed, as photos, menus,
+                  costs, prices and the street map coming or going: no re-plan, redrawn once per burst; a burst waits
+                  longer, 250/1000 ms, while you are tapping). What is asked lives in towns.js (destinations, always
                   towns, never whole islands), ideas.js (things to do, places to eat, how many are on show), stays.js
-                  (how long, and Claude's picks of where to stay; Booking.com's real places for your nights come first when
+                  (how long, and Claude's picks of where to stay, the part the first screen needs; the rest is lodging.js, second script; Booking.com's real places for your nights come first when
                   the connection answers: prices.js W.liveLodge) and asks.js (beaches, getting between stops, food needs, events, costs,
                   the time zone, addresses). In ideas.js: "Find more" asks for 10 more things to do (at
                   least 3 for the evening) and 8 more places to eat, and stops offering once a city has 60 things to do
@@ -77,7 +80,8 @@ lib/              the shared library
                   didn't allow), at most 40 different ones a day, a repeat only counted, written every 15 seconds to your
                   own private corner of the database, data/users/<you>/errlog/d/<YYYY-MM-DD> ({items: [{msg, at, stack,
                   view, tv, build, ua, w, on, n}], updated}). Nothing personal: the message, where in the code, which
-                  screen, the build, the browser and the screen width. Read it with ArtifactData get on that path.
+                  screen, the build, the browser and the screen width. Read it with ArtifactData get on that path. Once a day,
+                  at idle, lib/tidy.js deletes the days older than 30 (v201), so the log does not grow for ever.
   later.js        loads app2.js (above); loaded right after errlog.js. Keeps the taps that land before it has come
                   and hands them to its click handlers (W.onClickLater). Also: whether the desktop workspace is on
                   (W.desk, W.paneW) and its stylesheet, app.desk.css, fetched only by a wide window
@@ -104,10 +108,16 @@ lib/              the shared library
                   place to eat, a city, a stay, a journey), the own-site rule for links (W.bookUrl) and reading a list
                   out of an answer still being written. In the "ask" piece and in the second script, both.
   photos.js       real photos (from the nightly finder) and the credit line; a place with no photo shows no picture.
+                  Also the ids: W.slug, W.citySlug (a city's id in every collection: country and city made plain apart) and
+                  the ids they were before v201 (W.citySlugOld, W.slugOld: lib/oldids.js, second script) for reading what was saved under them. W.norm
+                  (lib/core.js) maps ł ø ß đ æ þ ı to Latin letters and gives a name in no Latin letters "u" + the hex of
+                  its code points ("東京" is u6771 u4eac, not "x"); every Python and Node tool that makes ids has the same
+                  rule in its own copy (each is fetched alone by the nightly tasks) and the bugs suite checks they agree.
                   A city's photo fills its header band at every width (the large copy where there is one)
                   The list it leaves for the finder (wanted/<city>) puts the places your trip actually uses first, with
                   the trip's first day ("when") and the day each is used, so the nightly tasks do the soonest trip first
-  places.js       checked place records (places/<city> in the database): fixed pins, official sites, hours, places
+  places.js       checked place records (places/<city> in the database; only the trip's cities' documents are watched,
+                  W.cityDocs, which morefood and menus use too; the one-document watcher is W.watchDoc in photos.js): fixed pins, official sites, hours, places
                   that have closed or never existed, and what to go to instead — laid over a city's list as it is read.
                   Pins: a place found on OpenStreetMap gets its real pin; a guessed pin that falls in the sea, a lake or a
                   river (tools/pin_check.py tests it against the map's own water) moves to the nearest shore when it is
@@ -135,7 +145,10 @@ lib/              the shared library
                   day-trip match (over 15 km) must be the very same name, and nothing past 120 km or away from a town
                   the item names. Ratings and reviews are not kept. A city's ideas list the checked places first (open,
                   then not yet checked, then unsure) and a checked one says so ("✓ Checked").
-  times.js        the clock for each day: starts, ends, the nap, travel days; how tiring a day is. A travel day with a
+  times.js        the clock for each day (kept per day while one plan is made, W.timesMemo): starts, ends, the nap, travel days; how tiring a day is. W.restKey is a day's key
+                  for everything saved against it (country|city|day in the stop, plus "v2" for a later visit to a town
+                  the trip comes back to; the first visit keeps the plain key; a day's .visit says which). The jet lag counts
+                  from the departure airport's zone (AIRPORTS' fifth field indexes APZ) and only without one from the phone's. A travel day with a
                   booked ticket that has a time (from Gmail, or added by hand under Prepare > Booked with its times)
                   follows it: you leave in time for it (a flight's check-in, a ferry's boarding), lunch is in the town
                   you leave when it goes after lunchtime, the morning is free there before a late departure, and the
@@ -150,7 +163,8 @@ lib/              the shared library
   ahead.js        (second script) a step ahead, in idle time and never on a data saver: the neighbouring days' photos;
                   the next town's map pack the evening before a move, and the map's engine while a day of a town with a
                   street map is read (neither on mobile data). Since v199 a morning or afternoon nothing in the town's ideas
-                  fits asks for more by itself, once a visit per town (fillShort; never offline, in a trip you only view,
+                  fits asks for more by itself, once a trip per town and only when an ask went out (fillShort; judged by the sights alone;
+                  never offline, in a trip you only view,
                   for the evening, or for a meal, which has its own capped fill: lib/ideas.js W.mealIdeas).
   daybag.js       (second script) Today's day bag: what to take out for the day, read off its stops (a beach:
                   swimsuits and sunscreen; a church: shoulders and knees covered; a market: cash; a boat: a layer and
@@ -178,8 +192,8 @@ lib/              the shared library
                   what the group (toddlers, grandparents) can take
   rules.js        (second script) the planner's promises as code: W.checkPlan(P) reads a finished plan and returns
                   every place it breaks one of the owner's nine rules (a full day or a stated reason, days that fit the
-                  clock, a real place once, one area a day, no train rides, open when you are there, naps and
-                  grandparents, real names only, what you chose by hand stays), each with its day, slot and rule.
+                  clock, a real place once, one area a day, no train rides, open when you are there, naps (and over
+                  by 5:30 pm) and grandparents, real names only, what you chose by hand stays), each with its day, slot and rule.
                   W.checkPlan.table() in the console checks the trip on screen. The planner (plan.js) keeps the rules
                   by construction: what you chose or booked is put back first on the whole trip; stops that share a
                   town or lie close share one map of what is planned; one check of a day (dayBads) is what every
@@ -260,7 +274,10 @@ lib/              the shared library
                   An added place joins the city's list as your own (S.imported, with the trip) and goes in the part of
                   the day you pick. The page can't reach the internet itself: the map comes through the connection.
   sharebox.js     a shared trip's documents, named and sealed from its code (W.shareBox, W.sharePlain)
-  ideastore.js    ideas in IndexedDB, one record a place; the storage entry keeps this trip's only (W.kept, W.cacheSlim)
+  ideastore.js    ideas in IndexedDB, one record a place; the storage entry keeps this trip's only (W.kept, W.cacheSlim).
+                  Each place carries when it was last written or read (one record, "@touched", in the sig store); once a day,
+                  at idle, lib/tidy.js deletes a place no trip of yours names and nothing has touched for 60 days
+                  (W.ideaStore.prune; inTrip reads the places one trip's settings name) (v201)
   citylib.js      the city library (v184-185; in the "ask" piece): Claude's answers for a country's towns and a city's
                   first lists, kept for everyone in citylib/<place> by the question's words with the place left out, so
                   the same question is answered at once next time (lib/core.js run looks it up first). The general
@@ -289,7 +306,10 @@ lib/              the shared library
                   with no street map asks for one (mapwant/<city>, drawn by the nightly photos and maps task)
   speedtest.js    one measurement, once, for the artifact's owner: is a list asked with low effort faster and as good?
                   (second script; writes data/users/<id>/diag/effort; W.EFFORT stays empty until that is read)
-  offline.js      the trip without a signal: the photo index and photos kept on the phone (IndexedDB), map packs
+  offline.js      the trip without a signal: the photo index and photos kept on the phone (IndexedDB; v201: a photo carries
+                  when it was last used, and once a day at idle O.prune (lib/tidy.js) deletes those unused for 60 days that
+                  no trip city and no saved city needs; offline, photos are read from the store as the page asks for them, not all at
+                  once), map packs
                   warmed into the worker's cache, the offline note in Travel mode, and the "offline copy" (one HTML
                   file with the app, the trip and its photos inside, opened from the phone's files; made by
                   offcopy.js, in the second script with Prepare's Take along blocks). Both keep the photo
@@ -298,6 +318,9 @@ lib/              the shared library
                   maps need a connection in the copy. Prepare > Take
                   along has "Before you leave": one button that saves the whole trip, with a row per place (street map
                   saved or not, photos for how many of its stops) and the size to expect, so it can be done on Wi-Fi
+  tidy.js         housekeeping (v201, second script): once a day at idle it lets go of what nobody needs any more, so the
+                  phone's storage and the error log do not only grow: unused offline photos (O.prune), ideas kept for cities no
+                  trip names (W.ideaStore.prune) and error-log days older than 30 (W.tidyErrors).
   packing.js      the packing list and the before-you-go list, read off the plan (who is going, how you travel, what
                   the days hold, the season, the plugs); ticks, removals and your own items stay with the trip
   warm.js         the warm touches: the family by name (typed in Plan; "Great for Mila & Leo", "Easy for Joe", a kid's
@@ -307,7 +330,9 @@ lib/              the shared library
   memories.js     (second script) how ready you are on Prepare, the recap (the whole trip on one page) and its highlight
                   reel and "one year ago today"
   autopilot.js    the book-by list kept for the morning helper (reads your inbox, writes calendar reminders, never books;
-                  since v199 an item says must: 1 when there's no entry without a booked ticket, for the phone reminder),
+                  since v199 an item says must: 1 when there's no entry without a booked ticket, for the phone reminder;
+                  since v201 what was last sent for each trip is remembered on the phone (localStorage "waypoint-bookby-sig"),
+                  so opening the app writes the list only when it changed, or after a week),
                   what it found, and the deadline timeline on Bookings. Both live in your private corner of the database:
                   data/users/<you>/bookby/t/<trip> and data/users/<you>/autopilot/t/<trip> (a document's path has an
                   even number of parts; the test database refuses any other path, as the real one does)
@@ -379,6 +404,18 @@ Error watch: a scheduled task every evening (9:41 PM Pacific) reads the phone's 
   sends a phone notification listing any error from the last 24 hours (screen, message, count, build, phone); read only.
 
 Checks (node test/run.js, from the folder above trip/)
+  exacttimes    the clock values a family acts on, to the minute, on the example trip at a pinned clock: the nap (start,
+                90 minutes, over by 5:30; none from a lunch that ends after 4 pm), "Leave by" for lunch and dinner, Today's
+                "Leave in / Leave by" for the next stop, tomorrow's "leave by" (a ticket) and "leave about" (v201).
+  watch         the price watch (lib/watch.js): which drops count (3% and at least 10, one currency, this trip), Book
+                ahead's banner and list, a re-check, starting and stopping a watch (v201).
+  importplan    the itinerary import (lib/import.js): answers full of mistakes become a clean trip, to the key (v201).
+  rescue        rescuing the day (lib/planacts.js, lib/replan.js): "tired", booked and started stops, Undo, what Claude
+                is told and how its answer is checked (v201).
+  napcards      Today's nap and rest cards (screens/travel.js heroCard), with and without a stay, on a day out (v201).
+  citylibrace   the city library read slower than the screen: used within its 2.5 s wait, Claude asked after it (v201).
+  (runner)      a suite that fails while others run is run once more alone; a pass on that second run is a warning
+                (marked in the console, listed again in the summary and in test/out/report.json), never a quiet pass.
   types         TypeScript reads the plain JavaScript (checkJs, noEmit) against types/waypoint.d.ts, the shapes that
                 travel between files (Spot, Food, Pool, TripState, Plan, Day, PlaceRecord, the W object ...). Every file
                 passes the base check; the files in tsconfig.strict.json also pass strictNullChecks, and a file that
@@ -436,7 +473,11 @@ Checks (node test/run.js, from the folder above trip/)
                 strenuous outings); 2000 now pass. Later runs found two more: an afternoon after a late arrival
                 that pushed the children's dinner past 7 (it now shrinks to as little as half an hour), and the way to
                 dinner measured from a stop with no pin while the clock measured it from the last one with a pin.
-  vitals        speed as a mid-range Android feels it: a 390px screen, CPU slowed 4x, slow 4G. Cold start must paint
+  firstpaint    the first paint is the same with the stylesheet in one piece as split in two: each first screen, the second
+                script and sheet held back, once with app.min.css and once with app.min.css + app2.css; every element's
+                box and styles must be equal (390 px light and dark, 820 px). `same` only looks once everything is in, so
+                a rule moved to app2.css that the first screen still needed would pass it and flash unstyled here.
+  vitals        speed as a mid-range Android feels it: a 390px screen (the page gets the viewport tag the published page has), CPU slowed 4x, slow 4G. Cold start must paint
                 within 1.8 s (FCP) and its largest element within 2.5 s (LCP) with no layout shift (CLS < 0.1); then the
                 taps a traveler makes most (next day, a day pill, open and close a stop, Explore, Prepare, Pack, a tick,
                 the trip menu) must each paint within 200 ms (the INP "good" line) without moving the layout. Numbers go

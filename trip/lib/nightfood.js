@@ -17,13 +17,6 @@
     moreV = 0,
     moreSig = "{}",
     menuSig = "{}";
-  function docs(s) {
-    var o = {};
-    ((s && s.docs) || []).forEach(function (d) {
-      o[d.id] = d.data() || {};
-    });
-    return o;
-  }
   function sigOf(o) {
     try {
       return JSON.stringify(o);
@@ -31,45 +24,31 @@
       return String(Math.random());
     }
   }
-  /* only real changes count: the first, empty answer (most nights, most cities) costs nothing. New places change the
-     lists the planner works from, so they re-plan (W.changed); a menu only shows in a restaurant's panel, so it redraws. */
-  try {
-    if (window.claude && window.claude.use)
-      window.claude.use("db").then(
-        function (db) {
-          if (!db) return;
-          db.collection("morefood").onSnapshot(
-            function (s) {
-              var o = docs(s),
-                g = sigOf(o);
-              if (g === moreSig) return;
-              MORE = o;
-              moreSig = g;
-              moreV++;
-              W.changed();
-            },
-            function () {}
-          );
-          db.collection("menus").onSnapshot(
-            function (s) {
-              var o = docs(s),
-                g = sigOf(o);
-              if (g === menuSig) return;
-              MENUS = o;
-              menuSig = g;
-              if (W.render) W.render();
-            },
-            function () {}
-          );
-        },
-        function () {}
-      );
-  } catch (e) {}
+  /* only real changes count. New places change the lists the planner works from, so they re-plan (W.changed); a menu only
+     shows in a restaurant's panel, so it redraws. One document per city of the trip is watched (W.cityDocs). */
+  var needMore = W.cityDocs("morefood", function (o) {
+      var g = sigOf(o);
+      if (g === moreSig) return;
+      MORE = o;
+      moreSig = g;
+      moreV++;
+      W.changed();
+    }),
+    needMenus = W.cityDocs("menus", function (o) {
+      var g = sigOf(o);
+      if (g === menuSig) return;
+      MENUS = o;
+      menuSig = g;
+      W.redraw(); /* (a menu only shows in a restaurant's panel: drawn once per burst, no re-plan) */
+    });
   var slug = W.citySlug;
 
   /* the nightly places join the city's list once per delivery (W.pool calls this every time it hands out a list) */
   W.withNightFood = function (country, city, pool) {
-    var doc = MORE[slug(country, city)];
+    var old = (W.citySlugOld && W.citySlugOld(country, city)) || "";
+    needMore(slug(country, city));
+    if (old) needMore(old);
+    var doc = MORE[slug(country, city)] || MORE[old]; /* (or under its id before v201) */
     /* (by what the nightly lists hold, kept with the city: a counter would start again with the page, and a list kept
        from yesterday would look up to date) */
     if (!doc || !Array.isArray(doc.items) || !pool || pool.nightV === moreSig) return;
@@ -88,7 +67,7 @@
       /* (a mark from the nightly finder counts only when made for the food needs as they are now; any other is left for
          the check here, lib/asks.js W.loadEatFit) */
       if (x.fit && sig && (x0.sig === sig || doc.sig === sig))
-        x.eat = { f: x.fit, w: x.fitw || "", l: W.eatLikeOf ? W.eatLikeOf(x.like) : 0, sig: sig };
+        x.eat = { f: x.fit, w: x.fitw || "", sig: sig };
       delete x.fit;
       delete x.fitw;
       delete x.like;
@@ -110,6 +89,7 @@
       : "";
   }
   W.menuFor = function (it, country, city) {
+    needMenus(slug(country, city));
     var doc = MENUS[slug(country, city)],
       m = doc && doc.items && typeof doc.items === "object" ? doc.items[W.norm(it.n)] : null;
     if (!m || typeof m !== "object" || !/^https:\/\//.test(m.src || "")) return null;

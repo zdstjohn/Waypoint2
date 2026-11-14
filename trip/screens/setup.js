@@ -292,55 +292,7 @@
     if (!cur || cur.lodgeFor !== W.lodgeSig() || !cur.lodgeAsked) W.loadLodging(s.country, s.name);
   }
   /* where to stay in one place: a stay you booked already, the suggested areas and hotels, and other sites. In Plan it opens under the place's row; from any other screen it is a sheet (W.staySheet) */
-  /* what "Food you love" and "Rather avoid" have done, so you can see they work: the places found for what you love
-     and how many meals go to them, and how many places what you avoid keeps off the plan */
-  function eatReport(P) {
-    var n = W.eatNeeds && W.eatNeeds();
-    if (!n || (!n.love && !n.avoid) || !P || !P.stops.length) return "";
-    var love = n.love;
-    var busy = Object.keys(W.status).some(function (k) {
-      return /^eat(fit|love)\|/.test(k) && W.status[k] === "loading";
-    });
-    if (busy) return '<p class="eat-rep" role="status">Checking the places to eat in your cities for this…</p>';
-    var loved = 0,
-      off = 0,
-      meals = 0,
-      onMeals = 0;
-    P.stops.forEach(function (s) {
-      var c = W.C.city[W.cityKey(s.country, s.name)];
-      ((c && c.food) || []).forEach(function (x) {
-        if (love && W.eatLike(x) >= 2 && W.eatFit(x) !== "poor") loved++;
-        if (W.eatFit(x) === "poor") off++;
-      });
-    });
-    P.days.forEach(function (d) {
-      d.slots.forEach(function (x) {
-        if (!x.item || !W.isFood(x.slot)) return;
-        meals++;
-        if (love && W.eatLike(x.item) >= 2) onMeals++;
-      });
-    });
-    var parts = [];
-    if (n.love)
-      parts.push(
-        loved
-          ? loved + " place" + (loved > 1 ? "s" : "") + " for " + n.love + " · " + onMeals + " of your " + meals + " meals go to them"
-          : "No places for " + n.love + " found in your cities yet"
-      );
-    if (n.avoid)
-      parts.push(
-        off
-          ? off + " place" + (off === 1 ? "" : "s") + " kept off your plan for what you'd rather avoid"
-          : "No place in your cities has what you'd rather avoid"
-      );
-    return (
-      '<p class="eat-rep" role="status">' +
-      esc(parts.join(". ")) +
-      "." +
-      (!W.SAMPLE ? " (Without Claude, by the words in each place's name and description.)" : "") +
-      "</p>"
-    );
-  }
+
   function stayPanel(s, i) {
     return (
       '<div class="stay-panel"><div class="row"><input class="field" id="stayIn' +
@@ -1025,7 +977,7 @@
     DONE = {
       style: S.styles.length > 0,
       who: (S.travelers || []).length > 0 && !!S.depart,
-      eat: !!(W.eatNeeds && W.eatNeeds()) || !!S.eatNone,
+      eat: true /* (allergies and diets, if any: nothing to fill in when there are none) */,
       long: !!S.start,
       where: P.stops.length > 0,
       check: !!RC && !RC.warn
@@ -1163,7 +1115,7 @@
       "eat",
       "03",
       "What do you eat?",
-      eatSum ? eatSum.charAt(0).toUpperCase() + eatSum.slice(1) : S.eatNone ? "Nothing special" : "Allergies, diets, favorites",
+      eatSum ? eatSum.charAt(0).toUpperCase() + eatSum.slice(1) : "No allergies or diets",
       eatFold("al", "Allergies", W.EAT_AL, eat.al || [], "Tap any that anyone in the group has.") +
         eatFold(
           "di",
@@ -1174,19 +1126,10 @@
           }),
           eat.di || [],
           ""
-        ) +
-        '<label class="fld" for="eatLove"><span>Food you love</span><input class="field" id="eatLove" data-eat="love" maxlength="120" value="' +
-        esc(eat.love || "") +
-        '" placeholder="Grilled fish, pizza, mezze" autocomplete="off"></label>' +
-        '<label class="fld" for="eatAvoid"><span>Rather avoid</span><input class="field" id="eatAvoid" data-eat="avoid" maxlength="120" value="' +
-        esc(eat.avoid || "") +
-        '" placeholder="Very spicy food, raw fish" autocomplete="off"></label>' +
-        '<label class="fld" for="eatNote"><span>Anything else</span><input class="field" id="eatNote" data-eat="note" maxlength="200" value="' +
-        esc(eat.note || "") +
-        '" placeholder="Our 4-year-old only eats plain pasta" autocomplete="off"></label>' +
-        eatReport(P) +
-        '<p class="small muted">Restaurant ideas are chosen with these in mind, places that can\'t feed you are never planned, and each meal says what you can have. With allergies, always tell the staff: no app can promise a kitchen is safe.</p>' +
-        (!eatSum && !S.eatNone ? '<div><button type="button" class="btn quiet sm" data-eatnone="1">Nothing special</button></div>' : "")
+        )
+      /* (v202, the owner's ask: the step is the allergies and the diet; "Food you love", "Rather avoid", "Anything
+         else", the line under them and "Nothing special" were taken out. Nothing to choose is an answer too: the
+         step counts as done either way) */
     );
 
     /* 4 · how long: the total, or the sum of each place's days once you've set them */
@@ -1431,7 +1374,7 @@
       W.render();
       return;
     }
-    /* food needs: a chip on or off; "Nothing special" marks the step done */
+    /* food needs: a chip on or off */
     if (d.eatal || d.eatdi) {
       var ea = S.eat || (S.eat = {}),
         f = d.eatal ? "al" : "di",
@@ -1440,13 +1383,7 @@
         at = arr.indexOf(v);
       if (at > -1) arr.splice(at, 1);
       else arr.push(v);
-      delete S.eatNone;
-      W.render();
-      return;
-    }
-    if (d.eatnone) {
-      S.eatNone = 1;
-      (S.stepClosed || (S.stepClosed = {})).eat = true;
+      delete S.eatNone; /* (a mark older trips may carry: no longer used) */
       W.render();
       return;
     }
@@ -1639,11 +1576,7 @@
     else if (t.dataset.cdin != null) setCityDays(+t.dataset.cdin, t.value, W.P);
     else if (t.id === "startDate") S.start = t.value;
     else if (t.id === "depart") S.depart = t.value;
-    else if (t.dataset.eat) {
-      var ea2 = S.eat || (S.eat = {});
-      ea2[t.dataset.eat] = t.value.trim().slice(0, t.dataset.eat === "note" ? 200 : 120);
-      delete S.eatNone;
-    } else if (t.dataset.tname != null) {
+    else if (t.dataset.tname != null) {
       S.names = S.names || [];
       while (S.names.length < S.travelers.length) S.names.push("");
       S.names[+t.dataset.tname] = t.value.trim().slice(0, 20);

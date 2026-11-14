@@ -1,10 +1,10 @@
 /* fonts, served next to the page (Latin, with the extended Latin letters of Polish, Czech, Turkish and the like in separate files the browser fetches only when a page uses them). font-display: swap keeps text visible while they load. */
 /* The text face (Plus Jakarta Sans) as one variable file for every weight in use: one request on the first screen.
-   The serif draws place names and the biggest titles, the monospace the budget's amounts, Dela Gothic One the logo only. */
+   The serif draws place names and the biggest titles, the monospace the budget's amounts, Dela Gothic One the logo only: just the eight letters of WAYPOINT (build/icon/subset-logo.py; the range stays U+0020-007E: a range cut down to the letters draws them a little differently; the whole font is in build/icon/fonts for the icon and share picture). */
 @font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:200 800;font-display:swap;src:url(fonts/plus-jakarta-sans-latin-wght-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 @font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:200 800;font-display:swap;src:url(fonts/plus-jakarta-sans-latin-ext-wght-normal.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
 @font-face{font-family:'Instrument Serif';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/instrument-serif-latin-400-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
-@font-face{font-family:'Dela Gothic One';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/dela-gothic-one-latin-400-normal.woff2) format('woff2');unicode-range:U+0020-007E}
+@font-face{font-family:'Dela Gothic One';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/dela-gothic-one-wordmark.woff2) format('woff2');unicode-range:U+0020-007E}
 @font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:100 800;font-display:swap;src:url(fonts/jetbrains-mono-latin-wght-normal.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 /* Waypoint's stylesheet, grouped by screen: foundations first, then each screen in the order a trip goes through them.
    Look: gouache-on-paper. Charcoal ink, paper grain, hand-drawn outlines, scene colours (night, meadow, sunset, crystal), red pencil notes. */
@@ -140,7 +140,12 @@ main:focus{outline:0}
 .seg button[aria-pressed="true"],.seg button[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:var(--sh-1)}
 .loading{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:var(--t-body)}
 .loading::before{content:"";width:16px;height:16px;border-radius:50%;box-shadow:inset -5px 0 0 0 var(--s-family);flex:0 0 auto;animation:spin 1.4s linear infinite}
-.arriving{margin:2px 0 10px}.arriving .loading{font-size:var(--t-sm)}
+/* "More ideas for X are on the way" while a city's first lists are still being written: a note over the screen, not a line in it.
+   In the page it pushed the whole day down by two lines and, when the lists were in, pulled it back up (a 50 px layout shift
+   a few seconds after the first paint, on a fresh trip); out of the flow, the day stays where it is. */
+.arriving{position:fixed;left:16px;right:16px;bottom:16px;z-index:35;width:max-content;max-width:calc(100% - 32px);margin:0 auto;padding:8px 14px;background:var(--surface);border:var(--hair);border-radius:22px;box-shadow:var(--sh-3);pointer-events:none}
+.arriving .loading{font-size:var(--t-sm)}
+@media (max-width:560px){.arriving{bottom:calc(96px + env(safe-area-inset-bottom,0px))}}
 .note{padding:12px 16px;font-family:var(--f-body);font-size:var(--t-body);font-weight:700;color:var(--note-text)}
 .note::before{background:var(--note-soft)!important;border-color:var(--note)!important}
 .note a{color:var(--note-text)}
@@ -2154,8 +2159,11 @@ svg.arr.arr-r{margin:0 0 0 .35em}
 @media (max-width:560px){
   .top[data-day] .tl-hi,.top[data-day] .tl-sep,.top[data-day] .tl-sky{display:none}
   .top[data-day] .tl-day{display:flex;align-items:center;gap:10px;flex:1 1 100%;min-width:0}
-  .tl-day .tl-dt{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:1px 8px;font-size:var(--t-sm);font-weight:600;color:rgba(255,255,255,.92)}
-  .tl-day .tl-dt b{font:800 1.0625rem/1.2 var(--f-body);color:var(--on-color)}
+  .tl-day .tl-dt{flex:1;min-width:0;display:grid;gap:1px;font-size:var(--t-sm);font-weight:600;color:rgba(255,255,255,.92)}
+  .tl-day .tl-dt b{font:800 1.0625rem/1.2 var(--f-body);color:var(--on-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tl-day .tl-meta{display:flex;align-items:baseline;gap:8px;min-width:0;white-space:nowrap;overflow:hidden}
+  .tl-day .tl-meta>span{flex:none}
+  .tl-day .tl-meta>span:last-child{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
   .tl-day .energy{display:inline-flex;align-items:center;gap:5px;font-weight:700;color:var(--on-color)}
   .tl-day .tl-go{flex:none;display:grid;place-items:center;width:40px;height:40px;margin:-6px -2px -6px 0;border-radius:var(--r-md);background:rgba(255,255,255,.18);color:var(--on-color)}
   .tl-day .tl-go svg{width:19px;height:19px;color:currentColor}

@@ -47,9 +47,17 @@ import json, glob, os, re, sys, time, math, unicodedata, urllib.parse, subproces
 UA = "waypoint-place-check/1.0 (nightly; contact via claude.ai artifact)"
 TODAY = time.strftime("%Y-%m-%d")
 
+_FOLD = {"ł": "l", "ø": "o", "ß": "ss", "đ": "d", "æ": "ae", "þ": "th", "ı": "i"}  # (letters that are no base letter plus an accent)
+
+
 def norm(s):
-    s = unicodedata.normalize("NFD", str(s or "").lower()); s = "".join(c for c in s if not unicodedata.combining(c))
-    return re.sub(r"[^a-z0-9]+", " ", s).strip()
+    """The app's name rule, trip/lib/core.js W.norm (one copy per script: each is fetched on its own by the nightly
+    tasks; the tools suite checks every copy gives the app's answers): plain lower-case letters and digits; a name with
+    no Latin letters or digits at all (Αθήνα, 東京) is "u" and the hex of each code point, so it still tells places apart"""
+    t = "".join(_FOLD.get(c, c) for c in str(s or "").lower())
+    t = re.sub("[\u0300-\u036f]", "", unicodedata.normalize("NFD", t))
+    a = re.sub(r"[^a-z0-9]+", " ", t).strip()
+    return a or " ".join("u%x" % ord(c) for c in t if c.isalnum())
 def km(a, b, c, d):
     p = math.pi / 180; x = (c - a) * p; y = (d - b) * p * math.cos((a + c) / 2 * p); return 6371 * math.sqrt(x * x + y * y)
 def _nominatim_turn():
@@ -550,45 +558,59 @@ def trip_rank(w):
 def used_names(w):
     """the places the trip has on its days (wanted "used": [[name, date], ...])"""
     return {norm(p[0]) for p in (w.get("used") or []) if isinstance(p, list) and p and isinstance(p[0], str)}
+class Saver:
+    """A progress file (what a run cut short resumes from) written every `every` changes and once more at the end,
+    not whole after each item: a large file rewritten per item is quadratic work. tick() counts a change; flush() writes."""
+    def __init__(self, path, obj, every=25): self.path, self.obj, self.every, self.n = path, obj, every, 0
+    def tick(self):
+        self.n += 1
+        if self.n % self.every == 0: self.flush()
+    def flush(self):
+        tmp = self.path + ".tmp"; json.dump(self.obj, open(tmp, "w"), ensure_ascii=False); os.replace(tmp, self.path)
+
 def prepare(db, work, max_cities):
     wanted, places = load_dir(os.path.join(db, "wanted")), load_dir(os.path.join(db, "places"))
     os.makedirs(work, exist_ok=True); todo = []; cities = 0
     ap = os.path.join(work, "auto.json"); auto = json.load(open(ap)) if os.path.exists(ap) else {}   # a run cut short resumes
-    # the soonest trip's cities first (then the most recently changed lists)
-    for slug in sorted(wanted, key=lambda s: (trip_rank(wanted[s]), -(wanted[s].get("updated") or 0) if isinstance(wanted[s].get("updated"), (int, float)) else 0)):
-        # settled: a real pin, or gone (closed/unfound/dup), or already looked for on the map once without luck.
-        # A record without a pin (checked on the web, or a guess moved ashore) gets one more look on the map.
-        w = wanted[slug]; have = {k: v for k, v in ((places.get(slug) or {}).get("items") or {}).items()
-                                  if (v.get("lat") is not None and not v.get("approx")) or v.get("st") in ("closed", "unfound", "dup") or v.get("pin_tried")}
-        names = [(n, False) for n in (w.get("spots") or [])] + [(n, True) for n in (w.get("food") or [])]
-        names = [(n, f) for n, f in names if isinstance(n, str) and n.strip() and norm(n) not in have]
-        on_trip = used_names(w); names.sort(key=lambda x: norm(x[0]) not in on_trip)   # the trip's own stops first
-        if not names or slug in auto: continue
-        pts = [p for p in (w.get("pts") or []) if isinstance(p, list) and len(p) == 2 and isinstance(p[0], (int, float))]
-        c = w.get("center") if isinstance(w.get("center"), list) and len(w.get("center")) == 2 else None
-        if not c and pts: c = [statistics.median(p[0] for p in pts), statistics.median(p[1] for p in pts)]
-        if not c and w.get("city"):
-            # older lists carry no pin at all: the city itself, from OpenStreetMap
-            hits = get("https://photon.komoot.io/api/?" + urllib.parse.urlencode({"q": "%s %s" % (w.get("city"), w.get("country") or ""), "limit": 3, "lang": "en"})).get("features") or []
-            for f in hits:
-                pr = f.get("properties") or {}
-                if pr.get("osm_key") in ("place", "boundary", "natural"): c = [f["geometry"]["coordinates"][1], f["geometry"]["coordinates"][0]]; break
-            time.sleep(0.25)
-        if not c: continue
-        cities += 1
-        if cities > max_cities: break
-        set_city(w.get("city") or "", w.get("country") or "")
-        auto[slug] = {"center": c, "items": {}}
-        allnames = [(n, f) for n, f in [(n, False) for n in (w.get("spots") or [])] + [(n, True) for n in (w.get("food") or [])]]
-        raw_pts = w.get("pts") or []
-        guess = {n: p for (n, f), p in zip(allnames, raw_pts)} if len(raw_pts) == len(allnames) else {}
-        for n, food in names[:int(os.environ.get("PLACE_CHECK_MAX_NAMES", "200"))]:
-            g = guess.get(n); g = g if isinstance(g, list) and len(g) == 2 else None
-            best, v, kind = match(n, food, c[0], c[1], g)
-            auto[slug]["items"][n] = {"food": food, "v": v, "kind": kind, "best": best}
-            if kind == "generic" or kind == "exp" or (food and v in ("weak", "none")) or (not food and v == "none"):
-                todo.append("%s | %s | %s | osm: %s" % (slug, "F" if food else "S", n, ("%s (%s/%s, %s km, s%.2f)" % (best["name"], best["key"], best["val"], best["km"], best["s"])) if best else "-"))
-        json.dump(auto, open(os.path.join(work, "auto.json"), "w"), ensure_ascii=False)
+    save = Saver(ap, auto, 5)   # the resume file is written every 5 cities and at the end, not after each one
+    try:
+        # the soonest trip's cities first (then the most recently changed lists)
+        for slug in sorted(wanted, key=lambda s: (trip_rank(wanted[s]), -(wanted[s].get("updated") or 0) if isinstance(wanted[s].get("updated"), (int, float)) else 0)):
+            # settled: a real pin, or gone (closed/unfound/dup), or already looked for on the map once without luck.
+            # A record without a pin (checked on the web, or a guess moved ashore) gets one more look on the map.
+            w = wanted[slug]; have = {k: v for k, v in ((places.get(slug) or {}).get("items") or {}).items()
+                                      if (v.get("lat") is not None and not v.get("approx")) or v.get("st") in ("closed", "unfound", "dup") or v.get("pin_tried")}
+            names = [(n, False) for n in (w.get("spots") or [])] + [(n, True) for n in (w.get("food") or [])]
+            names = [(n, f) for n, f in names if isinstance(n, str) and n.strip() and norm(n) not in have]
+            on_trip = used_names(w); names.sort(key=lambda x: norm(x[0]) not in on_trip)   # the trip's own stops first
+            if not names or slug in auto: continue
+            pts = [p for p in (w.get("pts") or []) if isinstance(p, list) and len(p) == 2 and isinstance(p[0], (int, float))]
+            c = w.get("center") if isinstance(w.get("center"), list) and len(w.get("center")) == 2 else None
+            if not c and pts: c = [statistics.median(p[0] for p in pts), statistics.median(p[1] for p in pts)]
+            if not c and w.get("city"):
+                # older lists carry no pin at all: the city itself, from OpenStreetMap
+                hits = get("https://photon.komoot.io/api/?" + urllib.parse.urlencode({"q": "%s %s" % (w.get("city"), w.get("country") or ""), "limit": 3, "lang": "en"})).get("features") or []
+                for f in hits:
+                    pr = f.get("properties") or {}
+                    if pr.get("osm_key") in ("place", "boundary", "natural"): c = [f["geometry"]["coordinates"][1], f["geometry"]["coordinates"][0]]; break
+                time.sleep(0.25)
+            if not c: continue
+            cities += 1
+            if cities > max_cities: break
+            set_city(w.get("city") or "", w.get("country") or "")
+            auto[slug] = {"center": c, "items": {}}
+            allnames = [(n, f) for n, f in [(n, False) for n in (w.get("spots") or [])] + [(n, True) for n in (w.get("food") or [])]]
+            raw_pts = w.get("pts") or []
+            guess = {n: p for (n, f), p in zip(allnames, raw_pts)} if len(raw_pts) == len(allnames) else {}
+            for n, food in names[:int(os.environ.get("PLACE_CHECK_MAX_NAMES", "200"))]:
+                g = guess.get(n); g = g if isinstance(g, list) and len(g) == 2 else None
+                best, v, kind = match(n, food, c[0], c[1], g)
+                auto[slug]["items"][n] = {"food": food, "v": v, "kind": kind, "best": best}
+                if kind == "generic" or kind == "exp" or (food and v in ("weak", "none")) or (not food and v == "none"):
+                    todo.append("%s | %s | %s | osm: %s" % (slug, "F" if food else "S", n, ("%s (%s/%s, %s km, s%.2f)" % (best["name"], best["key"], best["val"], best["km"], best["s"])) if best else "-"))
+            save.tick()
+    finally:
+        save.flush()
     open(os.path.join(work, "todo.txt"), "w").write("\n".join(todo) + ("\n" if todo else ""))
     n_auto = sum(1 for s in auto.values() for r in s["items"].values() if r["v"] in ("ok", "moved"))
     print(json.dumps({"cities": len(auto), "places": sum(len(s["items"]) for s in auto.values()), "matched_on_osm": n_auto, "need_web_check": len(todo)}))
@@ -668,6 +690,8 @@ def finish(db, work, verdict_file):
         json.dump(doc, open(os.path.join(work, "places", slug + ".json"), "w"), ensure_ascii=False)
     print(json.dumps({"cities": len(set(auto) | set(web)), "records": stats}))
 
+RECHECK_WAIT = 14   # days a pin that was looked at and stayed as it was is left alone by "recheck"
+
 def recheck(db, work):
     """Every pin a record took from the map is matched again under the current rules (the town's own name is no evidence,
     nor is a lone "Port" or "Municipal"); places with no pin are looked for once more with the names inside their
@@ -677,6 +701,7 @@ def recheck(db, work):
     wanted, places = load_dir(os.path.join(db, "wanted")), load_dir(os.path.join(db, "places"))
     os.makedirs(os.path.join(work, "places"), exist_ok=True)
     prog_f = os.path.join(work, "recheck.json"); prog = json.load(open(prog_f)) if os.path.exists(prog_f) else {}
+    save = Saver(prog_f, prog, 25)   # (written every 25 lookups and at the end)
     stats = {"looked": 0, "repinned": 0, "kept": 0, "unpinned": 0, "found_nopin": 0, "cities": 0}
     for slug in sorted(places):
         doc = json.loads(json.dumps(places[slug])); w = wanted.get(slug) or {}
@@ -697,12 +722,15 @@ def recheck(db, work):
             elif r.get("nopin") and not (food and GENERIC.search(n)): old_s = None
             else: continue
             if old_s is not None and old_s >= 0.67: continue
+            # looked at lately without finding better: not again before RECHECK_WAIT days (a pin that stays weak was
+            # looked up every night, 3,000 lookups' worth); the date is dropped when the pin changes
+            if _days_since(r.get("pin_tried") if old_s is None else r.get("rc_tried"), time.time()) < RECHECK_WAIT: continue
             key = slug + "|" + k
             if key in prog: res = prog[key]
             else:
                 g = guess.get(k); g = g if isinstance(g, list) and len(g) == 2 and isinstance(g[0], (int, float)) else (c if r.get("nopin") else [r["lat"], r["lng"]])
                 best, v, kind = match(n, food, c[0], c[1], g)
-                res = {"best": best, "v": v}; prog[key] = res; json.dump(prog, open(prog_f, "w"), ensure_ascii=False)
+                res = {"best": best, "v": v}; prog[key] = res; save.tick()
             stats["looked"] += 1
             b, v = res["best"], res["v"]
             good = b and v in ("ok", "moved") and (v == "ok" or b["km"] <= 25)
@@ -717,24 +745,25 @@ def recheck(db, work):
                 if r.get("osm") != b["osm"]: r.pop("site", None); r.pop("hours", None)
                 gcheck_record(r, b)
                 r.update({"osm": b["osm"], "lat": b["lat"], "lng": b["lng"], "name": b["name"], "checked": TODAY})
-                for x in ("approx", "nopin", "pin_tried", "area"): r.pop(x, None)
+                for x in ("approx", "nopin", "pin_tried", "area", "rc_tried"): r.pop(x, None)
                 if b.get("area"): r["area"] = 1
                 if not r.get("st") or r.get("st") == "unverified": r["st"] = "open"
                 stats["found_nopin" if old_s is None else "repinned"] += 1
             elif old_s is None:
                 r["pin_tried"] = TODAY
             elif old_s >= 0.3:
-                stats["kept"] += 1; continue
+                stats["kept"] += 1; r["rc_tried"] = TODAY   # (a weak pin that stays weak waits RECHECK_WAIT days)
             else:
                 # the map's match shared nothing with the place: off it comes, and what it brought (site, hours, "open")
                 r["was"] = [r["lat"], r["lng"]]    # phones that saved this wrong pin into their lists put it back where it was before
-                for x in ("lat", "lng", "osm", "name", "site", "hours"): r.pop(x, None)
+                for x in ("lat", "lng", "osm", "name", "site", "hours", "rc_tried"): r.pop(x, None)
                 if r.get("st") == "open" and not r.get("src"): r.pop("st", None)
                 r["checked"] = TODAY; stats["unpinned"] += 1
             doc["items"][k] = r; changed = True
         if changed:
             doc["checked"] = TODAY; json.dump(doc, open(os.path.join(work, "places", slug + ".json"), "w"), ensure_ascii=False); stats["cities"] += 1
         print(slug, json.dumps(stats), flush=True)
+    save.flush()
     print(json.dumps(stats))
 
 def gmerge(r, b, weak, stats):
@@ -969,6 +998,8 @@ def gapply(db, work, answers):
     stats["answers"] = len(ans); stats["waiting"] = plan.get("waiting", 0) + len([e for e in plan.get("todo") or [] if e.get("n") not in ans])
     print(json.dumps(stats))
 
+def _spot(la, ln): return "%.5f,%.5f" % (la, ln)
+
 def pins(db, work):
     """guessed pins in the water: to the shore when close, off the map when far out; a city centre in the water moves ashore"""
     import pin_check
@@ -979,6 +1010,15 @@ def pins(db, work):
         f = os.path.join(work, "places", slug + ".json")
         doc = json.load(open(f)) if os.path.exists(f) else json.loads(json.dumps(places.get(slug) or {}))
         items = doc.setdefault("items", {}); changed = False
+        # "dry": a pin that was found on land is remembered here by its spot, and is not tested again until the pin
+        # moves (the test needs the map's tiles: every night every pin was fetched again)
+        dry = doc.get("dry") if isinstance(doc.get("dry"), dict) else {}
+        def is_dry(key, la, ln):
+            if dry.get(key) == _spot(la, ln): return True
+            return False
+        def mark_dry(key, la, ln):
+            nonlocal changed
+            if dry.get(key) != _spot(la, ln): dry[key] = _spot(la, ln); doc["dry"] = dry; changed = True
         names = [n for n in (w.get("spots") or [])] + [n for n in (w.get("food") or [])]
         pts = w.get("pts") or []
         aligned = len(pts) == len(names)
@@ -987,9 +1027,9 @@ def pins(db, work):
             k = norm(n); r = items.get(k) or {}
             if r.get("lat") is not None and not r.get("approx"):
                 # a checked pin stays, unless it sits out on the water for a place that is not on the water
-                if r.get("ashore") or watery(n): continue
+                if r.get("ashore") or watery(n) or is_dry(k, r["lat"], r["lng"]): continue
                 wm = pin_check.in_water(r["lat"], r["lng"])
-                if not wm or wm <= 25: continue
+                if not wm or wm <= 25: mark_dry(k, r["lat"], r["lng"]); continue
                 land = pin_check.nearest_land(r["lat"], r["lng"]) if wm <= 400 else None
                 r = dict(r)
                 if land: r.update({"lat": land[0], "lng": land[1], "ashore": 1}); stats["moved_ashore"] += 1
@@ -1001,11 +1041,13 @@ def pins(db, work):
             if r.get("st") in ("closed", "unfound", "dup") or not aligned: continue
             p = pts[i]
             if not (isinstance(p, list) and len(p) == 2): continue
+            if not (r.get("approx") or r.get("nopin")) and is_dry(k, p[0], p[1]): continue
             wm = pin_check.in_water(p[0], p[1])
             if not wm:
                 if r.get("approx") or r.get("nopin"):          # the trip's own pin moved onto land since: let it be
                     for x in ("approx", "nopin", "lat", "lng"): r.pop(x, None)
                     items[k] = r; changed = True
+                mark_dry(k, p[0], p[1])
                 continue
             land = pin_check.nearest_land(p[0], p[1]) if wm <= 250 else None
             r = dict(r); r["checked"] = r.get("checked") or TODAY
@@ -1022,16 +1064,18 @@ def pins(db, work):
             if not (isinstance(p, list) and len(p) == 2): continue
             k = norm(n); r = items.get(k) or {}
             if r.get("lat") is not None and not r.get("approx"): continue
+            if is_dry("stay:" + k, p[0], p[1]): continue
             wm = pin_check.in_water(p[0], p[1])
-            if not wm: continue
+            if not wm: mark_dry("stay:" + k, p[0], p[1]); continue
             land = pin_check.nearest_land(p[0], p[1]) if wm <= 600 else None
             r = dict(r); r.update({"checked": r.get("checked") or TODAY, "stay": 1})
             if land: r.update({"lat": land[0], "lng": land[1], "approx": 1}); r.pop("nopin", None); stats["moved_ashore"] += 1
             else: r.pop("lat", None); r.pop("lng", None); r["nopin"] = 1; stats["pin_removed"] += 1
             items[k] = r; changed = True
         c = w.get("center") if isinstance(w.get("center"), list) and len(w.get("center")) == 2 else None
-        if c and not doc.get("center"):
+        if c and not doc.get("center") and not is_dry("@c", c[0], c[1]):
             wm = pin_check.in_water(c[0], c[1])
+            if not wm: mark_dry("@c", c[0], c[1])
             if wm:
                 land = pin_check.nearest_land(c[0], c[1]) if wm <= 600 else None
                 if not land:

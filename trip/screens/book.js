@@ -7,6 +7,13 @@
     esc = W.esc,
     S = W.S;
   var link = W.extLink;
+  /** nothing is left to book because the days it was for have gone by (not because it is all booked): the screen must
+      not say "Everything's booked" of a finished trip @param {any[]} list W.checklist's items */
+  function bookGone(list) {
+    return list.some(function (c) {
+      return c.past && !c.done;
+    });
+  }
   var K = W._bk,
     KIND = K.KIND,
     add = K.add,
@@ -1279,7 +1286,7 @@
         return a.by - b.by;
       })[0];
     var top =
-      (left ? left + " to book" : "All booked") +
+      (left ? left + " to book" : bookGone(list) ? "Nothing left to book" : "All booked") +
       (nextAll
         ? " · next: " + esc(nextAll.short || nextAll.title) + (nextAll.by < today ? ", now" : " by " + fmtDay(nextAll.by, "md"))
         : "") +
@@ -1340,7 +1347,11 @@
           (left
             ? groups
             : '<p class="small muted">' +
-              (list.length ? "Everything's booked. Nicely done!" : "Nothing needs booking ahead. One less thing to think about.") +
+              (bookGone(list)
+                ? "Nothing left to book: the dates have gone by."
+                : list.length
+                  ? "Everything's booked. Nicely done!"
+                  : "Nothing needs booking ahead. One less thing to think about.") +
               "</p>"),
         "bk-ahead"
       );

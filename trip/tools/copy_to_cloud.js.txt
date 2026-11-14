@@ -44,11 +44,25 @@ function forTheWeb(kind, data) {
 }
 const md5 = s => crypto.createHash("md5").update(s, "utf8").digest("hex");
 const sha = b => crypto.createHash("sha256").update(b).digest("hex");
+/* every request has a time limit (a stalled connection used to hold the whole copy for ever) and one more try after a
+   timeout, a dropped connection, a 429 or a 5xx; any other answer is returned as it is */
+async function req(url, opts) {
+  let last;
+  for (let i = 0; i < 2; i++) {
+    try {
+      const r = await fetch(url, Object.assign({ signal: AbortSignal.timeout(+process.env.WP_CLOUD_TIMEOUT_MS || 30000) }, opts));
+      if (r.status !== 429 && r.status < 500) return r;
+      last = r;
+    } catch (e) { last = null; if (i) throw e; }
+    await new Promise(ok => setTimeout(ok, 2000));
+  }
+  return last;
+}
 const PUBLIC = URL0 + "/storage/v1/object/public/maps/";
 /* one part of a map pack, by its id in the Claude version's file store: stored here once, as maps/<slug>/p<n>-<id>.json
    (the id changes whenever a pack is rebuilt, so a stored part never changes). Already stored: its address, no file
    needed. Not yet: its file from the packs folder, checked (it is the part it says it is), sent; null if that fails. */
-const exists = name => fetch(PUBLIC + name, { method: "HEAD" }).then(r => r.ok, () => false);
+const exists = name => req(PUBLIC + name, { method: "HEAD" }).then(r => r.ok, () => false);
 function partName(slug, i, blob) {
   const m = /^\/_blob\/([0-9a-f]{32})$/.exec(String(blob || ""));
   return m && /^[a-z0-9-]{1,90}$/.test(slug) ? { id: m[1], name: slug + "/p" + i + "-" + m[1] + ".json" } : null;
@@ -62,7 +76,7 @@ async function storePart(packs, slug, i, blob, log) {
   const buf = fs.readFileSync(file);
   let j; try { j = JSON.parse(buf.toString("utf8")); } catch (e) { log.push("not JSON: " + file); return null; }
   if (!j || j.slug !== slug || j.part !== i || typeof (j.v === 2 ? j.d : j.b64) !== "string") { log.push("not " + slug + " part " + i + ": " + file); return null; }
-  const r = await fetch(URL0 + "/storage/v1/object/maps/" + pn.name, { method: "POST",
+  const r = await req(URL0 + "/storage/v1/object/maps/" + pn.name, { method: "POST",
     headers: { apikey: KEY, Authorization: "Bearer " + KEY, "Content-Type": "application/json", "x-upsert": "false", "cache-control": "31536000" }, body: buf });
   if (!r.ok && r.status !== 409) { log.push("upload failed for " + pn.name + ": " + r.status + " " + (await r.text()).slice(0, 200)); return null; }
   return PUBLIC + pn.name;
@@ -112,7 +126,7 @@ async function main() {
   }
   rows.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
   for (let i = 0; i < rows.length; i += 40) {
-    const r = await fetch(URL0 + "/rest/v1/import_staging", { method: "POST",
+    const r = await req(URL0 + "/rest/v1/import_staging", { method: "POST",
       headers: { apikey: KEY, Authorization: "Bearer " + KEY, "Content-Type": "application/json", Prefer: "return=minimal" },
       body: JSON.stringify(rows.slice(i, i + 40)) });
     if (!r.ok) { console.error("upload failed at " + i + ": " + r.status + " " + (await r.text()).slice(0, 300)); process.exit(1); }

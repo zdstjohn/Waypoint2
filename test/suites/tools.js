@@ -62,6 +62,37 @@ exports.run = async t => {
     "the nightly tools match places, read opening hours and find map tiles as their rules say: " +
       (py.stdout + py.stderr).trim().split("\n").slice(-3).join(" | ").slice(0, 300)
   );
+  /* 2c. (v201) the nightly copy to the website gives each request a time limit and one more try: a first request that
+     never answers, then a good one, still sends everything once */
+  {
+    const http = require("http"),
+      hits = [];
+    const srv = http.createServer((req, res) => {
+      let b = "";
+      req.on("data", c => (b += c));
+      req.on("end", () => {
+        hits.push(req.method + " " + req.url);
+        if (hits.length === 1) return; /* (never answers) */
+        res.writeHead(201);
+        res.end();
+      });
+    });
+    await new Promise(ok => srv.listen(0, "127.0.0.1", ok));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wp-cc-"));
+    fs.mkdirSync(path.join(dir, "fx"));
+    fs.writeFileSync(path.join(dir, "fx", "latest.json"), JSON.stringify({ base: "EUR" }));
+    const r = await new Promise(ok =>
+      require("child_process").execFile(
+        "node",
+        ["tools/copy_to_cloud.js", dir],
+        { cwd: ROOT, env: Object.assign({}, process.env, { WP_CLOUD_URL: "http://127.0.0.1:" + srv.address().port, WP_CLOUD_TIMEOUT_MS: "400" }), timeout: 20000 },
+        (e, so, se) => ok({ code: e ? e.code : 0, out: so, err: se })
+      )
+    );
+    srv.closeAllConnections && srv.closeAllConnections();
+    srv.close();
+    t.ok(r.code === 0 && /"count":1/.test(r.out) && hits.length === 2, "the copy to the website gives up on a request that never answers and tries once more: " + JSON.stringify({ hits: hits.length, out: r.out.trim(), err: r.err.slice(0, 120) }));
+  }
   /* 3. the island towns */
   const ctx = { window: {} };
   vm.runInNewContext(fs.readFileSync(path.join(ROOT, "trip/data/data2.js"), "utf8"), ctx);

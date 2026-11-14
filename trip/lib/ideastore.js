@@ -16,6 +16,10 @@
     looked = /** @type {Record<string, number>} */ ({}),
     keptV = -1,
     owed = false;
+  /* When each kept place was last written or read (a time), in one record of the "sig" store (written
+     with each batch of places kept): lib/tidy.js lets go of a place no trip of yours uses and nothing has touched for 60 days. */
+  var TOUCH = "@touched",
+    touched = /** @type {Record<string, number>} */ ({});
   /** a short fingerprint of a text (its length and a 32-bit hash): enough to tell two texts apart, not to keep one
       secret @param {string} s */
   function hash(s) {
@@ -47,6 +51,9 @@
             (keys.result || []).forEach(function (k, i) {
               sig[k] = vals.result[i];
             });
+            try {
+              touched = JSON.parse(sig[TOUCH]);
+            } catch (e) {} /* (none yet, or not readable: every place starts its days now) */
             ok = true;
             res(true);
           };
@@ -65,18 +72,19 @@
     }
   });
 
-  /* the places the trip on screen uses */
-  function inTrip() {
-    var S = W.S,
-      city = /** @type {Record<string, number>} */ ({}),
+  /** The places a trip's settings name: its countries, the cities picked in them, the plan's stops and the cities with
+      days or a stay set (the trip on screen: W.S and the plan's stops; lib/tidy.js asks it of every trip of yours)
+      @param {any} S a trip's state @param {any[] | null} stops */
+  function inTrip(S, stops) {
+    var city = /** @type {Record<string, number>} */ ({}),
       country = /** @type {Record<string, number>} */ ({});
-    (S.countries || []).forEach(function (c) {
+    (S.countries || []).forEach(function (/** @type {any} */ c) {
       country[c.name] = 1;
-      (c.picked || []).forEach(function (n) {
+      (c.picked || []).forEach(function (/** @type {string} */ n) {
         city[c.name + "|" + n] = 1;
       });
     });
-    ((W.P && W.P.stops) || []).forEach(function (s) {
+    (stops || []).forEach(function (s) {
       country[s.country] = 1;
       city[s.country + "|" + s.name] = 1;
     });
@@ -87,6 +95,7 @@
       });
     return { city: city, country: country };
   }
+
   /* The part of the cache the storage entry holds. A place the trip does not use is left out only once everything in
      memory is safely in IndexedDB as it now stands (keptV); until then, and where there is no IndexedDB, all of it
      stays. force: the entry was refused (full), so the other trips' places are left out regardless; they are still in
@@ -96,7 +105,7 @@
       owed = ok;
       return W.C;
     }
-    var use = inTrip(),
+    var use = inTrip(W.S, W.P && W.P.stops),
       out = Object.assign({}, W.C),
       C = /** @type {any} */ (W.C);
     KINDS.forEach(function (kind) {
@@ -146,7 +155,9 @@
       todo.forEach(function (x) {
         a.put(x[1], x[0]);
         b.put(x[2], x[0]);
+        touched[x[0]] = Date.now();
       });
+      b.put(JSON.stringify(touched), TOUCH);
       tx.oncomplete = function () {
         todo.forEach(function (x) {
           sig[x[0]] = x[2];
@@ -218,6 +229,7 @@
         } catch (e) {}
         if (v && typeof v === "object" && !C[kind][key]) {
           C[kind][key] = v;
+          touched[id] = Date.now(); /* (written with the next batch, or by lib/tidy.js) */
           if (W.arrived) W.arrived();
         } else again();
       });
@@ -225,6 +237,7 @@
   };
   W.ideaStore = {
     ready: opened,
+    inTrip: inTrip /* (for lib/tidy.js) */,
     keep: keep,
     isOn: function () {
       return ok;

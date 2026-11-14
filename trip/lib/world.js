@@ -91,6 +91,17 @@
     if (!x || x.v !== 1 || typeof x.places !== "object" || !x.places) return null;
     return x;
   }
+  /** a city's document: under its id, else under the id it had before v201 (a name in another script was "x", ł ø ß
+      were dropped) when only that one has it */
+  function readDoc(/** @type {any} */ d, /** @type {string} */ country, /** @type {string} */ city) {
+    var old = W.citySlugOld && W.citySlugOld(country, city);
+    return d
+      .doc("world/" + W.citySlug(country, city))
+      .get()
+      .then(function (/** @type {any} */ s) {
+        return (s && s.exists) || !old ? s : d.doc("world/" + old).get();
+      });
+  }
   /** read a city's record once a session; the phone's copy answers first (offline, or until the read returns) */
   function load(/** @type {string} */ country, /** @type {string} */ city, /** @type {(() => void) | undefined} */ then) {
     var slug = W.citySlug(country, city);
@@ -112,9 +123,7 @@
     else setTimeout(tell, 1500);
     db().then(function (d) {
       if (!d) return tell();
-      d.doc("world/" + slug)
-        .get()
-        .then(
+      readDoc(d, country, city).then(
           function (/** @type {any} */ s) {
             var x = s && s.exists ? clean(W.V && W.V.shared ? W.V.shared(s.data()) : s.data()) : null;
             if (!x) {
@@ -205,10 +214,7 @@
     var slug = W.citySlug(country, city);
     return db().then(function (d) {
       if (!d) return REC[slug] || clean(stored(slug));
-      return d
-        .doc("world/" + slug)
-        .get()
-        .then(function (/** @type {any} */ s) {
+      return readDoc(d, country, city).then(function (/** @type {any} */ s) {
           var x = s && s.exists ? clean(W.V && W.V.shared ? W.V.shared(s.data()) : s.data()) : null;
           if (!x) return null;
           REC[slug] = x;

@@ -19,9 +19,17 @@ _tpl = None
 _cache = {}
 
 
+_FOLD = {"ł": "l", "ø": "o", "ß": "ss", "đ": "d", "æ": "ae", "þ": "th", "ı": "i"}  # (letters that are no base letter plus an accent)
+
+
 def norm(s):
-    s = unicodedata.normalize("NFD", str(s or "").lower()); s = "".join(c for c in s if not unicodedata.combining(c))
-    return re.sub(r"[^a-z0-9]+", " ", s).strip()
+    """The app's name rule, trip/lib/core.js W.norm (one copy per script: each is fetched on its own by the nightly
+    tasks; the tools suite checks every copy gives the app's answers): plain lower-case letters and digits; a name with
+    no Latin letters or digits at all (Αθήνα, 東京) is "u" and the hex of each code point, so it still tells places apart"""
+    t = "".join(_FOLD.get(c, c) for c in str(s or "").lower())
+    t = re.sub("[\u0300-\u036f]", "", unicodedata.normalize("NFD", t))
+    a = re.sub(r"[^a-z0-9]+", " ", t).strip()
+    return a or " ".join("u%x" % ord(c) for c in t if c.isalnum())
 
 
 def _get(url, tries=3):
@@ -309,6 +317,10 @@ def load_dir(d):
     return out
 
 
+def _write_pins(work, res):
+    json.dump(res, open(os.path.join(work, 'pins.json'), 'w'), ensure_ascii=False, indent=0)
+
+
 def scan(db, work, only):
     global TILE_DIR
     TILE_DIR = os.path.join(work, 'tiles'); os.makedirs(TILE_DIR, exist_ok=True)
@@ -338,7 +350,8 @@ def scan(db, work, only):
         n_w = sum(1 for it in items if it['water_m'])
         if n_w or any((out.get(k) or {}).get('water_m') for k in ('home', 'center')): cities_wet.append('%s %d%s' % (slug, n_w, ' +home' if (out.get('home') or {}).get('water_m') else ''))
         res[slug] = out
-        json.dump(res, open(os.path.join(work, 'pins.json'), 'w'), ensure_ascii=False, indent=0)
+        if len(res) % 25 == 0: _write_pins(work, res)   # (not whole after every city: that is quadratic work)
+    _write_pins(work, res)
     print(json.dumps({'cities': len(res), 'pins': tot, 'in_water': wet, 'in_water_unchecked': unchecked_wet, 'cities_with_water_pins': cities_wet}, ensure_ascii=False))
 
 

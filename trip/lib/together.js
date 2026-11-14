@@ -110,7 +110,7 @@
     if (!P || p.length < 3) return null;
     return (
       P.days.filter(function (d) {
-        return d.country === p[0] && d.city === p[1] && d.dayInCity === +p[2];
+        return W.restKey(d) === p.slice(0, 3).join("|");
       })[0] || null
     );
   }

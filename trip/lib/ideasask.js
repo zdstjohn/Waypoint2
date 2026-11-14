@@ -102,7 +102,6 @@
     var c = W.C.city[ck];
     if (c) c.askedN = Math.max(c.askedN || 0, n);
   }
-  var LOVED_ASK = 6;
   /* (v158: "sure" and the rule about names. Of 3,544 suggestions the nightly check had judged, 9% were not real places,
      nearly all of them places to eat in small towns, with names made from the kind of place and the town. Told to list
      only what it is certain of, Sonnet gave 1 to 8 places for a town; asked to mark what it is unsure of, it kept the
@@ -127,8 +126,7 @@
   }
   /* add places to eat; front = the best-loved half, which stays at the top of the list whichever half arrives first */
   function foodEx() {
-    var n = W.eatNeeds && W.eatNeeds();
-    return W.eatSig() ? FOOD_EX.replace(/\}$/, ',"fit":"good","fitw":""' + (n && n.love ? ',"like":0' : "") + "}") : FOOD_EX;
+    return W.eatSig() ? FOOD_EX.replace(/\}$/, ',"fit":"good","fitw":""}') : FOOD_EX;
   }
   function addFood(ck, r, kind) {
     var c0 = W.C.city[ck] || newPool(),
@@ -423,32 +421,6 @@
         addFood(ck, r, "more");
         c0 = W.C.city[ck];
         bumpShown(ck, c0, "food", c0.food.length - before);
-      };
-    }
-  };
-  W.ASKS["ideas.6"] = {
-    q: function (city, ck, country, cur, n) {
-      return foodAsk(
-        "List " +
-          LOVED_ASK +
-          " MORE places to eat in " +
-          city +
-          ", " +
-          country +
-          " that are especially good for what this group loves: " +
-          n.love +
-          ".",
-        namesOf(cur, "food")
-      );
-    },
-    ok: function (city, ck, country, cur, n) {
-      return function (r) {
-        var c0 = W.C.city[ck],
-          before = c0 ? (c0.food || []).length : 0;
-        addFood(ck, r, "eatmore");
-        c0 = W.C.city[ck];
-        bumpShown(ck, c0, "food", c0.food.length - before);
-        if (W.freshMeals) W.freshMeals(country, city);
       };
     }
   };

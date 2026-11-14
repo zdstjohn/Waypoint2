@@ -40,7 +40,7 @@
         who() +
         " Give the 2 to 5 sensible options (train, bus, ferry, flight or car), best first for this group. If a ferry or boat runs on this route or on part of it (between islands, along a coast or a lake, across a strait or a bay), always include it even when something else is faster: one option per ferry company that runs it, with the ports it sails between." +
         " For each: mode, from and to (stations, ports or airports), dur (just the journey, e.g. '1h 35m'), price (typical one-way price per adult in local currency, e.g. '€25–45'), freq (how often, e.g. 'every 30 min'; for a ferry also the months it sails if it is seasonal, e.g. '3 a day, Apr–Oct'), op (the company, e.g. 'Trenitalia / Italo', 'Blue Star Ferries')," +
-        " url (the company's OWN official website where tickets are sold, never a reseller or comparison site such as Ferryhopper, Direct Ferries, Openseas, Trainline, Omio, Rome2rio, Kayak or Expedia; empty if you are not sure of the exact address), book (true if it should be booked ahead), note (one short tip for families, e.g. which ferries have cabins or decks for kids)." +
+        " url (the company's OWN official website where tickets are sold, never a reseller or comparison site such as Ferryhopper, Direct Ferries, Openseas, Trainline, Omio, Rome2rio, Kayak or Expedia; empty if you are not sure of the exact address), book (true if it should be booked ahead), note (one short tip" + (W.party().kids.length ? " for families, e.g. which ferries have cabins or decks for kids" : ", e.g. which ferries have cabins or decks") + ")." +
         '\nReply with JSON only: {"opts":[{"mode":"ferry","from":"","to":"","dur":"","price":"","freq":"","op":"","url":"","book":false,"note":""}]}'
       );
     },
@@ -85,16 +85,13 @@
         "." +
         " For each place, how well can it feed this group? fit = good (plenty they can eat), ok (some options; tell the staff) or poor (hard to eat there: say why); fitw = one short line on what they can have or what to ask." +
         " Judge from the kind of place and its menu as far as you know it; for allergies, never promise a place is safe." +
-        W.eatLikeAsk() +
         "\nPlaces: " +
         todo
           .map(function (x) {
             return x.n + (x.cuisine ? " (" + x.cuisine + ")" : "");
           })
           .join("; ") +
-        '\nReply with JSON only: {"fit":[{"n":"the name exactly as given","fit":"good","fitw":""' +
-        (W.eatLikeAsk() ? ',"like":0' : "") +
-        "}]}"
+        '\nReply with JSON only: {"fit":[{"n":"the name exactly as given","fit":"good","fitw":""}]}'
       );
     },
     ok: function (city, ck, country, sig, todo) {
@@ -107,7 +104,6 @@
               w: String(x.fitw || "")
                 .trim()
                 .slice(0, 120),
-              l: W.eatLikeOf(x.like),
               sig: sig
             };
         });
@@ -120,9 +116,6 @@
         todo.forEach(function (x) {
           if (!x.eat || x.eat.sig !== sig) x.eat = { f: "", w: "", sig: sig };
         });
-        /* what you love counts now: the meals the planner chose here are chosen again (never the ones you chose) */
-        var nd = W.eatNeeds();
-        if (nd && nd.love && W.freshMeals) W.freshMeals(country, city);
       };
     }
   };

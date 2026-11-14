@@ -159,7 +159,8 @@
     return Object.keys(out);
   }
   function slugOf(ck) {
-    return W.slug(ck.replace("|", " "));
+    var p = ck.split("|");
+    return W.citySlug(p[0], p.slice(1).join("|"));
   }
 
   /* two copies of a city's ideas: keep everything from both (your picks refer to names in either) */
@@ -645,11 +646,12 @@
     /* the example never goes to your account, whichever way it got into your list */
     if (id === S.tripId ? S.example : idx[id] && idx[id].state && idx[id].state.example) return;
     enqueue("trip/" + id, function () {
-      /* what the account holds is read first and joined in, so a save another phone made a moment ago is in what goes
-         back (the write replaces the whole document) */
-      return col
-        .doc(id)
-        .get()
+      /* The account's copy is joined in before this one goes back (the write replaces the whole document), so a save
+         another phone made a moment ago is in what is written. The snapshot (onTrips) has delivered and joined every
+         copy the account holds, and keeps doing so; so once it has answered from the server, a trip it has shown is
+         known (known[id]) and one it has not shown is not in the account: no read is needed. Only before that is the
+         account asked. */
+      return (firstSnap && (known[id] || !remote[id]) ? Promise.resolve() : col.doc(id).get())
         .then(function (snap) {
           var r = snap && snap.exists ? snap.data() : null;
           if (r && r.state && known[id] !== docSig(r)) {

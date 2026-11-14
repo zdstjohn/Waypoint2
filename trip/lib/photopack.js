@@ -76,20 +76,38 @@
     FILL_MIN = 4; /* (a pack is fetched for four photos or more: for fewer, they are fetched on their own) */
   /** the packs of the cities whose photo index is here, each with its photos' names (2: one with no file of its own)
       @returns {Record<string, { url: string; names: Record<string, number> }>} */
+  /** a city's pack files, in part order: [url] for one pack, its parts for a pack in parts (v202: a trip city's
+      photos come in parts of about 1.5 MB, so a day fetches only the part its photos are in); [] when there is none
+      or an address is not one of the app's own files @param {any} pk */
+  function partsOf(pk) {
+    if (!pk || typeof pk.url !== "string" || !PACK_URL.test(pk.url)) return [];
+    if (!Array.isArray(pk.parts) || pk.parts.length < 2) return [pk.url];
+    var ok = pk.parts.every(function (/** @type {any} */ u) {
+      return typeof u === "string" && PACK_URL.test(u);
+    });
+    return ok ? pk.parts.slice() : [pk.url];
+  }
+  /* each pack file the phone may fetch, with the photos it holds: a photo with pk is in part pk (pk 1 for a single
+     pack, as before), and only a single pack is asked for the city's other photos too (it may hold copies of them) */
   function packs() {
     var snap = W.photosSnapshot ? W.photosSnapshot() : null,
       out = /** @type {Record<string, { url: string; names: Record<string, number> }>} */ ({});
     if (!snap || !snap.PACK) return out;
     Object.keys(snap.PACK).forEach(function (slug) {
-      var pk = snap.PACK[slug];
-      if (!pk || typeof pk.url !== "string" || !PACK_URL.test(pk.url)) return;
-      var names = /** @type {Record<string, number>} */ ({}),
-        items = snap.PHOTOS[slug] || {};
-      Object.keys(items).forEach(function (k) {
-        var p = items[k];
-        if (p && p.url && !p.near) names[p.url] = p.pk ? 2 : 1;
+      var urls = partsOf(snap.PACK[slug]);
+      if (!urls.length) return;
+      var items = snap.PHOTOS[slug] || {},
+        one = urls.length === 1;
+      urls.forEach(function (url, i) {
+        var names = /** @type {Record<string, number>} */ ({});
+        Object.keys(items).forEach(function (k) {
+          var p = items[k];
+          if (!p || !p.url || p.near) return;
+          if (p.pk && (one || +p.pk === i + 1)) names[p.url] = 2;
+          else if (!p.pk && one) names[p.url] = 1;
+        });
+        out[one ? slug : slug + "#" + (i + 1)] = { url: url, names: names };
       });
-      out[slug] = { url: pk.url, names: names };
     });
     return out;
   }
@@ -312,7 +330,8 @@
         var x = snap && snap.exists ? snap.data() || {} : {},
           /* (as lib/photos.js takes them: a photo's address is one of the app's own files, not a web link) */
           items = x.items && typeof x.items === "object" ? x.items : {},
-          pack = x.pack && typeof x.pack.url === "string" && PACK_URL.test(x.pack.url) ? { url: x.pack.url } : null,
+          urls = partsOf(x.pack),
+          pack = urls.length ? (urls.length > 1 ? { url: urls[0], parts: urls } : { url: urls[0] }) : null,
           seed = { PHOTOS: /** @type {any} */ ({}), PACK: /** @type {any} */ ({}), LINKS: {}, BYCITY: {} };
         seed.PHOTOS[slug] = items;
         seed.PACK[slug] = pack;
@@ -324,8 +343,10 @@
         return kv("photos:" + slug, { items: items, pack: pack, city: city })
           .then(null, function () {})
           .then(function () {
-            return pack
-              ? get(pack.url).then(
+            /* (every part of the city's pack, one after another: a saved city is all of it) */
+            return urls.reduce(function (/** @type {Promise<any>} */ chain, /** @type {string} */ u) {
+              return chain.then(function () {
+                return get(u).then(
                   function (got) {
                     return put(got).then(function () {
                       got.forEach(function (it) {
@@ -334,10 +355,11 @@
                     });
                   },
                   function () {
-                    /* the pack could not be had: its photos one by one, those that have a file */
+                    /* a part could not be had: its photos one by one, those that have a file */
                   }
-                )
-              : null;
+                );
+              });
+            }, Promise.resolve());
           })
           .then(function () {
             var todo = list.filter(function (p) {
@@ -463,5 +485,5 @@
         }
       );
   W.offCities = cities;
-  W.photoPack = { read: read, get: get, fill: fill, want: want, saveCity: saveCity, dropCity: dropCity, saving: going2 };
+  W.photoPack = { read: read, get: get, fill: fill, want: want, saveCity: saveCity, dropCity: dropCity, saving: going2, partsOf: partsOf };
 })();

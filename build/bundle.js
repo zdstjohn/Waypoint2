@@ -13,13 +13,13 @@ const esbuild = require('esbuild'); const fs = require('fs'); const path = requi
 const TRIP = path.resolve(__dirname, '..', 'trip');
 const ORDER = [
   'data/data1.js', 'data/data2.js',
-  'lib/validate.js', 'lib/core.js', 'lib/ideastore.js', 'lib/towns.js', 'lib/ideas.js', 'lib/stays.js', 'lib/asks.js', 'lib/answers.js', 'lib/ideasask.js', 'lib/staysask.js', 'lib/asksask.js', 'lib/citylib.js', 'lib/icons.js', 'lib/patch.js', 'lib/eat.js', 'lib/links.js', 'lib/errlog.js', 'lib/later.js', 'lib/pwa.js', 'lib/back.js', 'lib/a11y.js', 'lib/classify.js', 'lib/photos.js', 'lib/photowish.js', 'lib/places.js', 'lib/world.js', 'lib/nightfood.js', 'lib/fx.js', 'lib/vtindex.js', 'lib/streetroute.js', 'lib/vtmap.js', 'lib/offline.js', 'lib/offcopy.js', 'lib/photopack.js', 'lib/speedtest.js', 'lib/times.js', 'lib/holidays.js', 'lib/shape.js', 'lib/plan.js', 'lib/planacts.js', 'lib/rules.js', 'lib/packing.js', 'lib/warm.js', 'lib/ahead.js', 'lib/memories.js',
+  'lib/validate.js', 'lib/core.js', 'lib/ideastore.js', 'lib/towns.js', 'lib/ideas.js', 'lib/stays.js', 'lib/lodging.js', 'lib/asks.js', 'lib/answers.js', 'lib/ideasask.js', 'lib/staysask.js', 'lib/asksask.js', 'lib/citylib.js', 'lib/icons.js', 'lib/patch.js', 'lib/eat.js', 'lib/links.js', 'lib/errlog.js', 'lib/later.js', 'lib/pwa.js', 'lib/back.js', 'lib/a11y.js', 'lib/classify.js', 'lib/photos.js', 'lib/photowish.js', 'lib/places.js', 'lib/oldids.js', 'lib/world.js', 'lib/nightfood.js', 'lib/fx.js', 'lib/vtindex.js', 'lib/streetroute.js', 'lib/vtmap.js', 'lib/offline.js', 'lib/offcopy.js', 'lib/tidy.js', 'lib/photopack.js', 'lib/speedtest.js', 'lib/times.js', 'lib/holidays.js', 'lib/shape.js', 'lib/plan.js', 'lib/planacts.js', 'lib/rules.js', 'lib/packing.js', 'lib/warm.js', 'lib/ahead.js', 'lib/memories.js',
   'screens/setup.js', 'lib/sharebox.js', 'lib/sync.js', 'lib/bookcore.js', 'lib/budget.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/route.js', 'lib/import.js', 'lib/prices.js', 'lib/watch.js', 'lib/gmaps.js', 'lib/search.js', 'lib/replan.js', 'lib/bookcheck.js', 'lib/review.js', 'lib/brief.js',
   'screens/today.js', 'screens/family.js', 'lib/daybag.js', 'screens/kids.js', 'screens/near.js', 'screens/travel.js', 'screens/flow.js', 'screens/flowacts.js', 'screens/quickstart.js', 'screens/sheet.js', 'lib/menuread.js', 'screens/daytrip.js', 'lib/typeahead.js', 'screens/settings.js', 'screens/trip.js', 'screens/tripacts.js',
   /* the desktop workspace (v153; all in the second script): its state, the map canvas, the rail, the palette, CSV */
   'lib/desk.js', 'lib/deskmap.js', 'screens/rail.js', 'screens/palette.js', 'lib/csv.js', 'screens/dayline.js'
 ];
-const LATER = ['lib/world.js', 'lib/ideasask.js', 'lib/staysask.js', 'lib/asksask.js', 'lib/citylib.js', 'lib/answers.js', 'lib/planacts.js', 'lib/photowish.js', 'lib/rules.js', 'screens/flowacts.js', 'screens/tripacts.js', 'lib/nightfood.js', 'lib/memories.js', 'lib/ahead.js', 'screens/near.js', 'screens/quickstart.js', 'screens/sheet.js', 'lib/menuread.js', 'screens/daytrip.js', 'lib/typeahead.js', 'lib/import.js', 'screens/setup.js', 'lib/streetroute.js', 'lib/vtmap.js', 'lib/packing.js', 'lib/prices.js', 'lib/watch.js', 'lib/budget.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/gmaps.js', 'lib/search.js', 'lib/replan.js', 'lib/bookcheck.js', 'lib/review.js', 'lib/brief.js', 'screens/family.js', 'lib/daybag.js', 'screens/kids.js', 'screens/settings.js', 'lib/route.js', 'lib/offcopy.js', 'lib/photopack.js', 'lib/speedtest.js', 'lib/desk.js', 'lib/deskmap.js', 'screens/rail.js', 'screens/palette.js', 'lib/csv.js', 'screens/dayline.js'];
+const LATER = ['lib/lodging.js', 'lib/oldids.js', 'lib/world.js', 'lib/ideasask.js', 'lib/staysask.js', 'lib/asksask.js', 'lib/citylib.js', 'lib/answers.js', 'lib/planacts.js', 'lib/photowish.js', 'lib/rules.js', 'screens/flowacts.js', 'screens/tripacts.js', 'lib/nightfood.js', 'lib/memories.js', 'lib/ahead.js', 'screens/near.js', 'screens/quickstart.js', 'screens/sheet.js', 'lib/menuread.js', 'screens/daytrip.js', 'lib/typeahead.js', 'lib/import.js', 'screens/setup.js', 'lib/streetroute.js', 'lib/vtmap.js', 'lib/packing.js', 'lib/prices.js', 'lib/watch.js', 'lib/budget.js', 'screens/book.js', 'lib/autopilot.js', 'lib/together.js', 'lib/gmaps.js', 'lib/search.js', 'lib/replan.js', 'lib/bookcheck.js', 'lib/review.js', 'lib/brief.js', 'screens/family.js', 'lib/daybag.js', 'screens/kids.js', 'screens/settings.js', 'lib/route.js', 'lib/offcopy.js', 'lib/tidy.js', 'lib/photopack.js', 'lib/speedtest.js', 'lib/desk.js', 'lib/deskmap.js', 'screens/rail.js', 'screens/palette.js', 'lib/csv.js', 'screens/dayline.js'];
 /* Pieces: files of LATER that do not ride in app2.js but in a file of their own, app.<name>.js, which lib/later.js
    fetches when it is needed. Nothing outside a piece may count on it being there (every call into one is asked for
    first: "if (W.deskLayout) ...", or goes through something that waits for it: W.run).
@@ -77,7 +77,10 @@ async function build() {
   }
   /* the stylesheet in two: app2.css carries what only the second script's screens use (see splitCss) */
   const first = ORDER.filter(f => !LATER.includes(f)).map(f => fs.readFileSync(path.join(TRIP, f), 'utf8')).join('\n') + fs.readFileSync(path.join(TRIP, 'index.html'), 'utf8');
-  const parts = splitCss(fs.readFileSync(path.join(TRIP, 'app.css'), 'utf8'), first);
+  /* a rule whose move would turn the cascade round stays in the first stylesheet (and the split is made again, as that can
+     turn others) */
+  const appCss = fs.readFileSync(path.join(TRIP, 'app.css'), 'utf8'); const pin = new Set(); let parts;
+  for (let round = 0; round < 20; round++) { parts = splitCss(appCss, first, pin, !!process.env.CSS_GATED, !process.env.CSS_EVERY); if (!parts.turned.length) break; parts.turned.ns.forEach(k => pin.add(k)); }
   if (parts.turned.length) throw new Error('moving these rules to app2.css would turn the cascade round (give the later rule a more specific selector, or keep the section in the first stylesheet):\n  ' + parts.turned.join('\n  '));
   const css = await esbuild.transform(parts.first, { loader: 'css', minify: true });   /* ASCII only: a stylesheet served without a charset would garble · and → */
   const css2 = await esbuild.transform(parts.later, { loader: 'css', minify: true });
@@ -140,17 +143,29 @@ function spec(sel) {
 function target(sel) { const parts = sel.trim().split(/[\s>+~]+/), last = parts.pop() || '', bare = s => s.replace(/:[\w-]+(\([^)]*\))?/g, ''), cs = bare(last).match(/\.[\w-]+/g); if (cs) return cs[cs.length - 1];
   /* (an element under a class, ".set-h h2": that class and the element) */ const el = (bare(last).match(/^[a-z][\w-]*/i) || [''])[0], up = parts.map(bare).join(' ').match(/\.[\w-]+/g); return el && up ? up[up.length - 1] + ' ' + el : ''; }
 function props(body) { return new Set((body.match(/(^|;)\s*([\w-]+)\s*:/g) || []).map(p => p.replace(/[;:\s]/g, ''))); }
-function splitCss(text, firstSrc) {
+function splitCss(text, firstSrc, pin, gated, any) {
   const used = new Set(firstSrc.match(/[A-Za-z][\w-]*/g));
+  /* a class the first script builds at run time ("lv" + n, "g-" + kind) is not in `used` whole: any quoted piece that a
+     name starts with counts as that name being used */
+  /* (the last word of a quoted piece that something is added to: "energy lv" + n, `g-${kind}`; a one-letter piece counts only
+     for a name that is the letter and a number, "c" + 2) */
+  const dyn = [...new Set([...firstSrc.matchAll(/["'`][^"'`\n]*?([\w-]+)["'`]\s*\+|([\w-]+)\$\{/g)].map(m => m[1] || m[2]))];
+  const free = c => !used.has(c) && (/^maplibregl-/.test(c) /* (made by the map library, not by this script) */ || !dyn.some(d => c.length > d.length && c.startsWith(d) && (d.length > 1 || /^\d+$/.test(c.slice(1)))));
+  pin = pin || new Set();
   let first = '', later = '', moved = 0, section = '', i = 0, n = 0;
   /* every rule in source order: where it went, its context, what it reaches, what it sets (for the cascade check) */
   const all = [];
   const note = (sel, body, media, went) => {
+    sel = sel.replace(/\/\*[\s\S]*?\*\//g, '');   /* (a comment before a rule inside an @media is part of what the pattern takes as its selector) */
     sel.split(',').forEach(x => { const t = target(x); if (t) all.push({ n, sel: x.trim(), t, sp: spec(x), p: props(body), media, went }); });
     n++;
   };
   const heading = c => { const m = /^\/\*\s*(?:=+|-+)\s*(.*?)\s*(?:=+|-+)\s*\*\/$/.exec(c); return m ? m[1] : null; };
-  const goes = sel => { if (!LATER_CSS.some(r => r.test(section))) return false; const cs = sel.match(/\.([A-Za-z][\w-]*)/g); return !!cs && cs.every(c => !used.has(c.slice(1))); };
+  /* every selector of the list must be out of the first screen's reach: one that names no class, or a class the first
+     script knows, keeps the whole rule (any: a selector is out of reach when ANY one of its classes is unknown, as an
+     element needs all of them) */
+  const cls = x => x.replace(/:(not|is|where|has)\([^)]*\)/g, '').match(/\.([A-Za-z][\w-]*)/g);
+  const goes = sel => { sel = sel.replace(/\/\*[\s\S]*?\*\//g, ''); if (pin.has(n)) return false; if (gated && !LATER_CSS.some(r => r.test(section))) return false; return selectors(sel).every(x => { const cs = cls(x); return !!cs && cs[any ? 'some' : 'every'](c => free(c.slice(1))); }); };
   const block = (s, at) => { let d = 0; for (let j = at; j < s.length; j++) { if (s[j] === '{') d++; else if (s[j] === '}' && --d === 0) return j; } throw new Error('unbalanced braces in app.css'); };
   while (i < text.length) {
     if (/\s/.test(text[i])) { first += text[i++]; continue; }
@@ -170,10 +185,10 @@ function splitCss(text, firstSrc) {
   /* a moved rule, and a later rule that stays, reaching the same class and setting the same property, as specific as
      each other, and able to apply at once (the same @media, or either one outside any: v148's .nr-b was a plain rule
      against a touch-screen one): in one stylesheet the later one won; split, the moved one does */
-  const turned = [];
+  const turned = []; turned.ns = new Set();
   const kept = all.filter(r => !r.went);
   all.filter(r => r.went).forEach(m => kept.forEach(k => {
-    if (k.n > m.n && k.t === m.t && (k.media === m.media || !k.media || !m.media) && k.sp === m.sp && [...k.p].some(p => m.p.has(p))) turned.push(m.sel + '  (moves) over  ' + k.sel + (k.media ? '  in ' + k.media : ''));
+    if (k.n > m.n && k.t === m.t && (k.media === m.media || !k.media || !m.media) && k.sp === m.sp && [...k.p].some(p => m.p.has(p))) { turned.push(m.sel + '  (moves) over  ' + k.sel + (k.media ? '  in ' + k.media : '')); turned.ns.add(m.n); }
   }));
   return { first, later, moved, turned };
 }

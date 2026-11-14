@@ -279,8 +279,9 @@
           return e.k === "stop" && !e.food;
         })[0],
         tO = W.dayOut ? W.dayOut(tom) : null;
-      /* tomorrow, in the app's colours above tonight (v193, the owner's choice "E" of five: "find something that would
-         help draw attention to it"): what kind of day it is, when it starts, and one button to it */
+      /* tomorrow, in the app's colours (v193, the owner's choice "E" of five: "find something that would help draw
+         attention to it"): what kind of day it is, when it starts, and one button to it. Below tonight since v202
+         (the owner: "Up next should be below tonight"): tonight's stay first, then the day after */
       up =
         '<section class="go-up" aria-label="Up next"><span class="gu-i">' +
         (tom.moveFrom ? IC.train : IC.moon) +
@@ -312,7 +313,7 @@
       if (tom.moveFrom && W.briefBlock) h += W.briefBlock(tom);
     }
     h += "</section>";
-    return up + h;
+    return h + up;
   }
   /* Today's tickets and bookings: what is booked for this day (with its reference and a way to open it) and what
      still needs booking. */

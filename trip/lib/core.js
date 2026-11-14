@@ -152,6 +152,29 @@
       sp = cut.lastIndexOf(" ");
     return (sp > n * 0.4 ? cut.slice(0, sp) : cut).replace(/[\s,;:·–-]+$/, "") + "…";
   };
+  /* letters that are not a base letter plus an accent, so the accent-stripping below would drop them ("Wrocław" was
+     "wrocaw", "Straße" "stra e"); they become the Latin letters people type instead. toLowerCase has already made the
+     capitals (Ł Ø ẞ Đ Æ Þ) these. The Python and Node tools do the same (tools/names.py, tools/names.js) */
+  var FOLD = /** @type {Record<string, string>} */ ({ ł: "l", ø: "o", ß: "ss", đ: "d", æ: "ae", þ: "th", ı: "i" });
+  /** the name in lower case, plain letters and digits, single spaces. A name with no Latin letters or digits at all
+      (Αθήνα, 東京) is "u" and the hex of each of its code points, so it still tells places apart; a name with some
+      Latin letters keeps just those. @param {any} s0 */
+  function plain(s0) {
+    var t = String(s0 || "")
+        .toLowerCase()
+        .replace(/[łøßđæþı]/g, function (c) {
+          return FOLD[c];
+        })
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, ""),
+      a = t.replace(/[^a-z0-9]+/g, " ").trim();
+    if (a) return a;
+    return (t.match(/[\p{L}\p{N}]/gu) || [])
+      .map(function (c) {
+        return "u" + /** @type {number} */ (c.codePointAt(0)).toString(16);
+      })
+      .join(" ");
+  }
   /* called for every name on every redraw; the last few thousand answers are kept */
   var normCache = Object.create(null),
     normN = 0;
@@ -164,12 +187,7 @@
       normN = 0;
     }
     normN++;
-    return (normCache[s] = s
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim());
+    return (normCache[s] = plain(s));
   };
   /* a link that opens in a new tab */
   /* One rule for which fact wins (v199). A stop's hours, booking link, lead time and ticket can come from its own
@@ -615,14 +633,22 @@
     var was = ++asked;
     setTimeout(function () {
       if (shown >= was) return; /* (drawn meanwhile) */
-      if (W.P && W.planFresh && !W.planFresh() && !(W.typingHeld && W.typingHeld())) W.plan();
-      setTimeout(function () {
-        if (shown >= was) return;
-        W.save();
-        tell();
-      }, 0);
+      if (planDue()) W.plan();
+      drawAfter(was);
     }, 0);
   };
+  /** the plan is out of date and may be made now (not while a box is being typed in) */
+  function planDue() {
+    return !!(W.P && W.planFresh && !W.planFresh() && !(W.typingHeld && W.typingHeld()));
+  }
+  /** saved and drawn in the next task, unless a full redraw has answered meanwhile @param {number} was */
+  function drawAfter(was) {
+    setTimeout(function () {
+      if (shown >= was) return;
+      W.save();
+      tell();
+    }, 0);
+  }
   /* answers arriving: the planner is told at once (dataV), but the screen is redrawn once for the whole burst, after the
      frame already on its way has painted. A tap that opens a screen asking for five lists paints its screen first and
      fills in once, instead of redrawing (and replanning) five times before the first frame. A burst is everything that
@@ -635,22 +661,31 @@
   var flushPending = false,
     firstAt = 0,
     lastAt = 0,
+    tapAt = 0,
     QUIET = 100,
     MAXWAIT = 300;
+  /* While a finger is busy on the screen (a tap, key or scroll in the last 1.5 s, seen before the screen's own handlers),
+     answers wait for a longer lull, 250/1000 ms: one arrives about every 150 ms in the first seconds, each a plan and
+     2-6 redraws, and every tap over 230 ms coincided with one. */
+  ["pointerdown", "keydown", "wheel"].forEach(function (ev) {
+    document.addEventListener(
+      ev,
+      function () {
+        tapAt = Date.now();
+      },
+      { capture: true, passive: true }
+    );
+  });
   function flush() {
     flushPending = false;
     if (shown === asked) {
       W.save();
       return;
     }
-    if (W.planFresh && W.P && !W.planFresh() && !(W.typingHeld && W.typingHeld())) {
+    if (planDue()) {
       var was = asked;
       W.plan();
-      setTimeout(function () {
-        if (shown >= was) return; /* (drawn meanwhile) */
-        W.save();
-        tell();
-      }, 0);
+      drawAfter(was);
       return;
     }
     W.save();
@@ -666,7 +701,8 @@
   }
   function settle() {
     var now = Date.now(),
-      ms = Math.min(lastAt + QUIET - now, firstAt + MAXWAIT - now);
+      tapped = now - tapAt < 1500,
+      ms = Math.min(lastAt + (tapped ? 250 : QUIET) - now, firstAt + (tapped ? 1000 : MAXWAIT) - now);
     if (ms > 0) {
       setTimeout(settle, ms);
       return;
@@ -686,7 +722,6 @@
     redraw();
   }
   W.arrived = arrived; /* (for the files that ask Claude: lib/asks.js) */
-
   try {
     if (window.claude && window.claude.use) {
       /* (Claude's answer to whether it can be asked comes on its own, as the first screen is drawn or just after: the
@@ -862,7 +897,7 @@
         )
         .then(function () {
           running--;
-          arrived();
+          /^cost\|/.test(key) ? redraw() : arrived(); /* (what things cost is read as the budget draws: no re-plan) */
           pump();
         });
     }

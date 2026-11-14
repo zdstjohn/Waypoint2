@@ -58,6 +58,23 @@ exports.run = async t => {
   /* the big cities reach IndexedDB all the same, and the note in the error log is written once */
   await keptAll();
   t.ok(await pg.evaluate(() => W.ideaStore.keptAll() && W.cacheCut === true), 'what was left out of the entry is still kept in IndexedDB');
+  /* (v201) a place no trip of yours names and nothing has touched for 60 days is let go from the phone, once a day; one a trip
+     names, or one touched lately, stays */
+  await pg.evaluate(() => new Promise((res, no) => {
+    const r = indexedDB.open('waypoint-ideas', 1);
+    r.onsuccess = () => {
+      const d = r.result, tx = d.transaction(['v', 'sig'], 'readwrite'), day = Date.now(), touched = { 'city|Spain|OldTown': day - 90 * 864e5, 'city|Spain|NewTown': day - 10 * 864e5, 'country|Oldland': day - 90 * 864e5, 'city|Spain|Madrid': day - 90 * 864e5 };
+      ['city|Spain|OldTown', 'city|Spain|NewTown', 'country|Oldland'].forEach(k => { tx.objectStore('v').put('{"d":"x"}', k); tx.objectStore('sig').put('1:a', k); });
+      tx.objectStore('sig').put(JSON.stringify(touched), '@touched');
+      tx.oncomplete = () => res(); tx.onerror = () => no(tx.error);
+    };
+  }));
+  await pg.reload(); await pg.waitForFunction(() => window.W && W.P && W.ideaStore, null, { timeout: 15000 }); await pg.evaluate(() => W.ideaStore.ready);
+  const pz = await pg.evaluate(async () => {
+    const n = await W.ideaStore.prune(), keys = await new Promise(res => { const r = indexedDB.open('waypoint-ideas', 1); r.onsuccess = () => { const q = r.result.transaction('v').objectStore('v').getAllKeys(); q.onsuccess = () => res(q.result); }; });
+    return { n, keys: keys.filter(k => /OldTown|NewTown|Oldland|Madrid/.test(k)).sort(), again: await W.ideaStore.prune() };
+  });
+  t.ok(pz.n >= 2 && !pz.keys.includes('city|Spain|OldTown') && !pz.keys.includes('country|Oldland') && pz.keys.includes('city|Spain|NewTown') && pz.again === 0, 'a place no trip names and untouched for 60 days is let go, a lately touched one stays, once a day: ' + JSON.stringify(pz));
   t.eq(errors(), [], 'no page errors');
   await ctx.close();
   /* 4. no IndexedDB (some private windows): everything stays in the entry, as before */

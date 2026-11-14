@@ -21,6 +21,16 @@
          their files; every other city with photos is packed. Writes <out_dir>/plan.json {cities: {<slug>: {fetch:
          [ids of the copies to pack], free: [ids no longer used once it is packed]}}, files, free} and prints a
          summary. Nothing is changed.
+     node photopack.js build-parts <photos_doc.json> <files_dir> <out_prefix> [wanted_doc.json]
+         The same, in parts of at most about 1.5 MB (v202): a city a trip goes to can have 60+ photos (Granada's
+         pack was 7.9 MB), and a phone should fetch only the part a day's photos are in, not the whole city. With
+         the trip's wanted document, the photos go in the order the trip uses them (a day's stops share a part), the
+         rest after. Writes <out_prefix>.p1.js, .p2.js, ... and prints {slug, n, bytes, parts: [{file, n, bytes}],
+         missing, skipped}.
+     node photopack.js mark-parts <photos_doc.json> <parts.json> <out.json>
+         As mark, for packs in parts: <parts.json> is [{url, file}] in part order (the uploaded address of each part
+         file). A photo in part i gets pk: i (1, 2, ...); the index's pack is {url: the first part, parts: [every
+         part's address], n, bytes, at}. One part is written exactly as mark writes a single pack.
      node photopack.js mark <photos_doc.json> <pack_url> <pack_file> <out.json>
          The city's photo index with its pack named: each photo the pack holds gets pk: 1 and loses the copies that
          were files of their own (sm, big, the WebP twins and their sizes); its blurred preview stays. Writes the
@@ -33,6 +43,7 @@ const fs = require("fs"),
   path = require("path");
 
 const MAX_ONE = 400 * 1024,
+  PART_MAX = 1.5e6 /* (a part's text: the base64 of its pictures and a little JSON) */,
   MAX_ITEMS = 400,
   today = () => new Date().toISOString().slice(0, 10);
 
@@ -161,19 +172,126 @@ function copiesOf(p) {
   return [p.url, p.sm, p.big, p.webp && p.webp.url, p.webp && p.webp.sm, p.webp && p.webp.big].map(idOf).filter(Boolean);
 }
 /** the photo index once its pack is named: what the app reads (pk), what no longer has a file */
-function marked(doc, packUrl, packed, bytes, at) {
+function marked(doc, packUrl, packed, bytes, at, parts) {
   const items = {},
-    inPack = new Set(packed);
+    /* (url -> the part it is in: 1 for a single pack) */
+    partOf = Array.isArray(packed) ? Object.fromEntries(packed.map(u => [u, 1])) : packed,
+    inPack = new Set(Object.keys(partOf));
   for (const [k, p] of Object.entries(doc.items || {})) {
     if (!p || !inPack.has(p.url) || p.near) {
       items[k] = p;
       continue;
     }
-    const q = Object.assign({}, p, { pk: 1 });
+    const q = Object.assign({}, p, { pk: partOf[p.url] });
     for (const f of ["sm", "smw", "w", "big", "webp"]) delete q[f];
     items[k] = q;
   }
-  return Object.assign({}, doc, { items, pack: { url: packUrl, n: inPack.size, bytes, at } });
+  const pack = { url: packUrl, n: inPack.size, bytes, at };
+  if (parts && parts.length > 1) pack.parts = parts;
+  return Object.assign({}, doc, { items, pack });
+}
+const normName = s =>
+  String(s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+/** the city's photos in parts of at most PART_MAX, in the order the trip uses them (wanted.used, then wanted.spots and
+    food), the rest by name */
+function buildParts(docFile, dir, outPrefix, wantedFile) {
+  const j = JSON.parse(fs.readFileSync(docFile, "utf8")),
+    doc = j && j.data ? j.data : j,
+    slug = path.basename(docFile).replace(/\.json$/, ""),
+    have = filesIn(dir),
+    missing = [],
+    skipped = [],
+    pics = [];
+  let order = [];
+  if (wantedFile && fs.existsSync(wantedFile)) {
+    const wj = JSON.parse(fs.readFileSync(wantedFile, "utf8")),
+      w = wj && wj.data ? wj.data : wj;
+    order = [doc.city || w.city || ""]
+      .concat((w.used || []).map(u => (Array.isArray(u) ? u[0] : u)))
+      .concat(w.spots || [], w.food || [])
+      .map(normName);
+  }
+  const rank = Object.fromEntries(order.map((n, i) => [n, i]).reverse());
+  const list = wanted(doc).sort((a, b) => {
+    const ra = rank[a.name] === undefined ? 1e9 : rank[a.name],
+      rb = rank[b.name] === undefined ? 1e9 : rank[b.name];
+    return ra - rb || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+  });
+  for (const w of list) {
+    const f = have[idOf(w.webp)] || have[idOf(w.url)];
+    if (!f) {
+      missing.push(w.name);
+      continue;
+    }
+    const bytes = fs.readFileSync(f),
+      type = kind(bytes);
+    if (!type || bytes.length > MAX_ONE) {
+      skipped.push(w.name);
+      continue;
+    }
+    pics.push({ url: w.url, type, bytes });
+  }
+  const parts = [];
+  let cur = [],
+    size = 0;
+  for (const p of pics) {
+    const est = Math.ceil(p.bytes.length / 3) * 4 + p.url.length + 40;
+    if (cur.length && (size + est > PART_MAX || cur.length >= MAX_ITEMS)) {
+      parts.push(cur);
+      cur = [];
+      size = 0;
+    }
+    cur.push(p);
+    size += est;
+  }
+  if (cur.length) parts.push(cur);
+  const res = { slug, n: pics.length, bytes: 0, parts: [], missing, skipped };
+  parts.forEach((items, i) => {
+    const text = pack(slug, today(), items),
+      file = outPrefix + ".p" + (i + 1) + ".js";
+    if (!read(text)) throw new Error("a part made does not read back: " + file);
+    fs.writeFileSync(file, text);
+    const b = Buffer.byteLength(text);
+    res.bytes += b;
+    res.parts.push({ file, n: items.length, bytes: b });
+  });
+  return res;
+}
+/** a city's index with its pack in parts named: parts = [{url, file}] in part order */
+function markParts(docFile, partsFile, outFile) {
+  const j = JSON.parse(fs.readFileSync(docFile, "utf8")),
+    doc = j && j.data ? j.data : j,
+    list = JSON.parse(fs.readFileSync(partsFile, "utf8")),
+    partOf = {};
+  let bytes = 0,
+    at = "";
+  if (!Array.isArray(list) || !list.length) throw new Error("no parts in " + partsFile);
+  list.forEach((x, i) => {
+    if (!/^\/_blob\/[0-9a-f]{32}$/.test(x.url)) throw new Error("not a file in the app's store: " + x.url);
+    const text = fs.readFileSync(x.file, "utf8"),
+      pk = read(text);
+    if (!pk) throw new Error("not a photo pack: " + x.file);
+    pk.items.forEach(it => {
+      if (!partOf[it.url]) partOf[it.url] = i + 1;
+    });
+    bytes += Buffer.byteLength(text);
+    at = at || pk.at;
+  });
+  const out = marked(
+    doc,
+    list[0].url,
+    partOf,
+    bytes,
+    at,
+    list.map(x => x.url)
+  );
+  fs.writeFileSync(outFile, JSON.stringify(out));
+  return { n: Object.keys(partOf).length, parts: list.length, marked: Object.values(out.items).filter(p => p && p.pk).length };
 }
 function plan(dbDir, outDir) {
   const db = loadDir(dbDir),
@@ -221,7 +339,7 @@ function mark(docFile, packUrl, packFile, outFile) {
   return { n: pk.items.length, marked: Object.values(out.items).filter(p => p && p.pk).length };
 }
 
-module.exports = { pack, read, wanted, build, check, kind, plan, mark, marked };
+module.exports = { pack, read, wanted, build, buildParts, check, kind, plan, mark, markParts, marked, PART_MAX };
 if (require.main === module) {
   const [cmd, a, b, c] = process.argv.slice(2);
   if (cmd === "build" && a && b && c) {
@@ -234,10 +352,16 @@ if (require.main === module) {
     process.exit(r ? 0 : 1);
   } else if (cmd === "plan" && a && b) {
     console.log(JSON.stringify(plan(a, b)));
+  } else if (cmd === "build-parts" && a && b && c) {
+    const r = buildParts(a, b, c, process.argv[6]);
+    console.log(JSON.stringify(r));
+    process.exit(r.n ? 0 : 1);
+  } else if (cmd === "mark-parts" && a && b && c) {
+    console.log(JSON.stringify(markParts(a, b, c)));
   } else if (cmd === "mark" && a && b && c && process.argv[6]) {
     console.log(JSON.stringify(mark(a, b, c, process.argv[6])));
   } else {
-    console.error("usage: node photopack.js build <photos_doc.json> <files_dir> <out_file> | check <pack_file> [photos_doc.json] | plan <db_dir> <out_dir> | mark <photos_doc.json> <pack_url> <pack_file> <out.json>");
+    console.error("usage: node photopack.js build <photos_doc.json> <files_dir> <out_file> | build-parts <photos_doc.json> <files_dir> <out_prefix> [wanted_doc.json] | mark-parts <photos_doc.json> <parts.json> <out.json> | check <pack_file> [photos_doc.json] | plan <db_dir> <out_dir> | mark <photos_doc.json> <pack_url> <pack_file> <out.json>");
     process.exit(2);
   }
 }

@@ -2,7 +2,7 @@
    the wordmark's cream. Rendered with the app's own font into every size the phones ask for.
      node build/icon/make-icons.js  ->  build/icon/out/*.png (committed; build/standalone.js copies them) */
 const { chromium } = require('playwright'); const fs = require('fs'); const path = require('path');
-const FONT = 'data:font/woff2;base64,' + fs.readFileSync(path.resolve(__dirname, '../../trip/fonts/dela-gothic-one-latin-400-normal.woff2')).toString('base64');
+const FONT = 'data:font/woff2;base64,' + fs.readFileSync(path.resolve(__dirname, 'fonts/dela-gothic-one-latin-400-normal.woff2')).toString('base64');
 const svg = (pad) => `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140" width="100%" height="100%">
  <defs>

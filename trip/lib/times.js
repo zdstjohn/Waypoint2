@@ -55,11 +55,16 @@
      Where the trip is today comes from the plan last made (W.P), else the first stop; its zone from tripZone().
      A test pins the clock with localStorage "waypoint-now": a time with no zone ("2027-06-09T10:30") is the trip's own
      clock, read as is; one with a zone ("…T08:30:00Z") is a moment, turned into trip time like the real clock is. */
+  var pinC = /** @type {string | null | undefined} */ (undefined); /* (kept while a plan is made: a plan asks 700 times; W.timesMemo) */
   function pinned() {
-    var o = null;
-    try {
-      o = localStorage.getItem("waypoint-now");
-    } catch (e) {}
+    var o = pinC;
+    if (o === undefined) {
+      o = null;
+      try {
+        o = localStorage.getItem("waypoint-now");
+      } catch (e) {}
+      if (tmemo) pinC = o;
+    }
     if (!o) return null;
     var d = new Date(o);
     return isNaN(d.getTime()) ? null : { d: d, wall: !/(Z|[+-]\d\d:?\d\d)$/.test(o) };
@@ -257,59 +262,62 @@
   W.slotCap = slotCap;
 
   /* ---------- time zones (for calendar events) ---------- */
+  var EU = "Europe/", /* (the zone names share these starts: the first download carries this table) */
+    AS = "Asia/",
+    AM = "America/";
   var TZ = {
-    Italy: "Europe/Rome",
-    Greece: "Europe/Athens",
-    Spain: "Europe/Madrid",
-    Portugal: "Europe/Lisbon",
-    France: "Europe/Paris",
-    Germany: "Europe/Berlin",
-    "United Kingdom": "Europe/London",
-    England: "Europe/London",
-    Scotland: "Europe/London",
-    Ireland: "Europe/Dublin",
-    Netherlands: "Europe/Amsterdam",
-    Belgium: "Europe/Brussels",
-    Switzerland: "Europe/Zurich",
-    Austria: "Europe/Vienna",
-    Croatia: "Europe/Zagreb",
-    Czechia: "Europe/Prague",
-    "Czech Republic": "Europe/Prague",
-    Hungary: "Europe/Budapest",
-    Poland: "Europe/Warsaw",
-    Denmark: "Europe/Copenhagen",
-    Sweden: "Europe/Stockholm",
-    Norway: "Europe/Oslo",
-    Finland: "Europe/Helsinki",
+    Italy: EU + "Rome",
+    Greece: EU + "Athens",
+    Spain: EU + "Madrid",
+    Portugal: EU + "Lisbon",
+    France: EU + "Paris",
+    Germany: EU + "Berlin",
+    "United Kingdom": EU + "London",
+    England: EU + "London",
+    Scotland: EU + "London",
+    Ireland: EU + "Dublin",
+    Netherlands: EU + "Amsterdam",
+    Belgium: EU + "Brussels",
+    Switzerland: EU + "Zurich",
+    Austria: EU + "Vienna",
+    Croatia: EU + "Zagreb",
+    Czechia: EU + "Prague",
+    "Czech Republic": EU + "Prague",
+    Hungary: EU + "Budapest",
+    Poland: EU + "Warsaw",
+    Denmark: EU + "Copenhagen",
+    Sweden: EU + "Stockholm",
+    Norway: EU + "Oslo",
+    Finland: EU + "Helsinki",
     Iceland: "Atlantic/Reykjavik",
-    Turkey: "Europe/Istanbul",
-    Cyprus: "Asia/Nicosia",
-    Malta: "Europe/Malta",
-    Slovenia: "Europe/Ljubljana",
-    Montenegro: "Europe/Podgorica",
-    Albania: "Europe/Tirane",
-    Japan: "Asia/Tokyo",
-    "South Korea": "Asia/Seoul",
-    Thailand: "Asia/Bangkok",
-    Vietnam: "Asia/Ho_Chi_Minh",
-    Singapore: "Asia/Singapore",
+    Turkey: EU + "Istanbul",
+    Cyprus: AS + "Nicosia",
+    Malta: EU + "Malta",
+    Slovenia: EU + "Ljubljana",
+    Montenegro: EU + "Podgorica",
+    Albania: EU + "Tirane",
+    Japan: AS + "Tokyo",
+    "South Korea": AS + "Seoul",
+    Thailand: AS + "Bangkok",
+    Vietnam: AS + "Ho_Chi_Minh",
+    Singapore: AS + "Singapore",
     Morocco: "Africa/Casablanca",
     Egypt: "Africa/Cairo",
     "South Africa": "Africa/Johannesburg",
-    Afghanistan: "Asia/Kabul",
-    India: "Asia/Kolkata",
-    China: "Asia/Shanghai",
-    Peru: "America/Lima",
-    Colombia: "America/Bogota",
+    Afghanistan: AS + "Kabul",
+    India: AS + "Kolkata",
+    China: AS + "Shanghai",
+    Peru: AM + "Lima",
+    Colombia: AM + "Bogota",
     Argentina: "America/Argentina/Buenos_Aires",
-    Chile: "America/Santiago",
-    "Costa Rica": "America/Costa_Rica",
+    Chile: AM + "Santiago",
+    "Costa Rica": AM + "Costa_Rica",
     "New Zealand": "Pacific/Auckland",
-    Israel: "Asia/Jerusalem",
-    Jordan: "Asia/Amman",
-    "United Arab Emirates": "Asia/Dubai",
-    Lebanon: "Asia/Beirut",
-    Uruguay: "America/Montevideo"
+    Israel: AS + "Jerusalem",
+    Jordan: AS + "Amman",
+    "United Arab Emirates": AS + "Dubai",
+    Lebanon: AS + "Beirut",
+    Uruguay: AM + "Montevideo"
   };
   W.tzFor = function (country) {
     var z = TZ[country] || W.C.tz[country];
@@ -355,12 +363,21 @@
       return null;
     }
   };
-  /* how many hours the first stop is ahead of home, and how many easy days that calls for */
+  /* the zones of the departure airports (the fifth field of each in window.AIRPORTS indexes this list): the jet lag counts
+     from the airport's, which a person flying from another country's airport than the phone's may not share */
+  var APZ = [AM + "Los_Angeles", AM + "Phoenix", AM + "Denver", AM + "Chicago", AM + "New_York", AM + "Mexico_City", EU + "London", EU + "Paris", AS + "Dubai", AS + "Singapore", AS + "Tokyo", "Australia/Sydney", "Pacific/Honolulu"];
+  function apZone(/** @type {Airport | null} */ ap) {
+    var a = ap && ap.lat != null ? (window.AIRPORTS || []).filter(function (x) { return x[1] === ap.code; })[0] : null;
+    return a ? APZ[a[4]] : null;
+  }
+  /* how many hours the first stop is ahead of where the flight leaves from, and how many easy days that calls for. Home
+     is the departure airport's zone when it is known (the phone may already be abroad, or be set to another zone); the
+     phone's zone only when no departure airport with a zone is */
   W.jetlag = function (P) {
     var s = P.stops && P.stops[0];
     if (!s) return { days: 0 };
     var dest = W.tzFor(s.country),
-      home = W.homeTz(),
+      home = apZone(P.ap) || W.homeTz(),
       when = W.dateOf(1) || new Date(),
       gap = null;
     if (dest && home) {
@@ -437,8 +454,12 @@
       label: ["", "Easy", "Moderate", "Full", "Heavy"][level]
     };
   };
+  /** the key of a day for everything saved against it (picks, free parts, rest days, day trips, bags): country|city|
+      day in the stop, and "v2", "v3" after it for a later visit to a town the trip comes back to (the first visit
+      keeps the plain key, so a saved trip's keys stay valid). W.P.days carry .visit only when the town repeats.
+      @param {{country: string, city: string, dayInCity: number, visit?: number}} d */
   W.restKey = function (d) {
-    return d.country + "|" + d.city + "|" + d.dayInCity;
+    return d.country + "|" + d.city + "|" + d.dayInCity + (d.visit && d.visit > 1 ? "v" + d.visit : "");
   };
   W.isRest = function (d) {
     return !!(W.S.rest || {})[W.restKey(d)];
@@ -623,9 +644,41 @@
   }
   var DFLT = { breakfast: 40, am: 150, lunch: 70, pm: 150, dinner: 80, eve: 60 };
 
+  /* The planner asks for the same day's clock about 18 times (each trial of a place for a slot, each check after it), most
+     of them with the slots as they were a moment ago, and it was half of the time a plan took. While one plan is being
+     made (W.timesMemo, called by W.plan) a day's answer is kept as long as nothing it is made from has changed: the plan
+     it is for, the day (where it goes, jet lag), and each slot's name and place. Nothing else the clock reads (the
+     facts about places, the running-late minutes, the legs) changes while a plan is being made. Never kept past the
+     plan: a change anywhere between plans may be in any of them. The answer is shared, so a caller must not change it. */
+  var tmemo = /** @type {Map<any, any[] & { out?: any }> | null} */ (null);
+  /** @param {boolean} on a plan is being made (true) or is done (false) */
+  W.timesMemo = function (on) {
+    tmemo = on ? new Map() : null;
+    pinC = undefined;
+  };
+  W.dayTimesRuns = 0; /* (how many times a day was worked out: a test counts them) */
   /* the day on a clock. Returns { rows: {slot: {start, end, warn:[], info:[]}}, nap, travel, back } or null */
   W.dayTimes = function (day, P) {
     if (!day || !day.slots || !day.slots.length) return null;
+    if (!tmemo) return timesNow(day, P);
+    var m = /** @type {any} */ (tmemo.get(day)),
+      g = /** @type {any[] & { out?: any }} */ ([P, day.stop, day.jet, day.moveFrom, day.n]);
+    day.slots.forEach(function (/** @type {any} */ x) {
+      g.push(x.slot, x.item);
+    });
+    if (
+      m &&
+      m.length === g.length &&
+      g.every(function (v, i) {
+        return v === m[i];
+      })
+    )
+      return m.out;
+    tmemo.set(day, g);
+    return (g.out = timesNow(day, P));
+  };
+  function timesNow(day, P) {
+    W.dayTimesRuns++;
     var p = P.p,
       home = W.homebase(day.country, day.city),
       M = meals(day.country),
@@ -890,7 +943,7 @@
     out.back = Math.round((t + (back ? back.min : 0)) / 5) * 5;
     if (W.lateShift) W.lateShift(day, out); /* running late today: the rest of the day moves back */
     return out;
-  };
+  }
 
   /** a place's hours on a weekday: the world library's weekly hours where it has them (it.wk, lib/world.js), else the
       one pair every list carries @param {any} it @param {number | null | undefined} wd */

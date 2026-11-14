@@ -167,12 +167,16 @@
     return (
       bits.join('<span class="tl-sep" aria-hidden="true">·</span>') +
       (day
-        ? '<span class="tl-day"><span class="tl-dt" aria-hidden="true"><b>' +
+        ? /* the town on its own line and the date and how full the day is on the next, always (v202, the owner: the
+             banner was a different height from day to day, as a short "Rest day" fitted beside the town and a longer
+             label did not): two lines, each kept to one line */
+          '<span class="tl-day"><span class="tl-dt" aria-hidden="true"><b>' +
           esc(day.city) +
-          "</b>" +
+          '</b><span class="tl-meta">' +
           (day.date ? "<span>" + esc(day.date) + "</span>" : "") +
           (day.level ? "<span>" + day.level + "</span>" : "") +
-          '</span><a class="tl-go"' +
+          (day.date || day.level ? "" : "<span>&nbsp;</span>") +
+          '</span></span><a class="tl-go"' +
           (routeUrl ? ' href="' + esc(routeUrl) + '"' : " hidden") +
           ' target="_blank" rel="noopener" aria-label="Open the whole route in Google Maps">' +
           DIR +

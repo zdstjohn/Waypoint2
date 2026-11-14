@@ -16,7 +16,7 @@
     LINKS = {};
   /* official site for a place, checked against Wikidata (the database behind Wikipedia) */
   W.officialLink = function (it, country, city) {
-    var c = LINKS[want("links", W.slug(country + " " + city))],
+    var c = LINKS[townId("links", country, city)],
       l = c && c[W.norm(it.n)];
     return l && l.url ? l : null;
   };
@@ -24,12 +24,16 @@
   W.photosUrl = function (name, city) {
     return "https://www.google.com/search?tbm=isch&q=" + encodeURIComponent(name + " " + city);
   };
+  /** a place name as a database id: W.norm with hyphens ("x" only for a name with no letters or digits at all)
+      @param {string} s */
   W.slug = function (s) {
     return W.norm(s).replace(/ /g, "-").slice(0, 80) || "x";
   };
-  /** a city's id in the shared database (photos, links, places to eat, menus, the city library) @param {string} country @param {string} city */
+  /** a city's id in the shared database (photos, links, places to eat, menus, the city library). The country and the
+      city are made plain apart, so a Latin country with a city in another script still has an id of its own
+      (japan-u6771-u4eac); for names in Latin letters it is the id it always was @param {string} country @param {string} city */
   W.citySlug = function (country, city) {
-    return W.slug(country + " " + city);
+    return W.slug(W.norm(country) + " " + W.norm(city));
   };
   var citySlug = W.citySlug;
 
@@ -74,7 +78,7 @@
     return (IDX[slug] = { list: out, skip: skip });
   }
   W.photoFor = function (it, food, country, city) {
-    var slug = want("photos", citySlug(country, city), city),
+    var slug = townId("photos", country, city),
       c = PHOTOS[slug] || BYCITY[W.norm(city)];
     if (!c) return null;
     var p = c[W.norm(it.n)];
@@ -183,74 +187,80 @@
     }, 60);
   }
   /** a town's index, asked for the first time it is wanted in this visit (again a minute after a failure)
-      @param {"photos" | "links"} coll @param {string} slug @param {string} [city] @returns {string} the slug */
-  function want(coll, slug, city) {
+      @param {"photos" | "links"} coll @param {string} slug @param {string} [city] @param {string} [country] @returns {string} the slug */
+  function want(coll, slug, city, country) {
     var key = coll + "/" + slug;
-    if (!DB || (asked[key] && (asked[key] > 0 || Date.now() + asked[key] < 60000))) {
-      if (!DB && !(key in pendingAsk)) pendingAsk[key] = 1;
-      return slug;
-    }
+    if (asked[key] && (asked[key] > 0 || Date.now() + asked[key] < 60000)) return slug;
     asked[key] = 1;
     /* (watched, not read once: a town's photos found by the nightly run while the app is open still come in, as when
        the whole list was watched; a town with no index yet gets one the same way) */
     var first = true;
-    try {
-      DB.doc(key).onSnapshot(
-        function (/** @type {any} */ snap) {
-          var x = snap && snap.exists ? snap.data() || {} : null;
-          if (coll === "links") {
-            if (x) {
-              LINKS[slug] = W.V.shared(x.items) || {};
-              keep("links", slug, LINKS[slug]);
-            }
-          } else if (x) {
-            PHOTOS[slug] = x.items || {};
-            PACK[slug] = x.pack;
-            if (x.city) CITY[slug] = x.city;
-            IDX = {};
-            byCity();
-            keep("photos", slug, { items: PHOTOS[slug], city: x.city || "", pack: x.pack });
-          } else if (city && first) everyTown(city);
-          first = false;
-          if (x) arrived();
-        },
-        function () {
-          asked[key] = -Date.now(); /* (no signal, or refused: asked again a minute later at the earliest) */
-        }
-      );
-    } catch (e) {
-      asked[key] = -Date.now(); /* (a database without watching: asked again a minute later at the earliest) */
-    }
-    return slug;
-  }
-  /** @type {Record<string, number>} */ var pendingAsk = {};
-  /* No index under this town's name with this country ("USA" for "United States"): the whole list, once a visit, to
-     find the town by its name alone (only then; a trip whose countries match never downloads it). The town found is
-     kept on the phone under its own name, so the next visit has it at once. */
-  var allAsked = false;
-  function everyTown(/** @type {string} */ city) {
-    if (allAsked || !DB) return;
-    allAsked = true;
-    DB.collection("photos")
-      .get()
-      .then(
-        function (/** @type {any} */ snap) {
-          (snap.docs || []).forEach(function (/** @type {any} */ d) {
-            var x = d.data() || {};
-            if (PHOTOS[d.id]) return;
-            PHOTOS[d.id] = x.items || {};
-            PACK[d.id] = x.pack;
-            if (x.city) CITY[d.id] = x.city;
-            if (x.city && W.norm(x.city) === W.norm(city)) keep("photos", d.id, { items: PHOTOS[d.id], city: x.city, pack: x.pack });
-          });
+    W.watchDoc(
+      key,
+      function (/** @type {any} */ snap) {
+        var x = snap && snap.exists ? snap.data() || {} : null;
+        if (coll === "links") {
+          if (x) {
+            LINKS[slug] = W.V.shared(x.items) || {};
+            keep("links", slug, LINKS[slug]);
+          }
+        } else if (x) {
+          PHOTOS[slug] = x.items || {};
+          PACK[slug] = x.pack;
+          if (x.city) CITY[slug] = x.city;
           IDX = {};
           byCity();
-          arrived();
-        },
-        function () {
-          allAsked = false;
-        }
-      );
+          keep("photos", slug, { items: PHOTOS[slug], city: x.city || "", pack: x.pack });
+        } else if (city && first) everyTown(city, country || "");
+        first = false;
+        if (x) arrived();
+      },
+      function () {
+        asked[key] = -Date.now(); /* (no signal, refused, or a database without watching: asked again a minute later at the earliest) */
+      }
+    );
+    return slug;
+  }
+  /** the index to read for a town: its id, or the id it had before v201 while only that one has an index
+      @param {"photos" | "links"} coll @param {string} country @param {string} city */
+  function townId(coll, country, city) {
+    var id = want(coll, citySlug(country, city), city, country),
+      old = W.citySlugOld && W.citySlugOld(country, city, true);
+    /* (the shared "x" holds many towns' photos: it is read as this one's only when it says it is this town) */
+    if (!old || (coll === "photos" ? PHOTOS : LINKS)[id] || (old === "x" && coll === "links")) return id;
+    old = want(coll, old);
+    return old !== "x" || (CITY[old] && W.norm(CITY[old]) === W.norm(city)) ? old : id;
+  }
+  /* what is watched before the database is there starts when it is */
+  var waiting = /** @type {(() => void)[]} */ ([]);
+  /** watches one document of the shared database, waiting for the database if it isn't here yet; returns the function
+      that stops it (also before it started) @param {string} path @param {(snap: any) => void} next @param {() => void} [fail] */
+  W.watchDoc = function (path, next, fail) {
+    var off = /** @type {any} */ (null),
+      on = true;
+    function go() {
+      try {
+        if (on) off = DB.doc(path).onSnapshot(next, fail);
+      } catch (e) {
+        if (fail) fail();
+      }
+    }
+    if (DB) go();
+    else waiting.push(go);
+    return function () {
+      on = false;
+      if (off) off();
+    };
+  };
+  /* No index under this town's name with this country ("USA" for "United States"): the same town under the country's other
+     names is watched like any index, one document each by name (the whole list is never read). Only the countries named
+     here have other names. */
+  var SAME = ["United States,USA,US,United States of America", "United Kingdom,UK,England,Great Britain", "Czech Republic,Czechia", "Turkey,Türkiye", "Netherlands,Holland"];
+  function everyTown(/** @type {string} */ city, /** @type {string} */ country) {
+    SAME.forEach(function (g) {
+      var names = g.split(",");
+      if (names.some(function (n) { return W.norm(n) === W.norm(country); })) names.forEach(function (n) { want("photos", citySlug(n, city)); });
+    });
   }
   /* the index as saved with the trip for offline use (lib/offline.js): what the database hasn't answered yet */
   W.photosSnapshot = function () {
@@ -279,12 +289,10 @@
         function (db) {
           if (!db) return;
           DB = db;
-          /* what was looked up before the database was there */
-          Object.keys(pendingAsk).forEach(function (key) {
-            var i = key.indexOf("/");
-            want(/** @type {"photos" | "links"} */ (key.slice(0, i)), key.slice(i + 1));
+          waiting.forEach(function (go) {
+            go();
           });
-          pendingAsk = {};
+          waiting = [];
         },
         function () {}
       );
@@ -296,7 +304,7 @@
      (it fills a wide screen sharply) wins over one that doesn't */
   W.cityPhoto = function (country, city, prefer) {
     if (W.simple && W.simple()) return null;
-    var c = PHOTOS[want("photos", citySlug(country, city), city)] || BYCITY[W.norm(city)];
+    var c = PHOTOS[townId("photos", country, city)] || BYCITY[W.norm(city)];
     if (!c) return null;
     var found = [],
       own = c[W.norm(city)];

@@ -55,6 +55,15 @@
       return s && s.exists ? s.data() || null : null;
     });
   }
+  /** the document a place had before v201's ids (a name in another script was "x", ł ø ß were dropped), only when it
+      names this very place (the shared "x" is whoever wrote last) @param {any} d @param {string[]} place */
+  function fromOldId(d, place) {
+    var old = W.citySlugOld && (place.length > 1 ? W.citySlugOld(place[0], place[1], true) : W.slugOld(place[0]));
+    if (!old) return null;
+    return fresh(d.doc("citylib/" + old)).then(function (x) {
+      return x && W.norm(x.country) === W.norm(place[0]) && W.norm(x.city) === W.norm(place[1] || "") ? x : null;
+    });
+  }
   /* (v191 kept each place's library document in this phone's storage for three days. The app already keeps every place's
      ideas on the phone, lib/ideastore.js, and looks there before it asks anyone, so the copy bought nothing and was never
      cleared. v192 took it out; what v191 wrote is removed here, once. This block can go after a few versions.) */
@@ -131,7 +140,11 @@
     }, LIB_WAIT);
     if (!docs[q.slug])
       docs[q.slug] = db().then(function (d) {
-        return d ? fresh(d.doc("citylib/" + q.slug)) : null;
+        return d
+          ? fresh(d.doc("citylib/" + q.slug)).then(function (x) {
+              return x || fromOldId(d, q.place);
+            })
+          : null;
       });
     docs[q.slug].then(
       function (x) {
@@ -187,7 +200,20 @@
       .then(function (d) {
         if (!d) return;
         var ref = d.doc("citylib/" + q.slug);
-        return fresh(ref).then(function (x) {
+        /* the place's document as this visit already holds it (libGet read it, or the last save here wrote it): one
+           read at most per place per visit, then each answer is one write that merges into it. Another phone's answer
+           added meanwhile is not lost: update merges fields, it does not replace the document. */
+        var known = (docs[q.slug] || (docs[q.slug] = fresh(ref))).then(
+          function (/** @type {any} */ x) {
+            /* (a place not there when it was read may be there now: asked again before a write that would replace it) */
+            return x || fresh(ref);
+          },
+          function (/** @type {any} */ e) {
+            delete docs[q.slug]; /* (a read that failed, no signal say, is not kept) */
+            throw e;
+          }
+        );
+        return known.then(function (x) {
           var have = (x && x.q) || {},
             add = /** @type {Record<string, any>} */ ({});
           add[q.h] = { r: r, at: Date.now() };
@@ -206,7 +232,13 @@
             });
           var body = { country: q.place[0], city: q.place[1] || "", q: add };
           return (x ? ref.update(body) : ref.set(body)).then(function () {
-            docs[q.slug] = fresh(ref);
+            /* (what is now there, worked out here: a dropped answer is gone, a new one is in) */
+            var q2 = /** @type {Record<string, any>} */ ({});
+            Object.keys(have).forEach(function (k) {
+              if (!(add[k] && add[k].drop)) q2[k] = have[k];
+            });
+            q2[q.h] = add[q.h];
+            docs[q.slug] = Promise.resolve({ country: body.country, city: body.city, q: q2 });
           });
         });
       })

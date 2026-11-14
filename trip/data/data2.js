@@ -105,19 +105,19 @@ Object.assign(window.TD, {
       { n: "Jökulsárlón lagoon", d: "Icebergs and Diamond Beach.", t: ["scenic","nature"], k: 1, s: "any" } ] } ] }
 });
 
-/* Departure airports: city, IATA code, coordinates */
+/* Departure airports: city, IATA code, coordinates, time zone (a number: lib/times.js apZone lists the zones) */
 window.AIRPORTS = [
-  ["Los Angeles","LAX",33.94,-118.41],["San Francisco","SFO",37.62,-122.38],["Seattle","SEA",47.45,-122.31],
-  ["Portland","PDX",45.59,-122.60],["San Diego","SAN",32.73,-117.19],["Las Vegas","LAS",36.08,-115.15],
-  ["Phoenix","PHX",33.43,-112.01],["Denver","DEN",39.86,-104.67],["Salt Lake City","SLC",40.79,-111.98],
-  ["Dallas","DFW",32.90,-97.04],["Houston","IAH",29.98,-95.34],["Chicago","ORD",41.97,-87.91],
-  ["Minneapolis","MSP",44.88,-93.22],["Atlanta","ATL",33.64,-84.43],["Miami","MIA",25.79,-80.29],
-  ["Orlando","MCO",28.43,-81.31],["Washington DC","IAD",38.95,-77.46],["New York","JFK",40.64,-73.78],
-  ["Boston","BOS",42.36,-71.01],["Philadelphia","PHL",39.87,-75.24],["Toronto","YYZ",43.68,-79.63],
-  ["Vancouver","YVR",49.19,-123.18],["Montreal","YUL",45.47,-73.74],["Mexico City","MEX",19.44,-99.07],
-  ["London","LHR",51.47,-0.45],["Paris","CDG",49.01,2.55],["Frankfurt","FRA",50.04,8.56],
-  ["Amsterdam","AMS",52.31,4.76],["Dubai","DXB",25.25,55.36],["Singapore","SIN",1.36,103.99],
-  ["Tokyo","HND",35.55,139.78],["Sydney","SYD",-33.94,151.18],["Honolulu","HNL",21.32,-157.92]
+  ["Los Angeles","LAX",33.94,-118.41,0],["San Francisco","SFO",37.62,-122.38,0],["Seattle","SEA",47.45,-122.31,0],
+  ["Portland","PDX",45.59,-122.60,0],["San Diego","SAN",32.73,-117.19,0],["Las Vegas","LAS",36.08,-115.15,0],
+  ["Phoenix","PHX",33.43,-112.01,1],["Denver","DEN",39.86,-104.67,2],["Salt Lake City","SLC",40.79,-111.98,2],
+  ["Dallas","DFW",32.90,-97.04,3],["Houston","IAH",29.98,-95.34,3],["Chicago","ORD",41.97,-87.91,3],
+  ["Minneapolis","MSP",44.88,-93.22,3],["Atlanta","ATL",33.64,-84.43,4],["Miami","MIA",25.79,-80.29,4],
+  ["Orlando","MCO",28.43,-81.31,4],["Washington DC","IAD",38.95,-77.46,4],["New York","JFK",40.64,-73.78,4],
+  ["Boston","BOS",42.36,-71.01,4],["Philadelphia","PHL",39.87,-75.24,4],["Toronto","YYZ",43.68,-79.63,4],
+  ["Vancouver","YVR",49.19,-123.18,0],["Montreal","YUL",45.47,-73.74,4],["Mexico City","MEX",19.44,-99.07,5],
+  ["London","LHR",51.47,-0.45,6],["Paris","CDG",49.01,2.55,7],["Frankfurt","FRA",50.04,8.56,7],
+  ["Amsterdam","AMS",52.31,4.76,7],["Dubai","DXB",25.25,55.36,8],["Singapore","SIN",1.36,103.99,9],
+  ["Tokyo","HND",35.55,139.78,10],["Sydney","SYD",-33.94,151.18,11],["Honolulu","HNL",21.32,-157.92,12]
 ];
 
 /* Trip styles */
@@ -297,12 +297,12 @@ window.TOP_COUNTRIES =
   );
 /* what is new, in plain words, for Settings (the newest version first; a line is one thing a traveler would notice) */
 window.WHATS_NEW = {
-  v: 199,
+  v: 202,
   items: [
-    "When nothing fits a gap in your day, Waypoint now looks for more ideas in that town without you asking.",
-    "Checked hours and ticket rules say when they were checked long ago, so you know to look again before you go.",
-    "Your phone reminds you a week before the last day to book a \"Don't miss\" ticket, and again on the day.",
-    "A city you save to your phone from the World library gets its street map overnight.",
-    "More of each city's sights have their hours and tickets checked."
+    "Today shows where you're staying tonight first, then what's up next.",
+    "The banner at the top of each day is the same size every day.",
+    "Suggested trips stay in towns; beaches, bays and single sights become day trips.",
+    "A town you come back to on the same trip keeps separate plans for each visit.",
+    "Faster taps, a lighter first download, and jet lag worked out from your departure airport."
   ]
 };

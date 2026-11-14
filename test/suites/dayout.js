@@ -43,8 +43,8 @@ exports.run = async t => {
   /* Today, the evening before the day out */
   await pg.evaluate(() => { localStorage.setItem('waypoint-now', '2027-06-15T17:30:00'); W.S.day = 2; W.goView('go'); W.render(); }); await pg.waitForTimeout(1200);
   const today = await pg.evaluate(() => { const up = document.querySelector('#viewGo .go-up'), eve = document.querySelector('#viewGo .go-eve'), bag = document.querySelector('#viewGo details.go-fold[data-gofold="bag"]');
-    return { up: up && up.textContent, before: !!(up && eve && up.compareDocumentPosition(eve) & 4), btn: up && (up.querySelector('[data-goprev]') || {}).textContent, rowGone: !(eve && /Tomorrow/.test(eve.textContent)), bag: bag ? bag.open : null }; });
-  t.ok(today.up && /^Up next · Day 3/.test(today.up) && /Day trip to Montserrat/.test(today.up) && today.before && today.btn === 'Next day' && today.rowGone, 'Today: tomorrow in a banner above tonight, with "Next day": ' + JSON.stringify(today));
+    return { up: up && up.textContent, below: !!(up && eve && eve.compareDocumentPosition(up) & 4), btn: up && (up.querySelector('[data-goprev]') || {}).textContent, rowGone: !(eve && /Tomorrow/.test(eve.textContent)), bag: bag ? bag.open : null }; });
+  t.ok(today.up && /^Up next · Day 3/.test(today.up) && /Day trip to Montserrat/.test(today.up) && today.below && today.btn === 'Next day' && today.rowGone, 'Today: tomorrow in a banner below tonight (v202, the owner\'s ask), with "Next day": ' + JSON.stringify(today));
   t.ok(today.bag === false, 'the day bag is folded by default');
   t.eq(errors(), [], 'no page errors');
   await b.close();

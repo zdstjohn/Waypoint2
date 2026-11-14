@@ -59,7 +59,7 @@ interface Traveler { name: string; age: number | null; i: number }
 /** a base of the trip */
 interface Stop { country: string; name: string; c: BuiltCity | { name: string }; manual?: boolean; days: number; set?: boolean; trips?: { name: string; [k: string]: any }[]; [k: string]: any }
 interface SlotEntry { slot: Slot; key: string; item: Spot | Food | null; rest?: boolean; free?: boolean; trip?: boolean; [k: string]: any }
-interface Day { n: number; country: string; city: string; dayInCity: number; stop: number; tripFirst: boolean; tripLast: boolean; moveFrom: string | null; jet: boolean; rest?: boolean; loading?: boolean; slots: SlotEntry[]; trip?: { name: string; [k: string]: any } | null; fullDay?: boolean; [k: string]: any }
+interface Day { n: number; country: string; city: string; dayInCity: number; visit?: number; stop: number; tripFirst: boolean; tripLast: boolean; moveFrom: string | null; jet: boolean; rest?: boolean; loading?: boolean; slots: SlotEntry[]; trip?: { name: string; [k: string]: any } | null; fullDay?: boolean; [k: string]: any }
 /** the plan the planner returns (memoized until the trip or the data changes) */
 interface Airport { code: string; name: string; lat: number; lng: number }
 /** the meals a town's ideas leave without a place, as the plan stands (lib/plan.js mealGaps) */
@@ -198,6 +198,9 @@ interface Waypoint {
   dayOfDate: (iso: string) => number | null;
   dayPool: any;
   dayTimes: (day: Day, P: Plan) => DayTimes | null;
+  /** while a plan is made, a day's clock is kept for what the planner leaves it (lib/times.js) */
+  timesMemo: (on: boolean) => void;
+  dayTimesRuns: number;
   dayTripMax: (p: any) => number;
   dayTripOpen: (n: number) => void;
   /* the desktop workspace (v153): lib/later.js, lib/desk.js, lib/deskmap.js, screens/rail.js, screens/palette.js */
@@ -320,17 +323,6 @@ interface Waypoint {
   lateFor: (day: Day) => number;
   /** every country Plan can take (screens/setup.js) */
   countryNames: () => string[];
-  /** how well a place matches "Food you love": 2, 1 or 0 (lib/eat.js) */
-  eatLike: (it: any) => number;
-  /** the "like" part of a question about places to eat, when there is something they love */
-  eatLikeAsk: () => string;
-  eatLikeOf: (v: any) => number;
-  /** a city's meals chosen again, keeping the ones you chose (lib/plan.js) */
-  freshMeals: (country: string, city: string) => void;
-  /** a few places for what you love in a city, asked once (lib/ideas.js) */
-  loadLoved: (country: string, city: string) => void;
-  /** a city's places that are a place for what you love (and fine to eat at) */
-  lovedCount: (country: string, city: string) => number;
   /** a To book item still to book: not booked, its day not gone by (lib/bookcore.js) */
   leftToBook: (c: any) => boolean;
   /** where a booking stands by the trip's clock: "Booked", "Did you book it?", "Book now", "Book by Mar 9" */
@@ -427,7 +419,7 @@ interface Waypoint {
   /** the group's food needs (Plan, step 3; lib/core.js) */
   EAT_AL: string[][];
   EAT_DI: string[][];
-  eatNeeds: () => { al: string[]; di: string[]; love: string; avoid: string; note: string } | null;
+  eatNeeds: () => { al: string[]; di: string[] } | null;
   eatText: () => string;
   eatSig: () => string;
   eatFit: (it: any) => string;
@@ -443,6 +435,10 @@ interface Waypoint {
   setCurView: (c: string) => void;
   curPicker: (P: Plan) => string;
   priceText: (s: any, local?: string) => string;
+  /** watches one document of the shared database, waiting for the database; returns the function that stops it (lib/photos.js) */
+  watchDoc: (path: string, next: (snap: any) => void, fail?: () => void) => () => void;
+  /** watches one document per city of the trip in a shared collection; the function it returns asks for one more city (lib/places.js) */
+  cityDocs: (coll: string, onDocs: (docs: Record<string, any>) => void) => (slug: string) => void;
   /** nightly restaurants and menus (lib/nightfood.js) */
   withNightFood: (country: string, city: string, pool: any) => void;
   menuFor: (it: any, country: string, city: string) => { src: string; at: string; sections: { h: string; items: { n: string; p: string; d: string }[] }[]; kids: { n: string; p: string }[]; note: string } | null;
@@ -621,7 +617,7 @@ interface Waypoint {
   reroll: any;
   rescue: any;
   resetPicks: () => void;
-  restKey: (d: { country: string; city: string; dayInCity: number }) => string;
+  restKey: (d: { country: string; city: string; dayInCity: number; visit?: number }) => string;
   reviewsUrl: any;
   routeBody: any;
   routeCheck: any;
@@ -674,6 +670,8 @@ interface Waypoint {
     saveCity: (country: string, city: string, tick?: () => void) => Promise<void>;
     dropCity: (slug: string) => Promise<any>;
     saving: Record<string, { st: string; n: number; of: number; msg: string }>;
+    /** a city's pack files in part order (v202) */
+    partsOf: (pack: any) => string[];
   };
   /** the cities saved to this phone before any trip goes there (lib/photopack.js) */
   offCities: () => Record<string, { name: string; country: string; at: number; photos: number; of: number; map: boolean }>;
@@ -698,7 +696,8 @@ interface Waypoint {
   cacheSlim: (force: boolean) => Cache;
   cacheDirty: () => void;
   cacheCut?: boolean;
-  ideaStore: { ready: Promise<boolean>; keep: () => void; isOn: () => boolean; keptAll: () => boolean };
+  tidyErrors: () => Promise<number>;
+  ideaStore: { ready: Promise<boolean>; keep: () => void; isOn: () => boolean; keptAll: () => boolean; prune?: () => Promise<number>; inTrip: (S: any, stops: any[] | null) => { city: Record<string, number>; country: Record<string, number> } };
   shareBox: (code: any) => Promise<ShareBox>;
   sharePlain: (code: any) => ShareBox;
   shareCode: (code: any) => string;
@@ -708,6 +707,8 @@ interface Waypoint {
   slotOptions: (day: Day, slot: string, P: Plan) => any[];
   slug: (s: string) => string;
   citySlug: (country: string, city: string) => string;
+  citySlugOld?: (country: string, city: string, withX?: boolean) => string;
+  slugOld?: (s: string) => string;
   textHash: (s: string) => string;
   /* the city library (lib/citylib.js, in the "ask" piece) */
   libFor?: (lib: { place: string[]; kind: string; own?: boolean }, text: string) => any;
@@ -857,6 +858,7 @@ interface Waypoint {
   qsIsOpen: () => boolean;
   qsClose: () => boolean;
   ideasFull: (pool: Pool | null | undefined) => boolean;
+  listFull: (pool: Pool | null | undefined, list: "spots" | "food") => boolean;
   /** how many things to do and places to eat a city starts with at least; more only on "Find more" */
   FIRST_IDEAS: number;
   /** how many of each for a stay of this many days in this trip (15 to 30) */
@@ -920,7 +922,7 @@ interface Waypoint {
   withImported: (country: string, city: string, pool: any) => any;
 }
 
-interface Window { W: Waypoint; STYLES: [string, string][]; TD: Record<string, { blurb?: string; cities: BuiltCity[] }>; AIRPORTS?: [string, string, number, number][]; claude?: { use(name: string): Promise<any> }; __WP_OFFLINE?: any; __uid?: string; [k: string]: any }
+interface Window { W: Waypoint; STYLES: [string, string][]; TD: Record<string, { blurb?: string; cities: BuiltCity[] }>; AIRPORTS?: [string, string, number, number, number][]; claude?: { use(name: string): Promise<any> }; __WP_OFFLINE?: any; __uid?: string; [k: string]: any }
 declare var W: Waypoint;
 declare var STYLES: [string, string][];
 declare var TD: Record<string, { blurb?: string; cities: BuiltCity[] }>;

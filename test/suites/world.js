@@ -36,6 +36,14 @@ exports.run = async t => {
     'the nightly library goes back to a record whose sights are unread, the least read first: ' + JSON.stringify(pl.cities));
   t.ok(!L.wantsCheck(tried, '2026-11-14') && L.wantsCheck(stale, '2026-11-14') && L.wantsCheck(undefined, '2026-11-14'),
     'a place whose pages gave nothing four days ago is left alone; after two weeks it is asked about again');
+  /* (v201) a step reads only what it uses: a document of another city in places/ (here one that cannot be read at all) is not
+     touched; and the list of cities (world/_index) is written against the version that was read, as each record is */
+  fs.writeFileSync(path.join(tdb, 'places', 'elsewhere-unrelated.json'), '{{ not json');
+  fs.writeFileSync(path.join(tdb, 'world', '_index.json'), JSON.stringify({ data: { v: 1, cities: {} }, version: 7 }));
+  let built = null, why = '';
+  try { L.plan(tdb, path.join(tdb, 'w2'), 10, 0); built = L.build(tdb, path.join(tdb, 'w2')); } catch (e) { why = String(e.message || e); }
+  const wr = built ? JSON.parse(fs.readFileSync(path.join(tdb, 'w2', 'writes.json'), 'utf8')).find(w => w.doc_id === '_index') : null;
+  t.ok(built && wr && wr.exists && wr.if_version === 7, 'plan and build read only the cities they work on, and the list of cities is written against the version read: ' + (why || JSON.stringify(wr)));
   fs.rmSync(tdb, { recursive: true, force: true });
   const b = await launch();
   const store = mkdb({ 'world/spain-granada': REC, 'world/spain-seville': Object.assign({}, REC, { v: 2 }) });

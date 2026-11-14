@@ -38,15 +38,20 @@ const fs = require("fs"),
   path = require("path");
 
 /* the app's own name rules (lib/core.js W.norm, lib/photos.js W.slug and W.citySlug) */
-const norm = s =>
-  String(s || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
+/* (kept in step with the app's rule by the tools suite; this script is fetched on its own, so it has its own copy) */
+const FOLD = { ł: "l", ø: "o", ß: "ss", đ: "d", æ: "ae", þ: "th", ı: "i" }; /* (letters that are no base letter plus an accent) */
+function norm(s) {
+  const t = String(s || "")
+      .toLowerCase()
+      .replace(/[łøßđæþı]/g, c => FOLD[c])
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, ""),
+    a = t.replace(/[^a-z0-9]+/g, " ").trim();
+  /* a name with no Latin letters or digits at all (Αθήνα, 東京) is "u" and the hex of each code point */
+  return a || (t.match(/[\p{L}\p{N}]/gu) || []).map(c => "u" + c.codePointAt(0).toString(16)).join(" ");
+}
 const slug = s => norm(s).replace(/ /g, "-").slice(0, 80) || "x";
-const citySlug = (country, city) => slug(country + " " + city);
+const citySlug = (country, city) => slug(norm(country) + " " + norm(city));
 
 /* how long each kind of fact is good for, in days (the design's "How each fact is checked") */
 const SHELF = { exists: 90, hours: 60, entry: 90, google: 30, estimate: 3650 };
@@ -85,20 +90,29 @@ const isUrl = s => /^https:\/\/[^\s"<>]+$/.test(String(s || ""));
 const isMd = s => /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(String(s || ""));
 
 /* ---------- reading the database as ArtifactData saves it ---------- */
-function load(dir, col) {
+function load(dir, col, only) {
   const d = path.join(dir, col),
     out = {};
   if (!fs.existsSync(d)) return out;
   for (const f of fs.readdirSync(d))
-    if (f.endsWith(".json")) {
+    if (f.endsWith(".json") && (!only || only.has(f.slice(0, -5)))) {
       const j = JSON.parse(fs.readFileSync(path.join(d, f), "utf8"));
       out[f.slice(0, -5)] = { data: j && j.data ? j.data : j, version: j && j.version };
     }
   return out;
 }
-function readDb(dir) {
-  const db = {};
-  for (const c of ["citylib", "places", "links", "photos", "wanted", "world"]) db[c] = load(dir, c);
+/** the collections named, each as {<slug>: {data, version}} (only the slugs in `only`, except the world library) */
+function readCols(dir, cols, only) {
+  const out = {};
+  for (const c of cols) out[c] = load(dir, c, c === "world" ? null : only);
+  return out;
+}
+/** The database in memory. Each step reads only what it uses (a whole collection of 650 documents of 200 KB was read
+    by every step, to use a handful of them): cols, the collections to read (default all six); only, a set of slugs
+    to read from them (default every document). @param {string} dir @param {string[]} [cols] @param {Set<string>} [only] */
+function readDb(dir, cols, only) {
+  const db = { citylib: {}, places: {}, links: {}, photos: {}, wanted: {}, world: {} };
+  Object.assign(db, readCols(dir, cols || ["citylib", "places", "links", "photos", "wanted", "world"], only));
   /* the library's own notes (world/_index: the list of its cities) are not city records */
   db.notes = {};
   for (const k of Object.keys(db.world))
@@ -548,7 +562,9 @@ function hm(m) {
 
 /* ---------- the nightly steps ---------- */
 function plan(dbDir, work, nCities, nLegs) {
-  const db = readDb(dbDir),
+  /* (what decides tonight's cities: the library's lists, the trips' cities and the records; the rest, for the cities
+     picked only) */
+  const db = readDb(dbDir, ["citylib", "wanted", "world"]),
     t = today(),
     pick = [];
   const ready = s => {
@@ -574,6 +590,7 @@ function plan(dbDir, work, nCities, nLegs) {
     .sort()
     .forEach(s => pick.includes(s) || pick.push(s));
   const tonight = pick.slice(0, nCities || 10);
+  Object.assign(db, readCols(dbDir, ["places", "links", "photos"], new Set(tonight)));
   fs.mkdirSync(work, { recursive: true });
   let legBudget = nLegs || 150;
   for (const s of tonight) {
@@ -608,8 +625,9 @@ function plan(dbDir, work, nCities, nLegs) {
   return { cities: tonight };
 }
 function build(dbDir, work) {
-  const db = readDb(dbDir),
-    p = JSON.parse(fs.readFileSync(path.join(work, "plan.json"), "utf8")),
+  const p = JSON.parse(fs.readFileSync(path.join(work, "plan.json"), "utf8")),
+    /* (the records of every city, for the list of cities; the rest of a city's sources only for tonight's) */
+    db = Object.assign(readDb(dbDir, ["world"]), readCols(dbDir, ["citylib", "places", "links", "photos", "wanted"], new Set(p.cities))),
     writes = [],
     built = {},
     sum = { built: [], refused: [], unsure: 0, stale: 0, failed: [] };
@@ -694,6 +712,7 @@ function build(dbDir, work) {
     fs.writeFileSync(file, JSON.stringify(idx));
     const w = { collection: "world", doc_id: "_index", op: "set", file };
     if (db.notes._index) w.exists = true;
+    if (db.notes._index && db.notes._index.version) w.if_version = db.notes._index.version; /* (as a city's own record) */
     writes.push(w);
   }
   fs.writeFileSync(path.join(work, "writes.json"), JSON.stringify(writes, null, 1));

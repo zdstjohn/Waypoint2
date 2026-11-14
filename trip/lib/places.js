@@ -10,9 +10,68 @@
     applied = {},
     gen = 0;
 
+  /* The shared collections kept per city (places, morefood, menus) hold a document for every city anyone ever planned, and
+     the app reads only the trip's. So one document each is watched, <coll>/<city slug>, never the whole collection: for a
+     city the trip has, or one a lookup asks for (the returned function), and dropped when the trip's cities change and
+     it is no longer among them. onDocs gets {slug: data} for the documents that exist, whenever one changes (a city with
+     no document yet says nothing). */
+  /** @param {string} coll @param {(docs: Record<string, any>) => void} onDocs @returns {(slug: string) => void} */
+  W.cityDocs = function (coll, onDocs) {
+    var subs = /** @type {Record<string, () => void>} */ ({}),
+      docs = /** @type {Record<string, any>} */ ({}),
+      sig = "";
+    function need(/** @type {string} */ k) {
+      if (!(k in subs))
+        subs[k] = W.watchDoc(coll + "/" + k, function (/** @type {any} */ s) {
+          var d = s && s.data && s.data();
+          if (d) docs[k] = d;
+          else if (k in docs) delete docs[k];
+          else return;
+          onDocs(docs);
+        });
+    }
+    W.onData(function () {
+      var now = ((W.P && W.P.stops) || []).map(function (/** @type {any} */ x) {
+          return W.citySlug(x.country, x.name);
+        }),
+        g = now.join();
+      if (g === sig) return;
+      sig = g;
+      Object.keys(subs).forEach(function (k) {
+        if (now.indexOf(k) > -1) return;
+        subs[k]();
+        delete subs[k];
+        if (k in docs) {
+          delete docs[k];
+          onDocs(docs);
+        }
+      });
+      now.forEach(need);
+    });
+    return need;
+  };
+  var needRec = W.cityDocs("places", function (docs) {
+    REC = {};
+    Object.keys(docs).forEach(function (id) {
+      var x = W.V.shared(docs[id]) || {};
+      REC[id] = { items: x.items && typeof x.items === "object" ? x.items : {}, center: x.center || null };
+    });
+    gen++;
+    applied = {};
+    W.arrived(); /* (a snapshot: planned and drawn with whatever else arrives with it) */
+  });
+
   /* the checked record for one place, if there is one */
+  /** a city's record: under its id, else under the one it had before v201 (never the shared "x"; both watched) @param {string} country @param {string} city */
+  function recFor(country, city) {
+    var id = W.citySlug(country, city),
+      old = W.citySlugOld && W.citySlugOld(country, city);
+    needRec(id);
+    if (old) needRec(old);
+    return REC[id] || (old ? REC[old] : undefined);
+  }
   W.placeInfo = function (it, country, city) {
-    var c = REC[W.slug(country + " " + city)];
+    var c = recFor(country, city);
     if (!c || !it || !it.n) return null;
     return c.items[W.norm(it.n)] || null;
   };
@@ -129,8 +188,8 @@
   }
   W.applyPlaces = function (country, city, pool) {
     if (!pool || pool.fallback) return pool;
-    var slug = W.slug(country + " " + city),
-      c = REC[slug];
+    var slug = W.citySlug(country, city),
+      c = recFor(country, city);
     if (!c) return pool;
     var stamp = slug + "|" + gen + "|" + (pool.spots || []).length + "|" + (pool.food || []).length;
     if (applied[slug] === stamp) return pool;
@@ -157,27 +216,4 @@
     W.placesLaid = (W.placesLaid || 0) + 1; /* (the world library lays its facts again after these: lib/world.js) */
     return pool;
   };
-
-  try {
-    if (window.claude && window.claude.use)
-      window.claude.use("db").then(
-        function (db) {
-          if (!db) return;
-          db.collection("places").onSnapshot(
-            function (snap) {
-              REC = {};
-              snap.docs.forEach(function (d) {
-                var x = W.V.shared(d.data()) || {};
-                REC[d.id] = { items: x.items && typeof x.items === "object" ? x.items : {}, center: x.center || null };
-              });
-              gen++;
-              applied = {};
-              W.arrived(); /* (a snapshot: planned and drawn with whatever else arrives with it) */
-            },
-            function () {}
-          );
-        },
-        function () {}
-      );
-  } catch (e) {}
 })();

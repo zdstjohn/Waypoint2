@@ -100,7 +100,7 @@ exports.run = async t => {
   const spots = Array.from({ length: 15 }, (_, i) => ({ n: 'General sight ' + i, d: 'A sight.', t: ['culture'], fame: 1, rating: 4.5, k: 0, s: ['am', 'pm', 'eve', 'any'][i % 4], dur: '2h', ticket: 'Free', pic: 'museum', place: 'General sight ' + i, lat: at[0] + (i % 5) * 0.002, lng: at[1] + (i % 3) * 0.002 }));
   const food = Array.from({ length: 15 }, (_, i) => ({ n: 'General eatery ' + i, d: 'Good food.', fame: 1, rating: 4.5, cuisine: 'Croatian', price: '€€', meal: i < 4 ? 'breakfast' : ['lunch', 'dinner', 'both'][i % 3], dur: '1h', fav: false, k: 0, sure: true, reserve: false, pic: 'restaurant', lat: at[0] + (i % 4) * 0.002, lng: at[1] + (i % 5) * 0.002 }));
   const store2 = mkdb({ 'citylib/croatia-town-50': { country: 'Croatia', city: 'Town 50', q: { [Q.spots.h]: { r: { d: 'A town.', lat: at[0], lng: at[1], spots }, at: now }, [Q.food.h]: { r: { food }, at: now } } } });
-  const G = await open(b, { width: 390, db: store2, uid: 'u-third' }); await exampleTrip(G.pg);
+  const ops2 = []; const G = await open(b, { width: 390, db: (o, p, x) => { ops2.push(o + ' ' + p); return store2(o, p, x); }, uid: 'u-third' }); await exampleTrip(G.pg);
   const g = await G.pg.evaluate(async () => { window.__full = []; const t0 = Date.now(); W.loadCity('Croatia', 'Town 50');
     for (let i = 0; i < 60 && !(W.pool('Croatia', 'Town 50') && W.pool('Croatia', 'Town 50').spots.length); i++) await new Promise(r => setTimeout(r, 100));
     const first = Date.now() - t0, p0 = W.pool('Croatia', 'Town 50');
@@ -120,6 +120,11 @@ exports.run = async t => {
     const read = await new Promise(r => W.libGet({ slug: 'croatia-town-50', h: 'none', gh: W.textHash(W.libGeneral('spots')), kind: 'spots', place: ['Croatia', 'Town 50'] }, (x, g) => r(!!x && g)));
     W.cloud = was; return { wrote, read }; });
   t.ok(!web.wrote.length && web.read, 'the website reads the library and never writes to it: ' + JSON.stringify(web));
+  /* (v201) answers kept one after another for a place: the document is read once (or not at all, when libGet has it) and each answer is one write that merges */
+  ops2.length = 0;
+  await G.pg.evaluate(async () => { for (const h of ['a1', 'a2', 'a3']) W.libSave({ slug: 'croatia-town-50', h, gh: '', kind: 'spots', place: ['Croatia', 'Town 50'] }, { spots: [{ n: 'x' + h }] }); await new Promise(r => setTimeout(r, 1500)); });
+  const doc = JSON.parse(await store2('get', 'citylib/croatia-town-50', null)), mine = ops2.filter(o => / citylib\/croatia-town-50$/.test(o));
+  t.ok(mine.filter(o => o.startsWith('get ')).length <= 3 && mine.filter(o => o.startsWith('set ')).length === 3 && ['a1', 'a2', 'a3'].every(h => doc.q[h]) && doc.q[Q.spots.h], 'three answers for a place are three writes and no read after each: ' + JSON.stringify(mine));
   t.eq(G.errors(), [], 'no page errors (general lists)');
   await G.ctx.close();
 

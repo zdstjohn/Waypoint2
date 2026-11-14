@@ -92,8 +92,9 @@ const manifest = {
 };
 fs.writeFileSync(path.join(DIST, 'manifest.webmanifest'), JSON.stringify(manifest, null, 2) + '\n');
 
-/* the service worker: everything above, kept on the phone at install; the page itself is asked for fresh first (a
-   new version shows on the next open) and comes from the phone when there is no connection or it is too slow */
+/* the service worker: everything above, kept on the phone at install; the page itself comes from the phone at once and is
+   asked for again in the background (a new version shows on the open after it is installed); with no copy yet, it is asked
+   for first and comes from the phone when there is no connection or it is too slow */
 const PRE = ['./', 'index.html', `standalone.js?v=${V}`, `cloud.js?v=${V}`, 'manifest.webmanifest', 'vt/index.json'].concat(ASSETS.filter(f => f !== 'app.desk.css').map(f => `${f}?v=${V}`) /* (the desktop stylesheet is kept when a wide window first asks for it: a phone never fetches it) */, fonts.map(f => 'fonts/' + f), icons);
 fs.writeFileSync(path.join(DIST, 'sw.js'), `/* Waypoint service worker, version ${V} (made by build/standalone.js) */
 const V = ${JSON.stringify(V)}, CACHE = "waypoint-" + V, PRE = ${JSON.stringify(PRE)};
@@ -172,8 +173,16 @@ self.addEventListener("fetch", e => {
   if (url.origin !== location.origin) { if (isPhoto(req, url)) e.respondWith(photo(req)); return; }   /* (other sites, the PDF library: straight to the network) */
   if (req.method !== "GET") return;
   if (req.mode === "navigate") {
-    e.respondWith(fresh(req).then(r => { const c = r.clone(); caches.open(CACHE).then(x => x.put("index.html", c)); return r; },
-      () => caches.match("index.html", { ignoreSearch: true }).then(r => r || caches.match("./"))));
+    /* the page from the phone at once, and asked for again in the background (a weak signal showed nothing for up to 3.5 s
+       on each launch). What comes back is kept only when it is this version's page (it names this version's files): a
+       newer page needs its own files, which the new worker installs, with its own copy of the page, and is open next time. */
+    const net = () => fresh(req).then(r => { const c = r.clone(); caches.open(CACHE).then(x => x.put("index.html", c)); return r; },
+      () => caches.match("index.html", { ignoreSearch: true }).then(r => r || caches.match("./")));
+    e.respondWith(caches.open(CACHE).then(c => c.match("index.html")).then(hit => {
+      if (!hit) return net();
+      e.waitUntil(fetch(req).then(r => r.ok ? r.clone().text().then(t => t.includes("?v=" + V) ? caches.open(CACHE).then(x => x.put("index.html", r)) : null) : null).catch(() => {}));
+      return hit;
+    }));
     return;
   }
   e.respondWith(caches.match(req).then(r => r || fetch(req).then(res => {

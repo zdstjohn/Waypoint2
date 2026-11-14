@@ -43,8 +43,31 @@
   };
 
   /* the list the helper works from: one row per thing to book, with its deadline */
-  var lastSig = null,
-    timer = null;
+  /* What was last sent for each trip is kept on this device (a short fingerprint and the day), so opening the app
+     writes the list only when it differs from what the account holds, not on every open. It is sent again after a
+     week anyway, so the helper never reads a list that looks abandoned. */
+  var SIG_KEY = "waypoint-bookby-sig",
+    SIG_DAYS = 7,
+    timer = null,
+    sending = /** @type {Record<string, string>} */ ({}); /* (asked for this visit, not yet known to be written) */
+  /** @returns {Record<string, { h: string; at: number }>} */
+  function sigs() {
+    try {
+      var v = JSON.parse(localStorage.getItem(SIG_KEY) || "{}");
+      return v && typeof v === "object" ? v : {};
+    } catch (e) {
+      return {};
+    }
+  }
+  /** remember (or, with no hash, forget) what was sent for a trip @param {string} trip @param {string | null} h */
+  function setSig(trip, h) {
+    var all = sigs();
+    if (h) all[trip] = { h: h, at: Date.now() };
+    else delete all[trip];
+    try {
+      localStorage.setItem(SIG_KEY, JSON.stringify(all));
+    } catch (e) {}
+  }
   W.pushBookBy = function (P) {
     if (W.readOnly || W.isExample || !db || !uid || !canWrite || !S.start || !P || !P.stops.length) return;
     var list = W.checklist(P);
@@ -80,21 +103,31 @@
       items: items
     };
     var sig = JSON.stringify(body);
-    if (sig === lastSig) return;
-    lastSig = sig;
+    var trip = /** @type {string} */ (body.trip),
+      h = W.textHash(sig),
+      was = sigs()[trip];
+    if (was && was.h === h && Date.now() - was.at < SIG_DAYS * 864e5) return;
+    if (sending[trip] === h) return;
+    sending[trip] = h;
     clearTimeout(timer);
     timer = setTimeout(function () {
       body.updated = Date.now();
       try {
         db.doc("data/users/" + uid + "/bookby")
           .collection("t")
-          .doc(body.trip) /* (the trip this list is for, even if another was opened meanwhile) */
+          .doc(trip) /* (the trip this list is for, even if another was opened meanwhile) */
           .set(body)
-          .then(null, function () {
-            lastSig = null;
-          });
+          .then(
+            function () {
+              setSig(trip, h); /* (kept only once it is written: a page closed before that sends it again) */
+              delete sending[trip];
+            },
+            function () {
+              delete sending[trip];
+            }
+          );
       } catch (e) {
-        lastSig = null;
+        delete sending[trip];
         if (W.logError) W.logError(String((e && e.message) || e), "autopilot.js:bookby", e && e.stack);
       }
     }, 2500);
@@ -211,9 +244,9 @@
           '%" data-gobook="' +
           W.esc(c.key) +
           '" title="' +
-          W.esc((c.short || c.title) + " · by " + W.fmtDate(c.by, "md")) +
+          W.esc((c.short || c.title) + " · " + W.bookByText(c, true)) + /* (a date that has gone by reads "Book now", as on the screen) */
           '"><span class="vh">' +
-          W.esc((c.short || c.title) + ", by " + W.fmtDate(c.by, "md")) +
+          W.esc((c.short || c.title) + ", " + W.bookByText(c, true)) +
           "</span></button>"
         );
       })

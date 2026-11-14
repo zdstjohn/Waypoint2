@@ -49,7 +49,7 @@
           d[x.id] = Object.assign({}, x.data(), { id: x.id });
         });
         docs = d;
-        W.arrived(); /* (a snapshot: drawn with whatever else arrives with it) */
+        W.redraw(); /* (a snapshot of price watches: how Prepare looks, never the plan) */
         later();
       },
       function () {}

@@ -6,7 +6,7 @@
    The budgets below are the "good" thresholds. Each tap is measured from the click to just after the next frame has
    painted (an animation frame, then a timeout), which is when the new screen is on the glass; lists that arrive after
    the tap fill in on idle time and are not part of the tap. Numbers go into the notes so a slowdown shows up in the report. */
-const { launch, settle } = require('../lib/page');
+const { launch, settle, phoneViewport } = require('../lib/page');
 const AFTER_MAX = 300;   /* ms, at 4x: the longest task allowed after the first screen until the second script is in (120-150 ms now, the second script running, planning and drawing in tasks of their own; 510-680 ms when they were one) */
 exports.run = async t => {
   const b = await launch();
@@ -18,6 +18,7 @@ exports.run = async t => {
   const cold = async () => {
     const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, reducedMotion: 'no-preference' });
     const pg = await ctx.newPage(); const errors = []; pg.on('pageerror', e => errors.push(e.message));
+    await phoneViewport(pg);   /* (without the viewport tag the page lays out at 980 px and every number below is for another screen) */
     await pg.exposeFunction('__dbOp', () => null);
     const fs = require('fs'), path = require('path');
     for (const m of ['test/mocks/mockdur.js', 'test/mocks/mock2.js']) await pg.addInitScript(fs.readFileSync(path.join(t.root, m), 'utf8'));
@@ -50,12 +51,14 @@ exports.run = async t => {
     await pg.waitForTimeout(1500);
     load.after = await pg.evaluate(() => { const nav = performance.getEntriesByType('navigation')[0]; return (window.__v.long || []).filter(l => l[0] >= nav.domContentLoadedEventEnd - 1); });
     load.afterMax = load.after.reduce((a, l) => Math.max(a, l[1]), 0);
+    load.width = await pg.evaluate(() => innerWidth);
     return { ctx, pg, cdp, errors, load, wall: Date.now() - t0 };
   };
   let C = await cold(), first = null;
   if (!(C.load.fcp > 0 && C.load.fcp < 1800 && C.load.lcp > 0 && C.load.lcp < 2500 && C.load.afterMax < AFTER_MAX)) { first = C.load; await C.ctx.close(); C = await cold(); }
   const { ctx, pg, cdp, errors, load } = C;
   if (first) t.note(`a cold start over budget (FCP ${first.fcp} ms, LCP ${first.lcp} ms, longest task after the first screen ${first.afterMax} ms; in: ${first.got}) was measured again: FCP ${load.fcp} ms, longest after ${load.afterMax} ms (in: ${load.got})`);
+  t.eq(load.width, 390, 'the page is measured at the phone\'s 390 px, not a 980 px layout scaled down');
   t.ok(load.slots > 2, `the first screen shows the day (${load.slots} stops), ${C.wall} ms wall clock`);
   t.ok(load.fcp > 0 && load.fcp < 1800, `first paint under 1.8 s on a slow phone and network (${load.fcp} ms)`);
   t.ok(load.lcp > 0 && load.lcp < 2500, `largest paint under 2.5 s (${load.lcp} ms)`);

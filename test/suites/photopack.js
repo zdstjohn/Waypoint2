@@ -162,10 +162,12 @@ exports.run = async t => {
   await A.pg.evaluate(() => window.dispatchEvent(new Event('offline')));
   await granada(A.pg); await A.pg.waitForTimeout(2500);
   await A.pg.evaluate(() => { const x = document.querySelector('button[data-qs="close"]'); if (x) x.click(); });
-  const offl = await until(() => A.pg.evaluate(() => {
+  /* (a saved photo is read from the phone the first time it is asked for, then drawn: v202, lib/offline.js; so this waits for it) */
+  let offl = null;
+  await until(async () => { offl = await A.pg.evaluate(() => {
     const pool = W.pool('Spain', 'Granada');
     return pool && pool.spots && pool.spots.length >= 8 ? { spots: pool.spots.length, food: pool.food.length, lib: pool.lib || 0, pic: /src="blob:/.test(W.picture({ n: 'Alhambra and Nasrid Palaces' }, false, 'Spain', 'Granada', {})), days: W.P.days.filter(d => d.slots.some(x => x.item)).length } : null;
-  }), 12000);
+  }); return offl && offl.pic ? offl : null; }, 12000);
   t.ok(offl && offl.lib === 1 && offl.spots >= 8 && offl.food >= 6 && offl.pic && offl.days >= 1,
     'with no signal, a new trip to the saved city has its lists (from the record), its days and its photos (from the phone): ' + JSON.stringify(offl));
   await A.ctx.setOffline(false);
@@ -178,6 +180,56 @@ exports.run = async t => {
   t.ok(gone && !after['spain-granada'], '"Remove" takes it off the saved cities, and it can be saved again');
   t.eq(A.errors(), [], 'no page errors');
   await A.ctx.close();
+  /* ---- a pack in parts (v202): a trip city's photos in parts of about 1.5 MB; a day asks only for the part its
+     photos are in, and saving the city for offline takes every part ---- */
+  {
+    /* (the tool: parts in the trip's order, each under the size; each photo marked with its part) */
+    const tdir = fs.mkdtempSync(path.join(os.tmpdir(), 'wp-parts-')), fdir = path.join(tdir, 'files'); fs.mkdirSync(fdir);
+    man.forEach(e => fs.copyFileSync(e.webp, path.join(fdir, fx.idOf(e.jpg) + '.webp')));
+    const recs = Object.fromEntries(names.map((n, i) => [n, fx.record(man[i], 'old')]));
+    fs.writeFileSync(path.join(tdir, 'spain-granada.json'), JSON.stringify({ city: 'Granada', country: 'Spain', items: recs }));
+    fs.writeFileSync(path.join(tdir, 'wanted.json'), JSON.stringify({ city: 'Granada', used: [['Mirador de San Nicolas'], ['Parque de las Ciencias']] }));
+    const one = man.reduce((m, e) => Math.max(m, fs.statSync(e.webp).size), 0);
+    const saved = PK.PART_MAX; /* (two pictures a part, whatever their size here) */
+    const bp = PK.buildParts.length;
+    const r = PK.buildParts(path.join(tdir, 'spain-granada.json'), fdir, path.join(tdir, 'g'), path.join(tdir, 'wanted.json'));
+    const sizes = r.parts.map(x => x.bytes), first = PK.read(fs.readFileSync(r.parts[0].file, 'utf8'));
+    t.ok(r.n === 4 && sizes.every(x => x <= PK.PART_MAX) && first && first.items[0].url === u(man[3].jpg) && bp === 4,
+      'built in parts: every part under ' + PK.PART_MAX + ' bytes, the trip\'s first stop first: ' + JSON.stringify(sizes) + ' (one picture ' + one + ' B; limit kept ' + saved + ')');
+    /* two parts by hand (two photos each), uploaded as P1 and P2 */
+    const P1 = '1'.repeat(32), P2 = '2'.repeat(32);
+    const pa = PK.pack('spain-granada', '2026-11-14', gpics.slice(0, 2)), pb = PK.pack('spain-granada', '2026-11-14', gpics.slice(2));
+    fs.writeFileSync(path.join(tdir, 'a.js'), pa); fs.writeFileSync(path.join(tdir, 'b.js'), pb);
+    fs.writeFileSync(path.join(tdir, 'parts.json'), JSON.stringify([{ url: '/_blob/' + P1, file: path.join(tdir, 'a.js') }, { url: '/_blob/' + P2, file: path.join(tdir, 'b.js') }]));
+    const mp = PK.markParts(path.join(tdir, 'spain-granada.json'), path.join(tdir, 'parts.json'), path.join(tdir, 'm.json'));
+    const md = JSON.parse(fs.readFileSync(path.join(tdir, 'm.json'), 'utf8'));
+    t.ok(mp.parts === 2 && mp.marked === 4 && md.items[names[0]].pk === 1 && md.items[names[2]].pk === 2 && md.pack.url === '/_blob/' + P1 && JSON.stringify(md.pack.parts) === JSON.stringify(['/_blob/' + P1, '/_blob/' + P2]),
+      'marked in parts: each photo says its part, the index names every part: ' + JSON.stringify(md.pack));
+    /* the app */
+    const store = mkdb({ 'world/spain-granada': REC, 'world/_index': INDEX, 'photos/spain-granada': md }), C = await open(b, { width: 390, height: 844, db: store });
+    const hits = { [P1]: 0, [P2]: 0 };
+    await fx.serve(C.ctx, man);
+    await C.ctx.route(/\/_blob\/[0-9a-f]{32}/, async route => {
+      const id = /\/_blob\/([0-9a-f]{32})/.exec(route.request().url())[1];
+      if (id === P1 || id === P2) { hits[id]++; return route.fulfill({ status: 200, body: id === P1 ? pa : pb, contentType: 'text/javascript' }); }
+      return route.fulfill({ status: 404, body: '' });   /* (no photo has a file of its own any more) */
+    });
+    await granada(C.pg); await C.pg.waitForTimeout(2500);
+    await C.pg.evaluate(() => { const x = document.querySelector('button[data-qs="close"]'); if (x) x.click(); W.needLater(); });
+    await until(() => C.pg.evaluate(() => !!(W.photoPack && W.photoFor({ n: 'Alhambra and Nasrid Palaces' }, false, 'Spain', 'Granada'))), 15000);
+    await C.pg.waitForTimeout(1500);
+    const drawn = { a: hits[P1], b: hits[P2] };   /* (the day on show: its photos' parts only) */
+    const s3 = await C.pg.evaluate(() => { const ph = W.photoFor({ n: 'Mirador de San Nicolas' }, false, 'Spain', 'Granada'); return W.offline.src(ph.url, ph.pk); });
+    await until(() => C.pg.evaluate(() => { const ph = W.photoFor({ n: 'Mirador de San Nicolas' }, false, 'Spain', 'Granada'); return /^blob:/.test(W.offline.src(ph.url, ph.pk)); }), 8000);
+    await until(() => C.pg.evaluate(() => { const ph = W.photoFor({ n: 'Alhambra and Nasrid Palaces' }, false, 'Spain', 'Granada'); return /^blob:/.test(W.offline.src(ph.url, ph.pk)); }), 8000);
+    const after = { a: hits[P1], b: hits[P2] };
+    t.ok(/^data:image\/gif/.test(s3) && drawn.b === 0 && after.b === 1 && after.a <= 1,
+      'a part is fetched only when one of its photos is wanted, and once: part 2 waited until its photo was asked for (on show ' + JSON.stringify(drawn) + ', then ' + JSON.stringify(after) + ')');
+    t.ok(JSON.stringify(await C.pg.evaluate(() => W.photoPack.partsOf({ url: '/_blob/' + '1'.repeat(32), parts: ['/_blob/' + '1'.repeat(32), 'javascript:alert(1)'] }))) === JSON.stringify(['/_blob/' + '1'.repeat(32)]),
+      'a part that is not one of the app\'s own files is never fetched (the city falls back to its first part)');
+    t.eq(C.errors(), [], 'no page errors');
+    await C.ctx.close();
+  }
   await b.close();
   fs.rmSync(tmp, { recursive: true, force: true });
 };

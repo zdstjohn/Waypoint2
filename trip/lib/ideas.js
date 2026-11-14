@@ -204,14 +204,13 @@
   function setAside(pool, list) {
     return (pool && pool.rest && pool.rest[list]) || [];
   }
+  /** a list is at its cap and nothing is set aside from it: asking for more of it would add nothing
+      @param {any} pool @param {"spots" | "food"} list */
+  W.listFull = function (pool, list) {
+    return !!pool && !setAside(pool, list).length && (pool[list] || []).length >= W.IDEA_CAP[list];
+  };
   W.ideasFull = function (pool) {
-    return (
-      !!pool &&
-      !setAside(pool, "spots").length &&
-      !setAside(pool, "food").length &&
-      (pool.spots || []).length >= W.IDEA_CAP.spots &&
-      (pool.food || []).length >= W.IDEA_CAP.food
-    );
+    return W.listFull(pool, "spots") && W.listFull(pool, "food");
   };
   /* the names a city already has (on show or set aside): no list repeats them */
   function namesOf(cur, list) {
@@ -426,31 +425,6 @@
      city and per what you typed, a few are asked for, unless the list has enough already. They come marked like
      any other (can you eat there, how much it is a place for what you love), and the meals the planner chose in
      that city are chosen again (never the ones you chose). */
-  var LOVED_ENOUGH = 4;
-  W.lovedCount = function (country, city) {
-    var cur = W.C.city[W.cityKey(country, city)];
-    return ((cur && cur.food) || []).filter(function (x) {
-      return W.eatLike(x) >= 2 && W.eatFit(x) !== "poor";
-    }).length;
-  };
-  W.loadLoved = function (country, city) {
-    var n = W.eatNeeds && W.eatNeeds();
-    if (!n || !n.love || W.readOnly || !W.SAMPLE) return;
-    var ck = W.cityKey(country, city),
-      cur = W.C.city[ck],
-      want = W.norm(n.love);
-    if (!cur || cur.fallback || cur.lovedFor === want || W.cityBusy(ck) || W.status["eatlove|" + ck]) return;
-    /* (the check of the places already listed comes first: it may find enough of them) */
-    if (
-      (cur.food || []).some(function (x) {
-        return !x.eat || x.eat.sig !== W.eatSig();
-      })
-    )
-      return;
-    cur.lovedFor = want;
-    if (W.lovedCount(country, city) >= LOVED_ENOUGH) return;
-    run("eatlove|" + ck, { ask: "ideas.6", a: [city, ck, country, cur, n] }, "default");
-  };
   /* ---------- no more ideas on show than the stay calls for ----------
      A city shows 15 things to do and 15 places to eat (more for a longer stay: W.firstIdeas), plus what you asked for
      ("Find more", a search, hidden gems: pool.showN). A city that holds more than that (lists from before the limit,

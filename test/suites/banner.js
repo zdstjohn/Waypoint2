@@ -58,5 +58,23 @@ exports.run = async t => {
     const hh = async () => pg.evaluate(() => { const h = document.querySelector('.day-h'); return { h: !!h, hero: !!(h && h.classList.contains('has-hero')), top: document.querySelector('header.top').classList.contains('has-photo') }; });
     const d = await hh(); await pg.evaluate(() => { W.S.tview = 'map'; W.render(); }); const e = await hh();
     t.ok(d.h && e.h && !d.hero && !e.hero && !d.top && !e.top, 'with no photo both tabs keep the plain heading: ' + JSON.stringify([d, e])); await ctx.close(); }
+  /* v202, the owner: the top card was a different size from day to day (a short "Rest day" fitted beside the town and
+     "Heavy day" did not): the town is always the first line and the date and how full the day is the second, each one
+     line, so every day's card is the same height, a long town name included */
+  { const { pg, ctx } = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(pg); await settle(pg, 4000);
+    const hs = await pg.evaluate(async () => { const out = []; W.goView('trip'); W.S.tview = 'days';
+      for (let n = 1; n <= W.P.days.length; n++) { W.S.day = n; W.render(); await new Promise(r => setTimeout(r, 60));
+        const d = document.querySelector('header.top .tl-day'), dt = d && d.querySelector('.tl-dt');
+        if (d && d.getBoundingClientRect().height) out.push({ n, h: Math.round(dt.getBoundingClientRect().height), lines: dt.querySelectorAll(':scope > b, :scope > .tl-meta').length, txt: dt.textContent.replace(/\s+/g, ' ').trim().slice(0, 60) }); }
+      /* the longest town name, and a rest day */
+      const d0 = W.P.days[0], keep = d0.city; W.S.rest = W.S.rest || {}; W.S.rest[W.restKey(W.P.days[1])] = 1; W.replan();
+      d0.city = 'Ordesa y Monte Perdido National Park'; W.S.day = 1; W.render(); await new Promise(r => setTimeout(r, 60));
+      const dt1 = document.querySelector('header.top .tl-day .tl-dt'); out.push({ n: 'long', h: Math.round(dt1.getBoundingClientRect().height) });
+      W.S.day = 2; W.render(); await new Promise(r => setTimeout(r, 60));
+      const dt2 = document.querySelector('header.top .tl-day .tl-dt'); out.push({ n: 'rest', h: Math.round(dt2.getBoundingClientRect().height), txt: dt2.textContent.replace(/\s+/g, ' ').trim() });
+      d0.city = keep; return out; });
+    const heights = [...new Set(hs.map(x => x.h))];
+    t.ok(hs.length >= 4 && heights.length === 1 && hs.filter(x => x.lines != null).every(x => x.lines === 2), 'the top card is the same height on every day, a rest day and a long town name included (' + heights.join(', ') + ' px): ' + JSON.stringify(hs.slice(-3)));
+    await ctx.close(); }
   await b.close();
 };

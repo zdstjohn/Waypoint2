@@ -18,8 +18,11 @@ The rules were tuned against ~1,200 photos judged by eye (1,004 kept, 198 thrown
 import re, unicodedata
 
 # ---------------- text helpers ----------------
+_FOLD = {"ł": "l", "ø": "o", "ß": "ss", "đ": "d", "æ": "ae", "þ": "th", "ı": "i"}  # (as the app's W.norm: no base letter plus an accent)
+
+
 def plain(s):
-    s = unicodedata.normalize("NFD", str(s or "").lower())
+    s = unicodedata.normalize("NFD", "".join(_FOLD.get(c, c) for c in str(s or "").lower()))
     return "".join(c for c in s if unicodedata.category(c) != "Mn")
 
 def words(s):

@@ -185,13 +185,13 @@ exports.run = async t => {
   t.ok(back.desk && back.day === keep0.day && back.stop === keep0.stop && back.modal === 'false' && back.tripbar, 'wide again: the workspace, the same day and stop, the stop beside the plan again');
   await pg.keyboard.press('Escape');
   /* words half typed survive the change of layout too */
-  await pg.click('#wrNav [data-ws="view:setup"]'); await pg.waitForSelector('#eatLove'); await pg.focus('#eatLove'); await pg.keyboard.type('sushi and pi'); 
+  await pg.click('#wrNav [data-ws="view:setup"]'); await pg.waitForSelector('#nm0'); await pg.evaluate(() => { const e = document.getElementById('nm0'); e.value = ''; }); await pg.focus('#nm0'); await pg.keyboard.type('Annabel'); 
   await pg.setViewportSize({ width: 800, height: 900 }); await pg.waitForTimeout(700);
-  const typed1 = await pg.evaluate(() => ({ v: (document.getElementById('eatLove') || {}).value, desk: W.desk() }));
-  await pg.keyboard.type('zza');
+  const typed1 = await pg.evaluate(() => ({ v: (document.getElementById('nm0') || {}).value, desk: W.desk() }));
+  await pg.keyboard.type('le');
   await pg.setViewportSize({ width: 1440, height: 900 }); await pg.waitForTimeout(700);
-  const typed2 = await pg.evaluate(() => ({ v: (document.getElementById('eatLove') || {}).value, desk: W.desk(), focus: document.activeElement && document.activeElement.id }));
-  t.ok(typed1.v === 'sushi and pi' && !typed1.desk && typed2.v === 'sushi and pizza' && typed2.desk && typed2.focus === 'eatLove', 'what you were typing is still in its box, the keyboard still in it, after narrow and wide again: "' + typed2.v + '"');
+  const typed2 = await pg.evaluate(() => ({ v: (document.getElementById('nm0') || {}).value, desk: W.desk(), focus: document.activeElement && document.activeElement.id }));
+  t.ok(typed1.v === 'Annabel' && !typed1.desk && typed2.v === 'Annabelle' && typed2.desk && typed2.focus === 'nm0', 'what you were typing is still in its box, the keyboard still in it, after narrow and wide again: "' + typed2.v + '"');
   t.eq(errors(), [], 'no page errors');
   await ctx.close();
 

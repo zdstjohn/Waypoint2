@@ -25,7 +25,9 @@
    6  Open when you are there: not closed for good, not shut that weekday, that holiday or that stretch of the year,
       open by the time you arrive and for long enough; with children, a dinner place that opens early enough and
       nothing that starts later than their cap (W.slotCap).
-   7  A toddler's day has a nap, and the afternoon starts after it; with grandparents along, no strenuous outing.
+   7  A toddler's day has a nap, and the afternoon starts after it, and the nap is over by 5:30 pm (a nap that late
+      pushes dinner and bedtime: lib/times.js lets one start at 4 pm at the latest); with grandparents along, no
+      strenuous outing.
    8  A name that is not one real place is never planned.
    9  What was chosen by hand (S.picks marked in S.mine, and what is booked) stands where it was put. */
 (function () {
@@ -199,6 +201,7 @@
             /* (a place you chose yourself that runs past nap time is your own doing) */
             own = byHand(d, slots[0]) || byHand(d, slots[1]) || byHand(d, slots[2]);
           if (!T.nap && !onTheWay && !own) bad(d, "lunch", 7, "a toddler's day without a nap");
+          if (T.nap && T.nap.end > 17 * 60 + 30) bad(d, "lunch", 7, "the nap ends at " + W.clock(T.nap.end) + ", after 5:30 PM");
           if (T.nap && slots[3].item && !byHand(d, slots[3]) && pmRow && !pmRow.skip && pmRow.start != null && pmRow.start < T.nap.end)
             bad(d, "pm", 7, "the afternoon starts before the nap ends");
         }

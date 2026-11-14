@@ -93,7 +93,9 @@ def build(slug, d, out_dir, tpl):
             try:
                 return j, gzip.compress(slim_tile(get(tpl.replace('{z}', str(z)).replace('{x}', str(x)).replace('{y}', str(y))), z), 9)
             except Exception as e:
-                err = e; time.sleep(2 * (i + 1))
+                err = e
+                if getattr(e, 'code', None) == 404: break   # no such tile: asking again will not make one (it was 4 tries, 20 s)
+                time.sleep(2 * (i + 1))
         print('  skip tile', j, err, file=sys.stderr); return j, None
     with ThreadPoolExecutor(6) as ex: res = list(ex.map(fetch, jobs))
     res = trim(res, d, pts)

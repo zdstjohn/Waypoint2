@@ -24,30 +24,16 @@
      for everything, converted at the European Central Bank's daily rates (the database's fx/latest, refreshed nightly)
      and marked "≈". A currency with no rate stays as listed. */
   var FX = { base: "EUR", rates: null, date: "" };
-  try {
-    if (window.claude && window.claude.use)
-      window.claude.use("db").then(
-        function (db) {
-          /* rates change what prices read, not what's planned: a redraw, and only when they changed */
-          if (db)
-            db.doc("fx/latest").onSnapshot(
-              function (s) {
-                var d = s && s.exists && s.data();
-                if (d && d.rates && typeof d.rates === "object") {
-                  var nx = { base: String(d.base || "EUR"), rates: d.rates, date: String(d.date || "") };
-                  if (JSON.stringify(nx) === JSON.stringify(FX)) return;
-                  FX = nx;
-                  if (W.render) W.render();
-                }
-              },
-              function () {}
-            );
-        },
-        function () {}
-      );
-  } catch (e) {
-    W.caught(e, "exchange rates");
-  }
+  /* rates change what prices read, not what's planned: a redraw, and only when they changed */
+  W.watchDoc("fx/latest", function (s) {
+    var d = s && s.exists && s.data();
+    if (d && d.rates && typeof d.rates === "object") {
+      var nx = { base: String(d.base || "EUR"), rates: d.rates, date: String(d.date || "") };
+      if (JSON.stringify(nx) === JSON.stringify(FX)) return;
+      FX = nx;
+      if (W.render) W.render();
+    }
+  });
   W.fxDate = function () {
     return FX.rates ? FX.date : "";
   };

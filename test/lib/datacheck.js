@@ -26,13 +26,12 @@ module.exports = ROOT => {
     Thailand: [5.5, 20.5, 97.3, 105.7],
     Iceland: [63.2, 66.6, -24.6, -13.4]
   };
-  const norm = s =>
-    String(s || "")
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim();
+  /* (the app's name rule: ł ø ß đ æ þ ı made Latin first; a name in another script is "u" and its code points' hex) */
+  const FOLD = { ł: "l", ø: "o", ß: "ss", đ: "d", æ: "ae", þ: "th", ı: "i" };
+  const norm = s => {
+    const t = String(s || "").toLowerCase().replace(/[łøßđæþı]/g, c => FOLD[c]).normalize("NFD").replace(/[\u0300-\u036f]/g, ""), a = t.replace(/[^a-z0-9]+/g, " ").trim();
+    return a || (t.match(/[\p{L}\p{N}]/gu) || []).map(c => "u" + c.codePointAt(0).toString(16)).join(" ");
+  };
   const bad = [],
     seenC = {};
   let nCity = 0,

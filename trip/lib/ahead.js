@@ -255,21 +255,40 @@
      full or on their way, and never for the evening (an evening free is a plan). Only a morning or an afternoon: a meal
      with no place has its own fill, capped at three questions a town (lib/ideas.js W.mealIdeas), and this must not
      ask past that cap. */
-  var moreAsked = /** @type {Record<string, number>} */ ({});
+  var moreAsked = /** @type {Record<string, number>} */ ({}),
+    moreTrip = "";
+  function going(/** @type {string[]} */ keys) {
+    return keys.some(function (k) {
+      return W.status[k] === "loading";
+    });
+  }
+  function failed(/** @type {string} */ k) {
+    return !!W.status[k] && W.status[k] !== "loading";
+  }
   function fillShort(/** @type {Plan} */ P) {
     if (W.readOnly || W.isExample || W.sampleState !== "on" || (W.offline && W.offline.off) || window.__WP_OFFLINE) return;
+    /* once a town per trip: another trip (or a new one) asks afresh */
+    if (moreTrip !== (W.S.tripId || "")) {
+      moreTrip = W.S.tripId || "";
+      moreAsked = {};
+    }
     [W.S.day - 1, W.S.day, W.S.day + 1].forEach(function (n) {
       var d = P.days[n - 1];
       if (!d || d.rest || !d.country || !d.city) return;
       var ck = W.cityKey(d.country, d.city),
+        keys = ["spots|" + ck, "food|" + ck],
         pool = W.pool(d.country, d.city);
-      if (moreAsked[ck] || !pool || pool.fallback || W.ideasFull(pool) || W.cityBusy(ck)) return;
+      /* an ask that failed is not counted: the town may be asked again (the person's "Try again", a later visit) */
+      if (moreAsked[ck] && !going(keys) && keys.some(failed)) delete moreAsked[ck];
+      /* (a gap in the sights is judged by the sights alone: a town at its sight cap is full for them, whatever its food) */
+      if (moreAsked[ck] || !pool || pool.fallback || W.listFull(pool, "spots") || W.cityBusy(ck)) return;
       var short = (d.slots || []).some(function (x) {
         return W.slotShort(x) && x.slot !== "eve" && !W.isFood(x.slot) && !x.trip;
       });
       if (!short) return;
-      moreAsked[ck] = 1;
       W.loadCity(d.country, d.city, true);
+      /* counted only when an ask went out (it may have been refused: a failed one waits for "Try again") */
+      if (going(keys)) moreAsked[ck] = 1;
     });
   }
   W.aheadTick = function (P) {

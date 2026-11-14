@@ -27,8 +27,11 @@ async function open(browser, { width = 360, height = 800, dark = false, scale = 
   if (scale !== 1) await pg.addStyleTag({ content: `html{font-size:${scale * 100}% !important}` });
   return { pg, ctx, errors: () => errors.slice() };
 }
-async function exampleTrip(pg) {
-  await pg.evaluate(() => { W.S.start = '2027-06-07'; W.isExample = false; W.S.day = 2; W.S.tview = 'days'; W.render(); });
+/* The example trip. { home: true }: no departure airport, so the jet lag counts from the phone (on UTC in the tests:
+   none for Rome). From Los Angeles, as the example leaves, days 1 and 2 are jet-lag days (later lunch, early dinner);
+   suites that pin the clock's exact times on those days ask for this. */
+async function exampleTrip(pg, o = {}) {
+  await pg.evaluate(home => { W.S.start = '2027-06-07'; W.isExample = false; W.S.day = 2; W.S.tview = 'days'; if (home) { W.S.depart = ''; W.replan(); } W.render(); }, !!o.home);
   await pg.waitForFunction(() => document.querySelectorAll('#viewTrip .slot').length > 4, null, { timeout: 30000 });
   await settle(pg);
 }
@@ -73,4 +76,11 @@ async function reveal(pg, sel) {
   await pg.evaluate(sel => { const el = document.querySelector(sel), w = el && el.closest('.acts-w'), mb = w && w.querySelector('.more-btn');
     if (mb && getComputedStyle(mb).display !== 'none' && !w.classList.contains('open')) mb.click(); }, sel);
 }
-module.exports = { launch, open, exampleTrip, settle, ROOT, BASE, calm, started, until, reveal };
+/* trip/index.html has no viewport meta of its own: the artifact's publish skeleton and build/standalone.js add this one. A
+   phone page measured without it lays out at 980 px and is scaled down, so a suite that opens the page as a phone
+   (isMobile: true) puts the same tag in, as the page the person gets has it. */
+const VIEWPORT = '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">';
+async function phoneViewport(pg) {
+  await pg.route(/\/index\.html(\?.*)?$/, async r => { const res = await r.fetch(); const body = await res.text(); await r.fulfill({ response: res, body: VIEWPORT + body }   /* (the file has no <head>: the browser makes one around its first tags) */); });
+}
+module.exports = { phoneViewport, launch, open, exampleTrip, settle, ROOT, BASE, calm, started, until, reveal };

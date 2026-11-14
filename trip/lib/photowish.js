@@ -5,9 +5,7 @@
   "use strict";
   var W = window.W,
     DB = /** @type {any} */ (null);
-  function citySlug(/** @type {string} */ country, /** @type {string} */ city) {
-    return W.slug(country + " " + city);
-  }
+  var citySlug = W.citySlug;
   /* tell the photo finder which places this trip uses (one write per city, only when the list changes) */
   var written = {},
     pending = {},

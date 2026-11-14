@@ -11,10 +11,17 @@ RESELL = re.compile(r"(getyourguide|viator|tiqets|klook|headout|musement|civitat
 EN = "Q1860"
 
 
+_FOLD = {"ł": "l", "ø": "o", "ß": "ss", "đ": "d", "æ": "ae", "þ": "th", "ı": "i"}  # (letters that are no base letter plus an accent)
+
+
 def norm(s):
-    s = unicodedata.normalize("NFD", str(s or "").lower())
-    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
-    return re.sub(r"[^a-z0-9]+", " ", s).strip()
+    """The app's name rule, trip/lib/core.js W.norm (one copy per script: each is fetched on its own by the nightly
+    tasks; the tools suite checks every copy gives the app's answers): plain lower-case letters and digits; a name with
+    no Latin letters or digits at all (Αθήνα, 東京) is "u" and the hex of each code point, so it still tells places apart"""
+    t = "".join(_FOLD.get(c, c) for c in str(s or "").lower())
+    t = re.sub("[\u0300-\u036f]", "", unicodedata.normalize("NFD", t))
+    a = re.sub(r"[^a-z0-9]+", " ", t).strip()
+    return a or " ".join("u%x" % ord(c) for c in t if c.isalnum())
 
 
 def toks(s, city=""):

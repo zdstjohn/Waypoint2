@@ -2,6 +2,137 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v202
+
+### What the owner asked for
+
+- Today shows "Tonight" above "Up next" (screens/travel.js goTonight). Test: dayout.
+- The banner at the top of a day is one height on every day: the town on one line, the date, the day's level and its
+  kind on a second line that never wraps (lib/warm.js, app.css .tl-dt/.tl-meta; a long name ends in "..."). Test: banner.
+- "What do you eat?" asks for allergies and diets only: the boxes for food you love, would rather avoid and anything
+  else, their paragraph and "Nothing special" are gone, and what an old trip saved there is no longer read (lib/eat.js
+  eatNeeds {al, di}; lib/ideas.js, plan.js, asksask.js, ideasask.js, nightfood.js; screens/setup.js). Tests: eat,
+  menuread, workspace.
+- A suggested trip stays only in towns: a beach, a bay, a lagoon, a cape, dunes, a reef or a single sight is offered as a
+  day trip, never as a place to stay (lib/plan.js SCENERY and dayTrip; the ideas question asks for towns). Test: review
+  (an Albania trip no longer stays at Ksamil Beach, Gjipe Beach or the Blue Eye).
+
+### Photos
+
+- Photo packs in parts (lib/photopack.js partsOf, packs; tools/photopack.js build-parts, mark-parts): a city a trip
+  goes to has up to 65 photos (Granada's single pack was 7.9 MB), so its photos come in parts of about 1.5 MB, filled
+  in the order the trip uses them; a day fetches only the parts its photos are in, once, and saving the city for
+  offline takes every part. A photo's pk says its part (1, 2, ...); the index's pack names every part (parts). One part
+  is a single pack, as before. Tests in photopack (with the old single-pack reading, the part-2 photo never shows).
+
+### From the v200 audit
+
+- The test clock's key is read from storage once a plan, not on every W.now/W.instant (a plan made 682 reads, a 28-day
+  trip 1,020): lib/times.js pinned(), kept while W.timesMemo is on. Test: perf.
+
+- Background answers batch longer while you are using the app. A tap, key or scroll in the last 1.5 s widens the burst
+  window from 100/300 ms to 250/1000 ms (lib/core.js settle), and the answers that cannot change the plan are drawn
+  without a re-plan: what things cost (run() key "cost|", answered()), price-watch snapshots (lib/watch.js), Booking.com
+  and Expedia results (lib/prices.js) and restaurant menus (lib/nightfood.js, was an immediate full render) now go
+  through W.redraw. Day-switch taps in the first 10 s after load at 4x CPU (4 runs each): 17-day trip median 106 -> 77 ms,
+  p90 381 -> 267, max 1033 -> 553; example trip median 47 -> 38, p90 235 -> 118, max 749 -> 360. Test: perf.
+- A plan works out each day's clock about half as often. The planner asked dayTimes for the same day about 18 times,
+  most with the slots unchanged; during one plan (W.timesMemo, called by W.plan) a day's answer is now kept while the
+  plan, the day and each slot's place are the same (lib/times.js), and dropped when the plan is done. Per plan: 17-day
+  trip 339 -> 163 workings-out, 28-day trip 508 -> 242; full re-plan at 4x CPU (best of 8, shared machine) 17 days
+  32 -> 19-32 ms, 28 days 42 -> 37-40 ms. Test: perf. A swap's own work was already one plan and one draw (the new
+  stop is on the first draw); the second plan after a swap is the answer about the new stop (its hours and length),
+  and with the wider window above it now arrives in one batch with the photo, so a swap draws twice, not three times.
+- On open the app no longer subscribes to whole shared collections. places, morefood and menus hold a document for every
+  city anyone ever planned; W.cityDocs (lib/places.js) now watches one document each, <collection>/<city slug>, for the
+  trip's cities (and any city a lookup asks for), adds and drops watches when the trip's cities change, and keeps the
+  same shapes for the code that reads them (REC, MORE, MENUS). One watcher for a single document is shared
+  (W.watchDoc, lib/photos.js, which waits for the database), and photos' own lookups and the exchange rates use it too.
+  A town whose photo index is not under its country's spelling ("USA" for "United States") is now found by trying the
+  country's other names, one document each (photos.js everyTown), not by reading every town's index (only the countries
+  named there have other names). The map pack list (maps) is left whole: lib/vtindex.js looks through every pack's
+  bounds to find the one that covers a point, so it needs them all (a document each, small). Tests: places, photos.
+- The website's service worker (build/standalone.js) serves the page from the phone at once and asks for it again in
+  the background (stale-while-revalidate), where it used to wait up to 3.5 s for the network on every launch. The fresh
+  page is kept only when it names this version's files; a newer version's page waits for its own worker. Test:
+  standalone.
+- Tests (no visible change): the clock values a family acts on are now checked to the minute (new suite exacttimes: the
+  toddler's nap, "Leave by" for lunch and dinner, Today's "Leave in / Leave by", tomorrow's "leave by" against "leave
+  about"); four changes to these had slipped past every suite. W.checkPlan (lib/rules.js) has a new part of rule 7: a
+  nap is over by 5:30 pm (a lunch that ends after 4 pm gives no nap, as lib/times.js says); the fuzz suite catches the old
+  "nap allowed until 11 pm" change with it, and has a control that the rule reports a late nap. The sync suite checks that
+  the newer change wins in either order (it was only caught by devices).
+- Tests: new suites for what a family leans on and was not checked: watch (the price watch and its drop banner),
+  importplan (the itinerary import), rescue (the rescue of the day and "say what's going on"), napcards (Today's nap and
+  rest cards), citylibrace (the city library read slower than the screen: it is used within its 2.5 s wait and Claude is
+  asked after it). Each was shown to fail with the code it covers broken.
+- Tests: the ahead suite no longer fails under load (the clock, connection and stand-ins are set in one step before the
+  one draw under test). The runner reports a suite that passed only on its second run, alone, as a warning with the first
+  failure's message (console, summary, test/out/report.json), and its SECS table holds measured times.
+- A town the trip comes back to (Rome, Florence, Rome) has keys of its own on the second visit: a pick, a free part, a
+  rest day, a day trip or a day bag set on day 1 no longer shows on day 6. Every day carries `visit` (2 and up for a
+  town the trip comes back to) and a later visit's keys read "...|1v2"; the first visit keeps the plain key, so every saved trip's keys stay valid (lib/plan.js,
+  lib/times.js W.restKey, lib/together.js). Test: bugs.
+- Names in any script keep an id of their own, and ł ø ß đ æ þ ı are no longer dropped: W.norm maps them to Latin
+  letters ("Wrocław" was "wrocaw") and a name with no Latin letters is "u" + hex code points (Greek and Japanese trips
+  shared citylib/x, wanted/x, photos/x-x). W.citySlug makes country and city plain apart. Latin ids do not change; an
+  index, record or library document saved under the old id is read when the new one has none (W.citySlugOld, in the new
+  lib/oldids.js, second script: photos, links, places, world, citylib, night food). The same rule in every tool with its own norm (find_photos,
+  photos2's wide_photos, official_links, pin_check, place_check, big_photos, photo_judge, citylib.js, worldlib.js) and
+  their published copies under trip/tools. Names inside old documents keyed with the old rule (a place with an ł) are
+  found again when the nightly run next writes them. Test: bugs (the app and every tool give the same answers).
+- Gap fill (lib/ahead.js): asks once a town per trip (a different trip asks afresh), is counted only when an ask went
+  out, and judges a sight gap by the sight list alone (W.listFull: a town at its sight cap is full for sights even if
+  short on food). Test: ahead.
+- A finished trip says "Nothing left to book: the dates have gone by." (and "Nothing left to book" on top), not
+  "Everything's booked. Nicely done!" next to "0% ready" (screens/book.js, lib/bookcore.js W.bookGone). Test: bugs.
+- An overdue book-by is read as "Book now" in the timeline's tooltips and screen-reader text, as on the screen, not as a
+  date that has gone by (lib/autopilot.js). Test: bugs.
+- The "how to travel" question asks for a kids' tip only when children are on the trip (lib/asksask.js). Test: bugs.
+- Jet lag counts from the departure airport's zone when it is known (AIRPORTS has a fifth field, an index into the zones
+  in lib/times.js), the phone's only without one: a UTC phone flying Seattle to Rome has two jet-lag days (lib/times.js). Test: bugs.
+- Smaller first download, nothing different on screen. app.js + app.min.css 493.36 -> 480.64 KB raw (gzip 165.6 -> 162.7 KB).
+  The stylesheet is split by what the first script names (build/bundle.js splitCss): a rule moves to app2.css when every
+  selector of it has a class the first script and index.html never name (a class built at run time, "lv" + n, counts as
+  named); a move that would turn the cascade round is pinned back and the split made again (the check missed a rule
+  after a comment inside an @media, which had made the Book checklist's boxes 24 px instead of 30). The stay-picking
+  code only the second script uses is lib/lodging.js (lib/stays.js keeps the part the first screen needs).
+- The logo's font is cut down to its eight letters: trip/fonts/dela-gothic-one-wordmark.woff2, 0.8 KB where the whole
+  font was 13.8 KB on the first open (not part of the 494 KB budget, which counts app.js + app.min.css; it is time on the
+  wire). The wordmark is pixel for pixel the same at 390 px, light and dark, at 1x and 2x. The whole font stays in
+  build/icon/fonts for the icon and the share picture; build/icon/subset-logo.py makes the small one.
+- "More ideas for X are on the way" (a city's first lists still being written) is a note over the screen, not a line in
+  it (app.css .arriving). It pushed the day down 50 px and pulled it back when the lists were in: a layout shift a few
+  seconds after the first paint on a fresh trip (CLS 0.03-0.10, now 0). Test: claude (the note is fixed and the day
+  keeps its place).
+- Tests: firstpaint (new) reads every first screen's styles with the second stylesheet held back, with and without
+  app2.css, in one moment: a CSS split that changes the first paint fails it (`same` looks only after everything has
+  loaded). vitals puts the viewport tag the published page has into the page (the file has none, so the phone was
+  measured at 980 px) and checks 390 px; perf checks 390 px. firstview loads each screen as a new page (it went from one
+  hash to another without a reload). cov.js switches the browser cache off for a page it measures.
+- The phone's storage no longer only grows. A photo saved for offline carries when it was last used (lib/offline.js); once
+  a day, at idle, photos unused for 60 days that belong to no city of any of your trips and no saved city (Settings, world
+  library) are deleted. Offline, photos are read from the store as the page asks for them, not all at once when the signal
+  goes. The ideas store (lib/ideastore.js) drops cities no trip of yours names and nothing has touched for 60 days. The error
+  log's days older than 30 are deleted. All three run once a day at idle from a new file in the second script (lib/tidy.js). storage.persist() stays. Tests: offline, kept, sync.
+- Fewer writes from the app. Saving a trip no longer reads the account's copy first once the snapshot has delivered it
+  (lib/sync.js pushTrip); the city library save merges into the document it already holds and writes once (lib/citylib.js
+  libSave); the book-by list is not written again on opening when nothing changed (lib/autopilot.js, remembered per trip in
+  localStorage, resent after a week). Tests: sync, citylib, bookings.
+- Nightly scripts (tools/, published copies in trip/tools/*.txt): place_check.py writes its progress files every few items
+  and tests a pin that passed the water test only again when it moves, and rechecks a weak pin that stayed weak only after
+  14 days (new fields doc.dry and item.rc_tried in places/<slug>); pin_check.py writes pins.json every 25 cities; build.py
+  does not retry a 404 tile; worldlib.js reads only the cities a step works on and writes world/_index with if_version;
+  citylib.js takes the library already read; copy_to_cloud.js gives each request a time limit and one retry.
+  Tests: tools (test_tools.py, copy to the website), world.
+- The library question that asks for a country's towns keeps its wording, so the town lists already in the library
+  still match it; the planner keeps stays in towns on its own (lib/plan.js dayTrip).
+- Tests wait for what a batch of answers draws: the menu reader's error (menuread) and an offline photo read from the
+  phone when first asked for (photopack). The runner's list of suites is a list of suites again (visual only with --shots).
+- Tests that pin the example's exact times plan it without a departure airport (test/lib/page.js exampleTrip(pg,
+  { home: true })): the example leaves from Los Angeles, so its first two days are jet-lag days. perf waits for the second
+  script before reading the startup requests.
+
 ## v201
 
 - The file store stops filling up (it held about 4,470 of its 5,000 files). The nightly photo task made up to five

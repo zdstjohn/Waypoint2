@@ -216,6 +216,66 @@ try:
        "a new photo in a packed city keeps the city's pack and its packed photos (v201): " + json.dumps(sorted(_d)))
 except Exception as _e:
     ok(False, "nightly finish's keep-every-field check ran: %r" % (_e,))
+# --- v201: what the nightly checks no longer redo ---
+import tempfile, shutil, io, contextlib, time as _time, urllib.error
+def _mkdb(wanted, places):
+    d = tempfile.mkdtemp(prefix="wp-tools-"); os.makedirs(d + "/wanted"); os.makedirs(d + "/places")
+    for k, v in wanted.items(): json.dump(v, open(d + "/wanted/" + k + ".json", "w"))
+    for k, v in places.items(): json.dump(v, open(d + "/places/" + k + ".json", "w"))
+    return d
+# a progress file is written every N changes and at the end, not once per change
+_d = tempfile.mkdtemp(prefix="wp-tools-"); _o = {}; _sv = pc.Saver(os.path.join(_d, "p.json"), _o, 5); _w = []
+_orig_flush = _sv.flush; _sv.flush = lambda: (_w.append(len(_o)), _orig_flush())
+for _i in range(12): _o[str(_i)] = 1; _sv.tick()
+_sv.flush = _orig_flush; _sv.flush()
+ok(_w == [5, 10] and json.load(open(os.path.join(_d, "p.json"))) == _o, "a progress file is written every few items and once at the end, not after each one: " + json.dumps(_w))
+# a weak pin that stays weak is not looked up again for 14 days
+_name = "Monastery"; ok(0.3 <= pc.sim("Arkadi Monastery", _name) < 0.67, "(the weak pin of the next check is weak)")
+_wk = {"greece-rethymno": {"city": "Rethymno", "country": "Greece", "spots": ["Arkadi Monastery"], "food": [], "pts": [[35.37, 24.47]], "center": [35.37, 24.47]}}
+_pl = {"greece-rethymno": {"items": {"arkadi monastery": {"lat": 35.371, "lng": 24.471, "name": _name, "st": "open", "osm": "n1"}}, "center": [35.37, 24.47]}}
+_db = _mkdb(_wk, _pl); _work = tempfile.mkdtemp(prefix="wp-tools-"); _calls = []
+_keep_m = pc.match; pc.match = lambda *a: (_calls.append(a[0]) or (None, "none", "x"))
+def _rc(): 
+    with contextlib.redirect_stdout(io.StringIO()): pc.recheck(_db, _work)
+try:
+    _rc(); _first = len(_calls); _doc = json.load(open(_work + "/places/greece-rethymno.json")); _marked = _doc["items"]["arkadi monastery"].get("rc_tried")
+    shutil.copy(_work + "/places/greece-rethymno.json", _db + "/places/greece-rethymno.json"); os.remove(_work + "/recheck.json")
+    _rc(); _second = len(_calls)
+    _doc["items"]["arkadi monastery"]["rc_tried"] = _time.strftime("%Y-%m-%d", _time.localtime(_time.time() - 15 * 86400))
+    json.dump(_doc, open(_db + "/places/greece-rethymno.json", "w")); os.remove(_work + "/recheck.json")
+    _rc(); _third = len(_calls)
+    ok(_first == 1 and _marked == pc.TODAY and _second == 1 and _third == 2, "a weak pin that stays weak is marked tried and left alone for 14 days, then looked at again: " + json.dumps([_first, _second, _third]))
+finally: pc.match = _keep_m
+# a pin found on dry land is not tested again until it moves
+_wk = {"greece-rethymno": {"city": "Rethymno", "country": "Greece", "spots": ["Old Port", "Fortezza"], "food": [], "pts": [[35.37, 24.47], [35.372, 24.473]], "center": [35.37, 24.47]}}
+_db = _mkdb(_wk, {}); _work = tempfile.mkdtemp(prefix="wp-tools-"); _tests = []
+_keep_w = pk.in_water; pk.in_water = lambda la, ln: (_tests.append((la, ln)) or 0)
+def _pn():
+    with contextlib.redirect_stdout(io.StringIO()): pc.pins(_db, _work)
+try:
+    _pn(); _a = len(_tests)
+    shutil.copy(_work + "/places/greece-rethymno.json", _db + "/places/greece-rethymno.json"); _pn(); _b2 = len(_tests)
+    _wk["greece-rethymno"]["pts"][1] = [35.38, 24.48]; json.dump(_wk["greece-rethymno"], open(_db + "/wanted/greece-rethymno.json", "w")); _pn(); _c2 = len(_tests)
+    ok(_a >= 3 and _b2 == _a and _c2 == _b2 + 1, "a pin that passed the water test is not tested again until it changes: " + json.dumps([_a, _b2, _c2]))
+finally: pk.in_water = _keep_w
+# pin_check's scan writes pins.json every few cities and at the end
+import pin_check as _pk2
+_db = _mkdb({("c-%02d" % i): {"city": "C", "country": "X", "spots": [], "food": [], "pts": []} for i in range(60)}, {}); _work = tempfile.mkdtemp(prefix="wp-tools-"); _wr = []
+_ow = _pk2._write_pins; _pk2._write_pins = lambda w, r: (_wr.append(len(r)), _ow(w, r))
+try:
+    with contextlib.redirect_stdout(io.StringIO()): _pk2.scan(_db, _work, set())
+    ok(_wr == [25, 50, 60], "the pin scan's file is written every 25 cities and at the end, not after each: " + json.dumps(_wr))
+finally: _pk2._write_pins = _ow
+# a map tile that is not there (404) is asked for once, not four times
+import build as _bd
+_n404 = []
+def _get404(u): _n404.append(u); raise urllib.error.HTTPError(u, 404, "Not Found", {}, None)
+_og, _os = _bd.get, _bd.time.sleep; _bd.get = _get404; _bd.time.sleep = lambda x: None
+try:
+    _od = tempfile.mkdtemp(prefix="wp-tools-")
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()): _bd.build("x-y", {"city": "Y", "country": "X", "pts": [[41.9, 12.5]], "center": [41.9, 12.5]}, _od, "http://t/{z}/{x}/{y}.pbf")
+    ok(len(_n404) > 10 and len(set(_n404)) == len(_n404), "a map tile that is not there is asked for once: " + str(len(_n404)) + " requests, " + str(len(set(_n404))) + " tiles")
+finally: _bd.get, _bd.time.sleep = _og, _os
 
 # --- the photo copies: small, WebP twins, blurred preview (big_photos.py, photos2.py, nightly.py), with no network ---
 import subprocess

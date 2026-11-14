@@ -71,9 +71,12 @@ exports.run = async t => {
   await M.pg.evaluate(() => { W.offline.save = () => Promise.resolve(); W.offline.tick = () => {}; W.vtEngineWarm = () => {}; });   /* (the phone's own saving also asks for packs; the engine has its own checks below) */
   const mv = await M.pg.evaluate(() => { const P = W.plan(), i = P.days.findIndex(d => d.moveFrom); return { n: i + 1, start: W.S.start }; });
   t.ok(mv.n >= 2, 'the example trip has a day that moves to a new town: day ' + mv.n);
-  const setClock = (hh) => M.pg.evaluate(([n, hh]) => { const d = new Date(W.S.start + 'T12:00:00'); d.setDate(d.getDate() + n - 2); const iso = W.isoDay(d);
-    localStorage.setItem('waypoint-now', iso + 'T' + hh + ':00:00'); localStorage.removeItem('waypoint-ahead-map'); W.setAppMode && W.setAppMode('plan'); }, [mv.n, hh]);
-  const run = async (conn, none) => { await M.pg.evaluate(c => { window.__calls = []; window.__conn = c; W.vtFor = () => 'test-slug'; W.vtWarm = s => { window.__calls.push(s); return Promise.resolve(true); }; W.render(); }, conn || null);
+  /* (deterministic: the clock, the connection and the stand-ins are all set in ONE step before the single draw that is under test; setting the clock drew the screen on its own, and the idle work that draw started could land before or after run() cleared __calls) */
+  let clk = null;
+  const setClock = async (hh) => { clk = hh; };
+  const run = async (conn, none) => { await M.pg.evaluate(([c, n, hh]) => { window.__calls = []; window.__conn = c; W.vtFor = () => 'test-slug'; W.vtWarm = s => { window.__calls.push(s); return Promise.resolve(true); };
+      if (hh) { const d = new Date(W.S.start + 'T12:00:00'); d.setDate(d.getDate() + n - 2); localStorage.setItem('waypoint-now', W.isoDay(d) + 'T' + hh + ':00:00'); localStorage.removeItem('waypoint-ahead-map'); W.setAppMode && W.setAppMode('plan'); }
+      W.render(); }, [conn || null, mv.n, clk]);
     if (none) await M.pg.waitForTimeout(3000); else await until(() => M.pg.evaluate(() => window.__calls.length > 0), 14000, 200); await M.pg.waitForTimeout(800); return M.pg.evaluate(() => window.__calls.slice()); };
   await setClock('10'); t.eq(await run(null, 1), [], 'in the morning before a moving day the map is not fetched yet');
   await setClock('19'); t.eq(await run(), ['test-slug'], 'the evening before, the next town\'s map pack is asked for');
@@ -85,7 +88,7 @@ exports.run = async t => {
   await M.pg.evaluate(() => { W.setSimple(false); });
   await M.pg.evaluate(n => { W.S.start = W.S.start; }, 0);
   /* a day that does not move to a new town: nothing */
-  await M.pg.evaluate(() => { localStorage.setItem('waypoint-now', W.isoDay(new Date(W.S.start + 'T12:00:00')) + 'T19:00:00'); localStorage.removeItem('waypoint-ahead-map'); });
+  await M.pg.evaluate(() => { localStorage.setItem('waypoint-now', W.isoDay(new Date(W.S.start + 'T12:00:00')) + 'T19:00:00'); localStorage.removeItem('waypoint-ahead-map'); }); clk = null;
   const stay = await M.pg.evaluate(() => W.P.days[1] && !W.P.days[1].moveFrom);
   if (stay) t.eq(await run(null, 1), [], 'the evening before a day in the same town nothing is fetched');
   /* ---- the map's engine (v192): asked for in idle time while a day of a town with a street map is read ---- */
@@ -129,8 +132,29 @@ exports.run = async t => {
   await F.pg.waitForTimeout(2500);
   const asked2 = await F.pg.evaluate(() => ({ n: window.__more.length, btn: !!document.querySelector('#viewTrip .short-note [data-more]') }));
   t.ok(asked2.n === 1 && asked2.btn, 'short again on the same visit, it is not asked again by itself, and the day offers "Find more ideas" (' + asked2.n + ' asks)');
+  /* another trip in the same page asks afresh (the flag was kept for the whole page, so a second trip asked nothing) */
+  await F.pg.evaluate(() => { W.S.tripId = 'another-trip'; const c = W.C.city[W.cityKey('Italy', 'Florence')]; c.spots = c.spots.slice(0, 3); c.showN = { spots: 3 }; W.S.picks = {}; W.S.day = 2; W.replan(); W.dataV++; W.render(); });
+  await F.pg.waitForTimeout(2000);
+  t.ok(await F.pg.evaluate(() => window.__more.length) >= 2, 'a different trip asks again for the same town');
+  await settle(F.pg, 9000);
   t.eq(F.errors(), [], 'no page errors');
   await F.ctx.close();
+  /* an ask that did not go out (W.loadCity started nothing) leaves the town unmarked, so it is tried again */
+  const H = await mkShort(null);
+  const none = await H.pg.evaluate(async () => { let n = 0; const real = W.loadCity; W.loadCity = function () { n++; };
+    const d = W.P.days[1], c = W.C.city[W.cityKey(d.country, d.city)]; c.spots = c.spots.slice(0, 3); if (c.rest) c.rest.spots = []; c.showN = { spots: 3 };
+    W.S.picks = {}; W.S.day = 2; W.S.tview = 'days'; W.goView('trip'); W.replan(); W.dataV = (W.dataV || 0) + 1;
+    for (let i = 0; i < 3; i++) { W.render(); await new Promise(r => setTimeout(r, 400)); } W.loadCity = real; return n; });
+  t.ok(none >= 2, 'a town whose ask did not start is not marked as asked: it is tried again (' + none + ' tries)');
+  await H.ctx.close();
+  /* a gap in the sights is judged by the sights alone: a town at its sight cap is full for them, short on food or not */
+  const G = await mkShort(null);
+  const capped = await G.pg.evaluate(async () => { const co = W.IDEA_CAP.spots; window.__more = []; const o = W.loadCity; W.loadCity = function (a, b2, more) { if (more) window.__more.push(b2); return o.apply(this, arguments); };
+    const d = W.P.days[1], c = W.C.city[W.cityKey(d.country, d.city)]; c.spots = c.spots.slice(0, 3); if (c.rest) c.rest.spots = []; c.showN = { spots: 3 }; c.food = (c.food || []).slice(0, 3); if (c.rest) c.rest.food = [];
+    W.IDEA_CAP.spots = 3; W.S.picks = {}; W.S.day = 2; W.S.tview = 'days'; W.goView('trip'); W.replan(); W.dataV = (W.dataV || 0) + 1; W.render();
+    await new Promise(r => setTimeout(r, 2000)); const out = { asked: window.__more.length, spotsFull: W.listFull(c, 'spots'), all: W.ideasFull(c) }; W.IDEA_CAP.spots = co; return out; });
+  t.ok(capped.spotsFull && !capped.all && capped.asked === 0, 'a town at its sight cap but short on food is not asked for more sights: ' + JSON.stringify(capped));
+  await G.ctx.close();
   /* never in a trip you only view, and never offline */
   for (const [name, init] of [['a trip you only view', null], ['offline', 'window.__WP_OFFLINE = 1;']]) {
     const R = await mkShort(null);

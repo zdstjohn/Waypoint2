@@ -36,6 +36,17 @@
              cards, and tomorrow's banner on Today (v193)
    route     the day's route along the streets: the walk between two pins from the map pack's own streets, drawn on the map (v197)
    late      a trip shows the same facts whether Claude's answers come at once or late and out of order (v199)
+   exacttimes the clock values a family acts on, to the minute: the toddler's nap (start, 90 minutes, over by 5:30, none from a late
+             lunch), "Leave by" for lunch and dinner, Today's "Leave in / Leave by" for the next stop, tomorrow's "leave by"
+             (a booked ticket) against "leave about" (v201)
+   watch     the price watch: what counts as a drop (3%, at least 10, one currency), Book ahead's banner and list, a re-check,
+             starting and stopping a watch, a trip you only view (v201)
+   importplan importing an itinerary: Claude's answer full of mistakes becomes a clean trip, to the key (pins, slots, days, ages,
+             stays), and the messages for too little text, no places, a busy Claude (v201)
+   rescue    rescuing the day: "tired" keeps one easy outing and frees the rest, booked and started stops stay, Undo; what Claude
+             is told by "say what's going on" and how its answer is checked (v201)
+   napcards  Today's nap and rest cards to the minute, with and without a stay picked, on a day out, on a rest day (v201)
+   citylibrace the city library read slower than the screen: used within its 2.5 s wait, Claude asked after it, nothing filled twice (v201)
    photopack a city's photos in one file: made and read back, shown from it, an offline save from it, a library city saved before a trip (v198)
    world     the world library: a city's checked hours, entry rules, pins and walks laid over its lists (v196)
    storage   Settings > Storage: how full the photos' and maps' file store is, and removing the files nothing uses (v195)
@@ -48,6 +59,8 @@
              screens listed in test/screens-expected.txt are expected (--expect, or SCREENS_EXPECT=<file> as GitHub sets
              it when the commit changed that file); any other changed screen fails. SHOT_SIZES=n,big,dark,wide,desk takes
              only those sizes (GitHub runs each size side by side)
+   firstpaint  the first paint is the same with the stylesheet in one piece as split in two (app.min.css + app2.css, build/bundle.js
+             splitCss): each first screen, with the second script and stylesheet held back, at 390 px light and dark and 820 px
    same      what is drawn, exactly: every screen at every size, its markup and every element's box and computed styles,
              against test/base-same (written when there is none, or by `same --update-baseline` from a build that is
              known good); no tolerance. A change to how the app is split into files must leave it identical
@@ -55,24 +68,31 @@
    --jobs=n     how many suites run at once (JOBS=n too; 3 by default, 1 on GitHub, where the shards are the side by side).
                 The build and the test server are shared; each suite runs in a process of its own, the longest first.
                 The suites that time things (perf, vitals) run alone afterwards, and a suite that fails while others
-                were running is run once more alone: only a failure on its own counts (the report says "on a second
-                run, alone" when that happened, and the last line names every suite that needed it)
+                were running is run once more alone: only a failure on its own counts. A suite that passes only on that
+                second run is a WARNING, not a quiet pass: its line is marked ⚠ with the first failure's message, the
+                summary lists every such suite with that message, and test/out/report.json carries it as the sixth
+                entry of the suite's row (null for a suite that passed first time). It does not fail the run: fix the flake
    --cov        also measure which code the suites run: test/out/coverage.md lists every source file with the share of
                 its built code that ran, and the longest stretches no test runs (perf and vitals are left out) */
 const { spawn, spawnSync } = require('child_process'); const fs = require('fs'); const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const PORT = +process.env.WP_PORT || 8771; /* (a second copy of the app can test beside this one on another port) */ const OUT = path.join(__dirname, 'out'); fs.mkdirSync(OUT, { recursive: true });
 const args = process.argv.slice(2); const flags = new Set(args.filter(a => a.startsWith('--'))); const pick = args.filter(a => !a.startsWith('--'));
-const ALL = ['flight', 'layout', 'planner', 'shape', 'flow', 'dayout', 'back', 'review', 'bookings', 'stays', 'travel', 'claude', 'draw', 'look', 'airplane', 'standalone', 'swphotos', 'ahead', 'cloud', 'accounts', 'tickets', 'holidays', 'firstview', 'together', 'share', 'kept', 'copy', 'tools', 'nope', 'eat', 'money', 'menus', 'pdf', 'simple', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'keys', 'fuzz', 'vitals', 'desktop', 'explore', 'gmaps', 'meals', 'clock', 'daytrip', 'workspace', 'early', 'menuread', 'ideaorder', 'bookcheck', 'brief', 'stillopen', 'packs', 'photoset', 'banner', 'theme', 'phoneday', 'devices', 'nokids', 'citylib', 'names', 'storage', 'world', 'route', 'photopack', 'late', 'same'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
+const ALL = ['bugs', 'flight', 'layout', 'planner', 'shape', 'flow', 'dayout', 'back', 'review', 'bookings', 'stays', 'travel', 'claude', 'draw', 'look', 'airplane', 'standalone', 'swphotos', 'ahead', 'cloud', 'accounts', 'tickets', 'holidays', 'firstview', 'together', 'share', 'kept', 'copy', 'tools', 'nope', 'eat', 'money', 'menus', 'pdf', 'simple', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'keys', 'fuzz', 'vitals', 'desktop', 'explore', 'gmaps', 'meals', 'clock', 'daytrip', 'workspace', 'early', 'menuread', 'ideaorder', 'bookcheck', 'brief', 'stillopen', 'packs', 'photoset', 'banner', 'theme', 'phoneday', 'devices', 'nokids', 'citylib', 'names', 'storage', 'world', 'route', 'photopack', 'late', 'firstpaint', 'exacttimes', 'watch', 'importplan', 'rescue', 'napcards', 'citylibrace', 'same'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
 let suites = pick.length ? pick : ALL;
 /* --cov: also collect which code ran (test/lib/cov.js); the suites that time things are left out of such a run */
 const COV = flags.has('--cov') || !!process.env.WP_COV;
 if (flags.has('--cov')) { process.env.WP_COV = '1'; suites = suites.filter(s => !['perf', 'vitals', 'visual', 'same'].includes(s)); }
-/* --shard=k/n runs one of n groups, balanced by how long each suite takes (seconds, from the online runs; a suite not
-   listed counts as 15): GitHub runs the three groups side by side. Every suite lands in exactly one group. */
-const SECS = { same: 300, flight: 113, banner: 70, ahead: 54, simple: 25, layout: 183, desktop: 166, a11y: 71, keys: 40, flow: 44, together: 37, share: 40, kept: 30, copy: 20, tools: 5, fuzz: 60, devices: 20, firstview: 23, travel: 22, shape: 21, nope: 20,
-  warm: 19, vitals: 19, planner: 17, bookings: 17, packing: 16, offline: 15, explore: 14, perf: 14, sync: 12, places: 11, tickets: 10,
-  focus: 9, holidays: 7, photos: 7, types: 4, validate: 2, judge: 1, pdf: 10, eat: 20, money: 12, menus: 12 };
+/* --shard=k/n runs one of n groups, balanced by how long each suite takes (seconds, measured in v201 with two suites at a time on a busy machine,
+   so a little long; a suite not listed counts as 15): GitHub runs the three groups side by side. Every suite lands in exactly one group. */
+const SECS = {
+  same: 450, fuzz: 185, layout: 168, desktop: 156, ahead: 138, keys: 117, flight: 103, a11y: 78, flow: 78, travel: 62, cloud: 54, late: 54,
+  gmaps: 52, claude: 47, tickets: 47, citylib: 46, banner: 42, photoset: 42, types: 41, bookings: 39, citylibrace: 39, workspace: 38, back: 35,
+  eat: 35, nope: 34, airplane: 33, packs: 33, storage: 33, devices: 32, share: 32, photopack: 31, route: 31, together: 31, world: 28, look: 27,
+  kept: 26, clock: 25, firstview: 25, menuread: 24, money: 24, theme: 24, daytrip: 23, meals: 23, offline: 22, early: 20, explore: 20, phoneday: 20,
+  warm: 20, nokids: 19, simple: 19, vitals: 19, watch: 18, copy: 17, focus: 17, photos: 16, review: 16, shape: 16, sync: 16, draw: 15, pdf: 15,
+  planner: 15, stays: 15, importplan: 14, names: 14, perf: 14, dayout: 13, menus: 13, napcards: 13, standalone: 13, brief: 12, exacttimes: 12,
+  places: 12, packing: 11, rescue: 11, validate: 11, stillopen: 10, swphotos: 10, bookcheck: 9, ideaorder: 9, holidays: 7, tools: 4, judge: 2 };
 const shard = [...flags].map(f => /^--shard=(\d+)\/(\d+)$/.exec(f)).find(Boolean);
 if (shard) {
   const k = +shard[1], n = +shard[2], bins = Array.from({ length: n }, () => ({ t: 0, s: new Set() }));
@@ -105,7 +125,7 @@ async function runSuite(name) {
   const secs = ((Date.now() - t0) / 1000).toFixed(0);
   return [name, fails.length ? 'FAIL' : 'ok', fails, checks.length, secs, checks.filter(c => c.startsWith('(note) ')).map(c => c.slice(7))];
 }
-const line = r => `${r[1] === 'ok' ? '✓' : '✗'} ${r[0].padEnd(9)} ${String(r[3]).padStart(3)} checks  ${r[4]}s` + (r[2].length ? '\n    ' + r[2].join('\n    ') : '') + (r[5] && r[5].length ? '\n    ' + r[5].join('\n    ') : '');
+const line = r => `${r[1] !== 'ok' ? '✗' : r[6] ? '⚠' : '✓'} ${r[0].padEnd(9)} ${String(r[3]).padStart(3)} checks  ${r[4]}s` + (r[2].length ? '\n    ' + r[2].join('\n    ') : '') + (r[5] && r[5].length ? '\n    ' + r[5].join('\n    ') : '');
 
 /* --child=<suite>: what the parent starts for each suite. The build and the server are the parent's; the result goes
    to a file the parent reads */
@@ -140,7 +160,8 @@ if (child) {
     /* failed while others were running: once more, alone. Only that result counts */
     for (const name of again) {
       const first = results[name], r = await one(name);
-      if (r[1] === 'ok') { rerun.push(name); r[5] = (r[5] || []).concat('passed on a second run, alone (with others running: ' + String(first[2][0] || '').slice(0, 160) + ')'); }
+      /* passed alone: a warning, not a quiet pass. The first failure's message goes with it, in the console and in report.json (r[6]) */
+      if (r[1] === 'ok') { const msg = String(first[2][0] || '(no message)').replace(/\s+/g, ' ').slice(0, 400); r[6] = 'passed only on a second run, alone. First failure (' + first[2].length + ' in all): ' + msg; rerun.push(name); r[5] = (r[5] || []).concat('WARNING: ' + r[6]); }
       results[name] = r; console.log(line(r));
     }
     for (const name of suites.filter(s => ALONE.has(s))) { const r = await one(name); results[name] = r; console.log(line(r)); }
@@ -148,9 +169,11 @@ if (child) {
   if (server) server.kill();
   const report = suites.map(n => results[n]), failed = report.filter(r => r[1] !== 'ok').length;
   const took = Math.round((Date.now() - started) / 1000);
-  console.log((failed ? `\n${failed} suite(s) failed: ${report.filter(r => r[1] !== 'ok').map(r => r[0]).join(', ')}` : '\nall suites passed') + ` (${suites.length} suites, ${Math.floor(took / 60)} min ${took % 60} s${jobs > 1 && suites.length > 1 ? ', ' + jobs + ' at a time' : ''}${rerun.length ? '; passed only on a second run, alone: ' + rerun.join(', ') : ''})`);
-  /* a suite that needed its second run is flaky: the last line names it, and the names are kept for the report */
+  console.log((failed ? `\n${failed} suite(s) failed: ${report.filter(r => r[1] !== 'ok').map(r => r[0]).join(', ')}` : '\nall suites passed' + (rerun.length ? ' (with warnings)' : '')) + ` (${suites.length} suites, ${Math.floor(took / 60)} min ${took % 60} s${jobs > 1 && suites.length > 1 ? ', ' + jobs + ' at a time' : ''}${rerun.length ? '; passed only on a second run, alone: ' + rerun.join(', ') : ''})`);
+  /* a suite that needed its second run is flaky: each is listed again here with its first failure, so a quiet pass cannot hide it */
+  if (rerun.length) console.log(`\n⚠ WARNING: ${rerun.length} suite(s) passed only on a second run, alone (flaky):\n` + rerun.map(n => `  ${n}: ${results[n][6].replace(/^passed only on a second run, alone\. /, '')}`).join('\n'));
   if (COV) { const c = require('./lib/cov').report(); console.log(`coverage: ${Math.round(c.all * 100)}% of the app's built code ran in ${c.measured.length} suites (least: ${c.rows.slice(0, 4).map(x => x.f + ' ' + Math.round(x.pct * 100) + '%').join(', ')}); details in test/out/coverage.md`); }
-  fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(report.map(r => r.slice(0, 5)), null, 1));
+  /* a row: [name, 'ok' | 'FAIL', failures, checks, seconds, warning]; the warning is null, or says the suite passed only on its second run and why the first failed */
+  fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(report.map(r => r.slice(0, 5).concat([r[6] || null])), null, 1));
   process.exit(failed ? 1 : 0);
 })();

@@ -42,16 +42,10 @@
       di = (e.di || []).filter(function (k) {
         return eatName(W.EAT_DI, k);
       });
-    var love = String(e.love || "")
-        .trim()
-        .slice(0, 120),
-      avoid = String(e.avoid || "")
-        .trim()
-        .slice(0, 120),
-      note = String(e.note || "")
-        .trim()
-        .slice(0, 200);
-    return al.length || di.length || love || avoid || note ? { al: al, di: di, love: love, avoid: avoid, note: note } : null;
+    /* (v202: allergies and diets only. "Food you love", "Rather avoid" and "Anything else" were taken out of the
+       What you eat step at the owner's ask; what a trip saved there is no longer read, so nothing it can't see or
+       change steers its meals) */
+    return al.length || di.length ? { al: al, di: di } : null;
   };
   /* the needs in words, for Claude and for the screen */
   W.eatText = function () {
@@ -73,10 +67,7 @@
               return eatName(W.EAT_DI, k);
             })
             .join(", ")
-        : "",
-      n.love ? "loves " + n.love : "",
-      n.avoid ? "would rather avoid " + n.avoid : "",
-      n.note ? "note: " + n.note : ""
+        : ""
     ]
       .filter(Boolean)
       .join("; ");
@@ -87,54 +78,16 @@
     for (var i = 0; i < t.length; i++) h = (h * 33 + t.charCodeAt(i)) | 0;
     return t ? (h >>> 0).toString(36) : "";
   };
-  /* the words of "Food you love" or "Rather avoid", for matching a place without Claude: "Grilled fish, pizza" ->
-     ["grilled fish", "pizza"] (filler like "very" and "food" dropped; a plural also matches its singular) */
-  function terms(txt) {
-    return String(txt || "")
-      .toLowerCase()
-      .split(/,|;|\/|\band\b|\bor\b|\+/)
-      .map(function (x) {
-        return W.norm(x)
-          .replace(
-            /\b(very|really|food|foods|dishes|dish|anything|lots of|any|good|great|kind of|kinds of|we|our|love|like|the|a|an)\b/g,
-            " "
-          )
-          .replace(/\s+/g, " ")
-          .trim();
-      })
-      .filter(function (x) {
-        return x.length >= 3;
-      });
-  }
-  function hits(list, it) {
-    if (!list.length || !it) return false;
-    var text = " " + W.norm([it.n, it.cuisine || "", it.d || ""].join(" ")) + " ";
-    return list.some(function (t) {
-      var one = t.replace(/(e?s)$/, "");
-      return text.indexOf(" " + t) > -1 || (one.length >= 3 && text.indexOf(" " + one) > -1);
-    });
-  }
   /* a place's mark from Claude, if it was made for the needs as they are now */
   function mark(it) {
     var s = W.eatSig(),
       e = it && it.eat;
     return s && e && e.sig === s && e.f !== undefined ? e : null;
   }
-  /* how a place fits the group's food needs now: "good", "ok", "poor", or "" (no needs, or not known). Claude's check
-     when there is one; otherwise "poor" when its name, cuisine or description has what you'd rather avoid */
+  /* how a place fits the group's food needs now: "good", "ok", "poor", or "" (no needs, or not known): Claude's check */
   W.eatFit = function (it) {
     var m = mark(it);
-    if (m && m.f) return m.f;
-    var n = W.eatNeeds();
-    return n && hits(terms(n.avoid), it) ? "poor" : "";
-  };
-  /* how well a place matches "Food you love": 2 (a place for it), 1 (has some), 0. Claude's check, or the words */
-  W.eatLike = function (it) {
-    var n = W.eatNeeds();
-    if (!n || !n.love) return 0;
-    var m = mark(it);
-    if (m && m.l != null) return m.l;
-    return hits(terms(n.love), it) ? 2 : 0;
+    return m && m.f ? m.f : "";
   };
   W.eatWhy = function (it) {
     var m = mark(it);
@@ -147,28 +100,14 @@
       " The group's food needs: " +
       t +
       ". Suggest places that can feed them well (clear dishes for their diet; kitchens that handle allergies carefully) and never one where that is hard (for example a seafood-only grill for a shellfish allergy)." +
-      " For each place, fit = good (plenty they can eat), ok (some options; tell the staff) or poor, and fitw = one short line on what they can have or what to ask." +
-      W.eatLikeAsk()
+      " For each place, fit = good (plenty they can eat), ok (some options; tell the staff) or poor, and fitw = one short line on what they can have or what to ask."
     );
   };
-  /* what they love is asked about apart from what they can eat (a place that can feed them is not a place they love) */
-  W.eatLikeAsk = function () {
-    var n = W.eatNeeds();
-    return n && n.love
-      ? " Separately, like = 2 if it is a place for what they love (" +
-          n.love +
-          "), 1 if it has some of it, 0 if not; be strict, most places are 0."
-      : "";
-  };
-  function likeOf(v) {
-    return v === 2 || v === "2" ? 2 : v === 1 || v === "1" ? 1 : 0;
-  }
-  W.eatLikeOf = likeOf;
   W.eatMark = function (list) {
     var sig = W.eatSig();
     if (!sig) return;
     (list || []).forEach(function (x) {
-      if (x && x.fit) x.eat = { f: x.fit, w: x.fitw || "", l: likeOf(x.like), sig: sig };
+      if (x && x.fit) x.eat = { f: x.fit, w: x.fitw || "", sig: sig };
       if (x) {
         delete x.fit;
         delete x.fitw;

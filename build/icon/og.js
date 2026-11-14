@@ -6,7 +6,7 @@ const { chromium } = require('playwright');
 const root = path.join(__dirname, '..', '..');
 const b64 = (p, mime) => `data:${mime};base64,` + fs.readFileSync(p).toString('base64');
 const icon = b64(path.join(__dirname, 'out', 'icon-512.png'), 'image/png');
-const dela = b64(path.join(root, 'trip', 'fonts', 'dela-gothic-one-latin-400-normal.woff2'), 'font/woff2');
+const dela = b64(path.join(__dirname, 'fonts', 'dela-gothic-one-latin-400-normal.woff2'), 'font/woff2');
 const jak = b64(path.join(root, 'trip', 'fonts', 'plus-jakarta-sans-latin-wght-normal.woff2'), 'font/woff2');
 const html = `<!doctype html><meta charset=utf-8><style>
 @font-face{font-family:D;src:url(${dela})}@font-face{font-family:J;src:url(${jak});font-weight:200 800}

@@ -96,8 +96,19 @@ exports.run = async t => {
   await pg.keyboard.press('ArrowDown'); await pg.keyboard.press('Enter'); await pg.waitForTimeout(500);
   t.ok(tc[0] === 'Florence' && await pg.evaluate(() => W.S.countries[0].picked.includes('Florence')), 'cities too, and the arrow keys and Enter choose: ' + tc.join(', '));
   /* (a city whose name sounds like scenery is still a place to stay; a park never is, whatever the list says) */
-  const dt = await pg.evaluate(() => ['Salt Lake City', 'Gold Coast|stay', 'Niagara Falls', 'Costa de la Luz', 'Yosemite National Park|stay', 'Lake Como', 'Barcelona'].map(x => { const [name, s] = x.split('|'); return name + ':' + (W.dayTrip({ name, stay: s ? 1 : 0 }) ? 'day' : 'stay'); }));
-  t.eq(dt, ['Salt Lake City:stay', 'Gold Coast:stay', 'Niagara Falls:day', 'Costa de la Luz:day', 'Yosemite National Park:day', 'Lake Como:day', 'Barcelona:stay'], 'which names are day trips');
+  const dt = await pg.evaluate(() => ['Salt Lake City', 'Gold Coast|stay', 'Niagara Falls', 'Costa de la Luz', 'Yosemite National Park|stay', 'Lake Como', 'Barcelona', 'Navagio Beach', 'Myrtos Beach', 'Balos Lagoon', 'Playa del Carmen|stay', 'Miami Beach|stay'].map(x => { const [name, s] = x.split('|'); return name + ':' + (W.dayTrip({ name, stay: s ? 1 : 0 }) ? 'day' : 'stay'); }));
+  t.eq(dt, ['Salt Lake City:stay', 'Gold Coast:stay', 'Niagara Falls:day', 'Costa de la Luz:day', 'Yosemite National Park:day', 'Lake Como:day', 'Barcelona:stay', 'Navagio Beach:day', 'Myrtos Beach:day', 'Balos Lagoon:day', 'Playa del Carmen:stay', 'Miami Beach:stay'], 'which names are day trips (v202: a beach or a lagoon too, unless the list says it is a place to stay)');
+  /* v202, the owner: "In Greece when I suggested a long itinerary it suggested I stay at beaches": a suggested country
+     whose list is not ranked best-known-first never puts a stay at a day trip either */
+  const greece = await pg.evaluate(() => {
+    /* (a country with no built-in list, so the list below is all there is: beaches first by fame) */
+    const L = [['Ksamil Beach', 39.77, 20.0, 5, null], ['Gjipe Beach', 40.13, 19.67, 5, 0], ['Blue Eye', 39.92, 20.19, 5, 0], ['Tirana', 41.33, 19.82, 4, 1], ['Saranda', 39.87, 20.0, 4, 1], ['Gjirokaster', 40.08, 20.14, 4, 1], ['Berat', 40.7, 19.95, 4, 1], ['Vlore', 40.47, 19.49, 3, 1]];
+    W.C.country['Albania'] = { blurb: '', cities: L.map(([name, lat, lng, pop, base]) => Object.assign({ name, region: 'x', lat, lng, w: 3, pop, t: ['beach'] }, base === 0 ? { day: 1 } : base === 1 ? { stay: 1 } : {})), v: W.COUNTRY_V };
+    W.S.countries = [{ mode: 'suggest', name: 'Albania', picked: [], rank: 0 }]; W.S.days = 21; W.S.cityDays = {};
+    W.changed(); W.replan();
+    return W.plan().stops.map(s => s.name);
+  });
+  t.ok(greece.length >= 3 && !greece.some(n => /Beach|Blue Eye/.test(n)), 'a suggested trip stays in towns only, never at a beach or a single sight, even when they are the best known: ' + greece.join(', '));
   t.eq(errors().filter(e => !/answer for odd/.test(e)), [], 'no page errors');
   await ctx.close(); await b.close();
 };

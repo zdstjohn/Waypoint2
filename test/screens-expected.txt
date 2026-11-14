@@ -54,3 +54,7 @@ menu-*
 # (none in these screens).
 settings-*
 menu-*
+# v202: the baseline (test/base-same) was written again from v202's build. Against v201's every screen differed, each
+# for an asked-for change: What do you eat is allergies and diets only (the step reads as done), the day banner's date,
+# level and kind sit on a line of their own, Today puts Tonight before Up next, the What's new card, and the example
+# trip (it leaves from Los Angeles) now plans its first two days as jet-lag days, so its places and times differ.

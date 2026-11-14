@@ -190,7 +190,7 @@
       })
       .then(function () {
         busy[key] = false;
-        W.changed();
+        W.redraw(); /* (prices show in Prepare and the stay cards: the plan doesn't read them) */
       });
   }
   /* Booking.com's places in three tiers by price a night, the well rated first in each; places rated under 7 go when
@@ -398,7 +398,7 @@
       )
       .then(function () {
         busy[k] = false;
-        W.changed();
+        W.redraw();
       });
   }
   /* the Expedia search for a flight (shared with the price watch) */

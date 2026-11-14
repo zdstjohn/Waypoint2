@@ -22,6 +22,7 @@ const CLOCK = `(() => { const R = Date, off = R.UTC(2026, 10, 13, 10, 5, 0) - R.
   window.Date = new Proxy(R, { construct(t, a) { return a.length ? new t(...a) : new t(t.now() + off); }, apply(t) { return new t(t.now() + off).toString(); }, get(t, k) { return k === 'now' ? () => t.now() + off : t[k]; } });
   /* (and the same "random" bytes: a new trip's id is drawn from them, and it is in the trips menu's markup) */
   let s = 987654321; crypto.getRandomValues = a => { for (let i = 0; i < a.length; i++) { s = (s * 1664525 + 1013904223) >>> 0; a[i] = s >>> 24; } return a; }; })();`;
+exports.PROPS = PROPS; exports.CLOCK = CLOCK;   /* (test/suites/firstpaint.js reads the same styles at the same clock) */
 /* (as test/shots.js: nothing loading and no request out for a while) */
 async function quietly(pg, quiet = 3000, ms = 60000) {
   const end = Date.now() + ms;

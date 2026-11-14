@@ -67,6 +67,12 @@ exports.run = async t => {
     const back = await pg.evaluate(k => { W.render(); const line = document.querySelector('.auto-line'); return { found: !!(W.autoFound && W.autoFound(k)), line: line ? line.innerText : '' }; }, bb.key);
     t.ok(back.found && /checked your inbox/.test(back.line) && /1 reminder/.test(back.line), 'and what the helper found comes back to the list: ' + JSON.stringify(back));
   }
+  /* (v201) opened again with nothing changed, the list is not written again (what was sent is remembered on the phone) */
+  await pg.reload(); await pg.waitForFunction(() => window.W && W.P && W.P.days && W.P.days.length, null, { timeout: 15000 }); await pg.waitForFunction(() => W.laterReady, null, { timeout: 15000 }).catch(() => {});
+  await pg.evaluate(() => { window.__writes = []; W.isExample = false; W.S.tripId = 'tauto1'; W.S.start = '2027-06-07'; W.S.prepTab = 'tobook'; W.changed(); W.render(); if (W.autoTick) W.autoTick(W.P); });
+  await pg.waitForTimeout(3500);
+  const again = await pg.evaluate(() => ({ writes: window.__writes.filter(p => /bookby/.test(p)), sig: Object.keys(JSON.parse(localStorage.getItem('waypoint-bookby-sig') || '{}')) }));
+  t.ok(again.sig.includes('tauto1') && !again.writes.length, 'opened again with nothing changed, the book-by list is not written again: ' + JSON.stringify(again));
   t.eq(errors(), [], 'no page errors');
   await ctx.close();
   /* v152: the reminders follow the trip's clock. On Day 2, the flight and the first stay are not "Book now": they ask

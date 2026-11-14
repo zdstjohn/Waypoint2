@@ -27,7 +27,6 @@
   var DBN = "waypoint-offline",
     dbp = null,
     urls = {},
-    loadedBlobs = false,
     saveTimer = null,
     SAVE_KEY = "waypoint-offline-v1";
   var rec = null;
@@ -85,13 +84,6 @@
           no(e);
         }
       });
-    });
-  }
-  function getAll(store) {
-    return tx(store, "readonly", function (s) {
-      return s.getAll();
-    }).then(null, function () {
-      return [];
     });
   }
   function put(store, v) {
@@ -278,7 +270,7 @@
               return r.blob();
             })
             .then(function (b) {
-              return put("blobs", { url: u, blob: b, at: Date.now() });
+              return put("blobs", { url: u, blob: b, at: Date.now(), used: Date.now() });
             })
             .then(
               function () {
@@ -378,23 +370,36 @@
   };
 
   /* ---------- using what's saved ---------- */
-  /* when offline, saved photos come from the phone: the same picture, from a blob */
-  function loadBlobs() {
-    if (loadedBlobs) return Promise.resolve();
-    loadedBlobs = true;
-    return getAll("blobs").then(function (rows) {
-      rows.forEach(function (r) {
-        try {
-          if (!urls[r.url]) urls[r.url] = URL.createObjectURL(r.blob);
-        } catch (e) {}
-      });
-      W.changed();
-    });
+  /* when offline, saved photos come from the phone: the same picture, from a blob. Not all at once (a phone can hold
+     hundreds of megabytes of them): a picture is read from the store when the page first asks for it, in one batch per
+     moment, and the page is drawn again as they arrive. */
+  var asked = /** @type {Record<string, 1>} */ ({});
+  /** a picture the page wants while offline, not here yet: read from the store, once; the page is drawn again (once per
+      burst of them: W.redraw) @param {string} u */
+  function wantBlob(u) {
+    if (asked[u]) return;
+    asked[u] = 1;
+    tx("blobs", "readonly", function (s) {
+      return s.get(u);
+    }).then(function (r) {
+      if (!r) return;
+      urls[u] = URL.createObjectURL(r.blob);
+      usedNow[u] = 1;
+      W.redraw();
+    }, function () {});
   }
+  /* ---------- when each photo was last used, and letting go of the unused ---------- */
+  /* A photo on the phone carries the time it was last shown (used; a photo saved before this has only its saving time,
+     at). Once a day, at idle, a photo not used for 60 days that belongs to no city of any trip of yours and no city
+     saved in Settings' world library is deleted (O.prune, lib/offcopy.js, in the second script). */
+  var usedNow = /** @type {Record<string, 1>} */ ((O.usedNow = {}));
+  /* (a photo shown is noted in usedNow; lib/tidy.js writes the notes to the store when the page is put away or the daily
+     tidy runs) */
   O.src = function (u, pk) {
     if (!u) return u;
     if (O.copy && window.__WP_OFFLINE.blobs && window.__WP_OFFLINE.blobs[u]) return window.__WP_OFFLINE.blobs[u];
     if ((O.off || pk) && urls[u]) return urls[u];
+    if (O.off && !pk) wantBlob(u);
     /* a picture that is only in its city's pack (v198): asked for (lib/photopack.js, with the second script), and a
        clear dot until it is here */
     if (pk) {
@@ -407,11 +412,11 @@
   O.tx = tx;
   O.take = function (u, blob) {
     if (!urls[u]) urls[u] = URL.createObjectURL(blob);
+    usedNow[u] = 1;
   };
   if (O.copy) document.documentElement.classList.add("copy");
   function goOffline() {
     O.off = true;
-    loadBlobs();
     document.documentElement.classList.add("offline");
     W.changed();
   }
@@ -532,7 +537,6 @@
   window.addEventListener("online", hideNote);
   if (O.off) {
     document.documentElement.classList.add("offline");
-    loadBlobs();
   }
   /* the photo index saved last time fills in before the database answers (and instead of it, offline) */
   if (!O.copy)

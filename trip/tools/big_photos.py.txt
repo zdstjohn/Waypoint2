@@ -26,12 +26,31 @@ import hashlib, io, json, os, re, sys, time, unicodedata, urllib.error, urllib.p
 UA = "WaypointTripPlanner/1.0 (family trip planner; photo copies)"
 WIDTH = 1920
 
-def norm(s):
-    s = unicodedata.normalize("NFD", str(s or "").lower())
-    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
-    return re.sub(r"[^a-z0-9]+", " ", s).strip()
+_FOLD = {"ł": "l", "ø": "o", "ß": "ss", "đ": "d", "æ": "ae", "þ": "th", "ı": "i"}  # (letters that are no base letter plus an accent)
 
-def slug_of(country, city): return norm(country + " " + city).replace(" ", "-")[:80] or "x"
+
+def norm(s):
+    """The app's name rule, trip/lib/core.js W.norm (one copy per script: each is fetched on its own by the nightly
+    tasks; the tools suite checks every copy gives the app's answers): plain lower-case letters and digits; a name with
+    no Latin letters or digits at all (Αθήνα, 東京) is "u" and the hex of each code point, so it still tells places apart"""
+    t = "".join(_FOLD.get(c, c) for c in str(s or "").lower())
+    t = re.sub("[\u0300-\u036f]", "", unicodedata.normalize("NFD", t))
+    a = re.sub(r"[^a-z0-9]+", " ", t).strip()
+    return a or " ".join("u%x" % ord(c) for c in t if c.isalnum())
+
+def slug_of(country, city):
+    """a city's id in the database: trip/lib/photos.js W.citySlug (country and city made plain apart)"""
+    return (norm(norm(country) + " " + norm(city))).replace(" ", "-")[:80] or "x"
+
+
+def slug_old(country, city):
+    """the id it had before v201 ("x" for another script, dropped letters); "" when the same, or when it was only the
+    country's id or the shared "x" (a document there is not this city's)"""
+    def old(s):
+        t = re.sub("[\\u0300-\\u036f]", "", unicodedata.normalize("NFD", str(s or "").lower()))
+        return re.sub(r"[^a-z0-9]+", " ", t).strip().replace(" ", "-")[:80] or "x"
+    o = old(str(country or "") + " " + str(city or ""))
+    return "" if o in (slug_of(country, city), "x", old(country)) else o
 
 def load(d):
     out = {}
@@ -166,7 +185,7 @@ def prepare(db, work, cap, small_cap=80):
     plan, seen = [], set()
     os.makedirs(os.path.join(work, "big"), exist_ok=True)
     for slug, w in order:
-        doc = photos.get(slug) or photos.get(slug_of(w.get("country", ""), w.get("city", "")))
+        doc = photos.get(slug) or photos.get(slug_of(w.get("country", ""), w.get("city", ""))) or photos.get(slug_old(w.get("country", ""), w.get("city", "")) or "-")
         if not doc: continue
         items = doc.get("items") or {}
         food = {norm(n) for n in (w.get("food") or [])}

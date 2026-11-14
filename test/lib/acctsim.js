@@ -76,7 +76,7 @@ Phone.prototype.open = async function (noWait) {
   else delete ctx.claude;
   /* core.js:155-168 and 222-266 (stand-in) */
   const W = { $: () => null, esc: s => String(s), ago: () => "", C: { country: {}, city: {}, legs: {} }, P: null, readOnly: null,
-    cityKey: (c, n) => c + "|" + n, slug: s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-"), norm: s => String(s).toLowerCase(),
+    cityKey: (c, n) => c + "|" + n, slug: s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-"), citySlug: (c, n) => String(c + " " + n).toLowerCase().replace(/[^a-z0-9]+/g, "-"), norm: s => String(s).toLowerCase(),
     replan() {}, releaseLoads() {}, render() {}, setView() {}, fxAfter() {}, fxFlip: (a, b, fn) => fn(), backOpen() {}, backShut() {}, caught() {}, V: { shared: x => x } };
   ctx.W = W;
   let s = null; try { s = JSON.parse(ls.getItem("waypoint-v2")); } catch (e) {}

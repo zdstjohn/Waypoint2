@@ -10,10 +10,13 @@ exports.run = async t => {
       'basilica and expiatory church of the holy family': ph('sf'), 'sagrada familia': ph('sf'), 'roscioli salumeria con cucina': ph('roscioli'), 'castel sant angelo': ph('csa') }, city: 'Rome', country: 'Italy' },
     'photos/united-states-new-york': { items: { 'statue of liberty': ph('liberty') }, city: 'New York', country: 'United States' },
   };
-  const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, db: mkdb(seed) }); await exampleTrip(pg);
+  const ops0 = [], db0 = mkdb(seed), rec0 = (o, p, body) => { ops0.push(o + ' ' + p); return db0(o, p, body); };
+  const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, db: rec0 }); await exampleTrip(pg);
   await pg.waitForFunction(() => !!W.photoFor({ n: 'Pantheon' }, false, 'Italy', 'Rome'), null, { timeout: 8000 }).catch(() => {});
   /* (v182: a town's index comes when it is first looked up; one under another spelling of its country, a moment later) */
   await pg.waitForFunction(() => !!W.photoFor({ n: 'Statue of Liberty' }, false, 'USA', 'New York'), null, { timeout: 8000 }).catch(() => {});
+  /* (v201) a town found under another name of its country is asked for by name: the whole photos list is never read */
+  t.ok(!ops0.some(o => o === 'list photos') && ops0.includes('get photos/united-states-new-york'), 'a town under another name of its country is read by name, not by reading every town: ' + JSON.stringify(ops0.filter(o => / photos/.test(o)).slice(0, 8)));
   const r = await pg.evaluate(() => {
     const f = (n, food, country, city) => { const p = W.photoFor({ n }, !!food, country || 'Italy', city || 'Rome'); return p ? p.url.split('#')[1] : null; };
     return {

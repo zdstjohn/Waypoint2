@@ -5,7 +5,9 @@
    should be near. It asks at most three times per town, and never for a meal the clock cut or one you freed. */
 const { launch, open, exampleTrip, settle } = require('../lib/page'); const mkdb = require('../lib/db');
 exports.run = async t => {
-  const b = await launch(); const { pg, errors } = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(pg); await settle(pg, 8000);
+  const b = await launch(); const { pg, errors } = await open(b, { width: 390, height: 844, db: mkdb() }); await exampleTrip(pg);
+  /* (no departure: the jet lag then counts from the phone, which is on UTC here; from Los Angeles the first two days run on an early dinner, which is not what this suite looks at) */
+  await pg.evaluate(() => { W.S.depart = ''; Object.keys(W.C.city).forEach(k => { delete W.C.city[k].mealAsks; }); window.__foodAsks = []; W.replan(); W.dataV = (W.dataV || 0) + 1; W.render(); }); await settle(pg, 8000);
   const snap = stop => pg.evaluate(stop => { const P = W.plan(), s = P.stops[stop], ck = W.cityKey(s.country, s.name), c = W.C.city[ck], asks = (window.__foodAsks || []);
     const meals = []; P.days.filter(d => d.stop === stop).forEach(d => d.slots.forEach((x, i) => { if (!W.isFood(x.slot)) return;
       let by = null; d.slots.forEach((o, j) => { if (j < i && o.item && o.item.lat != null) by = o.item; });

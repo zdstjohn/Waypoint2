@@ -7,7 +7,10 @@ const SPAIN = [['Madrid', 40.4168, -3.7038], ['Toledo', 39.8628, -4.0273], ['Mal
 exports.run = async t => {
   const b = await launch(); const { pg, ctx, errors } = await open(b, { width: 390, tz: 'America/Los_Angeles' });
 
-  /* startup */
+  /* startup (a 390 px screen: a page at the 980 px a phone uses without a viewport tag would be timed for another layout) */
+  t.eq(await pg.evaluate(() => innerWidth), 390, 'the page is measured at 390 px');
+  /* (the second script comes when the page is idle: on a busy machine that can be after open() returns, so it is waited for, up to 20 s, before the requests are read) */
+  await pg.waitForFunction(() => window.W && W.laterReady, null, { timeout: 20000 }).catch(() => {});
   const st = await pg.evaluate(() => {
     const res = performance.getEntriesByType('resource').map(e => ({ n: e.name.replace(/^.*:\d+\//, ''), kb: Math.round((e.transferSize || e.encodedBodySize || 0) / 1024) }));
     return { n: res.length, external: res.filter(r => /^https?:/.test(r.n)).map(r => r.n), scripts: res.filter(r => /\.js$/.test(r.n)).length, fonts: res.filter(r => /woff2$/.test(r.n)).length, list: res.map(r => r.n) };
@@ -53,13 +56,38 @@ exports.run = async t => {
     time('render', () => W.render(), 5);
     W.S.day = 9; time('renderDay9', () => W.render(), 5);
     W.S.picks['x|changed'] = 'a'; const P1 = W.plan(); T.replanned = P1 !== P0; delete W.S.picks['x|changed'];
+    /* a day's clock is worked out once for what the planner leaves it, and never kept past the plan */
+    { const r0 = W.dayTimesRuns; W.replan(); const P2 = W.plan(); T.clockRuns = W.dayTimesRuns - r0; T.clockDays = P2.days.length;
+      const d = P2.days.find(x => x.slots && x.slots.length), r1 = W.dayTimesRuns; const a = W.dayTimes(d, P2), c = W.dayTimes(d, P2); T.clockKept = W.dayTimesRuns - r1; T.clockSame = JSON.stringify(a) === JSON.stringify(c); }
+    /* the pinned clock is read from localStorage once per plan, not once per W.now (682 reads a plan) */
+    { let g = 0; const gi = Storage.prototype.getItem; Storage.prototype.getItem = function (k) { if (k === 'waypoint-now') g++; return gi.apply(this, arguments); };
+      try { W.replan(); W.plan(); } finally { Storage.prototype.getItem = gi; } T.pinReads = g; }
     return T;
   });
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
   t.ok(tm.same && tm.memo < 3, `an unchanged trip reuses its plan (${tm.memo} ms)`);
   t.ok(tm.replanned, 'a changed pick plans again');
+  t.ok(tm.clockRuns <= tm.clockDays * 16, `a plan works out a day's clock about ${Math.round(tm.clockRuns / tm.clockDays)} times a day, not 20 (${tm.clockRuns} times for ${tm.clockDays} days)`);
+  t.ok(tm.clockKept === 2 && tm.clockSame, `outside a plan nothing is kept: two asks, two workings-out (${tm.clockKept}), the same answer`);
+  t.ok(tm.pinReads <= 5, `one plan reads the test clock's storage key at most a handful of times (${tm.pinReads}; it was 682)`);
   t.ok(tm.render < 120, `a render with the CPU throttled 4x stays under 120 ms (${tm.render} ms; a full plan is ${tm.full} ms)`);
   t.note(`4x throttled: plan ${tm.full} ms, memo ${tm.memo} ms, render ${tm.render} ms / day 9 ${tm.renderDay9} ms`);
+
+  /* background answers: while a finger is busy they wait for a longer lull, and an answer that cannot change the plan
+     (what things cost) is drawn without a re-plan */
+  await pg.evaluate(() => { W.SAMPLE = { json: () => Promise.resolve({ cur: 'EUR', breakfast: 10, lunch: 20, dinner: 30, transit: 5, lodge: 100, tickets: [] }) }; W.sampleState = 'on'; });
+  await calm(pg, 8000);
+  const burst = await pg.evaluate(() => new Promise(done => {
+    let renders = 0; const rd = W.render; W.render = function () { renders++; return rd.apply(this, arguments); };
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    let n = 0; const iv = setInterval(() => { W.arrived(); if (++n === 8) { clearInterval(iv); setTimeout(() => { W.render = rd; done(renders); }, 1400); } }, 150);
+  }));
+  t.ok(burst <= 3, `answers arriving 150 ms apart while the person taps are drawn in a few batches, not one each (${burst} draws for 8 answers; it was 7)`);
+  const cost = await pg.evaluate(() => new Promise(done => {
+    const v0 = W.dataV; W.run('cost|perf-test|36|0', { ask: 'asks.3', a: ['36', 'Madrid', 'perf-test', 'Spain', []] }, 'quick');
+    setTimeout(() => done({ dv: W.dataV - v0, got: !!W.C.cost['perf-test'] }), 1500);
+  }));
+  t.ok(cost.got && cost.dv === 0, `a cost answer is drawn without a re-plan (it arrived: ${cost.got}; the planner was told ${cost.dv} times)`);
 
   /* map packs: decoded in the worker, cached for next time */
   const dir = path.join(t.root, 'trip', 'vt', '_t'); fs.mkdirSync(dir, { recursive: true });

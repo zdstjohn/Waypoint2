@@ -6,7 +6,7 @@
    (trip/lib/rules.js), which states the owner's nine rules as code:
      1 every day is full, or says why not      2 the planner's days fit the clock     3 a real place is planned once
      4 a day stays in one area                 5 no train journeys as things to do    6 open when you are there
-     7 naps for toddlers, nothing strenuous for grandparents    8 only names that are one real place
+     7 naps for toddlers (over by 5:30 pm), nothing strenuous for grandparents   8 only names that are one real place
      9 what you chose by hand stays put
    The trips run on three clocks (UTC, Madrid, Los Angeles: seed % 3), so a date sum that slips at a daylight-saving
    change shows. FUZZ=2000 node test/run.js fuzz runs more; a failure prints the seed, and FUZZ_SEED=<n> replays that
@@ -18,11 +18,21 @@ const ZONES = ['UTC', 'Europe/Madrid', 'America/Los_Angeles'];
 
 exports.run = async t => {
   const b = await launch();
+  /* the nap rule has teeth: on the example trip, a day whose nap runs to 6 pm is reported as rule 7, and the plan as it is reports nothing */
+  { const { pg, ctx } = await open(b, { width: 390, height: 844 }); await exampleTrip(pg);
+    const r = await pg.evaluate(() => { const clean = W.checkPlan().filter(x => x.rule === 7).length, o = W.dayTimes; let hit = 0;
+      /* (moved to end at 6 pm whatever time it ends now: the example's day 2 is a jet-lag day on a phone not in Los Angeles) */
+      let moved = '';
+      W.dayTimes = function (d, P) { const T = o.apply(this, arguments); if (T && T.nap && d.n === 2) { const by = 18 * 60 - T.nap.end; T.nap = { start: T.nap.start + by, end: T.nap.end + by }; moved = W.clock(T.nap.end); hit = 1; } return T; };
+      const bad = W.checkPlan().filter(x => x.rule === 7 && /^the nap ends/.test(x.what)); W.dayTimes = o; return { clean, hit, bad, moved }; });
+    t.ok(r.clean === 0 && r.hit === 1 && r.bad.length === 1 && r.bad[0].day === 2 && r.bad[0].what.indexOf('ends at ' + r.moved + ', after 5:30 PM') > -1, 'the nap rule: the example keeps it, and a nap that ends at 6 pm is reported: ' + JSON.stringify(r.bad));
+    await ctx.close(); }
   const seeds = ONLY != null ? [ONLY] : Array.from({ length: N }, (_, i) => FROM + i);
   let failures = [], planned = 0, loading = 0, slots = 0, filled = 0, days = 0; const why = {}, rules = {}, errs = []; const t0 = Date.now();
   for (let z = 0; z < ZONES.length; z++) {
     const mine = seeds.filter(s => s % ZONES.length === z); if (!mine.length) continue;
     const { pg, ctx, errors } = await open(b, { width: 390, height: 844, tz: ZONES[z] }); await exampleTrip(pg);
+    if (process.env.FUZZ_NASTY) await pg.evaluate(() => { window.__nasty = 1; });
     await pg.addScriptTag({ content: '(' + world.toString() + ')();' });
     await pg.evaluate(d => { window.__fuzzDetail = d; return W.needLater && W.needLater(); }, !!process.env.FUZZ_DETAIL);
     await pg.waitForFunction(() => !!(window.W && W.checkPlan && W.useIdea), null, { timeout: 20000 });

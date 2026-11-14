@@ -116,6 +116,33 @@ exports.run = async t => {
     return { a, b, was };
   });
   t.ok(note.a === '' && /offline copy/.test(note.b) && /can't open without a connection/.test(note.b), 'within a week of leaving, with no offline copy yet, the app says to save one (not before): ' + note.b.replace(/<[^>]+>/g, '').slice(0, 90));
+  /* (v201) the phone's photo store no longer only grows: each photo carries when it was last used, and once a day a photo
+     unused for 60 days that no trip city and no saved city needs is deleted; offline, photos are read as they are asked for */
+  await ctx.setOffline(false); await pg.waitForTimeout(300);
+  const pr = await pg.evaluate(async () => {
+    const O = W.offline, day = 864e5, now = Date.now(), items = W.photosSnapshot().PHOTOS['italy-rome'] || {}, romeUrl = Object.keys(items).map(k => items[k].url).filter(Boolean)[0];
+    const blob = () => new Blob(['x'], { type: 'image/jpeg' });
+    const rows = [['t:orphan', now - 100 * day], ['t:recent', now - 5 * day], ['t:reused', now - 100 * day, now - 1 * day], [romeUrl, now - 100 * day]].map(r => ({ url: r[0], blob: blob(), at: r[1], used: r[2] }));
+    await O.tx('blobs', 'readwrite', s => { rows.forEach(r => s.put(r)); });
+    await O.tx('kv', 'readwrite', s => { s.put({ k: 'pruned', v: 0 }); });
+    const n = await O.prune();
+    const left = (await O.tx('blobs', 'readonly', s => s.getAllKeys())).filter(k => /^t:/.test(k) || k === romeUrl).sort();
+    const again = await O.prune();
+    return { n, left, romeUrl: !!romeUrl, kept: left.includes(romeUrl), again };
+  });
+  t.ok(pr.romeUrl && pr.n >= 1 && !pr.left.includes('t:orphan') && pr.left.includes('t:recent') && pr.left.includes('t:reused') && pr.kept && pr.again === 0, 'a photo unused for 60 days that no trip city needs is let go (once a day); a recent one, one used lately and a trip city\'s stay: ' + JSON.stringify(pr));
+  await ctx.setOffline(true); await pg.waitForTimeout(500);
+  const lz = await pg.evaluate(async () => {
+    const O = W.offline, t0 = Date.now();
+    await O.tx('blobs', 'readwrite', s => { ['t:lazy1', 't:lazy2'].forEach(u => s.put({ url: u, blob: new Blob(['y'], { type: 'image/jpeg' }), at: t0 - 70 * 864e5 })); });
+    const first = O.src('t:lazy1'); await new Promise(r => setTimeout(r, 500));
+    const after = O.src('t:lazy1'), other = O.src('t:lazy2');   /* (never asked for before this line: not read from the store yet) */
+    await O.prune();   /* (writes down what was shown, then tidies) */
+    const rec = await O.tx('blobs', 'readonly', s => s.get('t:lazy1'));
+    return { first, after: after.slice(0, 5), other, usedNow: !!rec && rec.used >= t0 };
+  });
+  t.ok(lz.first === 't:lazy1' && lz.after === 'blob:' && lz.other === 't:lazy2' && lz.usedNow, 'offline, a photo is read from the store when it is first asked for (not every photo at once), and its use is recorded: ' + JSON.stringify(lz));
+  await ctx.setOffline(false);
   t.eq(errors(), [], 'no page errors');
   await ctx.close(); await b.close();
 };

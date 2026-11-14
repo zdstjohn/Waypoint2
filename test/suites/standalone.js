@@ -10,6 +10,31 @@ exports.run = async t => {
   t.ok(fs.existsSync(path.join(dist, 'index.html')) && fs.existsSync(path.join(dist, 'sw.js')) && !fs.existsSync(path.join(dist, 'vercel.json')), 'dist/ is built (and the host\'s settings stay out of it)');
   const vj = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'vercel.json'), 'utf8'));
   t.ok(vj.outputDirectory === 'dist' && /standalone\.js/.test(vj.buildCommand) && vj.headers.some(h => h.headers.some(x => x.key === 'Content-Security-Policy')), 'vercel.json in the top folder builds dist/ and sends the content policy');
+  /* (v201) the page comes from the phone at once and is asked for again in the background: the worker run on its own, with
+     a network that never answers (it used to wait 3.5 s for it), then one that answers with this version's page, then
+     with another version's (which is not kept: it needs files this worker has not installed) */
+  {
+    const vm = require('vm'), code = fs.readFileSync(path.join(dist, 'sw.js'), 'utf8'), V = /const V = "([^"]+)"/.exec(code)[1];
+    const run = async (netBody) => {
+      const handlers = {}, store = new Map(); let hung = netBody == null;
+      const cache = n => { if (!store.has(n)) store.set(n, new Map()); const m = store.get(n); const key = k => new globalThis.URL(typeof k === 'string' ? k : k.url, 'http://x/').href;
+        return { match: async k => { const r = m.get(key(k)); return r ? r.clone() : undefined; }, put: async (k, r) => { m.set(key(k), r); }, keys: async () => [...m.keys()], delete: async () => true, addAll: async () => {} }; };
+      const caches = { open: async n => cache(n), match: async k => (await cache('waypoint-' + V).match(k)), keys: async () => [...store.keys()] };
+      const sandbox = { self: { addEventListener: (ev, f) => { handlers[ev] = f; }, skipWaiting() {}, clients: { claim() {} } }, caches, location: { origin: 'http://x' }, URL: globalThis.URL, Response, Request, setTimeout, clearTimeout,
+        fetch: () => hung ? new Promise(() => {}) : Promise.resolve(new Response(netBody, { status: 200 })) };
+      vm.createContext(sandbox); vm.runInContext(code, sandbox);
+      await caches.open('waypoint-' + V).then(c => c.put('index.html', new Response('<html>old ?v=' + V + '</html>')));
+      let answer = null; const waits = [];
+      handlers.fetch({ request: { mode: 'navigate', method: 'GET', url: 'http://x/' }, respondWith: p => { answer = p; }, waitUntil: p => waits.push(p) });
+      const first = await Promise.race([answer.then(r => r.text()), new Promise(r => setTimeout(() => r('too slow'), 600))]);
+      if (!hung) await Promise.all(waits); const kept = await (await cache('waypoint-' + V).match('index.html')).text();
+      return { first, kept };
+    };
+    const hung = await run(null), same = await run('<html>new ?v=' + V + '</html>'), other = await run('<html>newer ?v=zzzz</html>');
+    t.ok(hung.first.includes('old'), 'the page comes from the phone at once, with a network that never answers: ' + hung.first.slice(0, 40));
+    t.ok(same.first.includes('old') && same.kept.includes('new ?v=' + V), 'and the answer, when it comes, is kept for the next open when it is this version\'s page: ' + same.kept.slice(0, 40));
+    t.ok(other.kept.includes('old'), 'a page naming another version\'s files is not kept: ' + other.kept.slice(0, 40));
+  }
   const srv = spawn('node', [path.join(__dirname, '..', 'lib', 'sa-server.js'), String(PORT), dist], { stdio: 'ignore' });
   for (let i = 0; i < 40; i++) { await new Promise(r => setTimeout(r, 150)); if (await new Promise(r => http.get(URL, res => r(res.statusCode === 200)).on('error', () => r(false)))) break; }
   const b = await chromium.launch();

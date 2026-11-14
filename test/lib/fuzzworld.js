@@ -45,7 +45,7 @@ module.exports = function () {
     var spec = { seed: seed, countries: [], cityDays: {}, travelers: [], styles: [] };
     cs.forEach(function (c) {
       var all = W.countryCities(c).filter(function (x) { return x.lat != null && x.lng != null; }), built = window.TD[c].cities.map(function (x) { return x.name; });
-      var n = int(r, 0, 4), picked = [];
+      var n = window.__nasty ? int(r, 0, 8) : int(r, 0, 4), picked = [];
       for (var g = 0; picked.length < n && g < 40; g++) {
         var x = null, m = r();
         if (m < 0.5 || !all.length) x = pick(r, built);
@@ -60,7 +60,7 @@ module.exports = function () {
       picked.forEach(function (name) { if (r() < 0.3) spec.cityDays[c + '|' + name] = r() < 0.3 ? 1 : int(r, 2, 7); });
       spec.countries.push({ name: c, mode: picked.length ? 'manual' : 'suggest', picked: picked });
     });
-    spec.days = r() < 0.08 ? int(r, 1, 2) : int(r, 3, 21);
+    spec.days = window.__nasty ? (r() < 0.3 ? 1 : r() < 0.5 ? int(r, 30, 60) : int(r, 2, 21)) : (r() < 0.08 ? int(r, 1, 2) : int(r, 3, 21));
     spec.start = r() < 0.4 ? pick(r, DATES) : '2027-' + pad(int(r, 1, 12)) + '-' + pad(int(r, 1, 28));
     spec.depart = pick(r, AIR);
     var nA = int(r, 1, 3), nK = int(r, 0, 3), nS = r() < 0.3 ? int(r, 1, 2) : 0;
@@ -68,6 +68,7 @@ module.exports = function () {
     for (i = 0; i < nK; i++) spec.travelers.push(r() < 0.4 ? int(r, 0, 4) : int(r, 5, 17));
     for (i = 0; i < nS; i++) spec.travelers.push(int(r, 65, 80));
     var nSt = int(r, 0, 4); while (spec.styles.length < nSt) { var st = pick(r, STYLES); if (spec.styles.indexOf(st) < 0) spec.styles.push(st); }
+    if (window.__nasty) { var q = r(); if (q < 0.15) spec.travelers = [int(r, 0, 2)]; else if (q < 0.3) spec.travelers = [int(r, 68, 85), int(r, 66, 85)]; else if (q < 0.4) spec.travelers = [int(r, 25, 45)]; else if (q < 0.5) spec.travelers = [int(r, 25, 45), int(r, 0, 2), int(r, 0, 2), int(r, 0, 2)]; }
     spec.focus = pick(r, FOCUS);
     return spec;
   }

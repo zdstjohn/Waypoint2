@@ -39,15 +39,20 @@ function top() {
   return m[1].split(" ");
 }
 /* the app's own name rules (lib/core.js W.norm, lib/photos.js W.slug and W.citySlug) */
-const norm = s =>
-  String(s || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
+/* (kept in step with the app's rule by the tools suite; this script is fetched on its own, so it has its own copy) */
+const FOLD = { ł: "l", ø: "o", ß: "ss", đ: "d", æ: "ae", þ: "th", ı: "i" }; /* (letters that are no base letter plus an accent) */
+function norm(s) {
+  const t = String(s || "")
+      .toLowerCase()
+      .replace(/[łøßđæþı]/g, c => FOLD[c])
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, ""),
+    a = t.replace(/[^a-z0-9]+/g, " ").trim();
+  /* a name with no Latin letters or digits at all (Αθήνα, 東京) is "u" and the hex of each code point */
+  return a || (t.match(/[\p{L}\p{N}]/gu) || []).map(c => "u" + c.codePointAt(0).toString(16)).join(" ");
+}
 const slug = s => norm(s).replace(/ /g, "-").slice(0, 80) || "x";
-const citySlug = (country, city) => slug(country + " " + city);
+const citySlug = (country, city) => slug(norm(country) + " " + norm(city));
 function questions() {
   return EMBED_Q || JSON.parse(fs.readFileSync(path.join(__dirname, "citylib-questions.json"), "utf8"));
 }
@@ -125,8 +130,8 @@ function gapsIn(lib, Q) {
 }
 
 /** check every stored answer against today's rules; print what is broken (and return the list) */
-function doctor(db) {
-  const lib = docsIn(path.join(db, "citylib")),
+function doctor(db, lib0 = null) {
+  const lib = lib0 || docsIn(path.join(db, "citylib")),
     bad = [];
   let answers = 0,
     docs = 0;
@@ -162,8 +167,8 @@ function doctor(db) {
 }
 
 /** print the gaps (a plain list) */
-function gaps(db) {
-  const lib = docsIn(path.join(db, "citylib")),
+function gaps(db, lib0 = null) {
+  const lib = lib0 || docsIn(path.join(db, "citylib")),
     g = gapsIn(lib, questions());
   console.log("Countries with no town list yet (" + g.bare.length + " of " + g.codes.length + "): " + g.bare.join(", "));
   const by = {};
@@ -174,8 +179,10 @@ function gaps(db) {
     .forEach(c => console.log("  " + c + ": " + by[c].join(", ")));
 }
 
-function plan(db, work, citiesN = 15, countriesN = 6, seed = 0) {
-  const lib = docsIn(path.join(db, "citylib")),
+/* (plan, check, gaps and doctor each take the library as already read, `lib`, when a caller has it: it is up to 650
+   documents of 200 KB, and one process that runs two steps reads it once) */
+function plan(db, work, citiesN = 15, countriesN = 6, seed = 0, lib0 = null) {
+  const lib = lib0 || docsIn(path.join(db, "citylib")),
     Q = questions();
   for (const k of ["cities", "spots", "food"])
     if (textHash(Q[k].t) !== Q[k].h) throw new Error("the " + k + " question's fingerprint does not match");
@@ -229,8 +236,8 @@ function ok(kind, r) {
   return "unknown kind " + kind;
 }
 
-function check(db, work) {
-  const lib = docsIn(path.join(db, "citylib")),
+function check(db, work, lib0 = null) {
+  const lib = lib0 || docsIn(path.join(db, "citylib")),
     tasks = JSON.parse(fs.readFileSync(path.join(work, "tasks.json"), "utf8")),
     by = {},
     report = { kept: 0, missing: 0, refused: [] };
@@ -306,7 +313,7 @@ function pack() {
   process.stdout.write(src);
 }
 
-module.exports = { norm, slug, citySlug, textHash, shuffle, parse, ok, plan, check, gaps, doctor };
+module.exports = { docsIn, norm, slug, citySlug, textHash, shuffle, parse, ok, plan, check, gaps, doctor };
 if (require.main === module) {
   const [cmd, a, b, c, d] = process.argv.slice(2);
   if (cmd === "plan") plan(a, b, +c || 15, +d || 6, +process.env.CITYLIB_SEED || 0);

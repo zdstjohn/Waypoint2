@@ -138,7 +138,7 @@
     loadIndex();
     if (S.idxState !== "ready" || !S.idx) return null;
     var idx = S.idx,
-      slug = W.slug(country + " " + city);
+      slug = W.citySlug(country, city);
     if (idx[slug]) return slug;
     if (lat == null || lng == null) return null;
     /** @type {string | null} */ var hit = null;

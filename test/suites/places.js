@@ -133,5 +133,25 @@ exports.run = async t => {
   t.ok(fix.asked && fix.lat != null && Math.abs(fix.lat - fix.wrong[0]) > 0.001, `a stop that only had a wrong pin is placed again (${fix.n}: ${fix.lat && fix.lat.toFixed(4)}, ${fix.lng && fix.lng.toFixed(4)})`);
   await pg.evaluate(() => { W.S.tview = 'days'; W.render(); });
   t.eq(errors(), [], 'no page errors');
-  await ctx.close(); await b.close();
+  await ctx.close();
+  /* (v201) the shared collections (places, morefood, menus) hold a document for every city anyone planned: only the
+     trip's cities' documents are watched, never the whole collection, and a city that leaves the trip is let go */
+  {
+    const many = Object.assign({}, seed);
+    for (let i = 0; i < 30; i++) for (const c of ['places', 'morefood', 'menus']) many[c + '/nowhere-town-' + i] = { city: 'Town ' + i, country: 'Nowhere', items: {} };
+    const ops = [], db = mkdb(many), rec = (o, p, body) => { ops.push(o + ' ' + p); return db(o, p, body); };
+    const c2 = await open(b, { width: 390, db: rec }); await exampleTrip(c2.pg);
+    await c2.pg.waitForTimeout(1200);
+    const got = ops.filter(o => /^\w+ (places|morefood|menus)(\/|$)/.test(o));
+    t.ok(!got.some(o => /^list /.test(o)) && !got.some(o => /nowhere-town/.test(o)) && got.includes('get places/italy-rome') && got.includes('get morefood/italy-rome') && got.includes('get menus/italy-rome'),
+      'only the trip\'s cities\' documents are read, never the whole collections: ' + JSON.stringify([...new Set(got)].slice(0, 8)));
+    const left = await c2.pg.evaluate(() => { const c = W.S.countries[0], gone = c.picked[0]; c.picked = c.picked.slice(1); W.changed(); return { gone: W.citySlug(c.name, gone), kept: W.citySlug(c.name, c.picked[0]) }; });
+    await c2.pg.waitForTimeout(1500); ops.length = 0; await c2.pg.waitForTimeout(1500);
+    const after = ops.filter(o => /^get (places|morefood|menus)\//.test(o));
+    t.ok(!after.some(o => o.endsWith('/' + left.gone)) && after.some(o => o.endsWith('/' + left.kept)),
+      'a city that left the trip is no longer watched, the others still are (' + left.gone + ' gone, ' + left.kept + ' kept): ' + JSON.stringify([...new Set(after)].slice(0, 8)));
+    t.eq(c2.errors(), [], 'no page errors there either');
+    await c2.ctx.close();
+  }
+  await b.close();
 };

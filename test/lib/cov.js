@@ -9,7 +9,17 @@ const fs = require('fs'), path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..'), DIR = path.join(ROOT, 'test', 'out', 'cov'), SCRIPTS = ['app.js', 'app2.js'].concat(require('../../build/bundle.js').pieceFiles());
 const acc = {}, pages = new Set();
 exports.on = !!process.env.WP_COV;
-exports.start = async pg => { if (!exports.on) return; try { await pg.coverage.startJSCoverage({ resetOnNavigation: false }); pages.add(pg); } catch (e) { } };
+/* A browser that has a script in its cache (and the compiled copy V8 keeps beside it) may run a later load from that copy, and
+   functions the copy already carries are not compiled again, so what the coverage counts could fall short of what ran (the audit
+   saw 30 KB of the first script read as run where 175 KB ran). So the cache is switched off for a page being measured, before its
+   first load: every load fetches, compiles and runs as a first one. (In the runs made when this was written, with and without it,
+   the first script's 157 of 367 KB over four loads was the same, so the cache did not explain the audit's gap in a fresh test browser; this keeps it
+   from ever being a cause.) */
+exports.start = async pg => {
+  if (!exports.on) return;
+  try { const cdp = await pg.context().newCDPSession(pg); await cdp.send('Network.enable'); await cdp.send('Network.setCacheDisabled', { cacheDisabled: true }); } catch (e) { }
+  try { await pg.coverage.startJSCoverage({ resetOnNavigation: false }); pages.add(pg); } catch (e) { }
+};
 async function take(pg) {
   pages.delete(pg); let cov; try { cov = await pg.coverage.stopJSCoverage(); } catch (e) { return; }
   for (const e of cov) {
@@ -64,7 +74,7 @@ exports.report = () => {
     });
     /* which file a source line belongs to: the build marks each with a comment line */
     let cur = null, start = 0, run = null;
-    const flush = () => { if (run && run.size >= 600) idle.push(run); run = null; };
+    const flush = () => { if (run && run.size >= 250) idle.push(run); run = null; };
     src.forEach((line, i) => {
       const m = /^\/\* --- (.+) --- \*\/$/.exec(line); if (m) { flush(); cur = m[1]; start = i + 1; files[cur] = files[cur] || { size: 0, ran: 0, script: s }; return; }
       if (!cur || !per[i][0]) return;
@@ -80,7 +90,7 @@ exports.report = () => {
     `**${Math.round(all * 100)}% of the app's built code ran** (${got.toFixed(0)} of ${tot.toFixed(0)} KB). By file, least covered first:`, '', '| file | script | KB built | ran |', '|---|---|---:|---:|'];
   rows.forEach(x => L.push(`| ${x.f} | ${x.script} | ${x.kb.toFixed(1)} | ${Math.round(x.pct * 100)}% |`));
   L.push('', '## The longest stretches no test runs', '', 'Each is a run of source lines whose built code never ran (line numbers are within the file).', '');
-  idle.sort((a, b) => b.size - a.size).slice(0, 40).forEach(x => L.push(`- ${x.file} line ${x.line} (${(x.size / 1024).toFixed(1)} KB): \`${x.text.replace(/`/g, "'")}\``));
+  idle.sort((a, b) => b.size - a.size).slice(0, 400).forEach(x => L.push(`- ${x.file} line ${x.line} (${(x.size / 1024).toFixed(1)} KB): \`${x.text.replace(/`/g, "'")}\``));
   fs.mkdirSync(path.join(ROOT, 'test', 'out'), { recursive: true }); fs.writeFileSync(path.join(ROOT, 'test', 'out', 'coverage.md'), L.join('\n') + '\n');
   return { all, tot, rows, measured, idle: idle.length };
 };
