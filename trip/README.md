@@ -142,6 +142,9 @@ lib/              the shared library
                   Rome2Rio connector, get-routes), else Claude's estimate, else a guess from the distance ("rough")
                   Sunrise and sunset for a place and day (W.sunTimes, NOAA's formulas, in the place's own time zone);
                   the day's line under its name shows them (W.sunInline in gmaps.js).
+                  A day out (W.dayOut: a day trip, or a morning that takes the whole day) naps on the go; the Day view
+                  groups it under one band (screens/trip.js bandOf) and the map shows where you go (W.vtForDay,
+                  vtindex.js).
   ahead.js        (second script) a step ahead, in idle time and never on a data saver: the neighbouring days' photos;
                   the next town's map pack the evening before a move, and the map's engine while a day of a town with a
                   street map is read (neither on mobile data).
@@ -234,7 +237,7 @@ lib/              the shared library
                   The shared copy says which picks a person made (S.mine), so a place someone chose stands on every
                   phone, also where the planner wouldn't have picked it.
   route.js        (second script) trip shape check (and its one-tap fixes)   import.js  paste an itinerary   prices.js  live prices (Where to stay's Booking.com places, v175; no other-site links since v177)
-  watch.js        price watches   sync.js  saved and shared trips   fx.js  motion   vtindex.js/vtmap.js  the street map (cities with a map pack)
+  watch.js        price watches   sync.js  saved and shared trips   fx.js  motion   vtindex.js/vtmap.js  the street map (cities with a map pack); on a day out far away, the map of where you go or none (W.vtForDay)
   gmaps.js        (second script) Google Maps through the viewer's own connection: real times between stops (kept
                   with the trip as S.rl and read by W.leg in core.js; asked only for the day on show, W.legWant),
                   the forecast (W.wxLine), Google's listings for the search (W.gmSearch), a place from a pasted link

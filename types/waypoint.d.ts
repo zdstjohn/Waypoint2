@@ -40,7 +40,7 @@ interface Stay { label: string; lat?: number | null; lng?: number | null; live?:
 /** the trip, as saved (localStorage "waypoint-v2" and the account) */
 interface TripState { v: 2; algo?: number; tripId?: string; tripName?: string; styles: string[]; focus?: Focus; countries: Country[]; days: number; start: string; depart: string; travelers: (number | "")[]; names?: string[];
   stays: Record<string, Stay>; picks: Record<string, string>; seen: Record<string, string[]>; mine?: Record<string, 1>; free?: Record<string, 1>; rest?: Record<string, 1>; dayTrip?: Record<string, { country: string; name: string; lat: number | null; lng: number | null; min: number | null }>; fold?: Record<string, unknown>; legPick?: Record<string, unknown>; nope?: Record<string, string>; eat?: { al?: string[]; di?: string[]; love?: string; avoid?: string; note?: string }; eatNone?: 1; eatOpen?: { al?: boolean; di?: boolean }; bag?: Record<string, Record<string, 1>>;
-  cityDays: Record<string, number>; day: number; example?: number; tview?: "days" | "map"; allPref?: boolean; stepClosed?: Record<string, boolean>; prepTab?: string; transitOpen?: unknown; jetOpen?: unknown; legClosed?: Record<string, boolean>; nextHide?: unknown; tripFolded?: any; mapZoom?: number; late?: any;
+  cityDays: Record<string, number>; day: number; example?: number; tview?: "days" | "map"; allPref?: boolean; stepClosed?: Record<string, boolean>; prepTab?: string; transitOpen?: unknown; jetOpen?: unknown; legClosed?: Record<string, boolean>; restDo?: Record<string, string>; nextHide?: unknown; tripFolded?: any; mapZoom?: number; late?: any;
   appMode?: string; appModeAt?: string; exF?: unknown; exSort?: unknown; pack?: Record<string, unknown>; packHide?: Record<string, 1>; packOwn?: PackItem[]; journal?: Record<string, { mood?: number; note?: string; photos?: { id: string; [k: string]: any }[] }>;
   kidPicks?: Record<string, string[]>; hunt?: Record<string, Record<string, 1>>; stamps?: Record<string, string>; celebrated?: Record<string, string>; warmSeen?: string; lodge?: Record<string, string>; lodgeSeen?: Record<string, string[]>;
   share?: any; imported?: any; bookings?: Booking[]; booked?: Record<string, any>; rl?: Record<string, number[]>; under?: Record<string, [string, string, number]>; [k: string]: any }
@@ -191,7 +191,7 @@ interface Waypoint {
   dataV: number;
   dateOf: (n: number) => Date | null;
   fmtDate: (d: Date | null | undefined, style?: string | Intl.DateTimeFormatOptions) => string;
-  sunTimes: (country: string, lat: number, lng: number, d: Date) => { rise: string; set: string; mins: number } | null;
+  tzOffsetMin: (tz: string, d: Date) => number | null;
   dayEnergy: (day: Day, P: Plan, T: DayTimes | null) => Energy | null;
   dayNav: any;
   /** null without a start date that reads as one (a date outside the trip gives a day before 1 or after the last) */
@@ -219,7 +219,7 @@ interface Waypoint {
   deskSheet: () => void;
   deskSum: (sm: { stops: number; move: number; first: number | null; last: number | null; booked: number }, day?: Day) => string;
   deskMap: (P: Plan) => void;
-  deskPts: { n: number; country: string; city: string; pts: any[]; home: any; slug: string | null; xp: boolean; go?: boolean; gm?: string } | null;
+  deskPts: { n: number; country: string; city: string; pts: any[]; all?: any[]; place?: string; home: any; slug: string | null; xp: boolean; go?: boolean; gm?: string } | null;
   deskIdeas: { n: string; lat: number | null; lng: number | null; food: boolean }[];
   railRender: (P: Plan) => void;
   palOpen: () => void;
@@ -502,6 +502,7 @@ interface Waypoint {
   stayLive: (st: Stay | undefined, s: Stop, P: Plan) => Stay["live"] | null;
   /** the latest a stop in this part of the day may start for this group (lib/times.js) */
   slotCap: (slot: string, p: Party) => number | undefined;
+  dayOut: (day: Day) => { name: string; far: boolean; item: any } | null;
   isDayOut: (it: any, slot?: string) => boolean;
   RULES: Record<number, string>;
   WHY?: Record<string, string>;
@@ -676,6 +677,7 @@ interface Waypoint {
   libGet?: (q: any, cb: (r: any, general?: boolean) => void) => void;
   sunInline?: (day: Day) => string;
   vtEngineWarm?: () => void;
+  vtForDay?: (day: Day, home: any, pts: any[]) => { slug: string | null; pts: any[]; place: string };
   tourOpen: () => void;
   tourClose: () => boolean;
   tourMaybe: () => void;

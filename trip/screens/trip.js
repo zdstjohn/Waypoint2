@@ -820,6 +820,108 @@
       " again.</p></details>"
     );
   }
+  /** A rest day's morning or evening (v193, the owner's choice "E" of five: "these blank sections that say 'rest, pool
+      or playground' feel out of place"): a card with a sunrise or dusk tint, where you are, and a few easy ideas to tap.
+      The one tapped is marked (this phone only, S.restDo: a note to yourself, not part of the plan).
+      @param {SlotEntry} x @param {any} R its times @param {string} label @param {string} live @param {Plan} P @param {any} home */
+  function restCard(x, R, label, live, P, home) {
+    var ev = x.slot === "eve",
+      p = P.p,
+      ideas = ev
+        ? p.kid
+          ? ["Bath time", "Story and bed", "Early dinner in"]
+          : ["Early night", "A slow walk", "Dinner in"]
+        : p.kid
+          ? p.toddler
+            ? ["Pool", "Playground", "Nap", "Lie-in"]
+            : ["Pool", "Playground", "Lie-in", "Games"]
+          : ["Pool", "Lie-in", "Long breakfast", "A book"],
+      on = (W.S.restDo || {})[x.key] || "";
+    return (
+      '<article class="slot sk rest-c ' +
+      (ev ? "ev" : "am") +
+      live +
+      '" data-slotkey="' +
+      esc(x.key) +
+      '"><div class="rc-hero">' +
+      W.icon(ev ? "moon" : "sun", 2.2) +
+      '<div><b class="rc-t"><span class="vh">' +
+      esc(label) +
+      ": </span>" +
+      (ev ? "Quiet evening" : "Rest morning") +
+      "</b><span>" +
+      (R && !R.skip && R.start != null ? W.clock(R.start) + " · " : "") +
+      (home.none ? "at your stay" : "at " + esc(home.label)) +
+      '</span></div></div><div class="rc-ideas" role="group" aria-label="' +
+      (ev ? "Ideas for the evening" : "Ideas for the morning") +
+      '">' +
+      ideas
+        .map(function (i) {
+          return (
+            '<button type="button" class="chip" data-restdo="' +
+            esc(x.key) +
+            '" data-v="' +
+            esc(i) +
+            '" aria-pressed="' +
+            (on === i) +
+            '">' +
+            esc(i) +
+            "</button>"
+          );
+        })
+        .join("") +
+      "</div></article>"
+    );
+  }
+  /** A day out's band (v193, the owner's choice "B" of five): the part of the day spent out (W.dayOut), from its first
+      stop until a stop back near your stay (an evening planned back at base stays outside it). Its slots, when it starts
+      and ends, and its title; null on any other day.
+      @param {Day} day @param {any} T the day's times @param {any} home */
+  function bandOf(day, T, home) {
+    var O0 = W.dayOut ? W.dayOut(day) : null;
+    if (!O0 || !T || !T.order) return null;
+    var O = O0,
+      inB = /** @type {Record<string, number>} */ ({}),
+      on = false,
+      done = false,
+      start = /** @type {number | null} */ (null),
+      end = /** @type {number | null} */ (null);
+    T.order.forEach(function (/** @type {string} */ sl) {
+      var x = day.slots.filter(function (y) {
+        return y.slot === sl;
+      })[0];
+      if (done || !x) return;
+      var out = day.trip ? !!x.trip : sl === "am" || on;
+      if (!out) {
+        if (on) done = true;
+        return;
+      }
+      /* a stop nearer your stay than the place you went to: back at base, and the band ends before it */
+      var it = x.item,
+        dOut = on && it && O.item ? W.km(O.item, it) : null,
+        dHome = dOut != null && home && home.lat != null ? W.km(home, it) : null;
+      if (dOut != null && dHome != null && dHome < dOut) {
+        done = true;
+        return;
+      }
+      on = true;
+      inB[sl] = 1;
+      var R = T.rows[sl];
+      if (R && !R.skip && R.start != null) {
+        if (start == null) start = R.start;
+        if (R.end != null) end = Math.max(end || 0, R.end);
+      }
+    });
+    if (!on) return null;
+    return {
+      inB: inB,
+      name: O.name,
+      title:
+        (O.far ? "Day trip" : "Out for the day") +
+        (O.name ? " · " + O.name : "") +
+        (start != null && end != null ? " · " + W.clock(start) + " – " + W.clock(end) : "")
+    };
+  }
   /* The day's stops in order, as the Day tab lists them: today's card, the cards for arriving and leaving, each stop
      with its number and clock notes, the way from one to the next, the nap, and the way back to where you stay.
      Returns the list's HTML, the stops' points in order (for the map and the route link) and the day's times. */
@@ -839,6 +941,44 @@
       nowM = W.isToday(day) ? W.nowMin() : null,
       /* Simple view: each card says only what you need to run the day (time, place, the way there, warnings, booking) */
       simple = W.simple();
+    /* a day out (bandOf): its stops under one band, and the parts of the day left open while you're out, held and shown
+       as one free-time row (not a row each saying nothing fits: the day's ideas are back in town) */
+    var band = bandOf(day, T, home),
+      bandOn = false,
+      held = /** @type {{ x: SlotEntry, R: any, label: string, rr: string, live: string }[]} */ ([]);
+    function flushHeld() {
+      if (!held.length || !band) return;
+      var a = held[0],
+        z = held[held.length - 1],
+        s0 = a.R && !a.R.skip && a.R.start != null ? a.R.start : null,
+        e0 = z.R && !z.R.skip && z.R.end != null ? z.R.end : null,
+        when = held
+          .map(function (h, i) {
+            return i ? h.label.toLowerCase() : h.label;
+          })
+          .join(", ")
+          .replace(/, ([^,]*)$/, " and $1");
+      list +=
+        '<article class="slot sk free slim dt-free' +
+        a.live +
+        '" data-slotkey="' +
+        esc(a.x.key) +
+        '"><span class="num" style="background:var(--soft)"></span><div class="slot-body"><span class="sl-l">' +
+        (s0 != null
+          ? '<span class="tm">' +
+            W.clock(s0) +
+            (held.length > 1 && e0 != null ? " – " + W.clock(e0) : "") +
+            '<span class="vh"> </span></span>'
+          : "") +
+        '<span class="nm muted">' +
+        esc(band.name ? "Free time at " + band.name : "Free time while you're out") +
+        '</span></span><span class="when">' +
+        esc(when) +
+        "</span></div>" +
+        (W.canEdit() ? '<div class="slim-a">' + a.rr + "</div>" : "") +
+        "</article>";
+      held = [];
+    }
     /* on its own, a city has only the handful of ideas built into the app: say so where they've run out */
     if (
       W.standalone &&
@@ -915,6 +1055,24 @@
         '" title="Swap">' +
         ICON_REROLL +
         '<span class="bt-l" aria-hidden="true">Swap</span></button>';
+      /* the day out's band: opened at its first slot, closed (with the free time it holds) at the first slot after it */
+      var inBand = !!(band && band.inB[x.slot]);
+      if (bandOn && !inBand) {
+        flushHeld();
+        list += "</div>";
+        bandOn = false;
+      }
+      if (band && inBand && !bandOn) {
+        list += '<div class="dt-band" role="group" aria-label="' + esc(band.title) + '"><p class="dt-band-h">' + esc(band.title) + "</p>";
+        bandOn = true;
+      }
+      /* a part of the day left open while you're out: held, to show with the ones after it as one row (not one that a
+         swap is open on, nor lunch when the toddlers' nap follows it) */
+      if (inBand && !it && !(R && R.skip) && !x.loading && !x.rest && !swap && !(x.slot === "lunch" && P.p.toddler && T && T.nap)) {
+        held.push({ x: x, R: R, label: label, rr: rr, live: liveCls });
+        return;
+      }
+      if (inBand) flushHeld();
       /* the end of a day trip: the drive or train back before dinner */
       if (day.trip && !x.trip && wasOut && prevPt !== home) {
         var rb = W.leg(prevPt, home);
@@ -1115,6 +1273,8 @@
           '<div class="slot sk skel' +
           (food ? " food" : "") +
           '" aria-hidden="true"><span class="thumb"></span><span class="sl-b"><i></i><i></i><i></i></span></div>';
+      } else if (x.rest) {
+        list += restCard(x, R, label, liveCls, P, home);
       } else {
         list +=
           '<article class="slot sk free slim' +
@@ -1125,16 +1285,16 @@
           '"><span class="num" style="background:var(--soft)"></span><div class="slot-body"><span class="sl-l">' +
           tm +
           '<span class="nm muted">' +
-          (x.rest ? (P.p.kid ? "Rest, pool or playground" : "Rest or a swim") : x.free ? "Left free" : "Free time") +
+          (x.free ? "Left free" : "Free time") +
           '</span></span><span class="when">' +
           esc(label) +
           (x.free && !W.readOnly ? " · swap to add something" : "") +
           "</span>" +
           /* (a part of the day the planner couldn't fill says why: W.WHY) */
-          (!x.free && !x.rest && x.why && W.WHY && W.WHY[x.why] ? '<span class="small muted why">' + esc(W.WHY[x.why]) + "</span>" : "") +
+          (!x.free && x.why && W.WHY && W.WHY[x.why] ? '<span class="small muted why">' + esc(W.WHY[x.why]) + "</span>" : "") +
           (short && !short.said && W.slotShort(x) && x.slot !== "eve" && !x.trip ? ((short.said = true), short.html) : "") +
           "</div>" +
-          (!W.canEdit() || x.rest ? "" : '<div class="slim-a">' + rr + "</div>") +
+          (!W.canEdit() ? "" : '<div class="slim-a">' + rr + "</div>") +
           "</article>";
       }
       if (swap && X.swapPanel) list += X.swapPanel(day, x, P);
@@ -1143,12 +1303,16 @@
           '<div class="travel-note nap">' +
           (T && T.nap ? '<b class="tm">' + W.clock(T.nap.start) + "–" + W.clock(T.nap.end) + "</b> " : "") +
           (T.nap.away
-            ? "Nap in the stroller or the car: you're out in " + esc(day.trip ? day.trip.name : day.city) + " for the day"
+            ? "Nap in the stroller or the car: you're out" +
+              (band && band.name ? (day.trip ? " in " : " at ") + esc(band.name) : day.trip ? " in " + esc(day.trip.name) : "") +
+              " for the day"
             : "Nap or rest break back at " + (home.none ? "your stay" : esc(home.label))) +
           "</div>";
       /* (after a nap back at your stay, the way to the next stop starts there, not at the lunch place) */
       if (x.slot === "lunch" && P.p.toddler && T && T.nap && !T.nap.away && !home.none) prevPt = home;
     });
+    flushHeld();
+    if (bandOn) list += "</div>";
     var back = W.leg(prevPt, home);
     /* the way back, like the way to each stop; no stay picked yet: no walk to a made-up address, and no directions */
     if (back && prevPt !== home)
@@ -1757,7 +1921,9 @@
       var gm = pts.length ? W.dayRouteUrl(day, pts, home) : "";
       if (W.bannerRoute) W.bannerRoute(gm); /* (on a phone the banner carries the route link) */
       /* a real street map (street names, buildings, landmarks) only for cities that have a map pack; never a sketch */
-      var vtSlug = W.vtFor ? W.vtFor(day.country, day.city, home.lat, home.lng) : null,
+      /* (a day out far away: the map of where you go, W.vtForDay) */
+      var vd = W.vtForDay ? W.vtForDay(day, home, pts) : { slug: null, pts: pts, place: day.city },
+        vtSlug = vd.slug,
         mapBox = "";
       /* on the desktop workspace the map has its own pane (lib/deskmap.js), fed from here: this day's stops in order */
       /* (with the map pane hidden by hand, "Hide the map", the day shows its route as a list, not a map of its own) */
@@ -1766,7 +1932,9 @@
         n: day.n,
         country: day.country,
         city: day.city,
-        pts: pts,
+        pts: vd.pts,
+        all: pts,
+        place: vd.place,
         home: home.none ? null : home,
         slug: vtSlug,
         xp: !!xp,
@@ -1784,7 +1952,7 @@
         vtWant = {
           slug: vtSlug,
           key: "day|" + day.n + "|" + day.city,
-          pts: pts,
+          pts: vd.pts,
           home: home.none ? null : home,
           animate: true,
           city: day.city
@@ -2012,6 +2180,14 @@
     if (!b || b.closest("#tripbar")) return;
     var d = b.dataset,
       P = W.P;
+    /* a rest morning's or evening's idea, tapped: marked, or unmarked when tapped again (this phone only) */
+    if (d.restdo) {
+      var rd = (W.S.restDo = W.S.restDo || {});
+      if (rd[d.restdo] === d.v) delete rd[d.restdo];
+      else rd[d.restdo] = d.v || "";
+      W.redraw();
+      return;
+    }
     if (d.acts) {
       actsShow(actsOpen === d.acts ? null : d.acts);
       /* (from the keyboard, into the menu; a tap leaves the focus where it was) */

@@ -270,20 +270,32 @@
         ? '<button type="button" class="chip-a pri" data-gostay="' + day.stop + '">Pick a place</button>'
         : "") +
       "</div></div>";
+    var up = "";
     if (tom) {
       var tT = tom.slots && tom.slots.length ? W.dayTimes(tom, P) : null,
         tl = entries(tom, tT),
         first = tl.filter(function (e) {
           return e.k === "stop" && !e.food;
-        })[0];
-      h +=
-        '<div class="ge-row"><span class="gt-i">' +
+        })[0],
+        tO = W.dayOut ? W.dayOut(tom) : null;
+      /* tomorrow, in the app's colours above tonight (v193, the owner's choice "E" of five: "find something that would
+         help draw attention to it"): what kind of day it is, when it starts, and one button to it */
+      up =
+        '<section class="go-up" aria-label="Up next"><span class="gu-i">' +
         (tom.moveFrom ? IC.train : IC.moon) +
-        '</span><div><span class="small muted">Tomorrow · Day ' +
+        "</span><div><small>Up next · Day " +
         tom.n +
-        "</span><b>" +
-        esc(tom.moveFrom ? tom.moveFrom + " → " + tom.city : tom.city) +
-        '</b><span class="small muted">' +
+        "</small><b>" +
+        esc(
+          tom.moveFrom
+            ? tom.moveFrom + " → " + tom.city
+            : tO && tO.far
+              ? "Day trip" + (tO.name ? " to " + tO.name : " from " + tom.city)
+              : tom.rest
+                ? "Rest day in " + tom.city
+                : tom.city
+        ) +
+        "</b><span>" +
         esc(
           tom.moveFrom
             ? travelLine(tT && tT.travel ? tT.travel.leg : null, tT && tT.travel ? { tk: tT.travel.ticket, arr: tT.travel.arr } : null) +
@@ -292,15 +304,14 @@
               ? W.clock(first.start) + " " + first.x.item.n
               : ""
         ) +
-        "</span></div>" +
-        '<button type="button" class="chip-a" data-goprev="' +
+        '</span></div><button type="button" class="gu-b" data-goprev="' +
         tom.n +
-        '">See it</button></div>';
+        '">Next day</button></section>';
       /* a travel day: the night-before briefing for the new town (lib/brief.js, second script) */
       if (tom.moveFrom && W.briefBlock) h += W.briefBlock(tom);
     }
     h += "</section>";
-    return h;
+    return up + h;
   }
   /* Today's tickets and bookings: what is booked for this day (with its reference and a way to open it) and what
      still needs booking. */
@@ -541,10 +552,12 @@
         });
       }
     });
-    var vtSlug =
-        W.vtFor && mapPts.length && !(W.simple && W.simple()) && W.vtState() !== "off"
-          ? W.vtFor(day.country, day.city, home.lat, home.lng)
-          : null,
+    /* (a day out far away: the map of where you go, W.vtForDay) */
+    var vd =
+        W.vtForDay && mapPts.length && !(W.simple && W.simple()) && W.vtState() !== "off"
+          ? W.vtForDay(day, home, mapPts)
+          : { slug: null, pts: mapPts, place: day.city },
+      vtSlug = vd.slug,
       mapIn = "",
       vtWant = null,
       /* on the desktop workspace the map has its own pane (lib/deskmap.js), fed from here */
@@ -553,7 +566,9 @@
       n: day.n,
       country: day.country,
       city: day.city,
-      pts: mapPts,
+      pts: vd.pts,
+      all: mapPts,
+      place: vd.place,
       home: home.none ? null : home,
       slug: vtSlug,
       xp: false,
@@ -584,7 +599,7 @@
       vtWant = {
         slug: vtSlug,
         key: "go|" + day.n + "|" + day.city,
-        pts: mapPts,
+        pts: vd.pts,
         home: home.none ? null : home,
         animate: true,
         city: day.city
@@ -696,15 +711,15 @@
 
     h += goTickets(P, n, live);
     h += goTonight(P, day, list, home, live, n, nm);
-    /* what to take out today is a before-you-leave job: open until the first stop, one line after it (second script) */
-    var first = stops[0];
+    /* what to take out today: one line, folded, with how much is packed; a tap opens it (v193, the owner: "keep day bag
+       folded by default"; it used to open until the first stop) */
     if (W.dayBagCard) {
       var bs = W.dayBagState ? W.dayBagState(day, P) : null;
       h += fold(
         "bag",
         "Day bag",
         bs ? (bs.n === bs.total ? "All packed" : bs.n + " of " + bs.total + " packed") : "",
-        !live || nm == null || !first || nm < first.start,
+        false,
         W.dayBagCard(day, P, live)
       );
     }

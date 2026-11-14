@@ -297,11 +297,11 @@ window.TOP_COUNTRIES =
   );
 /* what is new, in plain words, for Settings (the newest version first; a line is one thing a traveler would notice) */
 window.WHATS_NEW = {
-  v: 192,
+  v: 193,
   items: [
-    "Sunrise and sunset times on every dated day, in the local time of the place.",
-    "A three-screen tour the first time you open a trip someone shared with you.",
-    "The street map is ready sooner: its engine loads on Wi-Fi while you read the day.",
-    "On the website, switching back to the app only refreshes what is due."
+    "A day trip is grouped under one band, and the time you're out is one free-time row instead of empty slots. A toddler's nap is on the go, not back at the hotel.",
+    "Rest days get a calm morning and evening card with easy ideas to tap: pool, playground, nap, bath time.",
+    "Today shows tomorrow in an \"Up next\" banner, and the day bag starts folded.",
+    "On a day trip far away, the map shows where you're going (or says there's no street map there yet)."
   ]
 };

@@ -346,40 +346,8 @@
       return null;
     }
   }
-  /** sunrise and sunset at a place on a day, as local times "6:52 AM" at that place (null in polar day or night, or with no
-      pin). NOAA's solar-position formulas: good to a minute or two, which is plenty for planning an evening.
-      @param {string} country @param {number} lat @param {number} lng @param {Date} d
-      @returns {{rise: string, set: string, mins: number} | null} */
-  W.sunTimes = function (country, lat, lng, d) {
-    if (lat == null || lng == null || !d || isNaN(d.getTime())) return null;
-    var rad = Math.PI / 180,
-      day = Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(d.getFullYear(), 0, 0)) / 864e5),
-      g = (2 * Math.PI * (day - 1)) / 365,
-      eqt = 229.18 * (0.000075 + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g) - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g)),
-      decl =
-        0.006918 -
-        0.399912 * Math.cos(g) +
-        0.070257 * Math.sin(g) -
-        0.006758 * Math.cos(2 * g) +
-        0.000907 * Math.sin(2 * g) -
-        0.002697 * Math.cos(3 * g) +
-        0.00148 * Math.sin(3 * g),
-      c = (Math.cos(90.833 * rad) - Math.sin(lat * rad) * Math.sin(decl)) / (Math.cos(lat * rad) * Math.cos(decl));
-    if (c < -1 || c > 1) return null;
-    var ha = Math.acos(c) / rad,
-      riseU = 720 - 4 * (lng + ha) - eqt /* minutes after 00:00 UTC */,
-      setU = 720 - 4 * (lng - ha) - eqt;
-    var tz = W.tripZone(country, lng, lat).tz,
-      noon = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12)),
-      zoff = tz ? offsetMin(tz, noon) : null,
-      off = zoff == null ? Math.round(lng / 15) * 60 : zoff;
-    var fmt = function (/** @type {number} */ u) {
-      var m = Math.round(u + off + 1440) % 1440,
-        h = Math.floor(m / 60);
-      return (h % 12 || 12) + ":" + (m % 60 < 10 ? "0" : "") + (m % 60) + " " + (h < 12 ? "AM" : "PM");
-    };
-    return { rise: fmt(riseU), set: fmt(setU), mins: Math.round(setU - riseU) };
-  };
+  /* (the minutes a zone is ahead of UTC on a date, for the second script: sunrise and sunset, lib/gmaps.js) */
+  W.tzOffsetMin = offsetMin;
   W.homeTz = function () {
     try {
       return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
@@ -529,6 +497,22 @@
   };
   /** a day out: a place for "any time" of day that does not say it takes under four hours (the morning carries on
       after lunch, and the day may go far from the stay) @param {any} it @param {string} [slot] */
+  /** A day spent out (v193): a day trip to another town (day.trip), or a morning that takes the whole day (a full day
+      out from where you stay, far or near). {name: what to call where you are (a day trip's town, the outing's place, or
+      ""), far: more than about 12 km from your stay, item: the outing (none on a day trip)}; null on any other day.
+      @param {Day} day */
+  W.dayOut = function (day) {
+    if (!day || !day.slots) return null;
+    if (day.trip) return { name: day.trip.name, far: true, item: null };
+    if (!day.fullDay) return null;
+    var am = day.slots.filter(function (x) {
+        return x.slot === "am";
+      })[0],
+      it = am && am.item;
+    if (!it || !W.isDayOut(it, "am")) return null;
+    var km = W.km(W.homebase(day.country, day.city), it);
+    return { name: it.place || "", far: km != null && km > 12, item: it };
+  };
   W.isDayOut = function (it, slot) {
     if (!it || it.s !== "any") return false;
     var own = textMin(W.stayText(it, false, slot || "am"));
@@ -706,8 +690,9 @@
       doRow(x);
       /* toddlers: after lunch, a nap or rest back at your lodging (whatever lunch was) */
       if (x.slot === "lunch" && p.toddler && !(out.rows.lunch && out.rows.lunch.skip)) {
-        if (day.trip) {
-          /* out for the day: a nap in the stroller or the car, not back at the hotel */
+        if (W.dayOut(day)) {
+          /* out for the day (a day trip, or a morning that takes the whole day: v193, it used to send you back to the
+             hotel for a nap from 34 km away): a nap in the stroller or the car */
           var na = up15(t + 10);
           if (na <= hm(16)) {
             out.nap = { start: na, end: na + 60, away: true };

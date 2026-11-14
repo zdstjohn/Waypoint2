@@ -64,7 +64,13 @@
       pts: D.pts.filter(function (p) {
         return !(p.food ? hide.food : hide.sight);
       }),
-      slug: D.slug || (W.vtFor ? W.vtFor(day.country, day.city, D.home && D.home.lat, D.home && D.home.lng) : null)
+      /* (every stop of the day, for the list shown where there is no street map: on a day out the map has only the
+         stops out there) */
+      all: (D.all || D.pts).filter(function (p) {
+        return !(p.food ? hide.food : hide.sight);
+      }),
+      /* (a day out far away: the map of where you go or none, never the home town's: W.vtForDay) */
+      slug: D.slug || (W.vtForDay ? W.vtForDay(day, D.home, D.pts).slug : null)
     };
   }
   /** each hop's two ends, by the key of the stop it goes to @param {any[]} pts @param {any} home */
@@ -106,21 +112,21 @@
     if (!can) {
       /* no street map for this place (or this device can't draw one): the day's route as a list, and Google Maps */
       var finding = !w.slug && W.vt && W.vt.idxState !== "ready";
-      var gm = w.pts.length && W.dayRouteUrl ? W.dayRouteUrl(w.day, w.pts, w.D.home || W.homebase(w.day.country, w.day.city)) : "";
+      var gm = w.all.length && W.dayRouteUrl ? W.dayRouteUrl(w.day, w.all, w.D.home || W.homebase(w.day.country, w.day.city)) : "";
       wrap.hidden = true;
       empty.hidden = false;
       c.classList.add("nomap"); /* (no map: no zoom buttons, no map credit) */
       W.draw(
         empty,
         "<div><h3>" +
-          (finding ? "Looking for the street map…" : "No street map for " + esc(w.day.city) + " yet") +
+          (finding ? "Looking for the street map…" : "No street map for " + esc(w.D.place || w.day.city) + " yet") +
           "</h3>" +
           (finding
             ? ""
             : '<p class="small muted">Waypoint has street maps for the places most people go, and adds more each night. Here is the day in order.</p>') +
-          (w.pts.length
+          (w.all.length
             ? "<ol>" +
-              w.pts
+              w.all
                 .map(function (p) {
                   return '<li class="' + (p.food ? "food" : "") + '"><b>' + esc(W.stopTag(p.num)) + "</b>" + esc(p.n) + "</li>";
                 })

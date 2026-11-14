@@ -15,6 +15,7 @@
     "mapZoom",
     "jetOpen",
     "legClosed",
+    "restDo",
     "late",
     "lateAt",
     "nextHide",

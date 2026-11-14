@@ -2,6 +2,28 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v193
+
+The owner picked each look from five previews drawn in the app ("B" for a day out, "E" for a rest day and for tomorrow).
+
+- A day out (W.dayOut, lib/times.js: a day trip to another town, or a morning that takes the whole day): its stops under
+  one band titled "Day trip · <place> · <from> – <to>" (screens/trip.js bandOf, .dt-band), from its first stop until a
+  stop back near your stay; the parts of the day left open while out are one "Free time at <place>" row (flushHeld),
+  not a row each saying nothing fits. The toddlers' nap on such a day is on the go (it was "back at the hotel", from
+  34 km away).
+- The map on a day out far away (W.vtForDay, lib/vtindex.js): the map of where you go, framed on the stops there, or
+  no street map with the day's list and Google Maps; never the home town's, framed 30 km off the stops. Used by the
+  Day view, Today and the desktop's map pane.
+- A rest day's morning and evening (restCard): a card with a sunrise or dusk tint, where you are, and a few easy ideas
+  to tap (pool, playground, nap; bath time, story and bed); the one tapped is marked, this phone only (S.restDo, view
+  only). "Rest, pool or playground" rows are gone.
+- Today: tomorrow in an "Up next" banner above tonight (.go-up), in the app's colours, with a "Next day" button (it was
+  "See it", in a row under tonight). The day bag starts folded.
+- Size: the first script and stylesheet are 492 KB (v192: 487). The tour's styles moved to the second stylesheet and
+  sunrise and sunset to the second script (lib/gmaps.js) to make room; the perf suite's limit moved from 490 to 494 KB
+  for what the first screen now draws.
+- Tests: dayout (new).
+
 ## v192
 
 Measured before building (slow-phone profile, 4x CPU, slow 4G): first paint 1.03 s, no layout shift, every common tap

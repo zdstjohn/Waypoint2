@@ -26,3 +26,10 @@ trip-*
 # changes (checked against a v191 baseline).
 settings-*
 menu-*
+# v193: Today shows tomorrow in a banner above tonight and the day bag folded (today, and the screens drawn before the
+# second script); the What's new card (settings, the trip menu).
+today-*
+early-today-*
+early-explore-*
+menu-*
+settings-*

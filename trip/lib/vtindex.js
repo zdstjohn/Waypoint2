@@ -151,6 +151,24 @@
     return hit;
   };
 
+  /** The street map for a day (v193, the owner: "when you select a day trip and choose somewhere far away the map should
+      load that area"). A day out far from your stay (W.dayOut) shows the map of where you go, framed on the stops out
+      there: that place's own pack, or none at all (never the home town's, which framed the day 30 km off its stops).
+      {slug, pts, place: where the map is of} @param {Day} day @param {any} home @param {any[]} pts the day's stops */
+  W.vtForDay = function (day, home, pts) {
+    var O = W.dayOut ? W.dayOut(day) : null,
+      vtFor = /** @type {(country: string, city: string, lat?: number | null, lng?: number | null) => string | null} */ (W.vtFor);
+    if (!O || !O.far) return { slug: vtFor(day.country, day.city, home && home.lat, home && home.lng), pts: pts, place: day.city };
+    var country = day.trip ? day.trip.country : day.country,
+      c = O.item || (day.trip ? W.homebase(day.trip.country, day.trip.name) : null),
+      lat = c && c.lat != null ? c.lat : null,
+      lng = c && c.lng != null ? c.lng : null,
+      out = pts.filter(function (p) {
+        var k = lat != null && p.lat != null ? W.km({ lat: lat, lng: lng }, p) : null;
+        return k != null && k < 15;
+      });
+    return { slug: vtFor(country, day.trip ? day.trip.name : O.name, lat, lng), pts: out.length ? out : pts, place: O.name || day.city };
+  };
   W.vtState = function () {
     return S.engine;
   };

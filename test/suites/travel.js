@@ -61,7 +61,7 @@ exports.run = async t => {
        fill from the ideas the rescue asked for meanwhile */
     t.eq(undone.map((u, i) => before[i].n ? u.n : u.free ? 'freed' : 'ok'), before.map(b0 => b0.n || 'ok'), 'undo brings the day back: ' + JSON.stringify(undone));
   } else t.note('no rescue control on this day');
-  if (await pg.$('.go-eve [data-goprev]')) { await pg.click('.go-eve [data-goprev]'); await pg.waitForTimeout(800); t.ok(await pg.evaluate(() => !!document.querySelector('[data-gotoday]')), 'another day shows a way back to today'); await pg.click('[data-gotoday]'); await pg.waitForTimeout(400); }
+  if (await pg.$('.go-up [data-goprev]')) { await pg.click('.go-up [data-goprev]'); await pg.waitForTimeout(800); t.ok(await pg.evaluate(() => !!document.querySelector('[data-gotoday]')), 'another day shows a way back to today'); await pg.click('[data-gotoday]'); await pg.waitForTimeout(400); }
   await pg.click('.go-foot [data-appmode="plan"]'); await pg.waitForTimeout(900);
   t.ok(await pg.evaluate(() => !document.documentElement.classList.contains('travel')), 'the Today footer can turn Travel mode off');
   /* Today's map: the lettered pins only. No line from pin to pin (a straight line is a flight path, not the way you walk) */

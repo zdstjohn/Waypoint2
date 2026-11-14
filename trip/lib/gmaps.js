@@ -418,12 +418,46 @@
   function fahrenheit() {
     return /-(US|LR|MM|BS|BZ|KY|PW)$/i.test(navigator.language || "");
   }
+  /** sunrise and sunset at a place on a day (v191; here, with the second script, since v193), as local times "6:52 AM" at that place (null in polar day or night, or with no
+      pin). NOAA's solar-position formulas: good to a minute or two, which is plenty for planning an evening.
+      @param {string} country @param {number} lat @param {number} lng @param {Date} d
+      @returns {{rise: string, set: string, mins: number} | null} */
+  function sunTimes(country, lat, lng, d) {
+    if (lat == null || lng == null || !d || isNaN(d.getTime())) return null;
+    var rad = Math.PI / 180,
+      day = Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(d.getFullYear(), 0, 0)) / 864e5),
+      g = (2 * Math.PI * (day - 1)) / 365,
+      eqt = 229.18 * (0.000075 + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g) - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g)),
+      decl =
+        0.006918 -
+        0.399912 * Math.cos(g) +
+        0.070257 * Math.sin(g) -
+        0.006758 * Math.cos(2 * g) +
+        0.000907 * Math.sin(2 * g) -
+        0.002697 * Math.cos(3 * g) +
+        0.00148 * Math.sin(3 * g),
+      c = (Math.cos(90.833 * rad) - Math.sin(lat * rad) * Math.sin(decl)) / (Math.cos(lat * rad) * Math.cos(decl));
+    if (c < -1 || c > 1) return null;
+    var ha = Math.acos(c) / rad,
+      riseU = 720 - 4 * (lng + ha) - eqt /* minutes after 00:00 UTC */,
+      setU = 720 - 4 * (lng - ha) - eqt;
+    var tz = W.tripZone(country, lng, lat).tz,
+      noon = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12)),
+      zoff = tz ? W.tzOffsetMin(tz, noon) : null,
+      off = zoff == null ? Math.round(lng / 15) * 60 : zoff;
+    var fmt = function (/** @type {number} */ u) {
+      var m = Math.round(u + off + 1440) % 1440,
+        h = Math.floor(m / 60);
+      return (h % 12 || 12) + ":" + (m % 60 < 10 ? "0" : "") + (m % 60) + " " + (h < 12 ? "AM" : "PM");
+    };
+    return { rise: fmt(riseU), set: fmt(setU), mins: Math.round(setU - riseU) };
+  }
   /** sunrise and sunset, to go at the end of the day's one line under its name (" · sun 6:02 AM–8:49 PM", local to the place),
       or "" when the day has no date or no pin yet @param {Day} day */
   W.sunInline = function (day) {
     var d = W.dateOf(day.n),
       h = d ? W.homebase(day.country, day.city) : null,
-      t = d && h && h.lat != null && h.lng != null ? W.sunTimes(day.country, h.lat, h.lng, d) : null;
+      t = d && h && h.lat != null && h.lng != null ? sunTimes(day.country, h.lat, h.lng, d) : null;
     return t
       ? ' · <span class="wx-sun" title="Sunrise ' +
           t.rise +

@@ -978,6 +978,7 @@
       "mapZoom",
       "jetOpen",
       "legClosed",
+      "restDo",
       "nextHide",
       "tview",
       "exF",
