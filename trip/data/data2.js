@@ -297,11 +297,11 @@ window.TOP_COUNTRIES =
   );
 /* what is new, in plain words, for Settings (the newest version first; a line is one thing a traveler would notice) */
 window.WHATS_NEW = {
-  v: 190,
+  v: 191,
   items: [
-    "On a travel day, fold away the ways to get there once you've chosen one.",
-    "Dates read one way everywhere, and long names wrap instead of being cut off.",
-    "A shared city library: a city someone has opened already comes up in seconds, and it grows a little every night.",
-    "Typing UAE, Holland, Burma and other names finds the right country."
+    "Sunrise and sunset times on every dated day, in the local time of the place.",
+    "A three-screen tour the first time you open a trip someone shared with you.",
+    "Places you've opened stay on your phone for a few days, so they come up at once, even with no signal.",
+    "The next town's map starts loading while you read today's day, so it is ready when you get there."
   ]
 };

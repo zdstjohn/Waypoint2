@@ -2,6 +2,20 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v191
+
+- Sunrise and sunset on each dated day (W.sunTimes in lib/times.js, NOAA's formulas, shown in the place's own time zone;
+  the line is part of W.wxLine in lib/gmaps.js, and stands alone when there is no forecast yet).
+- A tour of three screens, once per phone, the first time a shared trip is opened (screens/quickstart.js W.tourOpen,
+  W.tourMaybe, called from lib/sync.js after a shared trip loads; "waypoint-tour-seen" in localStorage).
+- The city library keeps each place's document on the phone for three days (lib/citylib.js kept/keep; refreshed whenever
+  an answer is saved), so a place opened again, or with no signal, answers at once.
+- The next town's map pack is fetched in idle time while the day before it is on show (lib/vtmap.js vtPrefetchNext, called
+  from the Day view; skipped on a data saver or a 2G connection), and the installable version opens its connection to the
+  database early (a preconnect link, build/standalone.js).
+- Already so, and left alone: the app starts from a first script and loads the rest later, and the street-map code
+  loads only when a map opens.
+
 ## v190
 
 - Menu and Swap are separate buttons again on a wide desktop (v188 had put them behind "..." there; the owner asked for

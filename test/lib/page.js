@@ -20,7 +20,7 @@ async function open(browser, { width = 360, height = 800, dark = false, scale = 
   if (seeded) await pg.addInitScript(SEED);
   for (const m of mocks) await pg.addInitScript(fs.readFileSync(path.join(ROOT, m), 'utf8'));
   await pg.addInitScript(`window.__uid=${JSON.stringify(uid)};`);
-  if (!firstRun) await pg.addInitScript(() => { try { localStorage.setItem('waypoint-welcome', '1'); } catch (e) {} });   /* the welcome sheet only in the test that checks it */
+  if (!firstRun) await pg.addInitScript(() => { try { localStorage.setItem('waypoint-welcome', '1'); localStorage.setItem('waypoint-tour-seen', '1'); } catch (e) {} });   /* the welcome sheet only in the test that checks it */
   await pg.goto('http://127.0.0.1:8771/index.html' + hash); await pg.waitForTimeout(2000);
   if (scale !== 1) await pg.addStyleTag({ content: `html{font-size:${scale * 100}% !important}` });
   return { pg, ctx, errors: () => errors.slice() };

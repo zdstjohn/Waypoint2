@@ -418,6 +418,30 @@
   function fahrenheit() {
     return /-(US|LR|MM|BS|BZ|KY|PW)$/i.test(navigator.language || "");
   }
+  /** sunrise and sunset, to go at the end of the day's one line under its name (" · sun 6:02 AM–8:49 PM", local to the place),
+      or "" when the day has no date or no pin yet @param {Day} day */
+  W.sunInline = function (day) {
+    var d = W.dateOf(day.n),
+      h = d ? W.homebase(day.country, day.city) : null,
+      t = d && h && h.lat != null && h.lng != null ? W.sunTimes(day.country, h.lat, h.lng, d) : null;
+    return t
+      ? ' · <span class="wx-sun" title="Sunrise ' +
+          t.rise +
+          ", sunset " +
+          t.set +
+          " (" +
+          Math.floor(t.mins / 60) +
+          " h " +
+          (t.mins % 60) +
+          ' min of daylight)">' +
+          W.icon("sun", 2.1) +
+          '<span class="vh">Sunrise </span>' +
+          t.rise.replace(" ", "\u00a0") +
+          '<span class="vh">, sunset </span><span aria-hidden="true">–</span>' +
+          t.set.replace(" ", "\u00a0") +
+          "</span>"
+      : "";
+  };
   /** the day's forecast as one line, with a way indoors when rain is likely and the day is under way
       @param {Day} day @param {boolean} [live] @param {boolean} [rescue] */
   W.wxLine = function (day, live, rescue) {

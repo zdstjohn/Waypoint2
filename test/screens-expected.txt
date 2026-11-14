@@ -11,3 +11,14 @@ kids-*
 recap-*
 # v190: Settings' What's new card lists this version's changes.
 settings-*
+# v191: sunrise and sunset at the end of every dated day's line (the Day view, Explore, Today, the stop and swap sheets, the
+# booking panels all draw it).
+book-*
+early-*
+explore-*
+meal-panel-*
+menu-*
+stop-panel-*
+swap-*
+today-*
+trip-*

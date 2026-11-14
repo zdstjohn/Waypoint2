@@ -273,6 +273,29 @@
     ));
     return q;
   }
+  /** warm the next day's city map while the day on show is read (v191): when the day after it is in another town whose pack is
+      in the list and not here yet, fetch it when the page is idle, so the map is there when its day opens. Not on a data
+      saver or a slow connection, and a failure is quiet (the map asks again when it is opened).
+      @param {Day} day */
+  W.vtPrefetchNext = function (day) {
+    try {
+      var c = /** @type {any} */ (navigator).connection;
+      if (c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || ""))) return;
+      var nx = W.P && W.P.days && W.P.days[day.n];
+      if (!nx || (nx.city === day.city && nx.country === day.country)) return;
+      var h = W.homebase(nx.country, nx.city),
+        slug = W.vtFor && h && !h.none ? W.vtFor(nx.country, nx.city, h.lat, h.lng) : null;
+      if (!slug || !S.idx || !S.idx[slug] || S.packs[slug] || W.vtState() === "off") return;
+      var sl = /** @type {string} */ (slug),
+        go = function () {
+          if (!S.packs[sl]) pack(sl).then(null, function () {});
+        };
+      if (window.requestIdleCallback) window.requestIdleCallback(go, { timeout: 4000 });
+      else setTimeout(go, 1500);
+    } catch (e) {
+      /* a map warmed in advance is only a head start: nothing is lost if it can't be */
+    }
+  };
   /* glyphs: the letters nearly every map needs come in one small file; extended Latin, Greek and Cyrillic in another,
      fetched only when a label needs them */
   var GLYPH_V = "2";

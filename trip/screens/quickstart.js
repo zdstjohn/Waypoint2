@@ -263,4 +263,109 @@
     var t = /** @type {HTMLElement | null} */ (e.target);
     if (t && t.dataset && t.dataset.qskid != null) qsKids();
   });
+  /* ---------- the tour (v191): three screens for someone opening a shared trip for the first time ---------- */
+  var TOUR = [
+    {
+      k: "Trip",
+      h: "See the plan, day by day",
+      t: "Each day lists its stops in order, with times and the walk or drive between them. Tap any stop for its photo, opening hours, tickets and directions.",
+      i: "trip"
+    },
+    {
+      k: "Today",
+      h: "On the day, open Today",
+      t: "Today shows what is next, how long it takes to get there, and ideas for food or things to do close to where you are. A phone's location is only used when you ask for it.",
+      i: "sun"
+    },
+    {
+      k: "Phone",
+      h: "Keep it on your phone",
+      t: "Add Waypoint to your home screen and it opens like an app, and the days you have opened still work with no signal.",
+      i: "dir"
+    }
+  ];
+  var tour = { open: false, n: 0 };
+  function drawTour() {
+    var host = $("tourhost");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "tourhost";
+      document.body.appendChild(host);
+    }
+    if (!tour.open) {
+      host.innerHTML = "";
+      document.documentElement.classList.remove("modal-open");
+      W.backShut("tour");
+      return;
+    }
+    var s = TOUR[tour.n],
+      last = tour.n === TOUR.length - 1;
+    host.innerHTML =
+      '<div class="sheet-back" data-tour="close"></div><div class="qs tour sheet" role="dialog" aria-modal="true" aria-labelledby="tourT">' +
+      '<div class="sh-top"><span class="small muted">' +
+      (tour.n + 1) +
+      " of " +
+      TOUR.length +
+      '</span><button type="button" class="icon-btn" data-tour="close" aria-label="Close the tour">' +
+      XI +
+      "</button></div>" +
+      '<div class="tour-pic" aria-hidden="true">' +
+      W.icon(s.i, 2.2) +
+      '</div><h2 id="tourT">' +
+      esc(s.h) +
+      '</h2><p class="tour-t">' +
+      esc(s.t) +
+      '</p><div class="tour-dots" aria-hidden="true">' +
+      TOUR.map(function (x, i) {
+        return '<i class="' + (i === tour.n ? "on" : "") + '"></i>';
+      }).join("") +
+      '</div><div class="qs-go"><button type="button" class="btn" data-tour="' +
+      (last ? "close" : "next") +
+      '">' +
+      (last ? "Got it" : "Next") +
+      "</button>" +
+      (last ? "" : '<button type="button" class="linkish" data-tour="close">Skip</button>') +
+      "</div></div>";
+    document.documentElement.classList.add("modal-open");
+    W.backOpen("tour", W.tourClose);
+  }
+  W.tourOpen = function () {
+    tour = { open: true, n: 0 };
+    drawTour();
+  };
+  W.tourClose = function () {
+    if (!tour.open) return false;
+    tour.open = false;
+    try {
+      localStorage.setItem("waypoint-tour-seen", "1");
+    } catch (e) {
+      /* no storage: the tour may show again on a later visit, which is harmless */
+    }
+    drawTour();
+    return true;
+  };
+  /** opens once on this phone, the first time a shared trip is opened (never over the new-trip sheet) */
+  W.tourMaybe = function () {
+    try {
+      if (localStorage.getItem("waypoint-tour-seen") || qs.open || tour.open) return;
+    } catch (e) {
+      return;
+    }
+    W.tourOpen();
+  };
+  document.addEventListener(
+    "click",
+    function (e) {
+      var t = /** @type {HTMLElement | null} */ (e.target),
+        b = t && t.closest ? /** @type {HTMLElement | null} */ (t.closest("[data-tour]")) : null;
+      if (!b) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (b.dataset.tour === "next") {
+        tour.n = Math.min(TOUR.length - 1, tour.n + 1);
+        drawTour();
+      } else W.tourClose();
+    },
+    true
+  );
 })();

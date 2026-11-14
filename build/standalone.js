@@ -74,6 +74,7 @@ const head = `<!doctype html>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Waypoint">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="${CLOUD.url}" crossorigin>
 <script src="standalone.js?v=${V}"></script>
 <script src="cloud.js?v=${V}"></script>
 </head>

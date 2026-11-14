@@ -1472,6 +1472,10 @@
         takeLegs(W.V.shared(b.legs));
         if (W.coReapply) W.coReapply(b);
         rememberShare(code, b.name);
+        if (W.whenLater)
+          W.whenLater(function () {
+            if (W.tourMaybe) W.tourMaybe();
+          });
         loadSharedPools(code, b.cities, bx);
         var lastUp = b.updated || 0;
         if (roUnsub) roUnsub();

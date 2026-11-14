@@ -741,6 +741,8 @@ a.menu-btn{font-weight:800;color:var(--accent)}
 .day-wx .wx-l{flex:1;min-width:0}
 .day-wx .chip{flex:none;margin:0;min-height:32px}
 .day-wx .wx-t{white-space:nowrap}
+.wx-sun{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.wx-sun>svg{width:14px;height:14px;flex:none}
 .go .day-wx{margin:0}
 .gm-note{margin:8px 0 0}
 .go-route .gm-note{margin:0 16px 14px}
@@ -2347,3 +2349,14 @@ img.lqi.ld{opacity:1;transition:opacity .25s ease-out}
 .sl-acts{display:contents}
 .acts-w{display:contents}
 .more-btn{display:none}
+
+.tour .sh-top{display:flex;align-items:center;justify-content:space-between}
+.tour-pic{display:grid;place-items:center;width:72px;height:72px;margin:6px auto 4px;border-radius:50%;background:var(--sunk);color:var(--accent,var(--fg))}
+.tour-pic svg{width:34px;height:34px}
+.tour h2{text-align:center;margin:8px 0}
+.tour-t{text-align:center;color:var(--muted);line-height:1.5;margin:0 auto 12px;max-width:34ch}
+.tour-dots{display:flex;justify-content:center;gap:8px;margin:6px 0 14px}
+.tour-dots i{width:8px;height:8px;border-radius:50%;background:var(--hair-c,#9993)}
+.tour-dots i.on{background:var(--accent,var(--fg));width:22px;border-radius:6px}
+.tour .qs-go{display:flex;flex-direction:column;align-items:stretch;gap:10px}
+.tour .qs-go .linkish{align-self:center;min-height:40px}

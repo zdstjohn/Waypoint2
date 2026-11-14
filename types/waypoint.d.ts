@@ -191,6 +191,7 @@ interface Waypoint {
   dataV: number;
   dateOf: (n: number) => Date | null;
   fmtDate: (d: Date | null | undefined, style?: string | Intl.DateTimeFormatOptions) => string;
+  sunTimes: (country: string, lat: number, lng: number, d: Date) => { rise: string; set: string; mins: number } | null;
   dayEnergy: (day: Day, P: Plan, T: DayTimes | null) => Energy | null;
   dayNav: any;
   /** null without a start date that reads as one (a date outside the trip gives a day before 1 or after the last) */
@@ -673,6 +674,11 @@ interface Waypoint {
   libFrom?: Record<string, number>;
   libStats?: (cb: (s: { countries: number; cities: number; at: number } | null) => void) => void;
   libGet?: (q: any, cb: (r: any, general?: boolean) => void) => void;
+  sunInline?: (day: Day) => string;
+  vtPrefetchNext?: (day: Day) => void;
+  tourOpen: () => void;
+  tourClose: () => boolean;
+  tourMaybe: () => void;
   libGeneral?: (kind: string) => string;
   libSave?: (q: any, r: any) => void;
   loadLow: (keys: string[]) => void;
