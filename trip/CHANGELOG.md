@@ -2,6 +2,16 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v200
+
+- Settings > Storage finds the files the photo packs replaced. A photo kept only in its city's pack (pk) still carries
+  its old file's address, as its name in the pack, and the card counted that as the file being in use, so the
+  ~1,160 files of the 76 packed cities could never be offered for removal. It now leaves a packed photo's own address
+  out (screens/settings.js storeUses): the pack stays in use, and so does any file another photo or document still
+  points at; the world library is read too. Nothing else on the card changes: it still asks on the page first, keeps
+  anything from the last two days, and removes nothing after a read that looks short. Test: storage (with the change
+  taken out, the new check fails).
+
 ## v199
 
 Ten improvements after the world library (the morning's list, Nov 14).

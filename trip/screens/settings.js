@@ -276,7 +276,7 @@
      Here: how full it is; the files no database document points at ("/_blob/<id>" anywhere in the collections the
      nightly tasks write); and, after a confirmation on the page, removing them. Never a file from the last two days
      (a nightly run uploads first and writes the document after), never on a read that failed or looks short. */
-  var STORE_COLS = ["photos", "maps", "places", "menus", "morefood", "links", "wanted", "citylib", "fx"],
+  var STORE_COLS = ["photos", "maps", "places", "menus", "morefood", "links", "wanted", "citylib", "world", "fx"],
     STORE_KEEP_DAYS = 2,
     BLOB = /\/_blob\/([0-9a-f]{32})/g;
   var store = /** @type {{ st: string, usage: any, unused: any[], bytes: number, done: number, freed: number, msg: string }} */ ({
@@ -414,6 +414,24 @@
       })
       .then(storeDraw);
   }
+  /** the files a document points at. A photo kept only in its city's pack (pk, v198) still carries its old file's
+      address, but only as its name in the pack: the app never loads it (lib/offline.js O.src), so that file is not in
+      use; the pack itself is (the index's "pack"). @param {string} c @param {any} data */
+  function storeUses(c, data) {
+    if (c === "photos" && data && data.items) {
+      var items = /** @type {Record<string, any>} */ ({});
+      Object.keys(data.items).forEach(function (k) {
+        var p = data.items[k];
+        if (p && p.pk) {
+          var q = Object.assign({}, p);
+          delete q.url;
+          items[k] = q;
+        } else items[k] = p;
+      });
+      data = Object.assign({}, data, { items: items });
+    }
+    return JSON.stringify(data || {});
+  }
   /** the files no document points at, older than two days */
   function storeScan() {
     store.st = "scan";
@@ -431,7 +449,7 @@
               .get()
               .then(function (/** @type {any} */ snap) {
                 (snap.docs || []).forEach(function (/** @type {any} */ doc) {
-                  var t = JSON.stringify(doc.data() || {}),
+                  var t = storeUses(c, doc.data()),
                     m;
                   BLOB.lastIndex = 0;
                   while ((m = BLOB.exec(t))) used[m[1]] = 1;

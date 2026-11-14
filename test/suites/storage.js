@@ -49,6 +49,20 @@ exports.run = async t => {
   await until(() => B.pg.evaluate(() => /can't be right|Nothing was removed/.test(document.querySelector('#storeBox').textContent)));
   t.ok(!(await B.pg.$('#storeBox [data-store="ask"]')) && (await B.pg.evaluate(() => window.__deleted.length)) === 0, 'an empty or short read offers nothing to remove: ' + (await box(B.pg)));
 
+  /* a photo kept only in its city's pack (pk) names its old file without using it: that file can go, the pack stays,
+     and a file another photo still shows stays too (v200) */
+  const pkSeed = Object.assign({}, seed, { 'photos/spain-madrid': { city: 'Madrid', country: 'Spain', pack: { url: '/_blob/' + hex(21), n: 2 },
+    items: { prado: { url: '/_blob/' + hex(22), pk: 1, credit: 'x' }, retiro: { url: '/_blob/' + hex(1), pk: 1, credit: 'x' }, stand: { url: '/_blob/' + hex(23), near: 1, credit: 'x' } } } });
+  const K = await open(b, { width: 390, height: 844, db: mkdb(pkSeed) }); await exampleTrip(K.pg);
+  await files(K.pg, [1, 2, 3, 4, 5, 6, 21, 22, 23].map(n => asset(n, old)));
+  await toSettings(K.pg);
+  await until(() => K.pg.evaluate(() => !!document.querySelector('#storeBox [data-store="scan"]')));
+  await K.pg.click('#storeBox [data-store="scan"]');
+  await until(() => K.pg.evaluate(() => !!document.querySelector('#storeBox [data-store="ask"]') || /Nothing|can't/.test(document.querySelector('#storeBox').textContent)));
+  await K.pg.click('#storeBox [data-store="ask"]'); await K.pg.click('#storeBox [data-store="go"]');
+  await until(() => K.pg.evaluate(() => /Removed \d+ file/.test(document.querySelector('#storeBox').textContent)));
+  t.eq(await K.pg.evaluate(() => window.__deleted.slice().sort()), [hex(22)], 'a packed photo\'s old file is removed; its pack, a file another photo shows, and a stand-in\'s file stay');
+
   /* a full store says so */
   const F = await open(b, { width: 390, height: 844, db: mkdb(seed) }); await exampleTrip(F.pg);
   await F.pg.evaluate(() => { const l = []; for (let i = 0; i < 5000; i++) l.push({ id: (i.toString(16) + 'e'.repeat(32)).slice(0, 32), sizeBytes: 1e5, createdAt: new Date(0).toISOString() }); window.__assetList = l; });
