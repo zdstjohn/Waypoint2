@@ -2,6 +2,53 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v199
+
+Ten improvements after the world library (the morning's list, Nov 14).
+
+- One rule for which fact wins (lib/core.js W.fact). A stop's hours, booking link, lead time and ticket can come from
+  its own official page (the world library), the map's data (the nightly place check) or Claude, and arrive in any
+  order; each writer names its source and a fact is replaced only by one from as good a source or better: official,
+  Google, the map, Claude. lib/world.js, lib/places.js and lib/staysask.js write through it. The map's opening hours
+  now win over Claude's guess at them (until now Claude's, when it came first, stood).
+- A checked fact says when it has aged. A stop's details (lib/world.js W.worldFacts) now add "· may have changed
+  since" to the "Checked <date> on <site>" line, and the box takes the caution colours (.wf-old in app.css, World
+  library), when the newest fact shown is past its shelf life: opening hours 60 days, the entry rule 90, counted from
+  today rather than from the trip's date. The two numbers (HOURS_DAYS, ENTRY_DAYS) sit at the top of lib/world.js and
+  match SHELF in tools/worldlib.js, which renews what is that old. A fresh fact renders exactly as before.
+- Street maps for saved library cities. When "Save for offline" (Settings, World library) finds a city has no street-map
+  pack, the app writes a small shared document, mapwant/<slug> = { country, city, center: [lat, lng], at }, with
+  nothing of the person's in it and any failure ignored (lib/photopack.js askMap, called from saveCity). The nightly
+  task's prepare step (tools/nightly.py) reads mapwant/* and builds a pack for each such city from its centre alone,
+  after the trip cities, oldest request first, within the same three packs a night. The nightly task reads the new
+  collection too (its step 2 lists it with wanted, photos, links and maps).
+- A part of a day nothing fits fills itself (lib/ahead.js fillShort): where a day showed "Nothing in <town>'s ideas
+  fits here" and waited for "Find more ideas", more are asked for by themselves, once a visit per town, for the day on
+  show and its neighbours (a morning or afternoon only: not an evening, not a meal, which has its own fill capped at
+  three questions a town; not offline, not a shared trip you only view, not when the lists are full).
+  The free row also stops saying the same thing twice: a row that already says "Nothing in this town's ideas fits
+  here" (its reason) gets only "Find more ideas" or "Finding more…" under it (screens/trip.js). The ahead suite checks
+  it asks at once, fills the days, asks only once a visit and never offline or in a trip you only view (with the
+  call taken out it fails); meals checks the reason is said once.
+- Tickets you can't get in without, in the morning reminder: the book-by list the app keeps for the nightly helpers
+  (lib/autopilot.js W.pushBookBy) now marks those places (must), and the morning error-watch task (part C) reminds you
+  a week before the deadline, on the day, and each morning after it has passed, with the official ticket link.
+- A weekly health report (scheduled task, Sundays): each Waypoint task's last run, time and model, the file store's
+  use, and the two libraries' size, in one phone notification.
+- Photo packs are text (lib/photopack.js, tools/photopack.js): JSON with each picture in base64, in a .js file, as the
+  street map's parts are, because the app's file store takes text files, not raw binary ones. tools/photopack.js plan
+  works out moving the stored photos into packs (the cities of trips keep their files; every other city is packed, and
+  the files its photos had of their own are freed unless something else still points at one) and mark writes a
+  city's photo index with its pack named.
+- The nightly world library goes back to unread places (tools/worldlib.js): a record whose sights are mostly unread is
+  looked at again, least read first, after expiring facts and trip cities; a place whose own pages gave nothing is
+  marked (tried) and left alone for two weeks.
+- Tests: new suite late (the same Granada trip planned with Claude's answers at once and then seconds late and out of
+  order, each day drawn: every stop's checked facts and the To book list must match, and every fact the library
+  checked must stand as its record says; with the v196 ticket-link bug put back it fails, as it should). The test
+  stand-in can hold its answers back (window.__lateAsks).
+
+
 ## v198
 
 The world library's phases 3 and 4 (the "Waypoint World Library — design" doc): a library city plans at once and

@@ -490,6 +490,23 @@ function assemble(sl, db, facts, legs, when) {
 
 /* ---------- checking a stored record ---------- */
 /** what is wrong with a record (broken) and what has expired (stale) on a date */
+/* A place whose own pages were read and gave nothing (no page, or none clear enough) is not asked about again for
+   TRIED_DAYS: its "tried" date says when (v199). */
+const TRIED_DAYS = 14;
+/** is this place's record (or none) due a look at its own pages tonight? */
+function wantsCheck(op, t) {
+  if (!op) return true;
+  if (op.tried && days(op.tried, t) < TRIED_DAYS) return false;
+  if (doctorOne({ v: 1, country: 1, city: 1, places: { x: op } }, t).stale.length) return true;
+  return !op.hours || !op.entry || !!op.entry.unsure;
+}
+/** how much of a record's sights is read: {share of sights with checked hours and entry, due: how many are due a look} */
+function unread(rec, t) {
+  const spots = Object.values((rec && rec.places) || {}).filter(p => p && p.kind === "spot");
+  if (!spots.length) return { share: 1, due: 0 };
+  const read = spots.filter(p => p.hours && p.entry && !p.entry.unsure).length;
+  return { share: read / spots.length, due: spots.filter(p => wantsCheck(p, t)).length };
+}
 function doctorOne(rec, on) {
   const broken = [],
     stale = [];
@@ -538,13 +555,20 @@ function plan(dbDir, work, nCities, nLegs) {
     const l = libLists(db.citylib[s] && db.citylib[s].data);
     return !!(l.spots && l.food);
   };
-  /* 1. records with expired facts; 2. cities of upcoming trips, soonest first; 3. the library's other cities */
+  /* 1. records with expired facts; 2. cities of upcoming trips, soonest first; 3. records whose places are still
+     mostly unread, least read first (v199: until then a record was only looked at again when a fact expired, so a
+     city's unread places stayed unread); 4. the library's other cities */
   for (const [s, w] of Object.entries(db.world)) if (doctorOne(w.data, t).stale.length) pick.push(s);
   const trips = Object.entries(db.wanted)
     .filter(([s, w]) => ready(s) && !db.world[s])
     .map(([s, w]) => [s, isDate(w.data.when) ? w.data.when : "9999"])
     .sort((a, b) => (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0));
   trips.forEach(x => pick.includes(x[0]) || pick.push(x[0]));
+  Object.entries(db.world)
+    .map(([s, w]) => [s, unread(w.data, t)])
+    .filter(x => x[1].due > 0)
+    .sort((a, b) => a[1].share - b[1].share || (a[0] < b[0] ? -1 : 1))
+    .forEach(x => pick.includes(x[0]) || pick.push(x[0]));
   Object.keys(db.citylib)
     .filter(s => s.includes("-") && ready(s) && !db.world[s])
     .sort()
@@ -558,14 +582,7 @@ function plan(dbDir, work, nCities, nLegs) {
     const r = a.rec,
       old = db.world[s] && db.world[s].data;
     const checks = Object.values(r.places)
-      .filter(
-        p =>
-          p.kind === "spot" &&
-          (!old ||
-            !old.places[p.key] ||
-            doctorOne({ v: 1, country: 1, city: 1, places: { x: old.places[p.key] } }, t).stale.length ||
-            !old.places[p.key].hours)
-      )
+      .filter(p => p.kind === "spot" && wantsCheck(old && old.places[p.key], t))
       .sort((x, y) => (y.fame || 0) - (x.fame || 0))
       .slice(0, 16)
       .map(p => ({
@@ -601,6 +618,8 @@ function build(dbDir, work) {
     const fp = path.join(work, s + ".facts.json"),
       lp = path.join(work, s + ".legs.jsonl");
     const facts = fs.existsSync(fp) ? JSON.parse(fs.readFileSync(fp, "utf8")) : {};
+    const tonight = new Set(Object.keys(facts).filter(k => facts[k] && (facts[k].hours || facts[k].entry))),
+      gotTonight = k => tonight.has(k);
     const todo = fs.existsSync(path.join(work, s + ".todo.json"))
       ? JSON.parse(fs.readFileSync(path.join(work, s + ".todo.json"), "utf8"))
       : { legs: [] };
@@ -635,6 +654,15 @@ function build(dbDir, work) {
     if (a.err) {
       sum.failed.push(a.err);
       continue;
+    }
+    /* the places whose pages were read tonight and gave nothing are marked, and not asked about for two weeks; a mark
+       from an earlier night stays until it runs out or a fact arrives */
+    const asked = new Set(((todo && todo.checks) || []).map(c => c.key));
+    for (const [k, p] of Object.entries(a.rec.places)) {
+      const was = old && old.places && old.places[k];
+      if (p.hours && p.entry && !p.entry.unsure) continue;
+      if (asked.has(k) && !gotTonight(k)) p.tried = today();
+      else if (was && was.tried && !asked.has(k) && days(was.tried, today()) < TRIED_DAYS) p.tried = was.tried;
     }
     const doc = doctorOne(a.rec);
     if (doc.broken.length) {
@@ -704,6 +732,9 @@ if (require.main === module) {
 }
 module.exports = {
   indexOf,
+  wantsCheck,
+  unread,
+  TRIED_DAYS,
   norm,
   slug,
   citySlug,

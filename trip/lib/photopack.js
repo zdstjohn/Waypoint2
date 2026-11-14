@@ -1,48 +1,48 @@
 /* Waypoint photo packs (v198): a city's photos in one file. A photo is three to five files in the app's store (a JPEG,
    its WebP twin, small copies), which is what fills it; a pack holds one copy of each of a city's photos, so saving a
-   city for offline is one request, not sixty. What a pack is:
-     "WPPK1\n" · the index's length (4 bytes, little-endian) · the index (JSON) · the pictures, one after another
-   The index: { v: 1, slug, at, items: [[name, type, bytes], ...] }. A picture's name is the address its photo record
-   has (photos/<city>.items[..].url), which is also what the phone's offline store files a photo under, so a picture
-   out of a pack and one fetched on its own are the same thing afterwards. Made by tools/photopack.js; a city's pack is
-   named in its photo index (photos/<city>.pack = { url, n, bytes, at }, which lib/photos.js keeps with the index). */
+   city for offline is one request, not sixty. A pack is text (v199: the app's file store takes text files, not raw
+   binary ones), JSON in a .js file as the street-map packs are:
+     {"wppk": 2, "slug": "<country-city>", "at": "YYYY-MM-DD", "items": [["<url>", "image/webp" | "image/jpeg", "<base64>"], ...]}
+   A picture's name is the address its photo record has (photos/<city>.items[..].url), which is also what the phone's
+   offline store files a photo under, so a picture out of a pack and one fetched on its own are the same thing
+   afterwards. Made by tools/photopack.js; a city's pack is named in its photo index (photos/<city>.pack = { url, n,
+   bytes, at }, which lib/photos.js keeps with the index). */
 (function () {
   "use strict";
   var W = window.W;
-  var MAGIC = "WPPK1\n",
-    MAX_INDEX = 262144 /* (an index is about 60 bytes a photo: a quarter megabyte is far past any city) */,
-    TYPES = /** @type {Record<string, 1>} */ ({ "image/webp": 1, "image/jpeg": 1 });
+  var MAX_ITEMS = 400,
+    MAX_ONE = 600000 /* (base64 characters: a 720 px photo is about 80,000) */,
+    TYPES = /** @type {Record<string, 1>} */ ({ "image/webp": 1, "image/jpeg": 1 }),
+    B64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
-  /** what a pack holds: each picture's name, kind and place in the file. Null when it is not a pack this app can
-      read: cut short, an index that runs past the file's end, or anything in it that is not a picture.
-      @param {ArrayBuffer} buf @returns {{ slug: string; at: string; items: { url: string; type: string; start: number; end: number }[] } | null} */
-  function read(buf) {
-    if (!buf || buf.byteLength < MAGIC.length + 4) return null;
-    var u8 = new Uint8Array(buf),
-      i;
-    for (i = 0; i < MAGIC.length; i++) if (u8[i] !== MAGIC.charCodeAt(i)) return null;
-    var L = new DataView(buf).getUint32(MAGIC.length, true),
-      at = MAGIC.length + 4;
-    if (!L || L > MAX_INDEX || at + L > buf.byteLength) return null;
-    var idx;
+  /** a pack's pictures, each as the bytes it had on its own. Null when it is not a pack this app can read: another
+      kind of file, a picture named twice, anything that is not a JPEG or WebP, or one too large to be a photo.
+      @param {string} text @returns {{ slug: string; at: string; items: { url: string; type: string; bytes: Uint8Array }[] } | null} */
+  function read(text) {
+    var x;
     try {
-      idx = JSON.parse(new TextDecoder().decode(u8.subarray(at, at + L)));
+      x = JSON.parse(text);
     } catch (e) {
       return null;
     }
-    if (!idx || idx.v !== 1 || !Array.isArray(idx.items)) return null;
-    var pos = at + L,
-      out = [],
+    if (!x || x.wppk !== 2 || !Array.isArray(x.items) || x.items.length > MAX_ITEMS) return null;
+    var out = [],
       seen = /** @type {Record<string, 1>} */ ({});
-    for (i = 0; i < idx.items.length; i++) {
-      var it = idx.items[i];
+    for (var i = 0; i < x.items.length; i++) {
+      var it = x.items[i];
       if (!Array.isArray(it) || typeof it[0] !== "string" || !it[0] || seen[it[0]] || !TYPES[it[1]]) return null;
-      if (typeof it[2] !== "number" || !(it[2] > 0) || it[2] % 1 || pos + it[2] > buf.byteLength) return null;
+      if (typeof it[2] !== "string" || !it[2] || it[2].length > MAX_ONE || it[2].length % 4 || !B64.test(it[2])) return null;
+      var bin = atob(it[2]),
+        bytes = new Uint8Array(bin.length);
+      for (var k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+      /* (the file's own first bytes must say it is the picture it is named as) */
+      var jpg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff,
+        webp = bin.slice(0, 4) === "RIFF" && bin.slice(8, 12) === "WEBP";
+      if (it[1] === "image/jpeg" ? !jpg : !webp) return null;
       seen[it[0]] = 1;
-      out.push({ url: it[0], type: it[1], start: pos, end: pos + it[2] });
-      pos += it[2];
+      out.push({ url: it[0], type: it[1], bytes: bytes });
     }
-    return { slug: String(idx.slug || ""), at: String(idx.at || ""), items: out };
+    return { slug: String(x.slug || ""), at: String(x.at || ""), items: out };
   }
 
   /* a pack is fetched once however many ask for it at the same moment (a trip with two days in one city) */
@@ -54,13 +54,13 @@
     var p = fetch(url)
       .then(function (r) {
         if (!r.ok) throw new Error("photo pack: " + r.status);
-        return r.arrayBuffer();
+        return r.text();
       })
-      .then(function (buf) {
-        var pk = read(buf);
+      .then(function (text) {
+        var pk = read(text);
         if (!pk) throw new Error("photo pack: not a pack");
         return pk.items.map(function (it) {
-          return { url: it.url, blob: new Blob([buf.slice(it.start, it.end)], { type: it.type }) };
+          return { url: it.url, blob: new Blob([it.bytes], { type: it.type }) };
         });
       });
     going[url] = p;
@@ -269,6 +269,21 @@
     });
     return out;
   }
+  /** a saved city with no street-map pack: say so in a small shared document (mapwant/<slug>), which the nightly task
+      reads to build one. Only the city's name, country and centre, and when: nothing of the person's. Quiet: a
+      failure is ignored. @param {string} slug @param {string} country @param {string} city @param {number[]} c */
+  function askMap(slug, country, city, c) {
+    try {
+      if (!(c && typeof c[0] === "number" && typeof c[1] === "number") || !window.claude || !window.claude.use) return;
+      window.claude.use("db").then(function (/** @type {any} */ d) {
+        return d ? d.doc("mapwant/" + slug).set({ country: country, city: city, center: [c[0], c[1]], at: Date.now() }) : null;
+      }).then(null, function () {
+        /* no database, or not allowed: the city simply gets its map when a trip needs it */
+      });
+    } catch (e) {
+      /* ignored */
+    }
+  }
   /** @param {string} country @param {string} city @param {() => void} [tick] called as it goes */
   function saveCity(country, city, tick) {
     var slug = W.citySlug(country, city),
@@ -361,6 +376,7 @@
       .then(function () {
         var c = rec.center,
           map = W.vtFor && c ? W.vtFor(country, city, c[0], c[1]) : null;
+        if (!map && c) askMap(slug, country, city, c);
         return map && W.vtWarm
           ? W.vtWarm(map).then(
               function () {

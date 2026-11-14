@@ -58,7 +58,9 @@ fonts/            Plus Jakarta Sans (the text and headings), Instrument Serif (p
                   and --primary / --on-primary for the main colour (main buttons, the tab and the day you're on)
 data/             built-in destinations (data1: Europe, data2: the rest, plus airports)
 lib/              the shared library
-  core.js         state, caches, helpers and the queue to Claude. Three ways to say something happened: W.changed
+  core.js         state, caches, helpers and the queue to Claude. One rule for which fact wins (v199): W.fact(it, k,
+                  v, by) keeps a value from a better source over a worse one, whatever order they came in (Claude 1, the
+                  map 2, Google 3, the official check 4; the source stays on it.fsrc). Three ways to say something happened: W.changed
                   (the trip or its data changed: re-plan, save, redraw now), W.arrived (an answer came: re-plan,
                   redrawn once per burst of answers) and W.redraw (only how a screen looks changed, as photos and the
                   street map coming or going: no re-plan, redrawn once per burst). What is asked lives in towns.js (destinations, always
@@ -147,7 +149,9 @@ lib/              the shared library
                   vtindex.js).
   ahead.js        (second script) a step ahead, in idle time and never on a data saver: the neighbouring days' photos;
                   the next town's map pack the evening before a move, and the map's engine while a day of a town with a
-                  street map is read (neither on mobile data).
+                  street map is read (neither on mobile data). Since v199 a morning or afternoon nothing in the town's ideas
+                  fits asks for more by itself, once a visit per town (fillShort; never offline, in a trip you only view,
+                  for the evening, or for a meal, which has its own capped fill: lib/ideas.js W.mealIdeas).
   daybag.js       (second script) Today's day bag: what to take out for the day, read off its stops (a beach:
                   swimsuits and sunscreen; a church: shoulders and knees covered; a market: cash; a boat: a layer and
                   something for seasickness; a hike: shoes and water; a travel day: tickets in one pocket and snacks),
@@ -273,12 +277,16 @@ lib/              the shared library
                   entry rule and "no entry without a ticket", pins looked up again, Google's walks); kept on the phone
                   for the trip's cities and the cities saved for offline. Since v198 a library city's first lists come
                   from its record, at once (W.worldFirst; the library's cities: world/_index, W.worldCities), and a
-                  paid place not checked yet says so. Made by tools/worldlib.js (plan / build / doctor), run by a
-                  nightly task
+                  paid place not checked yet says so. Since v199 a checked fact says when it has aged (hours after 60
+                  days, the entry rule after 90: "may have changed since"), and the nightly plan also re-checks the
+                  sights a record has never read, least read first, leaving a place it couldn't check alone 14 days.
+                  Made by tools/worldlib.js (plan / build / doctor), run by a nightly task
   photopack.js    (second script, v198) a city's photos in one file (photos/<city>.pack; made by tools/photopack.js):
                   read and fetched once (W.photoPack.get), a photo with no file of its own (pk) shown from it, an
                   offline save or copy filled from it (fill), and a library city saved to the phone before any trip
-                  (saveCity / dropCity, Settings' World library card; W.offCities)
+                  (saveCity / dropCity, Settings' World library card; W.offCities). Since v199 a pack is text (base64,
+                  stored as .js in the file store) and the cities in no trip keep their photos only in packs; a city saved
+                  with no street map asks for one (mapwant/<city>, drawn by the nightly photos and maps task)
   speedtest.js    one measurement, once, for the artifact's owner: is a list asked with low effort faster and as good?
                   (second script; writes data/users/<id>/diag/effort; W.EFFORT stays empty until that is read)
   offline.js      the trip without a signal: the photo index and photos kept on the phone (IndexedDB), map packs
@@ -298,7 +306,8 @@ lib/              the shared library
                   back-to-top button
   memories.js     (second script) how ready you are on Prepare, the recap (the whole trip on one page) and its highlight
                   reel and "one year ago today"
-  autopilot.js    the book-by list kept for the morning helper (reads your inbox, writes calendar reminders, never books),
+  autopilot.js    the book-by list kept for the morning helper (reads your inbox, writes calendar reminders, never books;
+                  since v199 an item says must: 1 when there's no entry without a booked ticket, for the phone reminder),
                   what it found, and the deadline timeline on Bookings. Both live in your private corner of the database:
                   data/users/<you>/bookby/t/<trip> and data/users/<you>/autopilot/t/<trip> (a document's path has an
                   even number of parts; the test database refuses any other path, as the real one does)

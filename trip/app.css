@@ -1388,6 +1388,9 @@ table.budget tfoot th,table.budget tfoot td{border-top:2px solid var(--ink);font
 .wf p{margin:0;line-height:1.45}
 .wf b{font-weight:700}
 .wf.wf-q{background:var(--note-soft)}
+/* a fact checked longer ago than it is trusted (v199): the same caution colours, the "checked" line in the note's text */
+.wf.wf-old{background:var(--note-soft)}
+.wf.wf-old .small{color:var(--note-text);font-weight:700}
 /* Settings: the library's cities, each to save to this phone (v198) */
 .wl-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .wl-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:8px 10px;border-radius:var(--r-sm);background:var(--sunk)}

@@ -279,7 +279,7 @@
             f = isF[W.norm(x.n)];
           if (wantLink(x)) {
             if (!f) {
-              x.book = W.bookUrl(l.book || l.url);
+              W.fact(x, "book", W.bookUrl(l.book || l.url), "claude");
               x.bookV = 2;
             } /* "" = asked, no confident official link */ else {
               if (x.menu === undefined) x.menu = W.bookUrl(l.menu);
@@ -297,8 +297,8 @@
             x.gripe = V.str(l.gripe, 80);
           }
           if (wantBeach(x)) x.bch = V.beach(l.beach);
-          if (wantHours(x)) x.hours = V.hours(l.hours);
-          if (wantLead(x)) x.lead = V.lead(l.lead);
+          if (wantHours(x)) W.fact(x, "hours", V.hours(l.hours), "claude");
+          if (wantLead(x)) W.fact(x, "lead", V.lead(l.lead), "claude");
         });
       };
     }

@@ -63,7 +63,8 @@
         country: c.day && P.days[c.day - 1] ? P.days[c.day - 1].country : "",
         hint: c.sub || c.why || "",
         done: !!c.done,
-        lead: c.lead || 0
+        lead: c.lead || 0,
+        must: c.must ? 1 : 0 /* (no entry without a booked ticket: the morning reminder a week before, v199) */
       };
     });
     var body = {

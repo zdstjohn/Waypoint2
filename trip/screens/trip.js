@@ -1263,7 +1263,9 @@
           "</span>" +
           /* (a part of the day the planner couldn't fill says why: W.WHY) */
           (!x.free && x.why && W.WHY && W.WHY[x.why] ? '<span class="small muted why">' + esc(W.WHY[x.why]) + "</span>" : "") +
-          (short && !short.said && W.slotShort(x) && x.slot !== "eve" && !x.trip ? ((short.said = true), short.html) : "") +
+          (short && !short.said && W.slotShort(x) && x.slot !== "eve" && !x.trip
+            ? ((short.said = true), !x.free && x.why === "none" && W.WHY && W.WHY.none ? short.bare : short.html)
+            : "") +
           "</div>" +
           (!W.canEdit() ? "" : '<div class="slim-a">' + rr + "</div>") +
           "</article>";
@@ -1774,10 +1776,12 @@
     }
 
     /* a part of the day the city's first ideas don't fill (a meal, the morning or the afternoon; not an evening left
-       open on purpose, a travel day's cut hours or time you freed): more ideas come only when you ask. Said where the
-       gap is, in the first such free row of the day (dayStops), not above the plan */
+       open on purpose, a travel day's cut hours or time you freed): more ideas are asked for by themselves once a visit
+       (lib/ahead.js fillShort, v199), and after that when you ask. Said where the gap is, in the first such free row of
+       the day (dayStops), not above the plan. A row that already says why it is empty ("Nothing in this town's ideas
+       fits here", W.WHY.none) gets only the button or "Finding more…", not the same words twice (v199) */
     var dpool = W.pool(day.country, day.city),
-      /** @type {{said: boolean, html: string} | null} */ short = null;
+      /** @type {{said: boolean, html: string, bare: string} | null} */ short = null;
     if (
       !xp &&
       !day.loading &&
@@ -1787,18 +1791,16 @@
       (day.slots || []).some(function (x) {
         return W.slotShort(x) && x.slot !== "eve" && !x.trip;
       })
-    )
+    ) {
+      var more = W.cityBusy(W.cityKey(day.country, day.city))
+        ? '<span class="loading">Finding more…</span>'
+        : '<button type="button" class="linkish" data-more="1">Find more ideas</button>';
       short = {
         said: false,
-        html:
-          '<span class="small muted short-note">Nothing in ' +
-          esc(day.city) +
-          "'s ideas fits here. " +
-          (W.cityBusy(W.cityKey(day.country, day.city))
-            ? '<span class="loading">Finding more…</span>'
-            : '<button type="button" class="linkish" data-more="1">Find more ideas</button>') +
-          "</span>"
+        html: '<span class="small muted short-note">Nothing in ' + esc(day.city) + "'s ideas fits here. " + more + "</span>",
+        bare: '<span class="small muted short-note">' + more + "</span>"
       };
+    }
 
     /* the day */
     var pool = W.pool(day.country, day.city),

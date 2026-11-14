@@ -148,6 +148,21 @@ def prepare(db_dir, vt_index_path, work, max_lookups=300, max_packs=3):
     # town centre first, so their map draws after a small first download instead of the whole pack
     soon_first = sorted(older, key=lambda s: (soon(s), s))
     missing += [s for s in soon_first[:int(os.environ.get("RELAY_MAX", "2"))] if s not in missing]
+    # then the cities people saved for offline in Settings (the app writes mapwant/<slug> = {country, city, center, at}
+    # when a saved library city has no pack): after every trip city, oldest request first; a centre is all they need
+    wish = load_dir(os.path.join(db_dir, "mapwant")); fromwish = set()
+    def _centre(c):
+        ok = isinstance(c, list) and len(c) == 2 and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in c)
+        return ok and abs(c[0]) <= 90 and abs(c[1]) <= 180
+    def _at(s):
+        a = wish[s].get("at")
+        return a if isinstance(a, (int, float)) and not isinstance(a, bool) else 10 ** 18
+    for s in sorted(wish, key=lambda s: (_at(s), s)):
+        w = wish[s]
+        if s in index or s in wanted or s in missing or not _centre(w.get("center")): continue
+        wanted[s] = {"city": str(w.get("city") or ""), "country": str(w.get("country") or ""), "center": list(w["center"]), "pts": []}
+        missing.append(s)
+        fromwish.add(s)
     summary["rebuilt"] = [s for s in missing[:max_packs] if s in wide or s in older]
     # only the cities of trips get a pack (v195, the owner): packs for the app's built-in cities that no trip used filled
     # the file store, so none are built ahead any more; a city gets its pack the night after a trip first needs it
@@ -161,6 +176,7 @@ def prepare(db_dir, vt_index_path, work, max_lookups=300, max_packs=3):
                 h = vb.build(slug, wanted[slug], vt_dir, tpl)
                 index[slug] = {"b": h["b"], "places": h["places"], "city": h["city"], "country": h["country"]}
                 summary["packs"].append(slug)
+                if slug in fromwish: summary.setdefault("mapwant", []).append(slug)
             except Exception as e:
                 print("skip pack", slug, e, file=sys.stderr)
         if summary["packs"]:

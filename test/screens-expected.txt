@@ -50,3 +50,7 @@ menu-*
 # off under reduced motion (as these screens are drawn), so no screen changes.
 settings-*
 menu-*
+# v199: the What's new card (settings, the trip menu). An aged checked fact says so only for a library city's places
+# (none in these screens).
+settings-*
+menu-*

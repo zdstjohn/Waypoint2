@@ -26,7 +26,7 @@ exports.run = async t => {
     return c.food.length; });
   /* (the day's note is read in the same turn as the planning: the stand-in answers within a fraction of a second) */
   const note = await pg.evaluate(() => { W.replan(); W.dataV = (W.dataV || 0) + 1; const d = W.plan().days.find(d => d.stop === 0 && d.slots.some(x => x.slot === 'dinner' && !x.item && !x.cut));
-    if (!d) return 'no day'; W.S.day = d.n; W.S.tview = 'days'; W.goView('trip'); W.render(); const p = document.querySelector('#viewTrip .short-note'); return p ? p.textContent : 'no note'; });
+    if (!d) return 'no day'; W.S.day = d.n; W.S.tview = 'days'; W.goView('trip'); W.render(); const p = document.querySelector('#viewTrip .short-note'); return p ? (p.closest('article.slot') || p).textContent : 'no note'; });
   const fills = () => pg.evaluate(() => (window.__foodAsks || []).filter(p => /for the meals this trip has no place for yet/.test(p)).length);
   await pg.waitForFunction(() => (window.__foodAsks || []).some(p => /for the meals this trip has no place for yet/.test(p)), null, { timeout: 5000 }).catch(() => {});
   const s1 = await snap(0), ask = s1.mealAsks[0] || '';
@@ -38,7 +38,8 @@ exports.run = async t => {
   t.ok(!/for breakfast|for lunch/.test(ask), 'meals that have a place are not asked for');
   const total = +(ask.match(/^List (\d+) MORE/) || [])[1];
   t.ok(total >= 2 && total <= 12, 'one place to spare for each meal, twelve at most in one question (' + total + ')');
-  t.ok(/Nothing in .+'s ideas fits here/.test(note) && /Finding more/.test(note), 'meanwhile the day says more are being found: "' + note.trim() + '"');
+  t.ok(/Nothing in .+'s ideas fits here/.test(note) && /Finding more/.test(note), 'meanwhile the day says more are being found: "' + note.trim().replace(/\s+/g, ' ') + '"');
+  t.eq((note.match(/ideas fits here/g) || []).length, 1, 'and says why the row is empty once, not twice (v199)');
   await settle(pg, 9000);
   const s2 = await snap(0), dinners = s2.meals.filter(m => m.slot === 'dinner' && !m.cut && !m.free);
   t.ok(dinners.length >= 2 && dinners.every(m => m.n), 'when they arrive, every dinner has a place: ' + dinners.map(m => m.n).join(', '));
@@ -67,8 +68,8 @@ exports.run = async t => {
   await replan(); await settle(pg, 9000); await replan(); await settle(pg, 5000); await replan(); await settle(pg, 5000);
   const s5 = await snap(2), mine = s5.mealAsks.filter(p => p.indexOf('in ' + s5.city + ',') > -1);
   t.ok(mine.length === 3 && s5.count === 3, 'when the answers bring nothing, the town is asked three times and no more (' + mine.length + ')');
-  const note2 = await pg.evaluate(() => { const d = W.plan().days.find(d => d.stop === 2 && d.slots.some(x => x.slot === 'dinner' && !x.item && !x.cut)); if (!d) return 'no day'; W.S.day = d.n; W.S.tview = 'days'; W.goView('trip'); W.render(); const p = document.querySelector('#viewTrip .short-note'); return p ? p.textContent + '|' + !!p.querySelector('[data-more]') : ''; });
-  t.ok(/Nothing in .+'s ideas fits here/.test(note2) && /Find more ideas\|true/.test(note2), 'the free part of the day then says so itself, with "Find more ideas" to ask yourself');
+  const note2 = await pg.evaluate(() => { const d = W.plan().days.find(d => d.stop === 2 && d.slots.some(x => x.slot === 'dinner' && !x.item && !x.cut)); if (!d) return 'no day'; W.S.day = d.n; W.S.tview = 'days'; W.goView('trip'); W.render(); const p = document.querySelector('#viewTrip .short-note'); return p ? (p.closest('article.slot') || p).textContent + '|' + !!p.querySelector('[data-more]') : ''; });
+  t.ok(/Nothing in .+'s ideas fits here/.test(note2) && /Find more ideas/.test(note2) && /\|true$/.test(note2), 'the free part of the day then says so itself, with "Find more ideas" to ask yourself: "' + note2.replace(/\s+/g, ' ').trim() + '"');
   const where = await pg.evaluate(() => { const p = document.querySelector('#viewTrip .short-note'); return { inRow: !!(p && p.closest('article.slot.free')), n: document.querySelectorAll('#viewTrip .short-note').length }; });
   t.ok(where.inRow && where.n === 1, 'the note sits in the free row it is about, once a day, not above the plan');
   /* a meal you freed is yours: not counted, not asked for */

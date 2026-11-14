@@ -90,7 +90,8 @@
           if (!it.menu) it.menu = r.site;
         } else if (!it.book) it.book = r.site;
       }
-      if (r.hours && !it.hours) it.hours = r.hours;
+      /* (the map's hours over Claude's guess at them; the official page's, laid after this, over both: W.fact) */
+      if (r.hours) W.fact(it, "hours", r.hours, "map");
       if (r.k != null) it.k = r.k;
       /* the meals a place really serves, where the check found the list wrong ("A dinner restaurant, not a breakfast
          café"): the planner then never puts it at breakfast */

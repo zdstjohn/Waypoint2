@@ -157,6 +157,47 @@ _drift = [n for n in sorted(os.listdir(_pub)) if n.endswith(".py.txt") and os.pa
           and open(os.path.join(_pub, n), "rb").read() != open(os.path.join(_here, n[:-4]), "rb").read()]
 ok(not _drift, "each nightly script's published copy (trip/tools/*.py.txt) is the same as tools/*.py; these differ: " + ", ".join(_drift))
 
+# --- nightly prepare: street-map packs for trip cities first, then the cities people saved for offline (mapwant/) ---
+import tempfile, json as _json, importlib
+def _prepare_picks(wanted, wish, maps=(), cap=3):
+    import nightly, photos2, build as vb, official_links as ol
+    d = tempfile.mkdtemp(); w = tempfile.mkdtemp()
+    for col, docs in (("wanted", wanted), ("mapwant", wish), ("maps", {k: {} for k in maps})):
+        if docs is None: continue
+        os.makedirs(os.path.join(d, col))
+        for k, v in docs.items(): _json.dump(v, open(os.path.join(d, col, k + ".json"), "w"))
+    built = []
+    saved = (photos2.run_city, photos2.download, photos2.pending, vb.build, ol.lookup, nightly.get if hasattr(nightly, "get") else None)
+    def _pending(db, work, skip):
+        _json.dump({}, open(os.path.join(work, "pending.json"), "w")); open(os.path.join(work, "upload_list.txt"), "w").close()
+    def _build(slug, doc, out, tpl):
+        built.append((slug, doc)); return {"b": [0, 0, 1, 1], "places": [0, 0, 1, 1], "city": doc.get("city"), "country": doc.get("country")}
+    photos2.run_city = lambda *a, **k: None; photos2.download = lambda *a, **k: None; photos2.pending = _pending
+    vb.build = _build; ol.lookup = lambda *a, **k: None
+    real_get = mvt.get; mvt.get = lambda url: b'{"tiles": ["x/{z}/{x}/{y}"]}'
+    try:
+        import io, contextlib
+        with contextlib.redirect_stdout(io.StringIO()): nightly.prepare(d, None, w, 0, cap)
+    finally:
+        photos2.run_city, photos2.download, photos2.pending, vb.build, ol.lookup = saved[:5]; mvt.get = real_get
+    return built
+_trip = lambda c: {"city": c, "country": "Spain", "center": [37.0, -3.0], "pts": [[37.0, -3.0]]}
+_wish = lambda c, at, ctr=(41.0, 2.0): {"city": c, "country": "Spain", "center": list(ctr), "at": at}
+try:
+    _b = _prepare_picks({"spain-a": _trip("A")}, {"spain-b": _wish("B", 5)}, cap=3)
+    ok([s for s, _ in _b] == ["spain-a", "spain-b"], "prepare builds the trip city, then the saved city with a map wanted: " + str([s for s, _ in _b]))
+    ok(_b and _b[1][1].get("center") == [41.0, 2.0] and _b[1][1].get("pts") == [] and _b[1][1].get("city") == "B", "a saved city is built from its centre alone")
+    _b = _prepare_picks({"spain-t%d" % i: _trip("T%d" % i) for i in range(3)}, {"spain-b": _wish("B", 5)}, cap=3)
+    ok([s for s, _ in _b] == ["spain-t0", "spain-t1", "spain-t2"], "three trip cities use the night's cap: a saved city waits: " + str([s for s, _ in _b]))
+    _b = _prepare_picks({"spain-a": _trip("A")}, {"spain-new": _wish("N", 9), "spain-old": _wish("O", 1), "spain-bad": {"city": "X", "center": "no", "at": 0}, "spain-a": _wish("A", 0)}, cap=3)
+    ok([s for s, _ in _b] == ["spain-a", "spain-old"] or [s for s, _ in _b] == ["spain-a", "spain-old", "spain-new"], "saved cities come oldest first, a bad centre is ignored, a trip city's own request adds nothing: " + str([s for s, _ in _b]))
+    _b = _prepare_picks({}, {"spain-have": _wish("H", 1), "spain-new": _wish("N", 2)}, maps=["spain-have"], cap=3)
+    ok([s for s, _ in _b] == ["spain-new"], "a saved city that already has a pack is not built again: " + str([s for s, _ in _b]))
+    _b = _prepare_picks({"spain-a": _trip("A")}, None, cap=3)
+    ok([s for s, _ in _b] == ["spain-a"], "with no mapwant folder prepare works as before")
+except Exception as _e:
+    ok(False, "prepare's mapwant checks ran: %r" % (_e,))
+
 # --- the photo copies: small, WebP twins, blurred preview (big_photos.py, photos2.py, nightly.py), with no network ---
 import subprocess
 _here = os.path.dirname(os.path.abspath(__file__))

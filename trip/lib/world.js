@@ -19,7 +19,11 @@
   var W = window.W;
   var CACHE = "waypoint-world-",
     /* a Google pin or walk may be kept 30 days (Google's terms); past that it is not used */
-    G_DAYS = 30;
+    G_DAYS = 30,
+    /* how long a checked fact is shown as fresh, in days; the same numbers as SHELF in tools/worldlib.js, where the nightly
+       task renews what is older. Past these a stop's details say the fact may have changed. */
+    HOURS_DAYS = 60,
+    ENTRY_DAYS = 90;
   var applied = /** @type {Record<string, string>} */ ({}),
     gen = 0;
   var REC = /** @type {Record<string, any>} */ ({}),
@@ -249,6 +253,28 @@
   function fresh(/** @type {string} */ at, /** @type {number} */ days) {
     return !!at && Date.now() - Date.parse(at) < days * 864e5;
   }
+  /** a week's opening hours in the shape every screen reads: {o, c, closed} @param {any[]} wk @param {any[]} open */
+  function weekHours(wk, open) {
+    return open.length
+      ? {
+          o: Math.min.apply(
+            null,
+            open.map(function (/** @type {number[]} */ h) {
+              return h[0];
+            })
+          ),
+          c: Math.max.apply(
+            null,
+            open.map(function (/** @type {number[]} */ h) {
+              return h[1];
+            })
+          ),
+          closed: [0, 1, 2, 3, 4, 5, 6].filter(function (wd) {
+            return !wk[wd];
+          })
+        }
+      : { o: 0, c: 0, closed: [0, 1, 2, 3, 4, 5, 6] };
+  }
   /** "€22.27 adults, under 12 free · timed entry, book ahead" */
   function ticketText(/** @type {any} */ e) {
     var cur = e.cur === "EUR" ? "€" : e.cur === "GBP" ? "£" : e.cur === "USD" ? "$" : e.cur ? e.cur + " " : "€",
@@ -291,25 +317,8 @@
           if (z && z.wk && z.wk.length === 7) {
             it.wk = z.wk;
             var open = z.wk.filter(Boolean);
-            it.hours = open.length
-              ? {
-                  o: Math.min.apply(
-                    null,
-                    open.map(function (/** @type {number[]} */ h) {
-                      return h[0];
-                    })
-                  ),
-                  c: Math.max.apply(
-                    null,
-                    open.map(function (/** @type {number[]} */ h) {
-                      return h[1];
-                    })
-                  ),
-                  closed: [0, 1, 2, 3, 4, 5, 6].filter(function (wd) {
-                    return !z.wk[wd];
-                  })
-                }
-              : { o: 0, c: 0, closed: [0, 1, 2, 3, 4, 5, 6] };
+            /* (the official page's hours win over the map's and Claude's, whichever came first: W.fact) */
+            W.fact(it, "hours", weekHours(z.wk, open), "official");
             wf.h = { src: p.hours.src, at: p.hours.at };
           }
           /* the dates it is always closed that fall on this trip's days here, as closures (W.shutOn reads them) */
@@ -329,17 +338,17 @@
           }
         }
         if (p.entry && !p.entry.unsure) {
-          it.ticket = ticketText(p.entry);
+          W.fact(it, "ticket", ticketText(p.entry), "official");
           /* (bookV: the link is settled, so Claude is not asked for one. Until v198 it was, and its answer took the
              official ticket page's place a few seconds after the record was laid: lib/stays.js W.loadBookLinks) */
           if (p.entry.url) {
-            it.book = p.entry.url;
+            W.fact(it, "book", p.entry.url, "official");
             it.bookV = 2;
           }
           /* how far ahead to book: what its own page says; else, where there is no entry without a booked ticket,
              the app's own rule (a month for a timed entry, two weeks otherwise), never shorter than a lead it has */
-          if (p.entry.lead) it.lead = p.entry.lead;
-          else if (p.entry.need === "required") it.lead = Math.max(it.lead || 0, p.entry.timed ? MUST_TIMED : MUST_DAYS);
+          if (p.entry.lead) W.fact(it, "lead", p.entry.lead, "official");
+          else if (p.entry.need === "required") W.fact(it, "lead", Math.max(it.lead || 0, p.entry.timed ? MUST_TIMED : MUST_DAYS), "official");
           it.timed = p.entry.timed ? 1 : undefined;
           it.must = p.entry.need === "required" ? 1 : undefined; /* (To book says so: lib/bookcore.js, screens/book.js) */
           wf.e = { src: p.entry.src, at: p.entry.at };
@@ -398,7 +407,9 @@
     else if (it.wf.e) lines.push("<b>Hours</b> not checked yet: look on its page for your date");
     if (it.wf.e && it.ticket) lines.push("<b>Entry</b> " + W.esc(it.ticket));
     if (it.must) lines.push("<b>Tickets</b> No entry without a booked ticket");
-    var at = [it.wf.h && it.wf.h.at, it.wf.e && it.wf.e.at].filter(Boolean).sort().pop(),
+    var hAt = it.wf.h && it.wf.h.at,
+      eAt = it.wf.e && it.wf.e.at,
+      at = [hAt, eAt].filter(Boolean).sort().pop(),
       src = (it.wf.e && it.wf.e.src) || (it.wf.h && it.wf.h.src) || "";
     var host = "";
     try {
@@ -407,12 +418,21 @@
       /* not a web address: the line says only when */
     }
     var p = at ? at.split("-") : null;
+    /* the newest fact shown is past its shelf life (hours 60 days, the entry rule 90; counted from today, not from the
+       trip's date; when both were read the same day it is the hours', which go first): say it may have changed */
+    var old = false;
+    if (p) {
+      var now = new Date(),
+        ago = Math.round((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(+p[0], +p[1] - 1, +p[2])) / 864e5);
+      old = ago > (hAt === at ? HOURS_DAYS : ENTRY_DAYS);
+    }
     return (
-      '<div class="wf"><p>' +
+      '<div class="wf' + (old ? " wf-old" : "") + '"><p>' +
       lines.join("<br>") +
       '</p><p class="small muted">Checked ' +
       (p ? W.esc(W.fmtDate(new Date(+p[0], +p[1] - 1, +p[2]), "md")) : "") +
       (host ? " on " + W.esc(host) : "") +
+      (old ? " · may have changed since" : "") +
       "</p></div>"
     );
   };
@@ -476,7 +496,11 @@
     load(country, city, again);
     return true;
   };
-  /** for the tests and Settings: the records read this session */
+  /** a city's record as read this session, or null (the tests: test/suites/late.js) */
+  W.worldRecord = function (/** @type {string} */ country, /** @type {string} */ city) {
+    return REC[W.citySlug(country, city)] || null;
+  };
+    /** for the tests and Settings: the records read this session */
   W.worldHave = function () {
     return Object.keys(REC).filter(function (k) {
       return !!REC[k];

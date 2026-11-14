@@ -249,10 +249,34 @@
   }
 
   /** Called after each screen is drawn (screens/trip.js). The work is planned only when the day (or the screen) changed. */
+  /* A part of a day that nothing in the town's ideas fits (v199: until then it said "Nothing in <town>'s ideas fits
+     here" and waited for a tap on "Find more ideas"): more are asked for by themselves, once a visit per town, for the
+     day on show and its neighbours. Not in a shared trip you only view, not offline, not when the town's lists are
+     full or on their way, and never for the evening (an evening free is a plan). Only a morning or an afternoon: a meal
+     with no place has its own fill, capped at three questions a town (lib/ideas.js W.mealIdeas), and this must not
+     ask past that cap. */
+  var moreAsked = /** @type {Record<string, number>} */ ({});
+  function fillShort(/** @type {Plan} */ P) {
+    if (W.readOnly || W.isExample || W.sampleState !== "on" || (W.offline && W.offline.off) || window.__WP_OFFLINE) return;
+    [W.S.day - 1, W.S.day, W.S.day + 1].forEach(function (n) {
+      var d = P.days[n - 1];
+      if (!d || d.rest || !d.country || !d.city) return;
+      var ck = W.cityKey(d.country, d.city),
+        pool = W.pool(d.country, d.city);
+      if (moreAsked[ck] || !pool || pool.fallback || W.ideasFull(pool) || W.cityBusy(ck)) return;
+      var short = (d.slots || []).some(function (x) {
+        return W.slotShort(x) && x.slot !== "eve" && !W.isFood(x.slot) && !x.trip;
+      });
+      if (!short) return;
+      moreAsked[ck] = 1;
+      W.loadCity(d.country, d.city, true);
+    });
+  }
   W.aheadTick = function (P) {
     if (!P || !P.days || !P.days.length) return;
     mapAhead(P);
     engineAhead(P);
+    fillShort(P);
     var key =
       (W.S.tripId || "") +
       "|" +

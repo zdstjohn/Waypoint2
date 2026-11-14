@@ -23,6 +23,20 @@ exports.run = async t => {
     'the Alhambra: 8:30-20:00 in summer, 8:30-18:00 in winter, closed on Christmas Day');
   const st = L.doctorOne(REC, '2027-03-01');
   t.ok(!L.doctorOne(REC, '2026-11-20').stale.length && st.stale.some(x => /hours from 2026-11-13/.test(x)) && !st.broken.length, 'a record is up to date a week on, and its hours are due again after 60 days');
+  /* v199: a record whose places are still mostly unread is looked at again, least read first, and a place whose pages
+     gave nothing is left alone for two weeks */
+  const os = require('os'), tdb = fs.mkdtempSync(path.join(os.tmpdir(), 'wp-wl-'));
+  for (const c of ['citylib', 'places', 'links', 'photos', 'wanted', 'world']) fs.mkdirSync(path.join(tdb, c));
+  const thin = JSON.parse(JSON.stringify(REC)); thin.city = 'Thin'; for (const p of Object.values(thin.places)) if (p.kind === 'spot') { delete p.hours; delete p.entry; }
+  fs.writeFileSync(path.join(tdb, 'world', 'spain-granada.json'), JSON.stringify({ data: REC, version: 1 }));
+  fs.writeFileSync(path.join(tdb, 'world', 'spain-thin.json'), JSON.stringify({ data: thin, version: 1 }));
+  const pl = L.plan(tdb, path.join(tdb, 'w'), 10, 0);
+  const tried = { name: 'x', kind: 'spot', tried: '2026-11-10' }, stale = { name: 'y', kind: 'spot', tried: '2026-10-01' };
+  t.ok(pl.cities[0] === 'spain-thin' && pl.cities.indexOf('spain-granada') > 0 && L.unread(thin, '2026-11-14').share === 0 && L.unread(REC, '2026-11-14').share > 0,
+    'the nightly library goes back to a record whose sights are unread, the least read first: ' + JSON.stringify(pl.cities));
+  t.ok(!L.wantsCheck(tried, '2026-11-14') && L.wantsCheck(stale, '2026-11-14') && L.wantsCheck(undefined, '2026-11-14'),
+    'a place whose pages gave nothing four days ago is left alone; after two weeks it is asked about again');
+  fs.rmSync(tdb, { recursive: true, force: true });
   const b = await launch();
   const store = mkdb({ 'world/spain-granada': REC, 'world/spain-seville': Object.assign({}, REC, { v: 2 }) });
   const A = await open(b, { width: 390, height: 844, db: store, init: () => { try { localStorage.setItem('waypoint-world-italy-rome', '{"v":1,"places":{}}'); } catch (e) {} } });
@@ -48,6 +62,17 @@ exports.run = async t => {
       kept: Object.keys(localStorage).filter(k => k.indexOf('waypoint-world-') === 0).sort()
     };
   });
+  /* v199: one rule for which fact wins: the official page, then Google, then the map, then Claude, in whatever order
+     they arrive */
+  const ord = await A.pg.evaluate(() => {
+    const src = [['claude', 600], ['map', 540], ['google', 525], ['official', 510]], out = [];
+    const perms = a => a.length < 2 ? [a] : a.flatMap((x, i) => perms(a.slice(0, i).concat(a.slice(i + 1))).map(p => [x].concat(p)));
+    perms(src).forEach(p => { const it = { n: 'x' }; p.forEach(([by, o]) => W.fact(it, 'hours', { o, c: 1080, closed: [] }, by)); out.push(it.hours.o + '/' + it.fsrc.hours); });
+    const kept = Object.keys({ n: 'x', fsrc: 1 }).length, it2 = { n: 'y' }; W.fact(it2, 'book', 'https://a', 'official');
+    return { all: [...new Set(out)], saved: JSON.stringify(it2), late: W.fact(it2, 'book', 'https://b', 'claude'), book: it2.book };
+  });
+  t.ok(ord.all.length === 1 && ord.all[0] === '510/official' && ord.late === false && ord.book === 'https://a' && !/fsrc/.test(ord.saved),
+    'one rule for which fact wins: in all 24 orders the official hours stand; a later guess from Claude does not replace an official link; the source is not saved with the stop: ' + JSON.stringify(ord));
   t.ok(r.wk === 7 && /€22\.27 adults, under 12 free · timed entry, book ahead/.test(r.ticket) && /tickets\.alhambra-patronato\.es/.test(r.book) && r.timed === 1,
     'the Alhambra carries its weekly hours and the official entry rule: ' + r.ticket);
   t.eq(r.pin, [37.1760783, -3.5881413], 'and its pin as looked up again (the place check had it by Plaza Nueva)');
@@ -55,6 +80,31 @@ exports.run = async t => {
   t.ok(r.pqMon === true && r.pqTue === false, 'the science park is kept off a Monday (closed) and not a Tuesday');
   t.eq(r.leg, [18, true], "the walk between two of a ready-made day's places is Google's, not an estimate");
   t.ok(/<b>Open<\/b> (8:30 AM–8:00 PM|08:30–20:00)/.test(r.facts) && /Checked Nov 13 on alhambra-patronato\.es/.test(r.facts), 'the details say what was checked, where and when');
+  /* a fact past its shelf life says so (hours 60 days, entry rule 90, from today): fake today with a Date that starts on a set day */
+  const aged = await A.pg.evaluate(() => {
+    const pool = W.worldPool('Spain', 'Granada'), d = W.P.days[0];
+    W.applyWorld('Spain', 'Granada', pool);
+    const alh = pool.spots.find(x => W.norm(x.n) === 'alhambra and nasrid palaces');
+    const RealDate = Date, at = RealDate.UTC(2026, 10, 13, 12), out = {};
+    const fake = iso => {
+      const off = RealDate.parse(iso + 'T12:00:00Z') - RealDate.now();
+      window.Date = class extends RealDate { constructor(...a) { if (a.length) super(...a); else super(RealDate.now() + off); } static now() { return RealDate.now() + off; } };
+    };
+    try {
+      fake('2026-11-20'); out.fresh = W.worldFacts(alh, d);
+      fake('2027-01-12'); out.d60 = W.worldFacts(alh, d); /* 60 days on: still fresh */
+      fake('2027-01-13'); out.d61 = W.worldFacts(alh, d);
+      const e = Object.assign({}, alh, { wf: { e: alh.wf.e } });
+      fake('2027-02-11'); out.e90 = W.worldFacts(e, d); /* 90 days on: still fresh */
+      fake('2027-02-12'); out.e91 = W.worldFacts(e, d);
+    } finally { window.Date = RealDate; }
+    out.now = W.worldFacts(alh, d);
+    return out;
+  });
+  t.ok(!/wf-old|may have changed/.test(aged.fresh) && aged.fresh === aged.d60 && !/wf-old/.test(aged.e90), 'a fact within its shelf life (hours 60 days, entry rule 90) renders as it always did');
+  t.ok(/^<div class="wf wf-old">/.test(aged.d61) && /Checked Nov 13 on alhambra-patronato\.es · may have changed since<\/p>/.test(aged.d61) && /<b>Open<\/b>/.test(aged.d61), 'hours checked 61 days ago: the line says they may have changed, and the box is marked: ' + aged.d61);
+  t.ok(/wf-old/.test(aged.e91) && !/Open/.test(aged.e91) && /may have changed since/.test(aged.e91), 'an entry rule is 90 days on its own, and shows the caution after that');
+  t.ok(aged.now === aged.fresh.replace(/^/, ''), 'back on the real date, the line is as it was');
   t.ok(!r.seville, 'a record in a shape this version does not know is not used');
   t.eq(r.kept, ['waypoint-world-spain-granada'], "the phone keeps the trip's own city for offline use, and drops a city no trip has");
   /* the planner, from the record's lists: no cathedral on Sunday morning, no science park on Monday */

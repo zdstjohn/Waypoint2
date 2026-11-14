@@ -655,16 +655,19 @@ interface Waypoint {
   /** a library city's first lists from its record, at once (lib/world.js): true when it gives them (or will in a moment) */
   worldFirst?: (country: string, city: string, again: () => void) => boolean;
   libFromWorld?: Record<string, number>;
+  /** one rule for which fact wins: write a stop's fact unless a better source already gave it (lib/core.js) */
+  fact: (it: any, k: string, v: any, by: "claude" | "map" | "google" | "official") => boolean;
   /** how many times the place check's records have been laid over a city's lists (lib/places.js) */
   placesLaid?: number;
   /** the library's cities, by name (world/_index), and a city's record read now and kept (lib/world.js) */
+  worldRecord: (country: string, city: string) => any;
   worldCities: () => { slug: string; name: string; country: string; places: number }[];
   worldRead: (country: string, city: string) => Promise<any>;
   /** Settings' World library card, drawn again (screens/settings.js) */
   worldCardDraw?: () => void;
   /** a city's photos in one file (lib/photopack.js): read one, fetch one, fill an offline save from the packs, a picture with no file of its own wanted on the page, and a library city saved to (or taken off) this phone */
   photoPack: {
-    read: (buf: ArrayBuffer) => { slug: string; at: string; items: { url: string; type: string; start: number; end: number }[] } | null;
+    read: (text: string) => { slug: string; at: string; items: { url: string; type: string; bytes: Uint8Array }[] } | null;
     get: (url: string) => Promise<{ url: string; blob: Blob }[]>;
     fill: (todo: string[]) => Promise<string[]>;
     want: (url: string) => void;

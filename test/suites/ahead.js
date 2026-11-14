@@ -1,7 +1,8 @@
 /* A step ahead (lib/ahead.js): once the screen has settled the phone fetches the next and the previous day's header photo
    and first stop photos (so a swipe shows them at once), but never on Simple view or a saving/slow connection; and the
    evening before a day that moves to a new town it asks for that town's street map: once a day, never on mobile data;
-   and while a day of a town with a street map is read, the map's engine (v192), under the same rule. */
+   and while a day of a town with a street map is read, the map's engine (v192), under the same rule. A part of a day that
+   nothing in the town's ideas fits asks for more by itself, once a visit per town (v199). */
 const { launch, open, exampleTrip, settle, until } = require('../lib/page'); const mkdb = require('../lib/db');
 const GIF = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
 /* every place on the trip gets a photo at /_blob/<name>.gif (the plan's own names, once it is drawn) */
@@ -102,5 +103,41 @@ exports.run = async t => {
   const once = await M.pg.evaluate(async () => { let st = 'idle', n = 0; W.vtState = () => st; W.vtEngineWarm = () => { n++; st = 'loading'; }; W.render(); await new Promise(r => setTimeout(r, 2500)); W.render(); W.render(); await new Promise(r => setTimeout(r, 2500)); return n; });
   t.ok(once <= 1, 'and once only: an engine that is loading is not asked for again (' + once + ')');
   t.eq(M.errors(), [], 'no page errors');
-  await M.ctx.close(); await b.close();
+  await M.ctx.close();
+
+  /* ---- a part of a day nothing fits (v199): more ideas are asked for by themselves, once a visit per town ---- */
+  const mkShort = async (init) => { const o = await open(b, { width: 390, height: 844, db: mkdb({}), init });
+    await o.pg.evaluate(() => { W.newTripFrom({ v: 2, algo: 2, styles: ['culture'], countries: [{ mode: 'manual', name: 'Italy', picked: ['Florence'] }], days: 4, start: '2027-06-15', depart: 'Seattle (SEA)', travelers: [41, 40] }); });
+    await settle(o.pg, 8000); return o; };
+  /* the town's sights cut to three, so its days run short (the meals are untouched: those have their own fill, lib/ideas.js W.mealIdeas) */
+  const cut = pg => pg.evaluate(() => { window.__more = []; const o = W.loadCity; W.loadCity = function (co, ci, more) { if (more) window.__more.push(ci); return o.apply(this, arguments); };
+    const d = W.P.days[1], c = W.C.city[W.cityKey(d.country, d.city)]; c.spots = c.spots.slice(0, 3); if (c.rest) c.rest.spots = []; c.showN = { spots: 3 };
+    W.S.picks = {}; W.S.day = 2; W.S.tview = 'days'; W.goView('trip'); W.replan(); W.dataV = (W.dataV || 0) + 1; W.render();
+    return W.P.days.filter(d => d.slots.some(x => W.slotShort(x) && x.slot !== 'eve' && !x.trip)).length; });
+  const shortDays = pg => pg.evaluate(() => W.P.days.filter(d => d.slots.some(x => W.slotShort(x) && x.slot !== 'eve' && !x.trip)).map(d => d.n));
+  const F = await mkShort(null); const nShort = await cut(F.pg);
+  t.ok(nShort >= 2, 'with three sights for four days, days run short (' + nShort + ' days with a part nothing fits)');
+  await F.pg.waitForTimeout(1500);
+  const asked1 = await F.pg.evaluate(() => window.__more.slice());
+  t.eq(asked1, ['Florence'], 'more ideas are asked for at once, with no tap on "Find more ideas"');
+  await settle(F.pg, 9000);
+  const after = await F.pg.evaluate(() => { const c = W.C.city[W.cityKey('Italy', 'Florence')]; return { spots: c.spots.length, note: !!document.querySelector('#viewTrip .short-note') }; });
+  const left = await shortDays(F.pg);
+  t.ok(after.spots > 3 && left.length === 0 && !after.note, 'when they come, every day is filled and the note is gone (' + after.spots + ' sights; short days left: ' + (left.join(', ') || 'none') + ')');
+  /* the same town short again on this visit: not asked twice (a tap on "Find more ideas" still asks) */
+  await F.pg.evaluate(() => { const c = W.C.city[W.cityKey('Italy', 'Florence')]; c.spots = c.spots.slice(0, 3); c.showN = { spots: 3 }; W.S.picks = {}; for (const n of [1, 2, 3]) { W.S.day = n; W.render(); } W.replan(); W.dataV++; W.render(); });
+  await F.pg.waitForTimeout(2500);
+  const asked2 = await F.pg.evaluate(() => ({ n: window.__more.length, btn: !!document.querySelector('#viewTrip .short-note [data-more]') }));
+  t.ok(asked2.n === 1 && asked2.btn, 'short again on the same visit, it is not asked again by itself, and the day offers "Find more ideas" (' + asked2.n + ' asks)');
+  t.eq(F.errors(), [], 'no page errors');
+  await F.ctx.close();
+  /* never in a trip you only view, and never offline */
+  for (const [name, init] of [['a trip you only view', null], ['offline', 'window.__WP_OFFLINE = 1;']]) {
+    const R = await mkShort(null);
+    if (name === 'offline') await R.pg.evaluate(() => { window.__WP_OFFLINE = 1; }); else await R.pg.evaluate(() => { W.readOnly = true; });
+    await cut(R.pg); await R.pg.waitForTimeout(2500);
+    t.eq(await R.pg.evaluate(() => window.__more.length), 0, 'nothing is asked for by itself in ' + name);
+    await R.ctx.close();
+  }
+  await b.close();
 };

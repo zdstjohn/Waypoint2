@@ -297,12 +297,12 @@ window.TOP_COUNTRIES =
   );
 /* what is new, in plain words, for Settings (the newest version first; a line is one thing a traveler would notice) */
 window.WHATS_NEW = {
-  v: 198,
+  v: 199,
   items: [
-    "Cities in the world library fill in at once: add Granada, Seville or Córdoba and its days are planned straight away.",
-    "To book opens with a \"Don't miss\" card for places that turn you away without a booked ticket, like the Alhambra, with a book-by date and the official ticket site.",
-    "A stop whose hours and tickets haven't been checked yet says so, instead of showing a guess.",
-    "Settings has a World library card: save a city to your phone before you've planned a trip there.",
-    "The day's map shows your route along the streets, and the line draws itself when you open a day."
+    "When nothing fits a gap in your day, Waypoint now looks for more ideas in that town without you asking.",
+    "Checked hours and ticket rules say when they were checked long ago, so you know to look again before you go.",
+    "Your phone reminds you a week before the last day to book a \"Don't miss\" ticket, and again on the day.",
+    "A city you save to your phone from the World library gets its street map overnight.",
+    "More of each city's sights have their hours and tickets checked."
   ]
 };

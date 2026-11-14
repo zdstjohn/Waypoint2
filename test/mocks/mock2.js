@@ -146,7 +146,13 @@
     window.__asks = { out: 0, at: Date.now() };
     s.json = async (prompt, opts) => {
       window.__asks.out++; window.__asks.at = Date.now();
-      try { return await inner(prompt, opts); } finally { window.__asks.out--; window.__asks.at = Date.now(); }
+      /* window.__lateAsks = ms: every answer comes that much later, with a jitter that changes their order (the late
+         suite: what the app shows must not depend on which answer comes first) */
+      try {
+        const r = await inner(prompt, opts);
+        if (window.__lateAsks) { const h = [...String(prompt).slice(0, 200)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7); await new Promise(res => setTimeout(res, window.__lateAsks + (h % 7) * 150)); }
+        return r;
+      } finally { window.__asks.out--; window.__asks.at = Date.now(); }
     };
     /* pictures can be sent (a menu's photos), unless a test says not (window.__noImages) */
     s.limits = async () => (window.__noImages ? { maxPromptBytes: 262144 } : { maxPromptBytes: 262144, images: { maxCount: 3, maxInputBytes: 20e6, mediaTypes: ['image/jpeg', 'image/png', 'image/webp'] } });

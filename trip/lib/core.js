@@ -172,6 +172,20 @@
       .trim());
   };
   /* a link that opens in a new tab */
+  /* One rule for which fact wins (v199). A stop's hours, booking link, lead time and ticket can come from its own
+     official page (the world library), the nightly place check (the map's data) or Claude, and arrive in any order.
+     Each writer says which it is, and a fact is replaced only by one from as good a source or better: official, then
+     Google, then the map, then Claude. Which source a fact came from is kept beside the stop (it.fsrc, not saved: the
+     checked facts are laid again on every read). */
+  var RANK = /** @type {Record<string, number>} */ ({ claude: 1, map: 2, google: 3, official: 4 });
+  W.fact = function (/** @type {any} */ it, /** @type {string} */ k, /** @type {any} */ v, /** @type {string} */ by) {
+    var s = it.fsrc;
+    if (!s) Object.defineProperty(it, "fsrc", { value: (s = {}), writable: true, configurable: true });
+    if ((RANK[s[k]] || 0) > (RANK[by] || 1)) return false;
+    s[k] = by;
+    it[k] = v;
+    return true;
+  };
   W.extLink = function (url, txt, cls) {
     return "<a" + (cls ? ' class="' + cls + '"' : "") + ' href="' + W.esc(url) + '" target="_blank" rel="noopener">' + txt + "</a>";
   };

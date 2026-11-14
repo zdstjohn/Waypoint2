@@ -15,13 +15,13 @@ exports.run = async t => {
     "the tool's published copy (trip/tools/photopack.js.txt), which a nightly task reads, is the same as tools/photopack.js");
   /* ---- the tool: a pack reads back, and what is not a pack is refused ---- */
   const pics = man.map(e => ({ url: u(e.jpg), type: 'image/webp', bytes: fs.readFileSync(e.webp) }));
-  const buf = PK.pack('italy-rome', '2026-11-14', pics), back = PK.read(buf);
-  t.ok(back && back.slug === 'italy-rome' && back.items.length === 4 && back.items.every((it, i) => it.url === pics[i].url && buf.subarray(it.start, it.end).equals(pics[i].bytes)),
-    'a pack reads back: every picture, byte for byte, under its photo\'s own address');
-  const cut = buf.subarray(0, buf.length - 10), twice = PK.pack('x', '2026-11-14', [pics[0], pics[0]]);
-  const odd = Buffer.from(buf); odd.write('image/html', odd.indexOf('image/webp'));
-  t.ok(PK.read(cut) === null && PK.read(twice) === null && PK.read(odd) === null && PK.read(Buffer.from('WPPK1\n')) === null && PK.read(Buffer.from('<html>not a pack</html>')) === null,
-    'a pack cut short, one naming a picture twice, one holding something that is not a picture, and a page that is not a pack are all refused');
+  const txt = PK.pack('italy-rome', '2026-11-14', pics), back = PK.read(txt);
+  t.ok(typeof txt === 'string' && back && back.slug === 'italy-rome' && back.items.length === 4 && back.items.every((it, i) => it.url === pics[i].url && it.bytes.equals(pics[i].bytes)),
+    'a pack (text, which the app\'s file store takes) reads back: every picture, byte for byte, under its photo\'s own address');
+  const cut = txt.slice(0, txt.length - 10), twice = PK.pack('x', '2026-11-14', [pics[0], pics[0]]);
+  const odd = txt.replace('image/webp', 'image/jpeg'), page = PK.pack('x', '2026-11-14', [{ url: '/_blob/x', type: 'image/webp', bytes: Buffer.from('<html>sign in</html>') }]);
+  t.ok(PK.read(cut) === null && PK.read(twice) === null && PK.read(odd) === null && PK.read(page) === null && PK.read('{"wppk":1}') === null && PK.read('<html>not a pack</html>') === null,
+    'a pack cut short, one naming a picture twice, one whose picture is not what it says, one holding a web page, and a file that is not a pack are all refused');
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wp-photopack-')), files = path.join(tmp, 'files'); fs.mkdirSync(files);
   /* the city's files as the nightly run has them: by id. Photo 0 has a WebP twin (it goes in), photo 1 only its JPEG,
      photo 2 is a "nearby" stand-in (left out), photo 3's file is missing, and one "picture" is a web page */
@@ -32,12 +32,30 @@ exports.run = async t => {
   fs.writeFileSync(path.join(tmp, 'italy-rome.json'), JSON.stringify({ data: { city: 'Rome', items: {
     colosseum: fx.record(man[0], 'new'), pantheon: fx.record(man[1], 'old'), 'near the forum': fx.record(man[2], 'old', { near: 'Roman Forum' }),
     'trevi fountain': fx.record(man[3], 'old'), 'a page': { url: '/_blob/' + 'e'.repeat(32) } } } }));
-  const built = PK.build(path.join(tmp, 'italy-rome.json'), files, path.join(tmp, 'out.wpp')), chk = PK.check(path.join(tmp, 'out.wpp'), path.join(tmp, 'italy-rome.json'));
-  const made = PK.read(fs.readFileSync(path.join(tmp, 'out.wpp')));
+  const built = PK.build(path.join(tmp, 'italy-rome.json'), files, path.join(tmp, 'out.js')), chk = PK.check(path.join(tmp, 'out.js'), path.join(tmp, 'italy-rome.json'));
+  const made = PK.read(fs.readFileSync(path.join(tmp, 'out.js'), 'utf8'));
   t.ok(built.n === 2 && built.slug === 'italy-rome' && built.missing.join() === 'trevi fountain' && built.skipped.join() === 'a page' && chk && chk.n === 2 && chk.lacks === 2,
     'built from a city\'s files: its own photos go in, a stand-in from nearby does not, a missing file and a page that is not a picture are named: ' + JSON.stringify(built));
   t.ok(made && made.items[0].url === u(man[0].jpg) && made.items[0].type === 'image/webp' && made.items[1].type === 'image/jpeg',
     'a photo goes in as its WebP when it has one (the smallest good copy), named by its own address; else as its JPEG');
+  /* moving the stored photos into packs (v199): a city in a trip keeps its files; another city is packed, and the files
+     its photos had of their own are free, unless something else still points at one */
+  const db = path.join(tmp, 'db'); for (const c of ['photos', 'wanted', 'places']) fs.mkdirSync(path.join(db, c), { recursive: true });
+  const romeDoc = JSON.parse(fs.readFileSync(path.join(tmp, 'italy-rome.json'), 'utf8'));
+  fs.writeFileSync(path.join(db, 'photos', 'italy-rome.json'), JSON.stringify(romeDoc));
+  fs.writeFileSync(path.join(db, 'photos', 'spain-granada.json'), JSON.stringify({ data: { city: 'Granada', items: { alhambra: fx.record(man[3], 'new') } } }));
+  fs.writeFileSync(path.join(db, 'wanted', 'spain-granada.json'), JSON.stringify({ data: { city: 'Granada' } }));
+  /* (a place record that happens to point at Rome's Pantheon file keeps that file) */
+  fs.writeFileSync(path.join(db, 'places', 'x.json'), JSON.stringify({ data: { items: { p: { pic: u(man[1].jpg) } } } }));
+  const pl = PK.plan(db, path.join(tmp, 'plan')), P = JSON.parse(fs.readFileSync(path.join(tmp, 'plan', 'plan.json'), 'utf8'));
+  const rome = P.cities['italy-rome'] || {}, copies = r => [r.url, r.sm, r.big, r.webp && r.webp.url, r.webp && r.webp.sm, r.webp && r.webp.big].filter(Boolean).map(x => x.slice(7));
+  const colo = romeDoc.data.items.colosseum;
+  t.ok(pl.cities === 1 && !P.cities['spain-granada'] && rome.fetch.includes(colo.webp.url.slice(7)) && copies(colo).every(id => rome.free.includes(id)) && !rome.free.includes(u(man[1].jpg).slice(7)) && !rome.free.includes(u(man[2].jpg).slice(7)),
+    'the plan: Granada (in a trip) keeps its files; Rome is packed from each photo\'s WebP copy, and every copy the Colosseum had is freed, but not a file a place record points at, nor a stand-in\'s: ' + JSON.stringify(pl));
+  const mk = PK.mark(path.join(db, 'photos', 'italy-rome.json'), '/_blob/' + 'a'.repeat(32), path.join(tmp, 'out.js'), path.join(tmp, 'marked.json'));
+  const mdoc = JSON.parse(fs.readFileSync(path.join(tmp, 'marked.json'), 'utf8')), mc = mdoc.items.colosseum;
+  t.ok(mk.marked === 2 && mdoc.pack.url === '/_blob/' + 'a'.repeat(32) && mdoc.pack.n === 2 && mc.pk === 1 && mc.url === colo.url && mc.lq === colo.lq && !('sm' in mc) && !('webp' in mc) && !('big' in mc) && !mdoc.items['near the forum'].pk && !mdoc.items['trevi fountain'].pk,
+    'marked: the photos in the pack are pk (same address, same preview, no copies of their own); a stand-in and a photo the pack lacks are as they were');
 
   /* ---- the app ---- */
   /* Granada, from the library's record: four of its places have a photo. Two have no file of their own (pk: only the
@@ -51,16 +69,16 @@ exports.run = async t => {
   const b = await launch();
   /* pk: the first two photos have no file of their own (their addresses answer "not found": only the pack has them) */
   const start = async pk => {
-    const A = await open(b, { width: 390, height: 844, db: mkdb(seed(pk)) });
+    const store = mkdb(seed(pk)), A = await open(b, { width: 390, height: 844, db: store });
     /* (hold: the pack's answer waits until the test lets it go, to look at the page while it is on its way) */
     const stats = await fx.serve(A.ctx, man); const packs = { n: 0, hold: null };
     await A.ctx.route(/\/_blob\/[0-9a-f]{32}/, async route => {
       const id = /\/_blob\/([0-9a-f]{32})/.exec(route.request().url())[1];
-      if (id === PACK_ID) { packs.n++; if (packs.hold) await packs.hold; return route.fulfill({ status: 200, body: gpack, contentType: 'application/octet-stream' }); }
+      if (id === PACK_ID) { packs.n++; if (packs.hold) await packs.hold; return route.fulfill({ status: 200, body: gpack, contentType: 'text/javascript' }); }
       if (pk && (id === fx.idOf(man[0].jpg) || id === fx.idOf(man[1].jpg))) return route.fulfill({ status: 404, body: '' });
       return route.fallback();
     });
-    return Object.assign(A, { stats, packs });
+    return Object.assign(A, { stats, packs, store });
   };
   const granada = pg => pg.evaluate(() => {
     W.newTripFrom({ v: 2, algo: 2, styles: ['culture'], countries: [{ mode: 'manual', name: 'Spain', picked: ['Granada'] }], days: 3, start: '2027-06-13', depart: 'Seattle (SEA)', travelers: [41, 40, 6, 3] });
@@ -135,6 +153,10 @@ exports.run = async t => {
   }));
   t.ok(/Granada ?Spain · saved .* · 4 photos/.test(savedRow) && /Remove$/.test(savedRow) && kept.rec && kept.blobs === 4 && kept.reg['spain-granada'] && kept.reg['spain-granada'].photos === 4 && A.packs.n === 1,
     'tapped: its record, and its four photos from one pack, are on the phone, and the row says so: ' + savedRow + ' (pack requests: ' + A.packs.n + ')');
+  /* Granada has no street-map pack, so the save asks the nightly task for one: a small shared document, nothing private */
+  const want = await until(() => { const v = A.store('get', 'mapwant/spain-granada'); return v ? JSON.parse(v) : null; }, 5000).catch(() => null);
+  t.ok(want && want.country === 'Spain' && want.city === 'Granada' && Array.isArray(want.center) && want.center.length === 2 && want.center.every(Number.isFinite) && want.at > 1e12 && Object.keys(want).sort().join() === 'at,center,city,country',
+    'saving a city with no street-map pack writes mapwant/spain-granada = { country, city, center, at }: ' + JSON.stringify(want));
   /* a trip to Granada made with no signal: its lists come from the saved record, its photo from the phone */
   await A.ctx.setOffline(true);
   await A.pg.evaluate(() => window.dispatchEvent(new Event('offline')));
