@@ -2,6 +2,50 @@
 
 Newest first. Each note says what changed and where in the code. How the code is laid out is in README.md.
 
+## v198
+
+The world library's phases 3 and 4 (the "Waypoint World Library — design" doc): a library city plans at once and
+offline, and the planner and To book work from the places' own rules.
+
+- A library city's days at once. Where a trip city has a record in the world library, its first lists (15 things to
+  do, 15 places to eat) come from the record instead of a question to Claude: a three-day Granada trip is planned in
+  about 50 ms, with a signal or without one (lib/world.js W.worldFirst, called from lib/ideas.js W.loadCity before
+  the question). Which cities the library holds is world/_index ({v, at, cities: {<slug>: {n, c, p, at}}}), read once
+  a visit and kept on the phone; a city added in the moment before it has come waits for it (1.5 s at most). A
+  record too thin to plan from (fewer than 8 things to do or 6 places to eat), or a city the library doesn't hold, is
+  asked about as before. "Find more" asks Claude as always. tools/worldlib.js build writes world/_index whenever the
+  list of cities changes, and doctor checks it says what the records say.
+- No entry without a ticket. A place whose own page says there is no entry without a booked ticket (entry.need
+  "required") is marked (it.must): its details say so, its To book row says "no entry without a ticket", and To book
+  opens with a "Don't miss these" card (screens/book.js mustCard): each such place not booked yet, its book-by date
+  and the official ticket page. Where the page gives no lead time, the app books a timed entry a month ahead and any
+  other two weeks ahead (MUST_TIMED, MUST_DAYS); a lead the page gives wins.
+- Not checked yet. A paid or bookable place whose own page has not been read yet says so in its details ("Not
+  checked yet ... Look before you go") instead of showing a guess as a checked fact; a place known for its hours but
+  not its tickets says "Hours not checked yet". A free stroll says nothing.
+- Save a city before any trip. Settings has a World library card: the library's cities, each with "Save for
+  offline", which keeps its record, its photo index and its photos (from its photo pack where it has one) and its
+  street map on the phone (lib/photopack.js saveCity), so a trip made there later plans, shows its photos and opens
+  its map with no signal. A saved city's record is kept when the phone tidies the library (lib/world.js tidy);
+  "Remove" takes it off again (its photos stay while the open trip goes there).
+- Photo packs. A city's photos can travel as one file (new lib/photopack.js reads it; new tools/photopack.js makes and
+  checks one: "WPPK1", the index's length, a JSON index, the pictures). photos/<city>.pack names it; a photo with
+  pk: 1 has no file of its own and shows from the pack (fetched once, all of it kept on the phone; a blurred preview
+  until then). Saving a trip for offline and making the offline copy take a city's photos from its pack in one
+  request where it has one. Nothing is packed yet: moving the stored photos into packs (to bring the file store's
+  5,000-file limit back in reach) is a change to the nightly photo task, for the owner's yes. The website's copy
+  leaves packs out (tools/copy_to_cloud.js: its photos are Wikimedia Commons files).
+- Fixes found on the way, all in lib/world.js: the official ticket link the record sets is no longer replaced a few
+  seconds later by Claude's guess at one (the record's link is marked settled, bookV 2, so lib/stays.js
+  W.loadBookLinks doesn't ask for it); a place put into a city's list after the record was laid (a list changed
+  without changing its length) now gets the record's facts too (each place is marked as it is laid); the facts are
+  laid again after the place check's records are (W.placesLaid), so a pin or closure that check sets can't undo
+  them; and a place's always-closed days are no longer added twice when the trip's dates change. To book: a
+  ticket's price line no longer ends in a stray dot where "book ahead" was taken off.
+- Tests: new suite photopack (a pack made and read back byte for byte, anything else refused; a pack-only photo shown
+  from its pack; an offline save from packs; a library city saved and then planned with no signal); world (the
+  entry rules at work, the Don't miss card, the first lists from the record, the ticket link kept).
+
 ## v197
 
 - The day's route along the streets, on the street map (Today, the Trip day beside its map, the desktop pane): from

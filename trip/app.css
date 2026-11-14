@@ -1387,6 +1387,23 @@ table.budget tfoot th,table.budget tfoot td{border-top:2px solid var(--ink);font
 .wf{display:grid;gap:2px;padding:10px 12px;border-radius:var(--r-md);background:var(--sight-soft);border:var(--hair)}
 .wf p{margin:0;line-height:1.45}
 .wf b{font-weight:700}
+.wf.wf-q{background:var(--note-soft)}
+/* Settings: the library's cities, each to save to this phone (v198) */
+.wl-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.wl-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:8px 10px;border-radius:var(--r-sm);background:var(--sunk)}
+.wl-n{flex:1 1 180px;min-width:0;display:grid;gap:1px}
+.wl-n b{font-size:var(--t-body)}
+.wl-row.wl-ok b::after{content:" \2713";color:#2f7a4a}
+.wl-row button{min-height:38px}
+/* ---------- To book: the places that turn you away without a ticket (v198) ---------- */
+.must-c{display:grid;gap:6px;padding:12px 14px;margin:0 0 12px;border-radius:var(--r-md);background:var(--note-soft);border:var(--hair)}
+.must-c p{margin:0}
+.must-h{display:flex;align-items:center;gap:8px;color:var(--note-text)}
+.must-h svg{width:18px;height:18px;flex:none}
+.must-l{list-style:none;margin:2px 0 0;padding:0;display:grid;gap:8px}
+.must-l li{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.must-l li > span:first-child{flex:1 1 180px;min-width:0}
+.must-l a{display:inline-flex;align-items:center;gap:4px;min-height:34px;padding:4px 12px;font:700 var(--t-ui)/1.2 var(--f-body);text-decoration:none;white-space:nowrap}
 
 /* ---------- Motion II: a day slides across, a stop's card grows into its sheet (v197) ---------- */
 /* (in the second stylesheet: each rule is under a class only this part's moments set) */

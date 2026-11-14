@@ -98,12 +98,12 @@ interface Countdown { big: string; small: string; line: string }
 interface CheckItem { key: string; title?: string; short?: string; done: boolean; [k: string]: any }
 interface PackItem { key: string; text: string; who?: string; why?: string; own?: boolean; group?: string; [k: string]: any }
 interface PackLists { pack: PackItem[]; todo: PackItem[]; facts: Record<string, any>; hidden?: number }
-interface Photo { url: string; credit?: string; page?: string; near?: string | boolean; /** a large copy of the same picture (stored by the nightly helper), for wide headers */ big?: string; /** the small copy (320 px wide, or smw), the WebP twins, the normal copy's width when not 720, and a 16 px blurred preview (base64 WebP) */ sm?: string; smw?: number; w?: number; webp?: { sm?: string; url?: string; big?: string }; lq?: string }
+interface Photo { url: string; credit?: string; page?: string; near?: string | boolean; /** a large copy of the same picture (stored by the nightly helper), for wide headers */ big?: string; /** the small copy (320 px wide, or smw), the WebP twins, the normal copy's width when not 720, and a 16 px blurred preview (base64 WebP) */ sm?: string; smw?: number; w?: number; webp?: { sm?: string; url?: string; big?: string }; lq?: string; /** no file of its own: its picture is in its city's pack, under the name url gives (lib/photopack.js) */ pk?: 1 }
 /** a checked place record (places/<city> in the database) */
 /** g: Google's place ID (kept for good); gpin/gat: the pin came from Google on that day (kept 30 days, never on the free map) */
 interface PlaceRecord { lat?: number | null; lng?: number | null; g?: string; gpin?: 1; gat?: string; [k: string]: any; checked?: string; osm?: string; name?: string; st?: Spot["st"]; site?: string; hours?: Hours; k?: Kid; note?: string; place?: string; replace?: Partial<Food & Spot> & { n: string }; approx?: 1; nopin?: 1; ashore?: 1; stay?: 1; pin_tried?: string; area?: 1; was?: [number, number] }
 /** takeBlock, tripBlock and exportCopy come with lib/offcopy.js, in the second script */
-interface OfflineState { planSig(P: Plan): string; takeBlock?(P: Plan): string; exportCopy?(P: Plan): Promise<any>; photoUrls(P: Plan): string[]; copyNote(P: Plan): string; cities?: Record<string, { photos: number; of: number; map: boolean }>; tripBlock?(P: Plan): string; state: string; n: number; total: number; at: number; maps: any[]; err: string; off: boolean; copy: boolean; trip: any; copyState: string; copyErr: string; why: string; save(P: Plan, why?: string): void; tick(P: Plan): void; src(url: string): string; block(P: Plan): string; click(d: DOMStringMap, P: Plan): boolean; [k: string]: any }
+interface OfflineState { planSig(P: Plan): string; takeBlock?(P: Plan): string; exportCopy?(P: Plan): Promise<any>; photoUrls(P: Plan): string[]; copyNote(P: Plan): string; cities?: Record<string, { photos: number; of: number; map: boolean }>; tripBlock?(P: Plan): string; state: string; n: number; total: number; at: number; maps: any[]; err: string; off: boolean; copy: boolean; trip: any; copyState: string; copyErr: string; why: string; save(P: Plan, why?: string): void; tick(P: Plan): void; src(url: string, pk?: 1): string; block(P: Plan): string; click(d: DOMStringMap, P: Plan): boolean; [k: string]: any }
 /** a shared trip's documents, named and sealed from its code (lib/sharebox.js) */
 interface ShareBox { id: string; plain?: number; name: (label: string) => Promise<string>; seal: (obj: any) => Promise<any>; open: (doc: any) => Promise<any> }
 interface ReadOnly { code: string; box?: ShareBox; [k: string]: any }
@@ -652,6 +652,30 @@ interface Waypoint {
   worldFacts?: (it: any, day: any) => string;
   worldPool?: (country: string, city: string) => any;
   worldHave?: () => string[];
+  /** a library city's first lists from its record, at once (lib/world.js): true when it gives them (or will in a moment) */
+  worldFirst?: (country: string, city: string, again: () => void) => boolean;
+  libFromWorld?: Record<string, number>;
+  /** how many times the place check's records have been laid over a city's lists (lib/places.js) */
+  placesLaid?: number;
+  /** the library's cities, by name (world/_index), and a city's record read now and kept (lib/world.js) */
+  worldCities: () => { slug: string; name: string; country: string; places: number }[];
+  worldRead: (country: string, city: string) => Promise<any>;
+  /** Settings' World library card, drawn again (screens/settings.js) */
+  worldCardDraw?: () => void;
+  /** a city's photos in one file (lib/photopack.js): read one, fetch one, fill an offline save from the packs, a picture with no file of its own wanted on the page, and a library city saved to (or taken off) this phone */
+  photoPack: {
+    read: (buf: ArrayBuffer) => { slug: string; at: string; items: { url: string; type: string; start: number; end: number }[] } | null;
+    get: (url: string) => Promise<{ url: string; blob: Blob }[]>;
+    fill: (todo: string[]) => Promise<string[]>;
+    want: (url: string) => void;
+    saveCity: (country: string, city: string, tick?: () => void) => Promise<void>;
+    dropCity: (slug: string) => Promise<any>;
+    saving: Record<string, { st: string; n: number; of: number; msg: string }>;
+  };
+  /** the cities saved to this phone before any trip goes there (lib/photopack.js) */
+  offCities: () => Record<string, { name: string; country: string; at: number; photos: number; of: number; map: boolean }>;
+  /** a clear dot: what stands in for a picture whose pack has not come yet (lib/photos.js) */
+  blankImg: string;
   rlWorld?: Record<string, any[]>;
   /** the Storage card's collections (screens/settings.js, v195; for the tests) */
   storeTest?: { cols: string[] };

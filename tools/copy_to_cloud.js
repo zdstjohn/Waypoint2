@@ -36,8 +36,11 @@ function forTheWeb(kind, data) {
     /* the small copy, the WebP twins and the sizes that go with them are files in the Claude file store too: here the app asks
        Commons for the small width itself. The blurred preview (lq) is text inside the record, so it comes along. */
     delete items[k].sm; delete items[k].smw; delete items[k].w; delete items[k].webp;
+    delete items[k].pk;   /* (its picture in a city's pack, v198: here it is the Commons file, as every photo is) */
   }
-  return Object.assign({}, data, { items });
+  const out = Object.assign({}, data, { items });
+  delete out.pack;   /* (the pack is a file in the Claude file store, which the website can't open) */
+  return out;
 }
 const md5 = s => crypto.createHash("md5").update(s, "utf8").digest("hex");
 const sha = b => crypto.createHash("sha256").update(b).digest("hex");

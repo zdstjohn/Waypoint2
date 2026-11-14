@@ -254,6 +254,18 @@
         );
       })
       .then(function () {
+        /* a city's photos in one file, where it has a pack (lib/photopack.js): one request, not sixty */
+        return W.photoPack ? W.photoPack.fill(todo) : [];
+      })
+      .then(function (got) {
+        got.forEach(function (/** @type {string} */ u) {
+          n++;
+          saved[u] = 1;
+        });
+        O.n = n;
+        todo = todo.filter(function (u) {
+          return !saved[u];
+        });
         /* a few at a time; a photo that can't be fetched is skipped, not fatal */
         var i = 0,
           lanes = [];
@@ -379,11 +391,22 @@
       W.changed();
     });
   }
-  O.src = function (u) {
+  O.src = function (u, pk) {
     if (!u) return u;
     if (O.copy && window.__WP_OFFLINE.blobs && window.__WP_OFFLINE.blobs[u]) return window.__WP_OFFLINE.blobs[u];
-    if (O.off && urls[u]) return urls[u];
+    if ((O.off || pk) && urls[u]) return urls[u];
+    /* a picture that is only in its city's pack (v198): asked for (lib/photopack.js, with the second script), and a
+       clear dot until it is here */
+    if (pk) {
+      if (W.photoPack) W.photoPack.want(u);
+      return W.blankImg;
+    }
     return u;
+  };
+  /* for lib/photopack.js: the store, and a picture taking its place on the page */
+  O.tx = tx;
+  O.take = function (u, blob) {
+    if (!urls[u]) urls[u] = URL.createObjectURL(blob);
   };
   if (O.copy) document.documentElement.classList.add("copy");
   function goOffline() {

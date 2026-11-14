@@ -8,6 +8,8 @@
 
   /* ---------- real photos from the app's database ---------- */
   var PHOTOS = {},
+    /* a city's photos in one file, where the nightly run has packed them: { url, n, bytes, at } (lib/photopack.js) */
+    PACK = /** @type {Record<string, any>} */ ({}),
     BYCITY = {},
     IDX = {},
     DB = null,
@@ -138,6 +140,7 @@
       Object.keys(kept.photos).forEach(function (slug) {
         var d = kept.photos[slug] || {};
         PHOTOS[slug] = d.items || {};
+        PACK[slug] = d.pack;
         if (d.city) CITY[slug] = d.city;
       });
       Object.keys(kept.links || {}).forEach(function (slug) {
@@ -202,10 +205,11 @@
             }
           } else if (x) {
             PHOTOS[slug] = x.items || {};
+            PACK[slug] = x.pack;
             if (x.city) CITY[slug] = x.city;
             IDX = {};
             byCity();
-            keep("photos", slug, { items: PHOTOS[slug], city: x.city || "" });
+            keep("photos", slug, { items: PHOTOS[slug], city: x.city || "", pack: x.pack });
           } else if (city && first) everyTown(city);
           first = false;
           if (x) arrived();
@@ -235,8 +239,9 @@
             var x = d.data() || {};
             if (PHOTOS[d.id]) return;
             PHOTOS[d.id] = x.items || {};
+            PACK[d.id] = x.pack;
             if (x.city) CITY[d.id] = x.city;
-            if (x.city && W.norm(x.city) === W.norm(city)) keep("photos", d.id, { items: PHOTOS[d.id], city: x.city });
+            if (x.city && W.norm(x.city) === W.norm(city)) keep("photos", d.id, { items: PHOTOS[d.id], city: x.city, pack: x.pack });
           });
           IDX = {};
           byCity();
@@ -249,12 +254,15 @@
   }
   /* the index as saved with the trip for offline use (lib/offline.js): what the database hasn't answered yet */
   W.photosSnapshot = function () {
-    return { PHOTOS: PHOTOS, BYCITY: BYCITY, LINKS: LINKS };
+    return { PHOTOS: PHOTOS, BYCITY: BYCITY, LINKS: LINKS, PACK: PACK };
   };
   W.photosSeed = function (v) {
     if (!v) return;
     Object.keys(v.PHOTOS || {}).forEach(function (slug) {
-      if (!PHOTOS[slug]) PHOTOS[slug] = v.PHOTOS[slug];
+      if (!PHOTOS[slug]) {
+        PHOTOS[slug] = v.PHOTOS[slug];
+        PACK[slug] = (v.PACK || {})[slug];
+      }
     });
     Object.keys(v.LINKS || {}).forEach(function (slug) {
       if (!LINKS[slug]) LINKS[slug] = v.LINKS[slug];
@@ -320,7 +328,16 @@
   /* A photo record (the nightly photo tools) can have: url (720 px JPEG), sm (320 px JPEG, for thumbnails), big (1920 px,
      for headers), their WebP twins in webp {sm, url, big}, w and smw (the 720 and 320 copies' widths when they are not
      those) and lq (a 16 px blurred preview, base64 of a WebP). The browser picks among them (srcset, sizes) by how wide
-     the picture is drawn and how sharp the screen is; a photo without the newer copies simply uses the ones it has. */
+     the picture is drawn and how sharp the screen is; a photo without the newer copies simply uses the ones it has.
+     A photo with pk has no file of its own: its picture is in its city's pack, under the name url gives (v198: a city
+     no trip goes to keeps one file, not sixty). Its address is asked of lib/offline.js (src), which has it from the
+     phone or fetches the pack; until it comes the blurred preview stands. */
+  /* (a clear dot: what stands in for a picture whose pack has not come yet) */
+  var BLANK = (W.blankImg = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7");
+  /** where a photo's picture is to be had from, here and now @param {Photo} ph */
+  function srcOf(ph) {
+    return W.offline ? W.offline.src(ph.url, ph.pk) : ph.url;
+  }
   var THUMB_SIZES = "(max-width:560px) 72px, 96px"; /* a stop's thumbnail (app.css .thumb) */
   var CARD_SIZES = "(max-width:560px) 100vw, 480px"; /* a card's picture: never claims to be small, so never softer than before */
   /* the pictures that have loaded this session: drawn again without their preview and fade (a redraw puts the page's
@@ -362,7 +379,8 @@
      @param {{ cls: string; alt: string; sizes: string; lazy: boolean }} o */
   function imgOf(ph, o) {
     var off = (W.offline && W.offline.off) || window.__WP_OFFLINE,
-      src = W.offline ? W.offline.src(ph.url) : ph.url,
+      src = srcOf(ph),
+      wait = src === BLANK /* (in a pack that has not come yet) */,
       wb = ph.webp || {},
       jpg = "",
       webp = "";
@@ -388,7 +406,7 @@
           [wb.url, normW]
         ]);
     }
-    var attrs = ' class="' + o.cls + (ph.lq && !SEEN[ph.url] ? " lqi" : "") + '" data-pk="' + esc(ph.url) + '"';
+    var attrs = ' class="' + o.cls + (ph.lq && !SEEN[ph.url] && !wait ? " lqi" : "") + '" data-pk="' + esc(ph.url) + '"';
     var tag =
       "<img" +
       attrs +
@@ -440,8 +458,9 @@
     var url = "";
     if (ph && !(W.simple && W.simple())) {
       var off = (W.offline && W.offline.off) || window.__WP_OFFLINE,
-        src = W.offline ? W.offline.src(ph.url) : ph.url,
+        src = srcOf(ph),
         wb = ph.webp || {};
+      if (src === BLANK) src = ""; /* (its pack has not come yet: no photo until it has) */
       /* (the normal size is plenty for a card; WebP where there is a copy, as everywhere) */
       url = !off && src === ph.url && wb.url ? wb.url : src;
     }
@@ -462,7 +481,7 @@
   W.heroImg = function (ph, alt, lazy) {
     var off = (W.offline && W.offline.off) || window.__WP_OFFLINE,
       file = !off && !ph.big && W.standalone ? commonsFile(ph) : "",
-      small = W.offline ? W.offline.src(ph.url) : ph.url,
+      small = srcOf(ph),
       src = small,
       set = "",
       webp = "",
@@ -480,7 +499,7 @@
     } else if (!off && wb.url && small === ph.url) webp = esc(wb.url);
     var tag =
       '<img class="hero-img' +
-      (ph.lq && !SEEN[ph.url] ? " lqi" : "") +
+      (ph.lq && !SEEN[ph.url] && small !== BLANK ? " lqi" : "") +
       '" data-pk="' +
       esc(ph.url) +
       '" src="' +

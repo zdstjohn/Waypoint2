@@ -110,5 +110,7 @@ exports.run = async t => {
   const web = sandbox.forTheWeb('photos', { items: { x: rec }, city: 'Rome' }).items.x;
   t.ok(/^https:\/\/commons\.wikimedia\.org\/wiki\/Special:FilePath\/.*\?width=960$/.test(web.url) && web.lq === rec.lq, 'the installable app keeps the preview and points at Commons');
   t.ok(!('sm' in web) && !('webp' in web) && !('big' in web) && !('smw' in web) && !('w' in web), 'and drops the file-store copies and their sizes (it asks Commons for those)');
+  const packed = sandbox.forTheWeb('photos', { items: { x: Object.assign({}, rec, { pk: 1 }) }, city: 'Rome', pack: { url: '/_blob/' + 'f'.repeat(32), n: 1 } });
+  t.ok(!('pack' in packed) && !('pk' in packed.items.x) && /^https:\/\/commons\.wikimedia\.org\//.test(packed.items.x.url), "a photo whose picture is only in its city's pack is the Commons file there too, and the pack (a Claude-store file) stays out (v198)");
   await b.close();
 };

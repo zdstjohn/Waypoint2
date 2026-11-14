@@ -270,8 +270,15 @@ lib/              the shared library
                   _stats), then the copy to the website; `gaps` prints what is still missing
   world.js        (second script) the world library (v196): a trip city's checked record, world/<country-city>,
                   laid over its lists after the place check's (weekly hours by season, always-closed dates, the official
-                  entry rule, pins looked up again, Google's walks); kept on the phone for the trip's cities. Made by
-                  tools/worldlib.js (plan / build / doctor), run by a nightly task
+                  entry rule and "no entry without a ticket", pins looked up again, Google's walks); kept on the phone
+                  for the trip's cities and the cities saved for offline. Since v198 a library city's first lists come
+                  from its record, at once (W.worldFirst; the library's cities: world/_index, W.worldCities), and a
+                  paid place not checked yet says so. Made by tools/worldlib.js (plan / build / doctor), run by a
+                  nightly task
+  photopack.js    (second script, v198) a city's photos in one file (photos/<city>.pack; made by tools/photopack.js):
+                  read and fetched once (W.photoPack.get), a photo with no file of its own (pk) shown from it, an
+                  offline save or copy filled from it (fill), and a library city saved to the phone before any trip
+                  (saveCity / dropCity, Settings' World library card; W.offCities)
   speedtest.js    one measurement, once, for the artifact's owner: is a list asked with low effort faster and as good?
                   (second script; writes data/users/<id>/diag/effort; W.EFFORT stays empty until that is read)
   offline.js      the trip without a signal: the photo index and photos kept on the phone (IndexedDB), map packs

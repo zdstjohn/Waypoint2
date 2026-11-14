@@ -92,6 +92,14 @@
         '<p class="small muted" id="libMsg" role="status">Counting…</p>',
         "set-lib"
       );
+    /* the world library's cities, each to save to this phone before a trip goes there (below) */
+    if (!W.readOnly && W.worldCities && W.photoPack && (W.worldCities().length || Object.keys(W.offCities()).length))
+      h += card(
+        "World library",
+        "Cities checked against their own pages: opening hours, tickets and ready-made days. Save one to this phone and a trip there plans, shows its photos and opens its street map with no signal.",
+        '<div id="wlBox">' + wlBody() + "</div>",
+        "set-world"
+      );
     /* the photos' and street maps' file store (owner only: storage, below) */
     if (!W.readOnly && !W.standalone && window.claude)
       h += card(
@@ -174,6 +182,92 @@
       t.value = "";
     }
   });
+  /* ---------- the world library's cities (v198) ----------
+     Each of the library's cities (lib/world.js W.worldCities) with what is on this phone: "Save for offline" keeps its
+     checked record, its photos (one file, where the city has a pack) and its street map (lib/photopack.js saveCity),
+     so a trip made there later needs no signal. Saved cities first; a long list shows its first few. */
+  var WL_SHOW = 8,
+    wlAll = false;
+  function wlBody() {
+    var saved = W.offCities(),
+      going = W.photoPack.saving,
+      off = W.offline && W.offline.off,
+      list = W.worldCities(),
+      seen = /** @type {Record<string, 1>} */ ({});
+    list.forEach(function (/** @type {any} */ c) {
+      seen[c.slug] = 1;
+    });
+    /* (a city saved from a library list this phone no longer has is still listed, to be removed) */
+    Object.keys(saved).forEach(function (slug) {
+      if (!seen[slug]) list.push({ slug: slug, name: saved[slug].name, country: saved[slug].country, places: 0 });
+    });
+    list.sort(function (/** @type {any} */ a, /** @type {any} */ b) {
+      var sa = saved[a.slug] && saved[a.slug].at ? 0 : 1,
+        sb = saved[b.slug] && saved[b.slug].at ? 0 : 1;
+      return sa - sb || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+    });
+    var rows = (wlAll ? list : list.slice(0, WL_SHOW))
+      .map(function (/** @type {any} */ c) {
+        var s = saved[c.slug],
+          g = going[c.slug],
+          note = c.country + (c.places ? " · " + c.places + " places" : ""),
+          btn = "";
+        if (g && g.st === "saving") btn = '<span class="loading small">Saving…' + (g.of ? " " + g.n + " of " + g.of + " photos" : "") + "</span>";
+        else if (s && s.at) {
+          note =
+            c.country +
+            " · saved " +
+            W.fmtDate(new Date(s.at), "md") +
+            " · " +
+            (s.photos ? s.photos + (s.photos === 1 ? " photo" : " photos") : "no photos yet") +
+            (s.map ? " · street map" : "");
+          btn = '<button type="button" class="btn quiet" data-wl="drop" data-slug="' + esc(c.slug) + '">Remove</button>';
+        } else
+          btn = off
+            ? '<span class="small muted">Connect to save</span>'
+            : '<button type="button" class="btn quiet" data-wl="save" data-slug="' + esc(c.slug) + '">Save for offline</button>';
+        return (
+          '<li class="wl-row' +
+          (s && s.at ? " wl-ok" : "") +
+          '"><span class="wl-n"><b>' +
+          esc(c.name) +
+          '</b><span class="small muted">' +
+          esc(note) +
+          "</span>" +
+          (g && g.st === "err" ? '<span class="small warn">' + esc(g.msg || "Couldn't save it.") + "</span>" : "") +
+          "</span>" +
+          btn +
+          "</li>"
+        );
+      })
+      .join("");
+    return (
+      '<ul class="wl-list">' +
+      rows +
+      "</ul>" +
+      (!wlAll && list.length > WL_SHOW
+        ? '<div class="row"><button type="button" class="linkish" data-wl="all">Show all ' + list.length + " cities</button></div>"
+        : "")
+    );
+  }
+  function wlDraw() {
+    var el = W.$("wlBox");
+    if (el) el.innerHTML = wlBody();
+  }
+  W.worldCardDraw = wlDraw;
+  /** the card's buttons; true when handled @param {DOMStringMap} d */
+  function wlClick(d) {
+    if (!d.wl) return false;
+    if (d.wl === "all") wlAll = true;
+    else if (d.wl === "save" && d.slug) {
+      var c = W.worldCities().filter(function (/** @type {any} */ x) {
+        return x.slug === d.slug;
+      })[0];
+      if (c) W.photoPack.saveCity(c.country, c.name, wlDraw);
+    } else if (d.wl === "drop" && d.slug) W.photoPack.dropCity(d.slug).then(wlDraw);
+    wlDraw();
+    return true;
+  }
   /* ---------- storage (v195) ----------
      The artifact's file store (the assets capability: only someone who can edit the artifact gets it) holds the photos
      and street-map packs the nightly tasks upload; it takes 5,000 files. Nothing removed the files that stopped being
@@ -443,7 +537,7 @@
   W.storeTest = { cols: STORE_COLS }; /* (for the tests) */
   W.settingsClick = function (b, d, P) {
     if (d.sync) return; /* sharing buttons are handled by sync.js */
-    if (storeClick(d)) return;
+    if (storeClick(d) || wlClick(d)) return;
     if (d.trips === "save") return saveTrips();
     if (d.trips === "open") {
       var f = W.$("tripsFile");

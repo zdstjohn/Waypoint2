@@ -595,8 +595,10 @@
           group: food ? "food" : "activity",
           title: it.n,
           item: it,
-          sub: food ? it.cuisine || "" : String(W.priceText(it.ticket, W.curOf(d.country)) || "").replace(/,?\s*book ahead\.?$/i, ""),
+          /* (the price, without "book ahead": the row's "by" date says that; and without the dot that led to it) */
+          sub: food ? it.cuisine || "" : String(W.priceText(it.ticket, W.curOf(d.country)) || "").replace(/(?:,|\s*·)?\s*book ahead\.?$/i, ""),
           lead: Math.max(lead, 1),
+          must: !food && it.must ? 1 : 0 /* (no entry without a booked ticket, as its own page says: lib/world.js) */,
           day: d.n,
           slot: x.slot,
           city: d.city,

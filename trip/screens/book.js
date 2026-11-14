@@ -1081,6 +1081,47 @@
     );
     return h;
   }
+  /* Don't miss it (v198): the places that turn you away without a booked ticket (their own pages say so: the world
+     library's entry rules), not booked yet, soonest deadline first. One line each, with the official ticket page. */
+  function mustCard(list, today) {
+    var left = list
+      .filter(function (c) {
+        return c.must && W.leftToBook(c);
+      })
+      .sort(function (a, b) {
+        return (a.by ? +a.by : 9e15) - (b.by ? +b.by : 9e15);
+      });
+    if (!left.length) return "";
+    return (
+      '<div class="must-c" role="note"><p class="must-h">' +
+      W.icon("ticket", 2) +
+      "<b>Don't miss " +
+      (left.length === 1 ? "this one" : "these") +
+      "</b></p><p class=\"small\">No entry without a booked ticket. " +
+      (left.length === 1 ? "Its own page says so." : "Their own pages say so.") +
+      '</p><ul class="must-l">' +
+      left
+        .map(function (c) {
+          var late = c.by && c.by < today,
+            when = c.by ? (late ? "book now" : "book by " + fmtDay(c.by, "md")) : "book ahead";
+          return (
+            "<li><span><b>" +
+            esc(c.short || c.title) +
+            "</b>" +
+            (c.day ? '<span class="small muted"> · Day ' + c.day + (c.date ? ", " + esc(fmtDay(c.date)) : "") + "</span>" : "") +
+            '</span><span class="by' +
+            (late ? " late" : "") +
+            '">' +
+            esc(when) +
+            "</span>" +
+            (c.url ? link(c.url, 'Tickets <span aria-label="official site">↗</span>', "chip-a pri") : "") +
+            "</li>"
+          );
+        })
+        .join("") +
+      "</ul></div>"
+    );
+  }
   W.renderBook = function (P) {
     var box = $("viewBook");
     if (!box) return; /* (the screen's box, in index.html) */
@@ -1113,6 +1154,8 @@
       var meta = [c.kind || "", c.day && !dayChip ? "Day " + c.day + (c.date ? " · " + fmtDay(c.date) : "") : "", sub]
         .filter(Boolean)
         .join(" · ");
+      /* (its own page says there is no entry without a booked ticket: the world library's entry rule) */
+      if (c.must && !c.done) meta += (meta ? " · " : "") + "no entry without a ticket";
       var X = c.done ? { fare: "", panel: "" } : rowExtras(c, P);
       var acts =
         (c.url
@@ -1293,6 +1336,7 @@
         (W.bookTimeline && list.length ? W.bookTimeline(list, today, S.start) : "") +
           (W.autoLine && list.length ? W.autoLine(list) : "") +
           (W.watchBanner ? W.watchBanner() : "") +
+          mustCard(list, today) +
           (left
             ? groups
             : '<p class="small muted">' +

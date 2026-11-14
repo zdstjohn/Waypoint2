@@ -242,6 +242,16 @@
       })
     )
       return; /* kept on this device? (lib/ideastore.js) */
+    /* a library city (lib/world.js): its checked record gives the first lists at once, with no question asked */
+    if (
+      !more &&
+      !cur &&
+      W.worldFirst &&
+      W.worldFirst(country, city, function () {
+        W.loadCity(country, city, more, stayDays, nMore);
+      })
+    )
+      return;
     /* never ask about the same city over and over if answers keep coming back empty */
     /* count real attempts only: a redraw while this city's lists are on their way isn't another try */
     if (!more && W.cityBusy(ck)) return;

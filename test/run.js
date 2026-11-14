@@ -35,6 +35,7 @@
    dayout    a day out under one band (its open parts one row, the nap on the go, the map of where you go), a rest day's
              cards, and tomorrow's banner on Today (v193)
    route     the day's route along the streets: the walk between two pins from the map pack's own streets, drawn on the map (v197)
+   photopack a city's photos in one file: made and read back, shown from it, an offline save from it, a library city saved before a trip (v198)
    world     the world library: a city's checked hours, entry rules, pins and walks laid over its lists (v196)
    storage   Settings > Storage: how full the photos' and maps' file store is, and removing the files nothing uses (v195)
    eat       food needs (Plan, step 3): asked for with every restaurant list, places checked, poor fits never planned
@@ -61,7 +62,7 @@ const { spawn, spawnSync } = require('child_process'); const fs = require('fs');
 const ROOT = path.resolve(__dirname, '..');
 const PORT = +process.env.WP_PORT || 8771; /* (a second copy of the app can test beside this one on another port) */ const OUT = path.join(__dirname, 'out'); fs.mkdirSync(OUT, { recursive: true });
 const args = process.argv.slice(2); const flags = new Set(args.filter(a => a.startsWith('--'))); const pick = args.filter(a => !a.startsWith('--'));
-const ALL = ['flight', 'layout', 'planner', 'shape', 'flow', 'dayout', 'back', 'review', 'bookings', 'stays', 'travel', 'claude', 'draw', 'look', 'airplane', 'standalone', 'swphotos', 'ahead', 'cloud', 'accounts', 'tickets', 'holidays', 'firstview', 'together', 'share', 'kept', 'copy', 'tools', 'nope', 'eat', 'money', 'menus', 'pdf', 'simple', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'keys', 'fuzz', 'vitals', 'desktop', 'explore', 'gmaps', 'meals', 'clock', 'daytrip', 'workspace', 'early', 'menuread', 'ideaorder', 'bookcheck', 'brief', 'stillopen', 'packs', 'photoset', 'banner', 'theme', 'phoneday', 'devices', 'nokids', 'citylib', 'names', 'storage', 'world', 'route', 'same'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
+const ALL = ['flight', 'layout', 'planner', 'shape', 'flow', 'dayout', 'back', 'review', 'bookings', 'stays', 'travel', 'claude', 'draw', 'look', 'airplane', 'standalone', 'swphotos', 'ahead', 'cloud', 'accounts', 'tickets', 'holidays', 'firstview', 'together', 'share', 'kept', 'copy', 'tools', 'nope', 'eat', 'money', 'menus', 'pdf', 'simple', 'sync', 'photos', 'places', 'judge', 'perf', 'offline', 'packing', 'warm', 'focus', 'validate', 'types', 'a11y', 'keys', 'fuzz', 'vitals', 'desktop', 'explore', 'gmaps', 'meals', 'clock', 'daytrip', 'workspace', 'early', 'menuread', 'ideaorder', 'bookcheck', 'brief', 'stillopen', 'packs', 'photoset', 'banner', 'theme', 'phoneday', 'devices', 'nokids', 'citylib', 'names', 'storage', 'world', 'route', 'photopack', 'same'].concat(flags.has('--shots') || flags.has('--update-baseline') ? ['visual'] : []);
 let suites = pick.length ? pick : ALL;
 /* --cov: also collect which code ran (test/lib/cov.js); the suites that time things are left out of such a run */
 const COV = flags.has('--cov') || !!process.env.WP_COV;

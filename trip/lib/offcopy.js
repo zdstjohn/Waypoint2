@@ -130,23 +130,38 @@
       return r.text();
     });
   }
+  function asUri(/** @type {Blob} */ b) {
+    return new Promise(function (ok, no) {
+      var fr = new FileReader();
+      fr.onload = function () {
+        ok(fr.result);
+      };
+      fr.onerror = function () {
+        no(fr.error);
+      };
+      fr.readAsDataURL(b);
+    });
+  }
   function dataUri(u) {
     return fetch(u)
       .then(function (r) {
         if (!r.ok) throw new Error("missing " + u);
         return r.blob();
       })
-      .then(function (b) {
-        return new Promise(function (ok, no) {
-          var fr = new FileReader();
-          fr.onload = function () {
-            ok(fr.result);
-          };
-          fr.onerror = function () {
-            no(fr.error);
-          };
-          fr.readAsDataURL(b);
-        });
+      .then(asUri);
+  }
+  /** a photo for the copy: from the phone's store when it is there (one out of its city's pack has no file of its own:
+      lib/photopack.js), else fetched @param {string} u */
+  function photoUri(u) {
+    return O.tx("blobs", "readonly", function (/** @type {any} */ s) {
+      return s.get(u);
+    })
+      .then(function (/** @type {any} */ r) {
+        if (!r || !r.blob) throw new Error("not kept");
+        return asUri(r.blob);
+      })
+      .then(null, function () {
+        return dataUri(u);
       });
   }
   O.exportCopy = function (P) {
@@ -194,7 +209,7 @@
             function worker() {
               if (i >= list.length || bytes > MAX) return Promise.resolve();
               var u = list[i++];
-              return dataUri(u)
+              return photoUri(u)
                 .then(
                   function (d) {
                     if (bytes + d.length <= MAX) {
@@ -210,7 +225,10 @@
                   return worker();
                 });
             }
-            return Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]);
+            /* (the photos a city's pack holds are taken from it first, in one request: lib/photopack.js) */
+            return (W.photoPack ? W.photoPack.fill(list) : Promise.resolve([])).then(function () {
+              return Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]);
+            });
           })
           .then(function () {
             /* (replacement text goes in as a function: code and JSON are full of "$" sequences String.replace would expand) */

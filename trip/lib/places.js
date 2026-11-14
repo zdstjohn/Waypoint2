@@ -153,6 +153,7 @@
       }
     });
     applied[slug] = slug + "|" + gen + "|" + (pool.spots || []).length + "|" + (pool.food || []).length;
+    W.placesLaid = (W.placesLaid || 0) + 1; /* (the world library lays its facts again after these: lib/world.js) */
     return pool;
   };
 

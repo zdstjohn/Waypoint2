@@ -18,6 +18,9 @@
          record, checks it, and writes <work_dir>/out/<slug>.json and <work_dir>/writes.json
          [{collection: "world", doc_id, op: "set", exists?, if_version?, file}], printing {built, refused, unsure, stale}.
          (exists: the record is in the database already: its version is read before it is written over)
+         The list of the library's cities is written too when it changed (world/_index, the last write:
+         {v: 1, at, cities: {<slug>: {n: city, c: country, p: places, at: built}}}), which is how the app knows a
+         city is in the library before it reads its record, and what Settings lists.
      node worldlib.js doctor <db_dir>
          Checks every stored record against today's rules; prints what is broken or out of date; exits 1 if broken.
 
@@ -96,7 +99,24 @@ function load(dir, col) {
 function readDb(dir) {
   const db = {};
   for (const c of ["citylib", "places", "links", "photos", "wanted", "world"]) db[c] = load(dir, c);
+  /* the library's own notes (world/_index: the list of its cities) are not city records */
+  db.notes = {};
+  for (const k of Object.keys(db.world))
+    if (k[0] === "_") {
+      db.notes[k] = db.world[k];
+      delete db.world[k];
+    }
   return db;
+}
+/** the list of the library's cities, from its records: {v: 1, at, cities: {<slug>: {n, c, p, at}}} */
+function indexOf(recs, at) {
+  const cities = {};
+  for (const s of Object.keys(recs).sort()) {
+    const r = recs[s];
+    if (!r || r.v !== 1 || !r.city || !r.country || citySlug(r.country, r.city) !== s) continue;
+    cities[s] = { n: r.city, c: r.country, p: Object.keys(r.places || {}).length, at: r.built || "" };
+  }
+  return { v: 1, at: at || today(), cities };
 }
 /** the city library's lists for a city: its things to do and its places to eat (the general answer first) */
 function libLists(doc) {
@@ -574,6 +594,7 @@ function build(dbDir, work) {
   const db = readDb(dbDir),
     p = JSON.parse(fs.readFileSync(path.join(work, "plan.json"), "utf8")),
     writes = [],
+    built = {},
     sum = { built: [], refused: [], unsure: 0, stale: 0, failed: [] };
   fs.mkdirSync(path.join(work, "out"), { recursive: true });
   for (const s of p.cities) {
@@ -630,6 +651,22 @@ function build(dbDir, work) {
     sum.refused.push(...a.tally.refused.map(x => s + ": " + x));
     sum.unsure += a.tally.unsure;
     sum.stale += doc.stale.length;
+    built[s] = a.rec;
+  }
+  /* the list of the library's cities: every record in the database, with tonight's in place of the ones they renew.
+     Written when a record was built, or when the list is not there yet or no longer says what the records say. */
+  const recs = {};
+  for (const [s, w] of Object.entries(db.world)) recs[s] = w.data;
+  Object.assign(recs, built);
+  const idx = indexOf(recs),
+    was = db.notes._index && db.notes._index.data,
+    same = was && was.v === 1 && JSON.stringify(was.cities || {}) === JSON.stringify(idx.cities);
+  if (Object.keys(idx.cities).length && (sum.built.length || !same)) {
+    const file = path.join(work, "out", "_index.json");
+    fs.writeFileSync(file, JSON.stringify(idx));
+    const w = { collection: "world", doc_id: "_index", op: "set", file };
+    if (db.notes._index) w.exists = true;
+    writes.push(w);
   }
   fs.writeFileSync(path.join(work, "writes.json"), JSON.stringify(writes, null, 1));
   return sum;
@@ -645,6 +682,12 @@ function doctor(dbDir) {
     if (r.broken.length) (bad++, console.log(s, "BROKEN", r.broken.join("; ")));
     if (r.stale.length) (stale++, console.log(s, "stale", r.stale.length));
   }
+  /* the list of the library's cities says what the records say (a city missing from it would plan the slow way) */
+  const idx = db.notes._index && db.notes._index.data,
+    want = indexOf(Object.fromEntries(Object.entries(db.world).map(([s, w]) => [s, w.data]))).cities;
+  if (n && !idx) console.log("_index", "not written yet (the next build writes it)");
+  else if (n && (idx.v !== 1 || Object.keys(want).some(s => !(idx.cities || {})[s]) || Object.keys(idx.cities || {}).some(s => !want[s])))
+    (bad++, console.log("_index", "BROKEN", "the list of cities does not match the records"));
   console.log(JSON.stringify({ records: n, broken: bad, stale })); /* (one line, so a quiet run still says it looked) */
   return bad;
 }
@@ -660,6 +703,7 @@ if (require.main === module) {
   }
 }
 module.exports = {
+  indexOf,
   norm,
   slug,
   citySlug,
